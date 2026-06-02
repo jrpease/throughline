@@ -82,6 +82,13 @@ Whatever mechanism brought them in, ensure the end state is consistent:
   size variants the system wants; stroke consistent with the library.
 - Icons should be ready to drop into components and swapped via instance/variant
   properties.
+- **Lay the page out cleanly.** Arrange the icons in an orderly grid inside a
+  Section/Frame (never floating on bare canvas), and present the whole set on a
+  **single documentation card** with a header — name, short description, status,
+  last updated — *one card for all icons*, not one per icon. Follow
+  `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md` (auto layout,
+  no overlapping text or frames) and run its visual-validation loop before
+  handing off.
 
 ## Step 3.5 — Code side: install the package (icons are already code)
 
@@ -100,6 +107,27 @@ note it'll happen when they set one up — the Figma page is fully usable now.
 generated components via the sync layer's SVGR pipeline (not here). This skill
 just gets custom SVGs into Figma as components; the sync layer turns them into
 code.
+
+## Step 3.6 — Publish checkpoint (unlocks typed icon dropdowns later)
+
+Icons are the main thing components swap into slots. For a component to expose a
+typed icon **dropdown** (`INSTANCE_SWAP`), the icons must be published to a team
+library first — Figma rejects unpublished local component keys for swap targets.
+This is the natural moment to publish, *before* components are built.
+
+Read `${CLAUDE_PLUGIN_ROOT}/references/figma-publishing.md` and follow it:
+
+- If `figma.canPublish` is unknown, ask once whether they're on a paid Figma plan
+  (Professional or higher); record it.
+- **Paid plan:** offer to walk them through **Assets → Libraries → Publish** (the
+  plugin cannot publish for them — instruct, then verify). On confirmation, set
+  `figma.libraryPublished` = `true` and `figma.publishedAt`. Mention that adding
+  components later means a quick re-publish.
+- **Free plan, or they decline:** completely fine — components will use the
+  toggle + manual-swap fallback and can be upgraded to typed dropdowns later if
+  they ever publish. Don't block or frame it as a failure.
+
+Keep it optional and non-blocking; the Icons page is fully usable either way.
 
 ## Step 4 — Checkpoint and hand off
 

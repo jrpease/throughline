@@ -85,11 +85,21 @@ in it" — they already have a working local repo.
   explain: "This creates a repository on your GitHub account and connects your
   local folder to it." Never create the repo, set branch protection, or change
   settings silently.
-- If `gh` is absent: walk the manual path with the exact click path. For `new`
-  users this is maximally explicit: go to github.com, click New repository, name
-  it, leave it empty (don't initialize with a README), Create, then copy the
-  commands GitHub shows for "push an existing repository" and run them. Verify
-  the push succeeded.
+- If `gh` is absent: **first recommend installing it.** It's the single thing
+  that turns repo creation from a fiddly multi-step browser chore into one
+  automated command — exactly the friction this plugin exists to remove. Say so
+  plainly and offer to guide a quick one-time setup:
+  - **Install:** macOS `brew install gh`; Windows `winget install GitHub.CLI`;
+    Linux via the system package manager (or cli.github.com). Then authenticate
+    with `gh auth login` — walk `new` users through the browser prompts.
+  - Never install software silently — show the command, explain what it does, get
+    a yes first. Once installed and authenticated, proceed with the `gh` path
+    above (show the `gh repo create` command, get approval, then run it).
+  - **If they decline or can't install:** fall back to the manual browser path
+    with the exact click path. For `new` users be maximally explicit: go to
+    github.com, click New repository, name it, leave it empty (don't initialize
+    with a README), Create, then copy the commands GitHub shows for "push an
+    existing repository" and run them. Verify the push succeeded.
 
 On success, set `workspace.stage` and `repo.stage` to `github` and record
 `repo.remote`. Append `repository-builder` to `completedSkills`.

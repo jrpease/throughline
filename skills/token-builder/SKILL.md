@@ -5,6 +5,11 @@ description: Build a modern two-tier (primitive + semantic) design token system 
 
 # Token builder
 
+> **Model tip (#3):** building a coherent token system (ramps, type scale, modes,
+> primitive→semantic aliasing) is reasoning-heavy. It runs on your session model —
+> Sonnet is a solid default; Opus helps for large or multi-mode systems. See the
+> model guide in the plugin README.
+
 Creates a two-tier design token system as Figma variables:
 
 - **Primitives** — raw values with no meaning attached. `color.gray.50`,

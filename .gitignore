@@ -5,6 +5,9 @@
 .env
 .env.*
 
+# Private working notes (promote to a public ROADMAP.md when ready)
+BACKLOG.md
+
 # OS cruft
 .DS_Store
 

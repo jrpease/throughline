@@ -1,6 +1,7 @@
 ---
 name: figma-environment-setup
 description: Set up the local working folder and connect Claude to Figma so the design-system skills can read and write variables, styles, and components. Use this FIRST, before any other design-system skill. Trigger whenever the user wants to start a design system, set up Figma + Claude, connect Figma, fix a broken Figma connection, or when any other design-system skill reports that Figma isn't connected. Also use when the user mentions the Figma Console MCP, the desktop bridge plugin, a Figma access token, or pairing Claude with Figma. Make sure to use this skill even if the user just says "let's get started" in the context of building a design system — it is the required foundation everything else depends on.
+model: haiku
 ---
 
 # Figma environment setup
@@ -173,11 +174,75 @@ existing variables/styles (a low-cost call). If it succeeds:
   "Claude can now see and edit your Figma file. You're ready to build your first
   tokens whenever you are."
 
-If it fails, diagnose gently and in order: Is the desktop app open with the
-file? Was the token placed correctly (have them re-check, without showing you
-the value)? Is the bridge plugin running and paired? Did the client need a
-restart? Walk them back through the relevant sub-step. Do not move on until the
-liveness check passes.
+If it fails, first figure out **which kind** of failure it is, because the fixes
+are completely different:
+
+**A. The MCP server never started.** The Console MCP is downloaded and launched
+on demand by `npx`. If the error text mentions `npx`, `npm`, `EACCES`,
+`permission denied`, `ENOENT`, a cache path like `~/.npm/_cacache`, or a network
+/ registry timeout, the *server process itself* failed to come up — this is an
+environment problem, not a Figma or token problem. Walking the user through
+tokens or pairing here is useless. Diagnose in order:
+
+- **npm cache permission error (`EACCES` writing to `~/.npm`).** This is the
+  common one. It means some files in the user's npm cache are owned by `root`,
+  usually because `npm` was run with `sudo` at some point, so `npx` can't write
+  there. Confirm by checking ownership of `~/.npm` (look for files owned by
+  `root` rather than the user). The fix is for the **user** to run, in their own
+  terminal, the standard npm-recommended command to give the cache back to
+  themselves:
+
+  ```
+  sudo chown -R $(whoami) ~/.npm
+  ```
+
+  Explain it plainly: "A past install left a few files in npm's download folder
+  locked to the system account, so the Figma helper can't download. This one
+  command hands that folder back to you. It'll ask for your Mac password." Never
+  run `sudo` for them — surface the command and let them run it. Then retry the
+  liveness check.
+- **Network / registry timeout.** Have them check their connection (and any
+  VPN/proxy/corporate registry), then retry.
+- **`node`/`npm` not installed.** `npx` needs Node.js. If it's missing entirely,
+  point them to install Node (nodejs.org LTS) and retry.
+
+**B. The server started but the connection failed.** If there's no launch error
+and the server is clearly running, diagnose gently and in order: Is the desktop
+app open with the file? Was the token placed correctly (have them re-check,
+without showing you the value)? Is the bridge plugin running and paired? Did the
+client need a restart? Walk them back through the relevant sub-step.
+
+Do not move on until the liveness check passes.
+
+## Step 5.5 — Create the Cover page
+
+Now that writes are proven to work, make the file's first impression: a **Cover**
+page. This is the first thing Claude writes into Figma.
+
+- Find the file's first page. If it's the default empty "Page 1" (no meaningful
+  content), **rename it to `Cover`** and use it. If it has content, create a new
+  page named `Cover` and move it to the **top** of the page list. Don't clobber a
+  page the user has already worked in.
+- On that page, build one clean, on-brand **Cover** frame with:
+  - the design system name (`workspace.name`),
+  - the author/owner name (ask once if you don't have it, or use the file owner),
+  - "Last updated" with the current date,
+  - a simple, tasteful branded graphic — keep it clean and token-friendly (a
+    bold wordmark, a few shapes, generous spacing), not an elaborate
+    illustration. If tokens already exist, bind colors/spacing to them; this
+    early they usually don't, so a restrained neutral layout is fine and can be
+    refreshed later.
+- Use proper **vertical auto layout** and place the content inside the frame (no
+  floating, no overlapping text) per
+  `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md`.
+- **Setting it as the file thumbnail is a manual step** — the plugin API can't do
+  it. Tell the user plainly: "To make this the file's cover image, right-click the
+  Cover frame and choose **Set as thumbnail**." Offer it; don't block on it.
+- Record `figma.coverPageBuilt` = `true`. On later runs, refresh the "Last
+  updated" date rather than creating a second Cover page.
+
+Keep this lightweight and skippable — if the user would rather jump straight to
+tokens, note the Cover can be generated anytime and move on.
 
 ## Step 6 — Hand off
 

@@ -103,6 +103,67 @@ prop (general → `children`/named composition prop; constrained → typed prop 
 the preferred-instance type). The storybook skill implements these as React
 composition / `children`.
 
+## Documentation artboards & canvas layout
+
+The rules above govern the *inside* of a component. These govern how each
+generated component is **presented** (its documentation card) and how cards are
+**arranged on the canvas** — separate concerns the auto-layout-on-everything rule
+doesn't fully cover, and a common source of overlapping text and overlapping
+frames. Applies to `component-builder`, `icon-system-builder`, and
+`token-sheet-builder`.
+
+### Every component sits on its own documentation card
+
+Wrap each generated component in a "doc card" — a frame that holds the component
+plus a small header. Never leave components floating on bare canvas. The card
+shows:
+
+- **Component name** (the deterministic name, matching code).
+- **Short description** (what it is / when to use it).
+- **Status indicator** — a chip reading `draft` / `beta` / `stable` /
+  `deprecated`, colored from semantic tokens (e.g. warning for draft/beta,
+  success for stable, neutral/danger for deprecated). Source the value from
+  `components.meta[name].status`.
+- **Last updated** — a date, from `components.meta[name].updatedAt`, refreshed
+  whenever the component is rebuilt.
+
+**Icons are the one exception:** the whole icon set lives on a *single* doc card
+holding the icon grid — one card for all icons, not one card per icon.
+
+### The doc card must dogfood the design system
+
+The card chrome itself — background, header text, status chip, dividers, padding,
+gaps, corner radius — uses **only design-system tokens and styles**, bound to
+variables where Figma allows. No hardcoded hex or px in the documentation frame.
+Tokens are guaranteed to exist (token-builder runs first), so the doc cards
+double as live proof the tokens actually work; if a card can't be built cleanly
+from tokens, that's surfacing a real gap in the token set.
+
+### Auto layout inside the card (fixes overlapping text)
+
+The doc card is a **vertical, top-to-bottom auto-layout** frame
+(`layoutMode = "VERTICAL"`). Header rows stack above the component; text nodes
+**fill** the card width and the card **hugs** its content height. Use
+`itemSpacing` and `padding` from spacing tokens. **No absolute positioning** —
+overlapping text is almost always absolutely-positioned or mis-sized nodes, and
+proper auto layout eliminates it.
+
+### Arrange cards in a parent container (fixes overlapping artboards)
+
+Never drop cards onto blank canvas at coordinates that can collide. Place all doc
+cards inside a parent **Section or Frame with auto layout** — a wrapped
+horizontal auto layout yields a tidy responsive grid — with consistent
+`itemSpacing` and padding. (Equivalently, deterministic grid coordinates with
+explicit gaps.) This matches the Figma Console MCP guidance: always place
+components within a Section/Frame, never floating.
+
+### Required visual-validation loop
+
+After generating or rearranging, this is **not optional**: follow the Console MCP
+loop — `figma_take_screenshot` → inspect for overlaps, misalignment, and
+lopsided "hug vs fill" sizing → fix → re-screenshot. Iterate up to ~3 times
+before handing off. Confirm visually; don't declare a clean layout on faith.
+
 ## Naming
 
 - Components: deterministic, matching the code counterpart (`Button` ↔ `Button`,

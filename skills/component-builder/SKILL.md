@@ -11,10 +11,21 @@ translate cleanly to code later.
 
 ## Prerequisites
 
-Needs tokens (`tokens.semanticBuilt` true) and ideally icons (`icons.built`) so
-icon slots have targets — offer to run `token-builder` / `icon-system-builder`
-if missing. Needs a live Figma connection (offer `figma-environment-setup` if
-not). Use the mechanism in `figma.mechanism`.
+Needs tokens (`tokens.semanticBuilt` true) — offer to run `token-builder` if
+missing. Needs a live Figma connection (offer `figma-environment-setup` if not).
+Use the mechanism in `figma.mechanism`.
+
+**Recommend icons first (soft gate).** Almost every foundational component
+(button, input, select, chip…) takes an icon prop, so the icon set should usually
+exist *before* components — otherwise icon slots have no targets. If
+`icons.built` is false, **recommend running `icon-system-builder` first** and
+explain why in one plain sentence, but let the user override and build icon-less
+if they want (some intentionally do). This is a recommendation, not a hard block.
+
+> **Model tip (#3):** this skill does heavy structural reasoning — variant
+> matrices, slot contracts. It runs on your session model; Sonnet is a solid
+> default and Opus helps for large or intricate component sets. See the model
+> guide in the plugin README.
 
 ## Step 1 — Capture framework + brainstorm the set and variant matrices
 
@@ -80,6 +91,14 @@ deterministic naming):
   *consume* the design system, never hardcode values. This is what makes the
   token cascade reach components.
 - Implement slots per the slot-contract model below.
+- **Wrap each component in its own documentation card** — a token-styled frame
+  with the component name, a short description, a status chip
+  (`draft`/`beta`/`stable`/`deprecated`), and a last-updated date — and arrange
+  the cards in an orderly grid inside a parent Section, never floating on bare
+  canvas. Follow the "Documentation artboards & canvas layout" rules in
+  `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md`, and run its
+  visual-validation loop (screenshot → fix any overlaps/misalignment →
+  re-screenshot) before the checkpoint.
 
 Checkpoint after each component: show all variants, confirm before the next.
 
@@ -102,6 +121,18 @@ per `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md`:
   modal content, a unit label). → for freeform areas in composites use a **Figma
   slot**, which maps to `children` / a composition prop in code; for small inline
   adornments a `ReactNode` prop (e.g. `endAdornment`).
+
+**Typed dropdown vs. fallback (publishing-gated).** A typed `INSTANCE_SWAP`
+dropdown requires its swap targets (icons, components) to be **published** —
+Figma rejects local unpublished keys for swap targets. Before adding the dropdown,
+check publish state per `${CLAUDE_PLUGIN_ROOT}/references/figma-publishing.md`:
+
+- **Published (`figma.libraryPublished` true):** add the typed `INSTANCE_SWAP`
+  dropdown with preferred values.
+- **Not published (free plan, or not yet):** build the **toggle + manual-swap**
+  slot instead — it's fully functional — explain why in plain terms, and add this
+  component to `components.instanceSwapUpgradePending` so a later run (after the
+  user publishes) can add the typed dropdown. Never present this as a failure.
 
 Two rules for every slot:
 
@@ -126,10 +157,19 @@ without it, components silently diverge between Figma and code.
 
 ## Step 6 — Checkpoint and hand off
 
-Update the manifest: add each built component to `components.built`. Append
-`component-builder` to `completedSkills`. Offer next steps: build the code
-counterparts and stories (storybook-chromatic-builder), or build a single new
-component end-to-end later (the component-pipeline orchestrator).
+Update the manifest: add each built component to `components.built`, and record
+its `components.meta[name]` (`status`, `updatedAt`) to match the doc card. Ensure
+any component built with the toggle + manual-swap fallback is listed in
+`components.instanceSwapUpgradePending`. Append `component-builder` to
+`completedSkills`.
+
+**Upgrade pass:** if `components.instanceSwapUpgradePending` is non-empty and the
+library is now published (`figma.libraryPublished` true), offer to add the typed
+`INSTANCE_SWAP` dropdowns to those components and clear each from the list.
+
+Offer next steps: build the code counterparts and stories
+(storybook-chromatic-builder), or build a single new component end-to-end later
+(the component-pipeline orchestrator).
 
 ## What this skill must NOT do
 
@@ -138,3 +178,7 @@ component end-to-end later (the component-pipeline orchestrator).
 - Never generate a redundant show/hide boolean alongside an optional slot prop.
 - Never build a composite before its atomic slot targets exist.
 - Never guess variant matrices — brainstorm and confirm them first.
+- Never claim to publish a Figma library — publishing is a manual user step;
+  instruct and verify only.
+- Never leave components floating on bare canvas — each goes on a token-styled
+  doc card arranged in a Section, with the layout visually validated.

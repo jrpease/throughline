@@ -56,6 +56,14 @@ Prioritize visual quality: generous spacing, clear section headers, consistent
 swatch sizing, the brand's own type and color applied to the page chrome. This
 is a showcase.
 
+**Lay it out cleanly.** Build every section with proper auto layout and arrange
+the sections inside a parent Section/Frame so nothing overlaps — follow the
+"Documentation artboards & canvas layout" rules in
+`${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md`, and run its
+visual-validation loop (screenshot → fix any overlapping text or colliding
+sections → re-screenshot) before the checkpoint. A showcase with overlaps isn't
+a showcase.
+
 ## Step 3 — Checkpoint
 
 Show the user the Foundations page. Sequential review (this is a Figma-authoring

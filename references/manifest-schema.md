@@ -11,11 +11,11 @@ what changed. Gating decisions are made by reading this file: if a prerequisite
 field is unset, the skill **offers** to run the prerequisite skill rather than
 bailing or running silently.
 
-## Schema (schemaVersion 1)
+## Schema (schemaVersion 2)
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "user": {
     "codingLevel": "new"
   },
@@ -31,7 +31,11 @@ bailing or running silently.
     "mechanism": null,
     "fileKey": null,
     "connected": false,
-    "lastVerified": null
+    "lastVerified": null,
+    "coverPageBuilt": false,
+    "canPublish": null,
+    "libraryPublished": false,
+    "publishedAt": null
   },
   "tokens": {
     "intakeMode": null,
@@ -51,7 +55,11 @@ bailing or running silently.
     "packageInstalled": false,
     "subset": []
   },
-  "components": { "built": [] },
+  "components": {
+    "built": [],
+    "meta": {},
+    "instanceSwapUpgradePending": []
+  },
   "repo": {
     "stage": "none",
     "packageManager": "pnpm",
@@ -117,6 +125,18 @@ bailing or running silently.
   a record of *setup completion*, not live connection state — connection is
   verified live each run (see skill 0's liveness check).
 - `lastVerified` — ISO timestamp of the last successful liveness check.
+- `coverPageBuilt` — whether the branded **Cover** page has been generated in the
+  file (set by `figma-environment-setup`). The plugin cannot set the file
+  thumbnail via the API, so "set as thumbnail" stays a one-time manual user step.
+- `canPublish` — whether the user can publish a Figma **team library** (requires
+  a paid plan, Professional+). `true` / `false` / `null` (unknown / not yet
+  asked). Asked once and recorded; gates the typed instance-swap dropdown path.
+  See `${CLAUDE_PLUGIN_ROOT}/references/figma-publishing.md`.
+- `libraryPublished` — whether the user has published the file as a library at
+  least once (so local component keys resolve for `INSTANCE_SWAP`). User-driven
+  and manual; the plugin verifies, never publishes.
+- `publishedAt` — ISO timestamp the user last confirmed a publish, for "you may
+  need to re-publish after adding components" messaging.
 
 ### `tokens`
 - `intakeMode` — how the user started: `"generative"` (seed expanded by AI),
@@ -157,6 +177,19 @@ bailing or running silently.
   "Input"]`). Each component's spec, including icon-slot contracts, is recorded
   for the code side (via Code Connect when available, else the repo component
   spec).
+- `meta` — object keyed by component name holding the values stamped onto each
+  component's documentation artboard (see
+  `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md`): `{ "Button":
+  { "status": "stable", "updatedAt": "<ISO>" } }`. `status` is one of
+  `"draft"` / `"beta"` / `"stable"` / `"deprecated"`. Re-running a component
+  refreshes its `updatedAt`. Keep `built` (names) as the source of truth for
+  "exists"; `meta` is supplementary doc metadata.
+- `instanceSwapUpgradePending` — array of component names whose icon/component
+  slots were built with the **toggle + manual-swap fallback** because the
+  library wasn't published yet, so the typed `INSTANCE_SWAP` dropdown is still
+  owed. A later run (after the user publishes) reads this, adds the typed
+  dropdowns, and clears the entry. See
+  `${CLAUDE_PLUGIN_ROOT}/references/figma-publishing.md`.
 
 ### `repo`
 - `stage` — mirrors `workspace.stage` for the repo concern; kept here so repo

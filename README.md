@@ -72,6 +72,21 @@ stand in plain language.
 Once set up: tweak tokens in Figma → run **`/sync-figma-tokens`** → review the
 pull request → merge. Add a component → run **`/new-component`**.
 
+## Choosing a model
+
+Most skills run on whatever model your session is set to, so you stay in control.
+A sensible default is **Sonnet** as the everyday workhorse. Two tips:
+
+- **`figma-environment-setup` runs on Haiku** automatically — it's mostly scripted
+  setup, so the cheaper model keeps first-run costs low.
+- For the **heaviest authoring** — `token-builder` and `component-builder` (token
+  systems, variant matrices, slot contracts) — **Opus** gives the best results on
+  large or intricate systems, if you have access. Switch anytime with
+  `/model opus`, then back to `/model sonnet`.
+
+Nothing forces an expensive model on you; these are recommendations, plus the one
+Haiku default above.
+
 ## Setup
 
 This plugin bundles the [Figma Console MCP](https://github.com/southleft/figma-console-mcp)

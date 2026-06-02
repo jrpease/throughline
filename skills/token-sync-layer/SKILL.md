@@ -150,6 +150,13 @@ For `new` users, explain what a PR is plainly ("a proposed change you review and
 approve before it becomes official — like track-changes for code") and walk the
 review. For `comfortable` users, just open it.
 
+**Chromatic note.** This PR is *token-only* — it changes `packages/tokens` but no
+story files. Token changes are global, so Chromatic should re-snapshot **every**
+story for a sync PR. Don't rely on TurboSnap (`onlyChanged: true`) here — its
+incremental model keeps missing global token changes; default to full snapshots.
+If a sync PR reports "0 snapshots captured," TurboSnap is the cause — see the
+TurboSnap section in `storybook-chromatic-builder`.
+
 Update the manifest: `sync.lastRun` (timestamp), `tokens.lastSync`, confirm
 `sync.platforms`. Append `token-sync-layer` to `completedSkills`.
 

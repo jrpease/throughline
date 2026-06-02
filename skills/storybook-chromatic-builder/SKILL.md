@@ -83,6 +83,36 @@ workflow that runs Chromatic on PRs. This needs a `CHROMATIC_PROJECT_TOKEN`:
 Scale all of this to `codingLevel` — full teaching for `new`, terse for
 `comfortable`.
 
+### TurboSnap vs. design tokens — default to full snapshots
+
+**Recommendation: leave TurboSnap OFF for a design system.** Snapshot every story
+on every run. TurboSnap (`onlyChanged: true`) only re-snapshots stories whose
+changed files it can trace incrementally — and for a token-driven system that
+model is fundamentally fragile, because **token changes are global**: one token
+edit can restyle every component, the opposite of the localized change TurboSnap
+is built for.
+
+Concretely, TurboSnap keeps missing token changes in two independent ways:
+
+- **It doesn't trace changes inside a linked workspace package** resolved under
+  `node_modules` (e.g. `@<scope>/tokens` → `packages/tokens` build output), so a
+  token-only PR — the everyday `/sync-figma-tokens` loop — traces nothing and
+  reports "Capturing 0 snapshots." False green.
+- **Its diffing is incremental against the previous build on the branch.** Once a
+  build has "consumed" a token change, a later commit (a workflow tweak, say)
+  won't re-snapshot it either. The `externals` option is only a partial
+  mitigation and, given the incremental model, is easy to defeat in practice.
+
+So for a design system the robust default is: **snapshot all stories, always.** At
+typical counts (dozens of stories) this is cheap and can *never* miss a global
+token change. Only consider TurboSnap if the story count grows large enough that
+full-run cost genuinely matters — and even then, treat any token change as
+requiring a full run.
+
+Configure Chromatic to snapshot everything (do **not** set `onlyChanged`), and
+verify a token-only PR re-snapshots all stories — they should flip orange against
+the green baseline.
+
 ## Step 5 — Code Connect (plan-gated, skip gracefully)
 
 Code Connect ties Figma components to their code counterparts so Figma's dev
@@ -96,6 +126,13 @@ mode shows the real code. It's plan-gated (Figma Organization/Enterprise).
   Figma Organization plan — we'll skip it; everything else works, and your
   component spec in the repo still records the Figma↔code mapping"). Don't block
   the rest of the setup.
+- **Publishing & pending swap upgrades:** Code Connect and typed slot mappings
+  line up best once the Figma library is published (see
+  `${CLAUDE_PLUGIN_ROOT}/references/figma-publishing.md`). If
+  `components.instanceSwapUpgradePending` is non-empty, those components still owe
+  a *typed instance-swap dropdown in Figma* — added by a later component-builder
+  run after the user publishes. This does **not** block the code side: implement
+  each slot prop from the recorded slot contract regardless of the Figma dropdown.
 
 ## Step 6 — Update manifest + hand off
 
@@ -111,4 +148,7 @@ component-pipeline orchestrator; token changes flow through `/sync-figma-tokens`
   level.
 - Never block setup when Code Connect is unavailable — skip gracefully.
 - Never hardcode token values in components — consume `packages/tokens`.
+- Never rely on TurboSnap (`onlyChanged: true`) for a token-driven design system
+  — its incremental model keeps missing global token changes. Default to full
+  snapshots (every story, every run); revisit only at large story counts.
 - Never use the sequential model for story-gen — parallelize via subagents.
