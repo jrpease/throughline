@@ -6,11 +6,20 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-06-03
+
 ### Fixed
 - Visual-validation loop now prefers the plugin-side **`figma_capture_screenshot`**
   (bridge `exportAsync`) over the REST-based `figma_take_screenshot`, which
   frequently fails with a token/auth error. Applies to all screenshot steps
   (component cards, icon grid, Foundations page, cover page).
+
+### Changed
+- **README marketing refresh** — lead with proof badges (live Storybook, public
+  Figma file) and a pipeline diagram, add a "See a real system built with it"
+  showcase embedding screenshots from the
+  [sample repo](https://github.com/jrpease/throughline-sample), and a "Show it off"
+  badge for users. The full skill walkthrough and docs are preserved below.
 
 ## [0.2.0] - 2026-06-02
 
