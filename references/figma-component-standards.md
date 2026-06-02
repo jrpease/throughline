@@ -159,10 +159,18 @@ components within a Section/Frame, never floating.
 
 ### Required visual-validation loop
 
-After generating or rearranging, this is **not optional**: follow the Console MCP
-loop — `figma_take_screenshot` → inspect for overlaps, misalignment, and
-lopsided "hug vs fill" sizing → fix → re-screenshot. Iterate up to ~3 times
-before handing off. Confirm visually; don't declare a clean layout on faith.
+After generating or rearranging, this is **not optional**: screenshot → inspect
+for overlaps, misalignment, and lopsided "hug vs fill" sizing → fix →
+re-screenshot. Iterate up to ~3 times before handing off. Confirm visually; don't
+declare a clean layout on faith.
+
+**Use the plugin-side capture, not the REST one.** Prefer
+**`figma_capture_screenshot`** — it renders through the bridge plugin's
+`exportAsync`, so it doesn't depend on a REST token. The REST-based
+`figma_take_screenshot` frequently fails with a token/auth error; reach for it
+only as a fallback if the plugin-side capture is unavailable. This applies to
+every screenshot in these skills (component cards, icon grid, Foundations page,
+cover page).
 
 ## Naming
 

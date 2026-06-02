@@ -6,6 +6,12 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Fixed
+- Visual-validation loop now prefers the plugin-side **`figma_capture_screenshot`**
+  (bridge `exportAsync`) over the REST-based `figma_take_screenshot`, which
+  frequently fails with a token/auth error. Applies to all screenshot steps
+  (component cards, icon grid, Foundations page, cover page).
+
 ## [0.2.0] - 2026-06-02
 
 ### Added
