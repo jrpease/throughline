@@ -1,5 +1,7 @@
 # Throughline
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 **One unbroken line from design to code.** Build a complete, code-ready design
 system — from a blank Figma file to a synced, story-tested component library —
 guided step by step.
@@ -9,6 +11,26 @@ are getting comfortable with AI-assisted development. It explains every concept
 the first time it comes up and scales how much detail it gives you to your
 comfort level — from "I've never made a GitHub repo" to "just scaffold it." You
 bring the design judgment; it handles the mechanics.
+
+## Install
+
+Throughline is a [Claude Code](https://docs.claude.com/en/docs/claude-code) plugin.
+Install it from this repo's plugin marketplace:
+
+```
+/plugin marketplace add jrpease/throughline
+/plugin install throughline@throughline-marketplace
+```
+
+Then just say **"let's set up my design system"** — the setup skill takes it from
+there. (See [Setup](#setup) below for the Figma access token and desktop-app
+requirements.)
+
+To update to the latest version later:
+
+```
+/plugin marketplace update throughline-marketplace
+```
 
 ## What it does
 
@@ -79,4 +101,26 @@ takes it from there.
 - Figma slots and Console MCP features evolve; the skills note where something is
   in beta.
 
-MIT licensed.
+## Versioning
+
+Throughline follows [Semantic Versioning](https://semver.org). The current version
+lives in [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json), and every
+release is recorded in [`CHANGELOG.md`](CHANGELOG.md).
+
+When cutting a release:
+
+1. Bump `version` in `.claude-plugin/plugin.json` (`MAJOR.MINOR.PATCH`).
+2. Add a matching entry to `CHANGELOG.md`.
+3. Commit, then tag and push:
+
+   ```
+   git commit -am "Release vX.Y.Z"
+   git tag vX.Y.Z
+   git push && git push --tags
+   ```
+
+Users pick up the update with `/plugin marketplace update throughline-marketplace`.
+
+## License
+
+[MIT](LICENSE) © Jordan Pease
