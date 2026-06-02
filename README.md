@@ -1,12 +1,15 @@
 # Throughline
 
+**A Claude Code plugin for building your entire design system — from a blank
+Figma file to synced, story-tested code.**
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![See it live — Storybook](https://img.shields.io/badge/See%20it%20live-Storybook-FF4785?logo=storybook&logoColor=white)](https://main--6a1ee089ae3a37b70a6e4559.chromatic.com)
 [![Public Figma file](https://img.shields.io/badge/Public-Figma%20file-F24E1E?logo=figma&logoColor=white)](https://www.figma.com/design/OCiZiGpsJ4ncPD8r205BjC/Throughline-Plugin-Test?node-id=0-1&t=5ERihD6fMqMuTEXD-1)
 
-**One unbroken line from design to code.** Go from a blank Figma file to a synced,
-story-tested component library — tokens, icons, components, a real monorepo, and CI —
-guided one step at a time.
+**One unbroken line from design to code.** Tokens, icons, components, a real
+monorepo, and CI — authored in Figma, generated as code, and kept in sync, guided
+one step at a time.
 
 **You don't need to know how to code.** Throughline is built for designers who are
 getting comfortable with AI-assisted development. It explains every concept the first
