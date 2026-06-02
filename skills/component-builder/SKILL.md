@@ -1,0 +1,140 @@
+---
+name: component-builder
+description: Build a foundational set of Figma components — buttons, inputs, cards, badges, chips, modals, and more — as properly structured components with variant matrices (types, sizes, states) and icon/component/content slots, bound to the design system's tokens and styles. Use this when the user wants to create components, build a component library, make buttons/inputs/cards/etc. in Figma, or set up the foundational UI kit. Also trigger after tokens and icons exist, when the user is ready to build actual UI components. Make sure to use this whenever someone wants real, variant-rich components in their Figma design system, not just tokens.
+---
+
+# Component builder
+
+Creates the foundational component set in Figma: well-structured components with
+variant matrices, bound to the system's tokens/styles, with slots typed so they
+translate cleanly to code later.
+
+## Prerequisites
+
+Needs tokens (`tokens.semanticBuilt` true) and ideally icons (`icons.built`) so
+icon slots have targets — offer to run `token-builder` / `icon-system-builder`
+if missing. Needs a live Figma connection (offer `figma-environment-setup` if
+not). Use the mechanism in `figma.mechanism`.
+
+## Step 1 — Capture framework + brainstorm the set and variant matrices
+
+**Framework (capture lazily, here if not already set).** Read
+`project.uiFramework` from the manifest. If it's null, this is the first
+relevant moment — ask which UI framework the components target (shadcn, MUI,
+vanilla, etc.; reuse the same value the sync adapter will use) and record it.
+If sync already set it, reuse it — don't re-ask. The framework does **not**
+change component structure/anatomy; it informs **variant vocabulary and naming**
+so the Figma component API lines up with the code API (see
+`${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md`). For multi-framework targets, use a
+neutral vocabulary.
+
+**Recommended core set (editable).** Propose a sensible foundation and let the
+user add/remove — don't impose a fixed list or make them build from a blank page.
+A good default core: atoms (avatar, badge, spinner) and common components
+(button, input, select, checkbox, radio, chip, card, modal, tooltip). Explain
+why these are the foundation. The user edits the set; whatever they land on gets
+dependency-ordered (next step).
+
+**Variant matrices.** Run `${CLAUDE_PLUGIN_ROOT}/references/brainstorm-before-build.md`. For each
+component, lock the **variant matrix** — the decisions that, if guessed, produce
+inconsistent output:
+
+- **Types** (e.g. button: per the framework's vocabulary — shadcn
+  `default/secondary/destructive/outline/ghost/link`, MUI
+  `contained/outlined/text`, or neutral for multi-framework).
+- **Sizes** (sm, md, lg).
+- **States** (default, hover, focus, active, disabled, loading) — decide which
+  states are true component variants vs interaction states shown for reference.
+- **Slots** — leading/trailing icons, avatars, adornments (see slot types below).
+
+Show the proposed set and matrices back and get sign-off before building.
+
+## Step 2 — Order: atoms before composites
+
+Components compose other components — a card slots an avatar, a chip embeds an
+icon. So build in **dependency order, atoms first**, the component-tier analog
+of the primitive→semantic token seam:
+
+1. **Atoms** — avatar, badge, spinner, (icons already exist). No DS-component
+   slots, or only icon slots.
+2. **Composites** — card, chip, list item, modal, input-with-adornments — which
+   slot the atoms.
+
+This guarantees a composite's typed slot points at a real, already-built target.
+Build bottom-up; checkpoint after each component (sequential — this is Figma
+authoring, no subagents).
+
+## Step 3 — Build each component, bound to tokens/styles
+
+For each component, using the active write mechanism (scripted where helpful),
+following `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md` (auto layout on everything,
+variants vs. properties used correctly, state handling, shallow nesting,
+deterministic naming):
+
+- Construct the variant matrix (Figma variants/component properties).
+- **Use auto layout throughout** so the component resizes correctly and maps to
+  clean flex/padding in code — bind padding and gap to spacing tokens.
+- **Bind every visual property to the system's tokens/styles** — fills to
+  semantic color variables, padding to spacing variables, corners to radius
+  variables, text to text styles, shadows to effect styles. A component must
+  *consume* the design system, never hardcode values. This is what makes the
+  token cascade reach components.
+- Implement slots per the slot-contract model below.
+
+Checkpoint after each component: show all variants, confirm before the next.
+
+## Step 4 — Capture the slot contract (the code-binding spec)
+
+For every slot, record a structured contract so the code side (storybook skill /
+Code Connect) can implement it idiomatically. Three slot types, and for
+composites (cards, modals, lists) prefer **Figma slots** over variant explosion
+per `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md`:
+
+- **Icon-set slot** — accepts any icon from the Icons page. → code: a prop typed
+  to the icon set (e.g. `leadingIcon`), optional, with a canonical default icon
+  name if any. Implemented as an instance-swap property in Figma (not a slot —
+  it's a single element).
+- **Typed-component slot** — accepts a specific DS component (e.g. an Avatar in a
+  Card). → code: a prop typed to that component (e.g. `avatar`), optional. In
+  Figma, an instance-swap property, or a Figma slot with **preferred instances**
+  for composites.
+- **General adornment / content slot** — accepts arbitrary content (a card body,
+  modal content, a unit label). → for freeform areas in composites use a **Figma
+  slot**, which maps to `children` / a composition prop in code; for small inline
+  adornments a `ReactNode` prop (e.g. `endAdornment`).
+
+Two rules for every slot:
+
+- **Show/hide collapses into prop optionality.** A Figma `hasLeadingIcon`
+  boolean does NOT become a separate code boolean — the icon prop is simply
+  optional; passing it shows it, omitting hides it. Don't generate a redundant
+  boolean prop alongside the slot prop.
+- **The contract syncs; per-instance choices don't.** The slot's existence,
+  type, and default sync to code. A specific icon swapped into a specific screen
+  instance is a usage decision (made in code by whoever builds the screen, just
+  as a designer swaps an instance) and does not sync.
+
+Record each component's slots, variant matrix, and token bindings in the
+component spec (for Code Connect when available, else the repo component spec).
+
+## Step 5 — Naming as contract
+
+Name components deterministically so Figma↔code mapping is automatic: `Button` ↔
+`Button`, `Avatar` ↔ `Avatar`. This is what lets typed-component slots and the
+storybook build resolve the right imports. Same discipline as icon naming —
+without it, components silently diverge between Figma and code.
+
+## Step 6 — Checkpoint and hand off
+
+Update the manifest: add each built component to `components.built`. Append
+`component-builder` to `completedSkills`. Offer next steps: build the code
+counterparts and stories (storybook-chromatic-builder), or build a single new
+component end-to-end later (the component-pipeline orchestrator).
+
+## What this skill must NOT do
+
+- Never hardcode values that should be token/style bindings — components consume
+  the system.
+- Never generate a redundant show/hide boolean alongside an optional slot prop.
+- Never build a composite before its atomic slot targets exist.
+- Never guess variant matrices — brainstorm and confirm them first.

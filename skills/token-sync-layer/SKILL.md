@@ -1,0 +1,171 @@
+---
+name: token-sync-layer
+description: Sync Figma design variables into code-ready token files by extracting them to DTCG-format JSON, running them through Style Dictionary, and emitting framework-specific outputs via per-platform adapters (shadcn/Tailwind, MUI, vanilla CSS, iOS Swift, Android Kotlin, or custom). Sets up the reusable "sync figma tokens" command that re-runs the pipeline to catch updates and opens a PR for review. Use this when the user wants to turn Figma tokens into code, sync design tokens, generate tokens.css or a Tailwind config or tokens.swift, set up a token pipeline, or run "sync figma tokens". Also trigger when the user mentions Style Dictionary, design token export, or keeping code in sync with Figma. Make sure to use this whenever someone wants their Figma variables reflected in actual code files.
+---
+
+# Token sync layer
+
+Compiles Figma variables into code. The pipeline is one-directional — Figma is
+the source of truth for token values; code consumes generated artifacts that are
+never hand-edited:
+
+```
+Figma variables → DTCG JSON → Style Dictionary → adapter output (per platform)
+```
+
+This skill both performs the sync and installs the reusable `/sync-figma-tokens`
+command so the user can re-run it anytime tokens change.
+
+## Calibrate
+
+Read `user.codingLevel` (`${CLAUDE_PLUGIN_ROOT}/references/coding-level.md`) and scale explanation
+accordingly. The pipeline involves several developer concepts (JSON, build
+tools, PRs) — for `new` users, explain each plainly the first time; for
+`comfortable` users, be terse. Actions are identical across levels.
+
+## Prerequisites (offer to run them, don't bail)
+
+Read the manifest. This skill needs two things:
+
+1. **Tokens in Figma** — `tokens.semanticBuilt` should be true. If no tokens
+   exist, offer to run `token-builder` first.
+2. **At least a local git repo** — `workspace.stage` must be `local-git` or
+   `github` (so the sync can land changes as a reviewable diff/PR). If it's still
+   `folder`, this is the soft-nudge seam: offer to run `repository-builder` to
+   add version history first. Explain plainly why ("the sync writes code files,
+   and git lets you review exactly what changed before keeping it"). If the user
+   is at `local-git` but not `github`, **strongly recommend** connecting a remote
+   (GitHub or similar) so the sync can land as a real reviewable PR — the cleanest
+   review model — but don't force it; a reviewed branch diff works at `local-git`.
+
+A live Figma connection is also required — do a cheap liveness read; if it
+fails, offer `figma-environment-setup`.
+
+## Step 1 — Choose target platform(s)
+
+Ask which platform(s) the user is building for. Read
+`${CLAUDE_PLUGIN_ROOT}/references/sync-adapters.md` for the two-tier adapter model.
+
+- **Curated (Tier 1):** `shadcn`, `tailwind`, `mui`, `vanilla-css`, `ios-swift`.
+  Vetted presets — high confidence.
+- **Generated (Tier 2):** any other framework (Ant Design, Chakra, HeroUI,
+  Android/Kotlin, Flutter, etc.). The skill generates an adapter and verifies it
+  against a real component before trusting it.
+
+**Always tell the user which tier they're on.** If they name a curated one, say
+it'll be solid. If they name anything else, be honest: "That's not one I have a
+vetted preset for — I'll generate an adapter from its conventions and we'll check
+it against a real component before relying on it." Follow the Tier 2 protocol in
+the reference, and offer to **save** a validated generated adapter to
+`packages/tokens/adapters/` (record it in `sync.customAdapters`) so future syncs
+reuse it.
+
+A user can target several platforms at once. Record the choices in
+`sync.platforms`. The adapter is what absorbs all framework-specific shaping —
+which is why the Figma variables stayed framework-neutral.
+
+Also set `project.uiFramework` if it's still null (this or component-builder sets
+it at first relevance, whichever runs first; the other reads it). If
+component-builder already set it, the chosen adapter(s) should be consistent with
+it.
+
+## Step 2 — Extract Figma variables to DTCG JSON
+
+Using the active write mechanism (`figma.mechanism`, default Console MCP —
+prefer its full-design-system extraction, which works on any Figma plan), read
+the variable collections and normalize them into **DTCG-format JSON** (`$value`,
+`$type`, with semantic tokens expressed as `{group.token}` references to
+primitives, not flattened literals). Preserve modes (light/dark/brand) as the
+DTCG structure the adapters expect.
+
+This DTCG JSON is the canonical intermediate. Write it to a known location in
+`packages/tokens/` (e.g. `packages/tokens/dtcg/tokens.json`). Do not trust the
+MCP's built-in CSS/Tailwind exporters for final output — route through Style
+Dictionary so the adapter system governs the result.
+
+## Step 3 — Set up Style Dictionary + adapters
+
+Install and configure Style Dictionary v4 in `packages/tokens/`. For each chosen
+platform, apply its adapter preset (per `${CLAUDE_PLUGIN_ROOT}/references/sync-adapters.md`):
+register the platform, transform group, format, and `outputReferences`
+(true for web → preserves the semantic→primitive cascade; false for native →
+flattens). Web adapters emit `:root`/`.dark` (or `[data-theme]`); the shadcn
+adapter also emits a Tailwind preset.
+
+**Execution model — subagent-driven for multiple platforms.** When more than one
+platform is targeted, generating each platform's output is independent and
+verifiable, so dispatch **one subagent per adapter**: each produces its
+platform's files and verifies them (the config builds, the expected files
+appear, references resolve correctly for web / flatten for native). Review each
+before combining. For a single platform, run inline. (See the selective-
+subagent decision: code-gen skills parallelize; Figma-authoring skills don't.)
+
+## Step 4 — Build and place outputs
+
+Run the Style Dictionary build. Outputs land in `packages/tokens/<platform>/`
+as **build artifacts** — regenerated every sync, never hand-edited. Wire
+`packages/tokens/package.json` to export them so the UI package, Storybook, and
+any future app consume them.
+
+## Step 4.5 — Icon code sync (install check + custom SVGR)
+
+Icons reach code differently from tokens, so handle them here if the system has
+icons (`icons.built` true):
+
+- **Library icons (Lucide/Material)** — verify the npm package is installed
+  (`icons.packageInstalled`); install it if not. Then **check version drift**:
+  compare the installed package version against `icons.version` (the version the
+  Figma mirror was built from). If they differ, an icon could exist on one side
+  and not the other — flag it and **offer to align** them (bump the package, or
+  note the Figma mirror should be refreshed). Never generate library icon
+  component code — the package *is* the code.
+- **Custom icons** — these the repo owns, so generate them: export the custom
+  SVGs from Figma, optimize, and componentize via SVGR into `packages/ui` (or a
+  dedicated icons package). This is real code generation and rides the same
+  PR-review and subagent model as token output.
+
+## Step 5 — Full regeneration + rename detection (the safety net)
+
+The sync is a **full regeneration** every run: outputs are rebuilt from current
+Figma state, so a token **deleted** in Figma disappears from output (no orphans).
+But a naive full regen can't tell a **rename** from a delete-plus-add — and a
+rename silently breaks every consumer of the old name.
+
+So before writing, **diff against the previous output** and run a rename
+heuristic: if a token vanished and a new one appeared with an identical `$value`
+and `$type`, flag it as a **probable rename** (e.g. `color.bg.default →
+color.surface.default?`). Surface these prominently. Also surface plain
+deletions (consumers will break — that's intentional, but the human should see
+it).
+
+## Step 6 — Land it as a reviewable PR (never silent)
+
+Never overwrite token files silently. The output of a sync is a **pull request**
+(or, if the repo is only `local-git`, a clearly-described diff/commit on a
+branch the user reviews). The PR body is the human safety net — it should
+summarize: tokens added, changed, deleted, and **probable renames flagged for
+review** so the reviewer can do a find-and-replace instead of merging a break.
+
+For `new` users, explain what a PR is plainly ("a proposed change you review and
+approve before it becomes official — like track-changes for code") and walk the
+review. For `comfortable` users, just open it.
+
+Update the manifest: `sync.lastRun` (timestamp), `tokens.lastSync`, confirm
+`sync.platforms`. Append `token-sync-layer` to `completedSkills`.
+
+## Step 7 — Install the `/sync-figma-tokens` command
+
+Set up the reusable command (the plugin ships it in `commands/`) so the user can
+re-run this whole pipeline anytime tokens change in Figma. Explain that the
+workflow going forward is: tweak tokens in Figma → run `/sync-figma-tokens` →
+review the PR → merge. That loop is the entire point of the one-directional
+source-of-truth model. Confirm the command works by describing how to invoke it.
+
+## What this skill must NOT do
+
+- Never hand-edit generated token files or let the user treat them as editable —
+  they're build artifacts; changes go in Figma and re-sync.
+- Never flatten semantic→primitive references for web adapters (kills theming).
+- Never write token files silently — always a reviewable PR/diff.
+- Never merge or push to a protected branch on the user's behalf without review.
+- Never skip rename detection — a silent rename is the worst failure mode.

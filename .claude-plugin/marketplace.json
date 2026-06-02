@@ -1,0 +1,11 @@
+{
+  "name": "throughline-marketplace",
+  "owner": { "name": "Jordan Pease" },
+  "plugins": [
+    {
+      "name": "throughline",
+      "source": "./",
+      "description": "Build a complete design system from Figma to synced, story-tested code — one unbroken line from design to code."
+    }
+  ]
+}

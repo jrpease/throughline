@@ -1,0 +1,12 @@
+# Claude Code local session state
+.claude/settings.local.json
+
+# Environment / secrets — never commit your Figma token
+.env
+.env.*
+
+# OS cruft
+.DS_Store
+
+# Node
+node_modules/

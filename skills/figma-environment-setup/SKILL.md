@@ -1,0 +1,196 @@
+---
+name: figma-environment-setup
+description: Set up the local working folder and connect Claude to Figma so the design-system skills can read and write variables, styles, and components. Use this FIRST, before any other design-system skill. Trigger whenever the user wants to start a design system, set up Figma + Claude, connect Figma, fix a broken Figma connection, or when any other design-system skill reports that Figma isn't connected. Also use when the user mentions the Figma Console MCP, the desktop bridge plugin, a Figma access token, or pairing Claude with Figma. Make sure to use this skill even if the user just says "let's get started" in the context of building a design system — it is the required foundation everything else depends on.
+---
+
+# Figma environment setup
+
+This skill does two foundational jobs, in order:
+
+1. **Create the local working folder** and write the `design-system.json`
+   manifest into it. This is the user's anchor — it exists from minute one.
+2. **Connect Claude to Figma** so later skills can read and write the file,
+   then verify the connection works.
+
+It is the required first step. Every other Figma skill does a cheap liveness
+check and, if it fails, points the user back here.
+
+## Who you're talking to
+
+Assume the user is design-fluent but may have **never set up a developer tool,
+created an API token, or used a terminal before**. Explain every concept the
+first time it appears, in one plain sentence. Never assume they know what a
+"token", "MCP server", "config file", or "package manager" is. Be warm and
+concrete. When you ask them to do something outside the chat (in Figma, on a
+website), give the exact click path, not a vague instruction.
+
+Read `${CLAUDE_PLUGIN_ROOT}/references/manifest-schema.md` before writing the manifest so you use the
+correct field names and defaults.
+
+## Step 1 — Create the working folder and manifest
+
+Ask the user what they'd like to name their design system (suggest something
+like `my-design-system` if they're unsure). Then:
+
+- Create a folder with that name in a sensible location (their current directory
+  is fine; confirm where it'll live so they can find it later).
+- Write `design-system.json` into it using the schema defaults from
+  `${CLAUDE_PLUGIN_ROOT}/references/manifest-schema.md`, with:
+  - `workspace.name` = their chosen name
+  - `workspace.stage` = `"folder"`
+  - everything else at defaults
+
+Tell them, in plain language, what just happened: "I've made a folder called
+`my-design-system` on your computer, and put a small file called
+`design-system.json` inside it. That file is a checklist of what we've set up —
+you can open it anytime, and later I can read it back to remember where we are.
+Right now everything in it says 'not done yet', which is exactly right."
+
+**Do not** set up git or GitHub here. The whole Figma phase works with just this
+folder. Git arrives later, only when there's code to version (the
+repository-builder skill handles that).
+
+## Step 1.5 — Calibrate the coding level
+
+Establish how much to explain code/git/terminal concepts in the later
+code-touching skills. Read `${CLAUDE_PLUGIN_ROOT}/references/coding-level.md` and follow its
+determination method: ask the **concrete anchoring questions** (have you set up
+a GitHub repo before? used a terminal? worked with `.env` files?) rather than
+"are you technical?" — self-assessment is unreliable.
+
+Infer `new` / `some` / `comfortable` from the answers, confirm it in plain terms,
+and record it in `user.codingLevel`. When in doubt, choose the lower level.
+
+Frame this warmly and without judgment: "A couple quick questions so I explain
+things at the right level for you — no wrong answers, and I can adjust anytime."
+Make clear it changes only how much detail they get, never what they can build.
+
+This is set now because it colors every later interaction. The Figma phase
+itself doesn't lean on it much, but the code phase (repo, sync, Storybook) does.
+
+## Step 2 — Choose the Figma write mechanism
+
+Explain there are two ways to connect Claude to Figma, and recommend the first:
+
+- **Figma Console MCP (recommended).** More capable — it can create many
+  variables at once efficiently (which saves time and usage), and it can read
+  your variables on any Figma plan, including free and Pro. Slightly more setup:
+  you'll create one access token and run a small helper plugin inside Figma.
+- **Official Figma plugin (simpler fallback).** Less setup, but more limited —
+  some bulk operations are slower, and reading variables through it can be
+  restricted on non-Enterprise plans. Fine if the user wants the lightest path.
+
+Let the user choose. Record their choice in `figma.mechanism`
+(`"console-mcp"` or `"official-plugin"`). Default to `console-mcp` if they have
+no preference.
+
+The MCP server configuration ships **bundled with this plugin** (in the plugin's
+`.mcp.json`), so the user does not hand-edit any config files. The one thing the
+bundle can't contain is their personal access token — that's a per-user secret,
+handled in the next step.
+
+## Step 3 — Connect to Figma (Console MCP path)
+
+Walk through these one at a time, confirming each before moving on. Never rush
+the user past a step.
+
+### 3a. The golden rule: use the Figma **desktop app**, not the browser
+
+State this up front and clearly: **the Figma desktop app must be installed,
+open, and signed in, with the file you want to work in open in it.** The
+browser version of Figma causes connection and token errors that are painful to
+debug. If they don't have the desktop app, point them to figma.com/downloads to
+install it first. Desktop app, every time.
+
+### 3b. Create a Figma access token
+
+A token is like a password that lets Claude talk to Figma on your behalf. Walk
+them through it:
+
+1. In a browser, go to figma.com and sign in (same account as the desktop app).
+2. Click your account menu, then Settings.
+3. Open the **Security** tab.
+4. Find **Personal access tokens** and click **Generate new token**.
+5. Give it a name they'll recognize, like `claude-design-system`.
+6. Copy the token immediately — Figma only shows it once. It starts with
+   `figd_`.
+
+**Secret-handling rule (non-negotiable):** the token value must never pass
+through the chat. Do not ask the user to paste it to you. Instead, tell them
+exactly where it goes (the plugin's MCP configuration expects it in an
+environment variable named `FIGMA_ACCESS_TOKEN`) and have them place it there
+themselves, following the plugin's setup notes. If they're unsure where that is,
+walk them to it, but you never see or handle the token. Reassure them this is
+normal and good — their password-like token stays theirs.
+
+### 3c. Run the desktop bridge plugin and pair
+
+The Console MCP talks to Figma through a small "bridge" plugin running inside
+the desktop app.
+
+1. Import/run the Figma Console MCP **Desktop Bridge** plugin in their open
+   Figma file (one-time import; the setup docs for the MCP cover the exact
+   import step).
+2. The plugin shows a **pairing code**.
+3. Tell the user to keep the plugin panel open. When they ask you (in chat) to
+   connect, you'll initiate the connection and they'll enter/confirm the pairing
+   code in the plugin panel to authorize it.
+
+Explain the shape of it plainly: "Figma needs to know it's really you allowing
+this. The little plugin window shows a short code; you'll confirm it, and then
+Claude and Figma are linked for this session."
+
+### 3d. Restart the MCP client if needed
+
+If the config was just added (token placed for the first time), the MCP client
+may need a restart to load it. Tell them how, simply, and confirm they're back.
+
+## Step 3 (alt) — Connect to Figma (official plugin path)
+
+If the user chose the official plugin, the flow is lighter: install the official
+Figma plugin for Claude Code per its setup, ensure the desktop app is open with
+the file, and authenticate through the desktop app (again: desktop, not
+browser). The same secret-handling rule applies — any token goes into config by
+the user, never through the chat.
+
+## Step 4 — Capture the file key
+
+Ask the user for the URL of the Figma file they want to build the design system
+in. Extract the file key from it (the segment after `/file/` or `/design/`) and
+store it in `figma.fileKey`. Explain: "This just tells Claude which of your
+Figma files to work in, so I don't have to ask every time."
+
+## Step 5 — Liveness check (prove it actually works)
+
+Don't declare success on faith. Run one trivial **read** against Figma to prove
+the connection is live — for example, fetch a quick summary of the file's
+existing variables/styles (a low-cost call). If it succeeds:
+
+- Set `figma.connected` = `true` and `figma.lastVerified` to the current
+  timestamp.
+- Append `figma-environment-setup` to `completedSkills`.
+- Tell the user warmly that the connection works and what they just unlocked:
+  "Claude can now see and edit your Figma file. You're ready to build your first
+  tokens whenever you are."
+
+If it fails, diagnose gently and in order: Is the desktop app open with the
+file? Was the token placed correctly (have them re-check, without showing you
+the value)? Is the bridge plugin running and paired? Did the client need a
+restart? Walk them back through the relevant sub-step. Do not move on until the
+liveness check passes.
+
+## Step 6 — Hand off
+
+Once live, tell the user what comes next without forcing it: "The natural next
+step is building your color, spacing, and type tokens — just say something like
+'let's build my tokens' and I'll take it from there. Or if you'd rather explore
+first, that's fine too." Update the manifest and stop. Don't auto-run the next
+skill.
+
+## What this skill must NOT do
+
+- Never set up git or GitHub (wrong phase — that's repository-builder).
+- Never ask for, accept, store, or echo the Figma access token or any secret.
+- Never hand-edit MCP config on the user's behalf in a way that embeds a secret.
+- Never skip the liveness check.
+- Never assume the browser version of Figma will work — always require desktop.
