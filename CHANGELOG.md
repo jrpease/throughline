@@ -6,6 +6,34 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-06-03
+
+### Fixed
+- **Finalizing a component now updates its Figma doc card.** When a component
+  reached the end of the pipeline (code + stories built and approved), its Figma
+  artboard kept showing the `draft` pill forever — nothing promoted it. Components
+  now have an explicit lifecycle: `component-builder` creates them at `draft`, and
+  `storybook-chromatic-builder` promotes them to `stable` on finalize, writing the
+  new chip color (→ success) and last-updated date back into the doc card (a new
+  Step 6). The status chip, its label, and the date node are now built with
+  deterministic names (`Status`, `Status Label`, `Last Updated`) so the write-back
+  can find them, and a canonical "Promoting a component's status" routine in
+  `references/figma-component-standards.md` keeps the manifest and the artboard in
+  sync. Falls back gracefully (manifest-only) when Figma isn't connected.
+
+## [0.2.2] - 2026-06-03
+
+### Fixed
+- **`token-sheet-builder` now fully binds the Foundations page chrome to the
+  system, not just the swatches.** Previously section titles, labels, and
+  hex/value text kept raw fonts and hardcoded colors, and section/background
+  fills were unbound — so switching the file from Dark to Light left titles and
+  panels stranded (e.g. black text on a black surface) and the showcase looked
+  broken. The skill now requires every text node to use a text style and every
+  fill (text *and* chrome/background) to bind to a semantic color variable, and
+  adds a both-modes validation step (set the non-default mode, screenshot,
+  confirm legibility, restore) to catch any unbound fill before the checkpoint.
+
 ## [0.2.1] - 2026-06-03
 
 ### Fixed

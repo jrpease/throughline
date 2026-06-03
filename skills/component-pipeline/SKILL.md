@@ -56,7 +56,11 @@ Offer: "Tokens are synced. Build the code component and its stories now?" If yes
 invoke `storybook-chromatic-builder` for this one component: build the code
 counterpart implementing the captured slot contract, generate its stories
 (subagent-driven), wire Code Connect if available. **Checkpoint:** confirm the
-component renders and stories build.
+component renders and stories build. On approval, that skill **finalizes** the
+component — promoting its status from `draft` to `stable` and writing the new
+chip color + last-updated date back into its Figma doc card (its Step 6). Since
+Figma is still connected from stage 1, the card updates live; the chip should no
+longer read `draft` once the pipeline finishes.
 
 ## Resumability
 

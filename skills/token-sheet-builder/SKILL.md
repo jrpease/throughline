@@ -56,6 +56,26 @@ Prioritize visual quality: generous spacing, clear section headers, consistent
 swatch sizing, the brand's own type and color applied to the page chrome. This
 is a showcase.
 
+**Bind the page chrome too — not just the swatches.** The sheet must fully
+consume the system, including its own titles, labels, descriptions, and section
+backgrounds. Concretely:
+
+- **Every text node gets a text style.** Section titles, group labels, swatch
+  numbers, hex/value text, captions — map each to an existing text style
+  (e.g. section headers → a Heading style, descriptions → Body, micro-labels →
+  Caption). Don't leave raw font/size/weight on any text; don't mint one-off
+  documentation-only styles — snap to the nearest existing style instead.
+- **Every fill binds to a semantic color variable** — text fills (→
+  `text/primary`, `text/secondary`, etc.) *and* chrome/background fills (page
+  background, card and section surfaces → `bg/default`, `bg/subtle`, `bg/muted`).
+  Primitive swatches stay bound to their primitive (that's the point of them).
+
+The reason is **mode robustness**: if any title or background uses a hardcoded
+color, switching the file from Dark to Light (or any mode swap) leaves that piece
+stranded — light text on a light surface, a black title on a black panel — and
+the whole showcase looks broken. Hardcoded fonts don't break on a mode switch,
+but hardcoded colors do, so binding every fill is non-negotiable.
+
 **Lay it out cleanly.** Build every section with proper auto layout and arrange
 the sections inside a parent Section/Frame so nothing overlaps — follow the
 "Documentation artboards & canvas layout" rules in
@@ -63,6 +83,13 @@ the sections inside a parent Section/Frame so nothing overlaps — follow the
 visual-validation loop (screenshot → fix any overlapping text or colliding
 sections → re-screenshot) before the checkpoint. A showcase with overlaps isn't
 a showcase.
+
+**Validate both modes.** If the file has more than one mode (e.g. Dark/Light),
+temporarily set the sheet frame to the non-default mode
+(`setExplicitVariableModeForCollection`), screenshot, and confirm everything
+stays legible — no invisible titles, no stranded backgrounds. Then clear the
+explicit mode to restore the default. If anything breaks, the culprit is a fill
+that isn't bound to a semantic variable — bind it and re-check.
 
 ## Step 3 — Checkpoint
 
@@ -80,4 +107,6 @@ with a token sync. Offer natural next steps (icons, components). Don't auto-run.
 
 - Beautiful and on-brand is a requirement, not a nice-to-have.
 - Live-bind where possible; be honest about what needs a regenerate.
+- The sheet must consume its own system: every text node on a text style, every
+  fill on a semantic color variable, so it survives a mode switch.
 - One dedicated page named **Foundations**.

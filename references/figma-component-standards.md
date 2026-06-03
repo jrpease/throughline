@@ -123,9 +123,39 @@ shows:
 - **Status indicator** — a chip reading `draft` / `beta` / `stable` /
   `deprecated`, colored from semantic tokens (e.g. warning for draft/beta,
   success for stable, neutral/danger for deprecated). Source the value from
-  `components.meta[name].status`.
+  `components.meta[name].status`. **Name the chip frame `Status` and its label
+  text node `Status Label`** so the finalize write-back (below) can find and
+  update them later — a chip with no deterministic name can't be promoted.
 - **Last updated** — a date, from `components.meta[name].updatedAt`, refreshed
-  whenever the component is rebuilt.
+  whenever the component is rebuilt. **Name this text node `Last Updated`** for
+  the same reason.
+
+### Promoting a component's status (write-back on finalize)
+
+A component's status is not static: it starts at `draft` (built in Figma, no code
+yet) and is **promoted to `stable` when its code component and stories are built
+and approved** (the `storybook-chromatic-builder` finalize step / pipeline
+stage 3). Promotion must update **both** the manifest and the live Figma doc card,
+or the card lies — it keeps showing `draft` after the component is actually done.
+This is the canonical routine; the finalize step references it rather than
+re-describing it:
+
+1. Set `components.meta[name].status` to the new status (`stable` on finalize) and
+   `components.meta[name].updatedAt` to today (ISO date). The manifest is the
+   source of truth.
+2. If Figma is connected (use `figma.mechanism`), locate the component's doc card
+   by its deterministic name, then inside it:
+   - set the `Status Label` text to the new status (e.g. `stable`);
+   - re-bind the `Status` chip fill to the matching semantic color variable
+     (`stable` → success, `draft`/`beta` → warning, `deprecated` → neutral/danger)
+     — re-bind the variable, don't hardcode a hex, so it stays mode-aware;
+   - set the `Last Updated` text to today's date.
+   Then run the visual-validation loop (screenshot → confirm the chip recolored
+   and the date changed → re-screenshot).
+3. If Figma is **not** connected, still do step 1, and tell the user the card will
+   reconcile to the manifest the next time a Figma session runs (the doc card
+   always renders from `components.meta[name]`). Offer to reconnect and update it
+   now if they want it reflected immediately.
 
 **Icons are the one exception:** the whole icon set lives on a *single* doc card
 holding the icon grid — one card for all icons, not one card per icon.

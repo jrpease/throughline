@@ -95,7 +95,11 @@ deterministic naming):
   with the component name, a short description, a status chip
   (`draft`/`beta`/`stable`/`deprecated`), and a last-updated date — and arrange
   the cards in an orderly grid inside a parent Section, never floating on bare
-  canvas. Follow the "Documentation artboards & canvas layout" rules in
+  canvas. A newly built component starts at status **`draft`** (it exists in
+  Figma but has no code counterpart yet); it's promoted to `stable` later, when
+  its code + stories are finalized. Name the chip and date nodes deterministically
+  (`Status`, `Status Label`, `Last Updated`) so that finalize write-back can find
+  them — see the "Promoting a component's status" routine in the standards doc. Follow the "Documentation artboards & canvas layout" rules in
   `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md`, and run its
   visual-validation loop (screenshot → fix any overlaps/misalignment →
   re-screenshot) before the checkpoint.
@@ -158,7 +162,8 @@ without it, components silently diverge between Figma and code.
 ## Step 6 — Checkpoint and hand off
 
 Update the manifest: add each built component to `components.built`, and record
-its `components.meta[name]` (`status`, `updatedAt`) to match the doc card. Ensure
+its `components.meta[name]` (`status: "draft"`, `updatedAt`) to match the doc
+card. (Finalize to `stable` happens later, in storybook-chromatic-builder.) Ensure
 any component built with the toggle + manual-swap fallback is listed in
 `components.instanceSwapUpgradePending`. Append `component-builder` to
 `completedSkills`.
