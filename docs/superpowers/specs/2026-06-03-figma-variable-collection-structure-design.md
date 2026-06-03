@@ -88,11 +88,21 @@ A frame may now carry up to three independent modes: **Brand** (`_Color/Primitiv
    - Update the checkpoint structure (primitive tier is now several collections; checkpoint still happens before semantics).
    - Update frontmatter description if it implies "two collections."
 
-2. **`skills/token-sheet-builder/SKILL.md`** — iterate **N collections** when rendering the Foundations page (don't assume exactly Primitives + Semantic). Render border-width swatches.
+2. **`references/brainstorm-before-build.md`** — **second copy of the anti-redundancy doctrine.** Lines 60–64 (import-mode intake) tell the model to *collapse* passthrough dimensional semantics (it literally names "semantic border tokens just pass through to single primitives… I can collapse those"). Rewrite to the structural-consistency doctrine so import mode **preserves** per-category passthrough semantics instead of collapsing them. Also update the two-tier/collections framing (lines 53–55) to describe per-category collections. Keep two-tier as the default tier count.
 
-3. **`skills/token-sync-layer/SKILL.md`** (+ `references/sync-adapters.md` as needed) — extraction must iterate N collections and **treat a single-mode collection as non-themed** (no phantom `default` theme emitted alongside `:root`/`.dark`). Border-width tokens flow through to outputs.
+3. **`skills/token-sheet-builder/SKILL.md`** — iterate **N collections** when rendering the Foundations page (don't assume exactly Primitives + Semantic). Render border-width swatches.
 
-4. **`references/manifest-schema.md`** — verify `tokens.collections` is an array that can hold the larger set; adjust any wording that assumes two collections. (`primitivesBuilt`/`semanticBuilt` booleans still make sense as tier-level flags.)
+4. **`skills/token-sync-layer/SKILL.md`** (+ `references/sync-adapters.md` as needed) — three changes:
+   - Extraction iterates **N collections**, not two.
+   - **Single-mode collections are non-themed** (no phantom `default` theme alongside `:root`/`.dark`).
+   - **Primitives can now be multi-mode** (Brand axis on `_Color/Primitive`). The sync layer historically assumes primitives are mode-free; it must now emit **brand themes from the primitive tier**, not only light/dark from the semantic tier.
+   - Define a **collection-name → token-name mapping rule** so the tier/category prefix collapses cleanly (`_Color/Primitive` + `gray/500` → `color.gray.500`, not `color.primitive.gray.500`; `Color/Semantic` + `text/primary` → a clean role name). Border-width tokens flow through to outputs.
+
+5. **`skills/component-builder/SKILL.md`** — add **border-width binding** (button/input/card borders bind to `Border/Semantic` width + `Color/Semantic` border color); currently only color/spacing/radius are covered. Add an explicit **spacing-tier rule**: responsive padding/gaps bind to `Spacing/Semantic`; incidental non-responsive gaps may use the public `Spacing/Primitive`. Binding is by-variable so collection moves don't otherwise break it.
+
+6. **`references/manifest-schema.md`** — update the literal example at lines 150–151 (`["Primitives", "Semantic"]`) to the new per-category set; confirm `tokens.collections` array holds the larger set. `tiers` (2/3) and the `primitivesBuilt`/`semanticBuilt` tier-level flags stay valid.
+
+7. **Low-touch wording (no functional break — bind-by-role):** `references/figma-component-standards.md`, `skills/storybook-chromatic-builder/SKILL.md`, `skills/component-pipeline/SKILL.md`, `commands/design-system-status.md` — remove any "two collections" assumption, report/handle N collections, and fold in border-width awareness where components/status reference borders.
 
 ## Out of scope
 
@@ -105,5 +115,6 @@ A frame may now carry up to three independent modes: **Brand** (`_Color/Primitiv
 - A fresh run of `token-builder` produces per-category collections with correctly scoped modes (color carries Light/Dark; spacing/radius/etc. do not inherit them).
 - Border-width primitives and semantics exist.
 - `Spacing/Primitive` is public; other primitives are private.
-- No contradictory anti-redundancy guidance remains in the skill.
-- `token-sheet-builder` and `token-sync-layer` operate over N collections without assuming two, and don't emit phantom themes for single-mode collections.
+- No contradictory anti-redundancy guidance remains in **any** skill or reference (both `token-builder` and `brainstorm-before-build` import mode).
+- `token-sheet-builder` and `token-sync-layer` operate over N collections without assuming two, don't emit phantom themes for single-mode collections, and **emit brand themes from multi-mode primitive collections**.
+- `component-builder` binds component borders to the new border-width tokens.
