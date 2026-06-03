@@ -181,9 +181,15 @@ bailing or running silently.
   component's documentation artboard (see
   `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md`): `{ "Button":
   { "status": "stable", "updatedAt": "<ISO>" } }`. `status` is one of
-  `"draft"` / `"beta"` / `"stable"` / `"deprecated"`. Re-running a component
-  refreshes its `updatedAt`. Keep `built` (names) as the source of truth for
-  "exists"; `meta` is supplementary doc metadata.
+  `"draft"` / `"beta"` / `"stable"` / `"deprecated"`. **Lifecycle:** a component
+  is created at `"draft"` by `component-builder` (Figma exists, no code yet) and
+  promoted to `"stable"` by `storybook-chromatic-builder` when its code + stories
+  are built and approved. That promotion also writes the new chip color +
+  last-updated date back into the Figma doc card (see "Promoting a component's
+  status" in `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md`) — so
+  the manifest and the artboard never disagree. Re-running a component refreshes
+  its `updatedAt`. Keep `built` (names) as the source of truth for "exists";
+  `meta` is supplementary doc metadata.
 - `instanceSwapUpgradePending` — array of component names whose icon/component
   slots were built with the **toggle + manual-swap fallback** because the
   library wasn't published yet, so the typed `INSTANCE_SWAP` dropdown is still

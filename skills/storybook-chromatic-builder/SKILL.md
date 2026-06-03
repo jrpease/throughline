@@ -134,15 +134,45 @@ mode shows the real code. It's plan-gated (Figma Organization/Enterprise).
   run after the user publishes. This does **not** block the code side: implement
   each slot prop from the recorded slot contract regardless of the Figma dropdown.
 
-## Step 6 — Update manifest + hand off
+## Step 6 — Finalize component status (Figma write-back)
+
+A component built and storied here is now **done** — but its Figma doc card was
+stamped `draft` by component-builder and won't change on its own. Once the code
+component renders and its stories build (and the user has approved the result),
+**promote each finalized component to `stable`** so the design system tells the
+truth in both places.
+
+For every component you finalized in this run, follow the **"Promoting a
+component's status (write-back on finalize)"** routine in
+`${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md`:
+
+- Set `components.meta[name].status` = `"stable"` and refresh
+  `components.meta[name].updatedAt` to today.
+- If Figma is connected (per `figma.mechanism`), open the component's doc card and
+  update the `Status Label` text to `stable`, re-bind the `Status` chip fill to
+  the **success** semantic color variable (mode-aware, not a hardcoded hex), and
+  set `Last Updated` to today's date — then screenshot to confirm the chip
+  recolored and the date changed.
+- If Figma isn't connected, still update the manifest and tell the user the card
+  will reconcile next Figma session (or offer to reconnect and fix it now).
+
+Do this automatically as part of finishing — the user already approved the
+component; don't make them ask for the chip to flip. (`stable` is the finalized
+status; if a component is intentionally still experimental, leave it at `beta`
+and say so.)
+
+## Step 7 — Update manifest + hand off
 
 Set `storybook.initialized` = `true`, `storybook.chromatic` accordingly,
 `storybook.codeConnect` accordingly. Append `storybook-chromatic-builder` to
-`completedSkills`. Note the ongoing loop: new components flow through the
+`completedSkills`. (Per-component `status`/`updatedAt` were already updated in
+Step 6.) Note the ongoing loop: new components flow through the
 component-pipeline orchestrator; token changes flow through `/sync-figma-tokens`.
 
 ## What this skill must NOT do
 
+- Never finish a finalized component while leaving its Figma doc card on `draft`
+  — promote the status and write it back (Step 6).
 - Never write a story per library icon — one gallery story.
 - Never put a secret value through chat or commit it — user places it, scaled to
   level.

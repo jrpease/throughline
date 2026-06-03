@@ -6,6 +6,21 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-06-03
+
+### Fixed
+- **Finalizing a component now updates its Figma doc card.** When a component
+  reached the end of the pipeline (code + stories built and approved), its Figma
+  artboard kept showing the `draft` pill forever — nothing promoted it. Components
+  now have an explicit lifecycle: `component-builder` creates them at `draft`, and
+  `storybook-chromatic-builder` promotes them to `stable` on finalize, writing the
+  new chip color (→ success) and last-updated date back into the doc card (a new
+  Step 6). The status chip, its label, and the date node are now built with
+  deterministic names (`Status`, `Status Label`, `Last Updated`) so the write-back
+  can find them, and a canonical "Promoting a component's status" routine in
+  `references/figma-component-standards.md` keeps the manifest and the artboard in
+  sync. Falls back gracefully (manifest-only) when Figma isn't connected.
+
 ## [0.2.2] - 2026-06-03
 
 ### Fixed
