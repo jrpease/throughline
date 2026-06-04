@@ -25,7 +25,14 @@ bailing or running silently.
   "workspace": {
     "name": "my-design-system",
     "localPath": ".",
-    "stage": "folder"
+    "stage": "folder",
+    "origin": null,
+    "detectedLayers": {
+      "monorepo": null,
+      "storybook": null,
+      "tokens": null,
+      "syncLayer": null
+    }
   },
   "figma": {
     "mechanism": null,
@@ -113,6 +120,25 @@ bailing or running silently.
   Advancing stages is the job of the repository-builder skill (5). Downstream
   skills that need a later stage (e.g. token-sync wants at least `local-git`)
   read this field and offer to advance it.
+
+- `origin` — how the user's project was configured at intake time. Set **once** by
+  `figma-environment-setup` Step 0 and never overwritten by any downstream skill.
+  Values:
+  - `"greenfield"` — empty or newly created folder; no repo or tooling detected
+  - `"existing-repo"` — `package.json` present but no monorepo config; user will need
+    to convert to monorepo before the code phase
+  - `"existing-monorepo"` — both `turbo.json` and `pnpm-workspace.yaml` present; code
+    phase skills should adapt rather than scaffold from scratch
+  - `"unknown"` — scan was inconclusive; treat conservatively (prompt the user)
+  - `null` — intake has not yet run (default)
+
+- `detectedLayers` — snapshot of tooling found in the working directory at intake time.
+  Written by `figma-environment-setup` Step 0, read by downstream skills to adapt
+  behavior. `null` = not yet scanned. `false` = scanned, not found. `true` = found.
+  - `monorepo` — both `turbo.json` and `pnpm-workspace.yaml` are present
+  - `storybook` — `.storybook/` directory is present
+  - `tokens` — `tokens.json` or a `tokens/` directory is present
+  - `syncLayer` — `style-dictionary.config.js` or `*.style-dictionary.js` files present
 
 ### `figma`
 - `mechanism` — which write mechanism is active. One of `"console-mcp"`
@@ -242,3 +268,6 @@ bailing or running silently.
 5. **Never store secrets.** No Figma tokens, no Chromatic tokens, no
    credentials of any kind. The manifest is committed to the repo once
    `workspace.stage` advances — treat it as public.
+6. **`workspace.origin` is immutable after intake.** Written once by
+   `figma-environment-setup` Step 0 and must not be overwritten by any downstream
+   skill. Skills read it to adapt behavior — they do not modify it.
