@@ -50,10 +50,52 @@ behaviors. Ask this first, route accordingly:
   adjectives to decisions (e.g. "rounded" → larger radius scale, "dense" →
   tighter spacing base). Propose values back for sign-off.
 - **Import** — the user already has a token set (a JSON file, a list, an
-  existing system) and wants it ingested and organized into the per-category Figma
-  structure. Generate as little as possible; preserve their values and names
-  where sensible, only adding structure (tiers, collections) and flagging gaps.
-  Do not invent values they didn't provide unless they ask.
+  existing system, or source like a marketing site + brand guide) and wants it
+  ingested and organized into the per-category Figma structure. Import has **two
+  distinct responsibilities — keep them separate so they don't fight each other**:
+  *(1)* preserve and organize what they gave, and *(2)* run a completeness pass
+  that recommends what a fuller system adds. Preserve their actual values and
+  names exactly — never overwrite or silently invent values **in place**. But do
+  not stop at a 1:1 transcription: a brand guide or website is almost always a
+  *partial* system (a few brand colors, two fonts, ad-hoc paddings), so a faithful
+  import alone produces a thin, rigid token set. The completeness pass below is
+  what turns it into a flexible one.
+
+  **Completeness pass (gap analysis — the high-value step).** After organizing,
+  diff what they gave against the reference model of a full, flexible system (the
+  checklist below). Then **proactively propose the missing pieces, derived from
+  their existing values so they harmonize** — e.g. extend a single brand color
+  into a full 50–900 tonal ramp, add a neutral/gray ramp, derive success/warning/
+  danger/info families tuned to their palette, add dark-mode values, an elevation/
+  shadow scale, a radius scale, and the semantic role layer (bg/surface/text/
+  border roles). This is **preserve-first and opt-in**, which is how it coexists
+  with "don't invent values": you are not overwriting their brand or inventing
+  silently — you surface a derived, clearly-labeled upgrade menu and let them
+  choose. Present it grouped by category: *"Here's what you have (kept as-is).
+  Here's what a fuller system adds, and what I'd derive for each — accept all, pick
+  some, or skip."* Nothing recommended is created until the user accepts. Keep it
+  proportional (see "Keep it proportional" below): lead with the high-impact gaps
+  (tonal ramps, neutral ramp, state colors, dark mode, semantic roles), offer the
+  rest lightly.
+
+  **What a full, flexible system includes (the reference model to diff against):**
+  - **Color** — a neutral/gray ramp (~10 steps); each brand/accent as a full
+    tonal ramp (50–900), not just its base; state families (success, warning,
+    danger, info) as ramps; a semantic role layer (bg/surface layers, text
+    hierarchy: primary/secondary/muted/disabled, border/divider, interactive
+    states: hover/active/focus/selected/disabled); **dark mode** values.
+  - **Typography** — a full size ramp with line-heights, weights, and
+    letter-spacing; semantic roles (display, heading h1–h6, body, label, caption,
+    code); responsive (Desktop/Mobile) sizing where relevant.
+  - **Spacing** — a consistent base-unit scale (replacing ad-hoc one-off
+    paddings), spanning tight insets up to large layout steps.
+  - **Radius / border-width / elevation(shadow)** — each a real scale
+    (none→full, hairline→thick, sm→xl) rather than one hardcoded value;
+    elevation should be dark-mode-aware.
+  - **Often-absent optional layers** — opacity scale, z-index/layer tokens,
+    motion (duration + easing). Mention these exist; don't force them.
+  - **Modes** — note which axes are missing (dark mode, density, brand) since
+    a partial import usually has none.
 
   **Organize into per-category collections.** While ingesting, map their values
   onto the structural-consistency model (see token-builder Step 1): one
