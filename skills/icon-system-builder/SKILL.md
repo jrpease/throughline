@@ -117,8 +117,10 @@ Whatever mechanism brought them in, ensure the end state is consistent:
   **single documentation card** with a header — name, short description, status,
   last updated — *one card for all icons*, not one per icon. Follow
   `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md` (auto layout,
-  no overlapping text or frames) and run its visual-validation loop before
-  handing off.
+  no overlapping text or frames) and run its visual-validation loop **and its
+  "Post-build audit (REQUIRED before handoff)" read-back checklist** (container
+  is a Frame not a Section, auto layout present, fills/text/radius/spacing bound
+  to variables, deterministic names) before handing off.
 
 ## Step 3.5 — Code side: install the package (icons are already code)
 

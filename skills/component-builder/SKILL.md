@@ -108,7 +108,9 @@ deterministic naming):
   them — see the "Promoting a component's status" routine in the standards doc. Follow the "Documentation artboards & canvas layout" rules in
   `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md`, and run its
   visual-validation loop (screenshot → fix any overlaps/misalignment →
-  re-screenshot) before the checkpoint.
+  re-screenshot) **and its "Post-build audit (REQUIRED before handoff)"
+  read-back checklist** (container type, auto layout, bound variables,
+  deterministic names) before the checkpoint.
 
 Checkpoint after each component: show all variants, confirm before the next.
 

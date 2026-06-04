@@ -247,6 +247,45 @@ only as a fallback if the plugin-side capture is unavailable. This applies to
 every screenshot in these skills (component cards, icon grid, Foundations page,
 cover page).
 
+## Post-build audit (REQUIRED before handoff)
+
+This is the single gate that catches the whole class of "it looked fine in the
+screenshot but the structure was wrong" bugs. **Several of these items are
+invisible in a screenshot** (a Section vs Frame, a hardcoded hex vs a bound
+variable, a non-deterministic layer name all render identically), so this audit is
+a **read-back** of the actual node tree — not a visual pass. Run it after the
+visual-validation loop and **before declaring the work done**. Any skill that
+writes to Figma (`component-builder`, `icon-system-builder`, `token-sheet-builder`)
+must run it. Turn the items into TodoWrite tasks so none are skipped.
+
+For each generated artboard / doc card / icon grid, read the nodes back (via
+`figma_get_variables` and a `figma_execute` inspection of node types,
+`layoutMode`, `boundVariables`, and `name`) and confirm:
+
+1. **Container type** — the layout/grid container is a `FRAME` with `layoutMode`
+   set, **never a `SECTION`**. A Section is allowed only as an optional outer
+   wrapper, with the auto-layout Frame inside it. (Read the node `type`; if it's
+   `SECTION` and holds the grid, that's a fail.)
+2. **Auto layout present** — every component and meaningful container has auto
+   layout (`layoutMode` is `HORIZONTAL`/`VERTICAL`, not `NONE`); no absolute
+   positioning; text nodes **fill** width, cards **hug** height.
+3. **Variables bound** — every fill, stroke, text color, corner radius,
+   `itemSpacing`, and padding resolves to a **bound variable** (`boundVariables`
+   present), not a raw hex/px. No hardcoded values anywhere in the doc-card chrome.
+4. **Names deterministic** — components match their code counterpart names; the
+   `Status` chip, `Status Label`, and `Last Updated` nodes are named exactly so
+   finalize write-back can find them; no `Frame 47`-style auto names on meaningful
+   layers.
+5. **Scope / status correct** — icons are the curated subset (not the full 1,700),
+   and each doc card's status value matches `components.meta[name].status` in the
+   manifest.
+6. **Visual** — the screenshot (from the validation loop) shows no overlaps,
+   misalignment, or lopsided hug/fill sizing.
+
+If any item fails, **fix and re-audit** — don't hand off a partial pass. Iterate
+with the same ~3-pass budget as the visual loop. Only when all six pass is the
+build done.
+
 ## Naming
 
 - Components: deterministic, matching the code counterpart (`Button` ↔ `Button`,
