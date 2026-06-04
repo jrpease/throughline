@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Fixed
+- **`token-builder` read-backs now use the dynamic-page-safe APIs.** The Console
+  MCP bridge runs in Figma's `dynamic-page` document mode, where the synchronous
+  document-wide variable getters throw. The verification read-back now prefers the
+  `figma_get_variables` tool (with `resolveAliases`), and a Prerequisites note
+  directs any hand-written `figma_execute` reads to the async APIs
+  (`getLocalVariableCollectionsAsync`, `getVariableByIdAsync`,
+  `getVariablesByCollectionAsync`). Avoids a fail-then-retry round trip; creation
+  paths were never affected.
+
 ## [0.3.0] - 2026-06-04
 
 ### Changed

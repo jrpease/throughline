@@ -43,6 +43,16 @@ With Console MCP, prefer `figma_execute` to create variables in scripted loops
 rather than one tool call per variable — this is dramatically more
 token-efficient for the potentially hundreds of primitives across modes.
 
+**Reading back via `figma_execute` (dynamic-page gotcha):** the Console MCP
+bridge runs in Figma's `dynamic-page` document mode, where the *synchronous*
+document-wide getters throw (`getLocalVariableCollections`, `getVariableById`,
+`getVariablesByCollection`). When a script reads variables, use the **async**
+APIs and `await` them (`getLocalVariableCollectionsAsync`,
+`getVariableByIdAsync`, `getVariablesByCollectionAsync`). For a simple
+verification read, prefer the dedicated `figma_get_variables` tool (it handles
+dynamic-page correctly and can resolve aliases with `resolveAliases: true`)
+over a hand-written script.
+
 ## Step 1 — Brainstorm the structure (before building anything)
 
 Run the protocol in `${CLAUDE_PLUGIN_ROOT}/references/brainstorm-before-build.md`. **First establish
@@ -202,9 +212,12 @@ sync layer emit `:root`/`.dark` for web later.
 to three independent modes — Brand (`_Color/Primitive`), Theme (`Color/Semantic`),
 and later Device (`Spacing`/`Typography`). That's the cost of independent axes.
 
-Verify the aliases resolve (a quick read showing semantic tokens point at
-primitives, not literals). Then checkpoint: show the semantic layer and
-demonstrate the cascade if useful ("change `gray/50` and `bg/default` follows").
+Verify the aliases resolve — use `figma_get_variables` (filtered to the new
+semantic collection, `resolveAliases: true`) to confirm semantic tokens point at
+primitives, not literals; if you read via a `figma_execute` script instead, use
+the async APIs (see the dynamic-page note in Prerequisites). Then checkpoint:
+show the semantic layer and demonstrate the cascade if useful ("change `gray/50`
+and `bg/default` follows").
 
 Update the manifest: `tokens.semanticBuilt` = `true`, add every semantic
 collection to `tokens.collections`.
