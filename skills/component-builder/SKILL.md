@@ -86,10 +86,15 @@ deterministic naming):
 - **Use auto layout throughout** so the component resizes correctly and maps to
   clean flex/padding in code — bind padding and gap to spacing tokens.
 - **Bind every visual property to the system's tokens/styles** — fills to
-  semantic color variables, padding to spacing variables, corners to radius
-  variables, text to text styles, shadows to effect styles. A component must
-  *consume* the design system, never hardcode values. This is what makes the
-  token cascade reach components.
+  `Color/Semantic` variables, corners to `Radius/Semantic` variables, **border
+  width to `Border/Semantic` width variables and border color to `Color/Semantic`
+  border variables** (a button/input/card border needs both), text to text
+  styles, shadows to effect styles. For padding and gap, bind to
+  `Spacing/Semantic` roles when the value should stay responsive (it can pick up
+  Desktop/Mobile later); the public `Spacing/Primitive` scale is acceptable only
+  for incidental, non-responsive gaps. A component must *consume* the design
+  system, never hardcode values. This is what makes the token cascade reach
+  components.
 - Implement slots per the slot-contract model below.
 - **Wrap each component in its own documentation card** — a token-styled frame
   with the component name, a short description, a status chip

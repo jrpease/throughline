@@ -73,10 +73,26 @@ it.
 
 Using the active write mechanism (`figma.mechanism`, default Console MCP —
 prefer its full-design-system extraction, which works on any Figma plan), read
-the variable collections and normalize them into **DTCG-format JSON** (`$value`,
-`$type`, with semantic tokens expressed as `{group.token}` references to
-primitives, not flattened literals). Preserve modes (light/dark/brand) as the
-DTCG structure the adapters expect.
+**every variable collection** (there are now several per tier, e.g.
+`_Color/Primitive`, `Spacing/Primitive`, `Color/Semantic`, …) and normalize them
+into **DTCG-format JSON** (`$value`, `$type`, with semantic tokens expressed as
+`{group.token}` references to primitives, not flattened literals).
+
+Three rules for the multi-collection structure:
+- **Iterate N collections**, not a fixed two. Don't assume one `Primitives` +
+  one `Semantic`.
+- **Single-mode collections are non-themed** — a collection with one mode (e.g.
+  `Spacing/Semantic`) emits flat values, never a phantom `default` theme
+  alongside `:root`/`.dark`.
+- **Primitives can be multi-mode** — `_Color/Primitive` carries a Brand axis, so
+  emit **brand themes from the primitive tier**, not just light/dark from
+  semantics. Preserve modes (light/dark/brand/device) as the DTCG structure the
+  adapters expect.
+- **Name mapping:** collapse the tier/category prefix into clean token names —
+  `_Color/Primitive` + `gray/500` → `color.gray.500` (not
+  `color.primitive.gray.500`); `Color/Semantic` + `text/primary` →
+  `color.text.primary`. The category drives the top-level group; the tier (and
+  the `_`) is dropped from the emitted name.
 
 This DTCG JSON is the canonical intermediate. Write it to a known location in
 `packages/tokens/` (e.g. `packages/tokens/dtcg/tokens.json`). Do not trust the

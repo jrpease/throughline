@@ -147,8 +147,11 @@ bailing or running silently.
 - `primitivesBuilt` / `semanticBuilt` / `stylesBuilt` — phase completion flags.
   The primitive→semantic checkpoint seam depends on the first two; `stylesBuilt`
   covers the text/effect/grid styles phase.
-- `collections` — names of the Figma variable collections created (e.g.
-  `["Primitives", "Semantic"]`).
+- `collections` — names of the Figma variable collections created. With the
+  per-category structure this is several names per tier, e.g.
+  `["_Color/Primitive", "Spacing/Primitive", "_Typography/Primitive",
+  "_Radius/Primitive", "_Border/Primitive", "Color/Semantic", "Spacing/Semantic",
+  "Typography/Semantic", "Radius/Semantic", "Border/Semantic"]`.
 - `styleGroups` — names of Figma style groups created (e.g.
   `["Text", "Elevation"]`). Styles are distinct from variables.
 - `lastSync` — ISO timestamp tokens were last extracted to code (set by skill 6,

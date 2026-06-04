@@ -13,8 +13,8 @@ utilitarian dump of swatches.
 ## Live vs regenerated — set expectations clearly
 
 Bind to variables wherever Figma allows so the sheet **live-updates** for those
-properties: a color swatch bound to `color.gray.50` re-colors automatically when
-that primitive changes; spacing/radius examples bound to the variables resize
+properties: a color swatch bound to `gray/50` (in `_Color/Primitive`) re-colors
+automatically when that primitive changes; spacing/radius examples bound to the variables resize
 automatically. But labels, hex/value text, token names, descriptions, and the
 set of tokens shown (adding/removing tokens) are **snapshots** — they don't
 auto-update. So tell the user plainly: "The swatches update live when you change
@@ -38,9 +38,10 @@ lower-stakes, easily-regenerated artifact. Settle: which collections get their
 own section, how much per-token detail to show (just swatches, or swatches +
 names + values + descriptions), and any brand styling direction for the page
 itself (the page should feel like the brand it documents). Default to a clean,
-sectioned layout: Color (ramps as rows of swatches), Typography (the type scale
-rendered in the actual text styles), Spacing (visual bars), Radius (sample
-shapes), Elevation (sample cards with the effect styles).
+sectioned layout, one section per collection/style group: Color (ramps as rows
+of swatches), Typography (the type scale rendered in the actual text styles),
+Spacing (visual bars), Radius (sample shapes), Border width (sample rules at
+each width), Elevation (sample cards with the effect styles).
 
 ## Step 2 — Build the Foundations page
 

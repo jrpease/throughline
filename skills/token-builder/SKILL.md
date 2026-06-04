@@ -10,13 +10,18 @@ description: Build a modern two-tier (primitive + semantic) design token system 
 > Sonnet is a solid default; Opus helps for large or multi-mode systems. See the
 > model guide in the plugin README.
 
-Creates a two-tier design token system as Figma variables:
+Creates a two-tier design token system as Figma variables. Each tier is split
+into **one collection per category** (color, spacing, type, radius, border) so
+every category owns its own modes — see Step 1 for why. Within a collection,
+Figma variables are grouped with `/` and omit the category prefix (the
+collection already carries it); the sync layer later derives the dotted logical
+name (`color.gray.50`) by prefixing the collection's category.
 
-- **Primitives** — raw values with no meaning attached. `color.gray.50`,
-  `space.4`, `font.size.300`. The full palette of possible values.
-- **Semantic** — meaning-bearing tokens that **alias onto primitives**.
-  `color.bg.default` → `{color.gray.50}`, `color.text.primary` →
-  `{color.gray.900}`. This is the layer the rest of the system consumes.
+- **Primitives** — raw values with no meaning attached: `gray/50`, `space/4`
+  in their category's primitive collection. The full palette of possible values.
+- **Semantic** — meaning-bearing tokens that **alias onto primitives**:
+  `bg/default` → `{gray/50}`, `text/primary` → `{gray/900}`. This is the layer
+  the rest of the system consumes.
 
 The power of two tiers: change a primitive once and every semantic token
 referencing it updates automatically, which cascades through sheets, components,
@@ -67,87 +72,141 @@ user, in readable chunks:
   scale.
 - **Primitive naming convention** — the single most important decision, because
   the semantic tier aliases onto these names and renaming later breaks every
-  alias. Lock it explicitly. Default: `category.subcategory.step`
-  (`color.gray.50`, `space.4`, `font.size.300`). Keep names **neutral and
-  semantic — never framework-specific** (don't name a token `--background` to
-  match shadcn; the adapter sync layer renames per framework later). Figma is
-  framework-agnostic; the adapter absorbs all framework-specific shaping.
+  alias. Lock it explicitly. In Figma, name variables **without the category
+  prefix** (the collection supplies it) and group with `/`: e.g. `gray/50`,
+  `space/4`, `radius/md` inside their category's primitive collection. The sync
+  layer derives the dotted logical identity (e.g. `color.gray.50`) by prefixing
+  the collection's category. Keep names **neutral and semantic — never
+  framework-specific** (don't name a token `--background` to match shadcn; the
+  adapter renames per framework later). Figma is framework-agnostic; the adapter
+  absorbs all framework-specific shaping.
 - **Tiers** — default to **two-tier** (primitive + semantic). Only raise the
   option of a third **component** tier if the user signals multi-brand,
   white-labeling, or a very large/robust component library — for a single-brand
   project it adds complexity without payoff, so don't even surface it. If the
   user opts in, component tokens alias onto semantic tokens (e.g.
-  `button.bg.primary` → `{color.bg.emphasis}`).
+  `bg/primary` → `{bg/emphasis}`).
+- **Collection structure** — two *tiers*, but **one collection per category per
+  tier**, never one giant `Primitives` + one giant `Semantic`. In Figma a mode
+  axis (Light/Dark, Desktop/Mobile, Brand) belongs to the *collection*, so every
+  variable in a collection is forced to share its modes. Putting `space` in the
+  same collection as `color` drags spacing into Light/Dark, which is meaningless.
+  Default layout (single-brand): private primitive collections `_Color/Primitive`,
+  `_Typography/Primitive`, `_Radius/Primitive`, `_Border/Primitive`, and a
+  **public** `Spacing/Primitive`; published semantic collections `Color/Semantic`
+  (Light/Dark), `Spacing/Semantic`, `Typography/Semantic`, `Radius/Semantic`,
+  `Border/Semantic`. Privacy is the leading-`_` prefix. `size/icon/*` lives in
+  `Spacing/Primitive`; don't create a `Sizing` collection unless control
+  heights/avatars become real tokens.
+- **Multi-brand** — keep two axes in two collections so they don't multiply.
+  Brand lives on `_Color/Primitive` (modes = Brand A, Brand B = raw palettes);
+  Theme lives on `Color/Semantic` (modes = Light, Dark). A frame sets both
+  independently and Figma resolves `bg/default`(Light) → `{gray/50}` → Brand A's
+  gray. This keeps each collection ≤2 modes — under the Figma **Professional cap
+  of 4 modes/collection**. (Brand-on-primitive assumes brands differ in raw
+  palette, same role mapping; if a brand needs a *different* mapping, it also
+  becomes a mode on `Color/Semantic`.)
 
 Show the proposed full structure back to the user and get sign-off before
 creating anything.
 
-### The anti-redundancy rule (prevents the "different every time" problem)
+### The structural-consistency rule (prevents the "different every time" problem)
 
-A semantic token earns its existence **only when it represents a genuine mapping
-decision** — a role that could plausibly point at a different primitive, or that
-changes across modes. Do **not** manufacture a semantic token that is a 1:1
-passthrough to the only primitive that could fill it, and do **not** create a
-parallel semantic collection for a category that has no real mapping choices
-(this is the redundant-borders trap: a "semantic" border layer that just mirrors
-the one primitive border value adds pure overhead).
+Every token concern gets **both** a primitive and a semantic collection, even
+when the semantic tier is a 1:1 passthrough today. A dimensional semantic tier
+(`Spacing/Semantic`, `Radius/Semantic`, `Border/Semantic`) is justified by a
+**plausible future mode axis** — e.g. adding Desktop/Mobile to spacing later —
+which only works if the semantic collection already exists to carry that axis.
+Building every concern the same way is also what makes the output consistent
+run-to-run instead of an arbitrary guess about which categories to duplicate.
 
-Apply this test per category: *"Could this semantic role sensibly point at a
-different primitive, now or in another mode?"* If yes, it's a real semantic
-token. If no, keep that category single-tier — consumers reference the primitive
-directly, and you don't build a mirror collection. This is what makes the output
-consistent run-to-run instead of an arbitrary guess about which categories to
-duplicate.
+The one guardrail: **consistency does not license invented roles.** Semantic
+names must be real usage roles (`inset/md`, `width/focus`, `text/primary`),
+never just renamed primitive steps (`space/12`, `width/1`). A passthrough role
+with a meaningful name is fine; a fake role nobody applies is not. If you can't
+name a genuine role for a category, give it semantic roles that map to actual
+usage rather than mirroring the primitive scale step-for-step.
 
 ## Step 2 — Build the PRIMITIVE tier, then PAUSE
 
-Create the primitive variable collection (e.g. named `Primitives`) and all
-primitive variables, using a scripted loop via the active write mechanism.
+Create the **per-category primitive collections** and their variables via a
+scripted loop on the active write mechanism. Default set:
 
-Mode handling: create the mode structure the user chose. For light/dark,
-primitives are usually mode-independent raw values (a gray ramp is the same in
-both modes) OR you define both — follow what the brainstorm settled. Keep the
-mode setup consistent with how the semantic tier will use it.
+- `_Color/Primitive` — color ramps (`gray/50…900`, `brand/50…900`,
+  `success`/`warning`/`danger`, `white`, `black`).
+- `Spacing/Primitive` — the spacing scale (`space/0,2,4,8,12,16,24,32,48,64`)
+  **plus** `size/icon/{sm,md,lg}`.
+- `_Typography/Primitive` — `family/*`, `size/*`, `weight/*`, `lineHeight/*`,
+  `letterSpacing/*`.
+- `_Radius/Primitive` — `radius/{none,sm,md,lg,xl,full}`.
+- `_Border/Primitive` — `width/{0,1,2,4}`. **Do not skip border width** — borders
+  need a width primitive, not only a color.
+
+**Privacy:** the leading-`_` prefix hides a collection from the published
+library. Keep color/type/radius/border primitives private (they're always
+consumed through semantics or styles). Make **`Spacing/Primitive` public** (no
+underscore) — spacing semantics are intentionally minimal, so designers will grab
+raw `space/*` for one-off gaps. Note the trade-off in your checkpoint summary: a
+value applied directly from `Spacing/Primitive` is *frozen across device modes*;
+only `Spacing/Semantic` carries future Desktop/Mobile responsiveness.
+
+**Modes at the primitive tier:** primitives are usually mode-free (a single
+*Value* mode). The exception is multi-brand: give `_Color/Primitive` a Brand mode
+axis (Brand A, Brand B) holding each brand's raw palette. All other primitive
+collections stay single-mode.
 
 Then **stop and checkpoint.** This is the critical seam: semantic tokens are
 about to alias onto these primitives, so the primitive names and values must be
-right *before* you build on them. Show the user the created primitive collection
-— summarize the ramps and scales, and if helpful, note that the
-token-sheet-builder skill can render them visually later. Ask for explicit
-confirmation: "Here are your primitives. Once you're happy, I'll build the
-semantic layer on top — and after that, renaming primitives gets disruptive, so
-this is the moment to adjust names or values."
+right *before* you build on them. Show the user the created collections —
+summarize the ramps and scales, note which are public vs private, and if helpful
+mention the token-sheet-builder skill can render them visually later. Ask for
+explicit confirmation: "Here are your primitives. Once you're happy, I'll build
+the semantic layer on top — and after that, renaming primitives gets disruptive,
+so this is the moment to adjust names or values."
 
-Update the manifest: `tokens.primitivesBuilt` = `true`, add the collection name
-to `tokens.collections`.
+Update the manifest: `tokens.primitivesBuilt` = `true`, add every created
+collection name to `tokens.collections`.
 
 Do not proceed to the semantic tier until the user confirms.
 
 ## Step 3 — Build the SEMANTIC tier as aliases
 
-Create the semantic variable collection (e.g. `Semantic`) where every variable
-**references a primitive**, not a literal value. In Figma variable terms, bind
-each semantic variable to its primitive variable so the alias is live.
+Create the **per-category semantic collections**, where every variable
+**references a primitive**, not a literal value. Bind each semantic variable to
+its primitive so the alias is live. Default set and modes:
 
-Organize semantics by role, e.g.:
-- `color.bg.default`, `color.bg.subtle`, `color.bg.emphasis`
-- `color.text.primary`, `color.text.secondary`, `color.text.disabled`
-- `color.border.default`, `color.border.focus`
-- `space.inset.sm/md/lg`, `space.stack.*`
-- `radius.sm/md/lg`, etc.
+- `Color/Semantic` — modes **Light, Dark** (+ a Brand mode only if a brand needs
+  a different *mapping*, not just a different palette). Roles: `bg/{default,
+  subtle,muted,emphasis,inverse}`, `text/{primary,secondary,disabled,inverse,
+  link}`, `border/{default,subtle,focus,emphasis}`, `status/{success,warning,
+  danger}/{bg,text,border}`.
+- `Spacing/Semantic` — single *Default* mode now, structured so Desktop/Mobile
+  can be added later. Roles: `inset/{xs,sm,md,lg,xl}`, `stack/*`, `inline/*`.
+- `Typography/Semantic` — single *Default* mode (room for Desktop/Mobile). Roles:
+  `size/{body,bodyLg,heading/sm…xl,caption}` and role line-heights; these feed
+  the text styles built in Step 4.
+- `Radius/Semantic` — single mode. Roles: `control`, `card`, `pill`, `field`.
+- `Border/Semantic` — single mode. Roles: `width/{default,focus,emphasis}`
+  aliasing `_Border/Primitive` widths.
 
-If the system has light/dark modes, the **semantic** tier is typically where the
-mode switch lives: `color.bg.default` points at `{color.gray.50}` in light mode
-and `{color.gray.900}` in dark mode. The primitives stay fixed; the semantic
-aliases differ per mode. This keeps theming clean and is exactly what lets the
-sync layer emit `:root` / `.dark` (or equivalent) for web adapters later.
+These dimensional semantic tiers are often passthroughs today — that's expected
+under the structural-consistency rule; keep the role names real (`inset/md`, not
+`space/16`).
+
+The **color** semantic tier is where the Light/Dark switch lives:
+`bg/default` → `{gray/50}` in Light and `{gray/900}` in Dark. Primitives
+stay fixed; the semantic aliases differ per mode. This is exactly what lets the
+sync layer emit `:root`/`.dark` for web later.
+
+**Mode-application reality (state this to the user):** a frame can now carry up
+to three independent modes — Brand (`_Color/Primitive`), Theme (`Color/Semantic`),
+and later Device (`Spacing`/`Typography`). That's the cost of independent axes.
 
 Verify the aliases resolve (a quick read showing semantic tokens point at
-primitives, not literals). Then checkpoint with the user: show the semantic
-layer and demonstrate the cascade if useful ("if you change `color.gray.50`,
-`color.bg.default` follows automatically").
+primitives, not literals). Then checkpoint: show the semantic layer and
+demonstrate the cascade if useful ("change `gray/50` and `bg/default` follows").
 
-Update the manifest: `tokens.semanticBuilt` = `true`, add the semantic
+Update the manifest: `tokens.semanticBuilt` = `true`, add every semantic
 collection to `tokens.collections`.
 
 ## Step 4 — Build Figma STYLES (the third phase)
@@ -188,6 +247,13 @@ comes later.
 ## Notes that matter
 
 - **Never flatten semantic into literals.** Aliases are the whole point.
+- **One collection per category per tier.** Modes belong to the collection, so
+  splitting by category is what keeps color's Light/Dark from infecting spacing.
+- **Privacy is the `_` prefix.** Only `Spacing/Primitive` is public by default;
+  all other primitives are private.
+- **Primitives can be multi-mode.** Brand lives on `_Color/Primitive`; the sync
+  layer must emit brand themes from the primitive tier, not just light/dark from
+  semantics.
 - **Lock primitive names before building semantics.** The checkpoint between
   tiers exists precisely to prevent rename cascades.
 - **Think in DTCG terms even though you're writing Figma variables.** Each token

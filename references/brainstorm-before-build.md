@@ -50,21 +50,22 @@ behaviors. Ask this first, route accordingly:
   adjectives to decisions (e.g. "rounded" → larger radius scale, "dense" →
   tighter spacing base). Propose values back for sign-off.
 - **Import** — the user already has a token set (a JSON file, a list, an
-  existing system) and wants it ingested and organized into the two-tier Figma
+  existing system) and wants it ingested and organized into the per-category Figma
   structure. Generate as little as possible; preserve their values and names
   where sensible, only adding structure (tiers, collections) and flagging gaps.
   Do not invent values they didn't provide unless they ask.
 
-  **Flag redundancy as a cleanup opportunity.** While ingesting, apply the
-  anti-redundancy test (see token-builder Step 1). If their existing set
-  contains redundant structure — e.g. a "semantic" collection that just mirrors
-  primitives 1:1 with no real mapping decision — don't silently preserve it and
-  don't silently collapse it. Surface it: "Your imported system has a few places
-  that look redundant — for example, your semantic border tokens just pass
-  through to single primitives. I can collapse those to keep things lean, or
-  preserve your structure exactly as-is. Which would you prefer?" Let the user
-  choose per case (or all at once). Cleaning up is often the more valuable
-  service, but it's their system, so it's their call.
+  **Organize into per-category collections.** While ingesting, map their values
+  onto the structural-consistency model (see token-builder Step 1): one
+  primitive and one semantic collection per category, split so each category owns
+  its own mode axis. Passthrough dimensional semantics (e.g. border-width
+  semantics that alias a single primitive) are **expected and kept** — they exist
+  to carry a future mode axis — so do not collapse them. The only thing to flag
+  is a genuine naming problem: a "semantic" token that's just a renamed primitive
+  step with no real role (`space-12` rather than `inset/md`). Surface those:
+  "A few of your semantic names mirror primitive steps rather than naming a role
+  — want me to rename them to usage roles, or keep them as-is?" Let the user
+  choose. Keep structure; fix only fake roles.
 
 Many users are a blend (e.g. "here's my 2 brand colors and a font, fill in the
 rest" is generative with seeds). Identify the dominant mode, confirm it, and
