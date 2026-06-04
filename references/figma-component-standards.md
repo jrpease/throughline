@@ -164,10 +164,39 @@ holding the icon grid — one card for all icons, not one card per icon.
 
 The card chrome itself — background, header text, status chip, dividers, padding,
 gaps, corner radius — uses **only design-system tokens and styles**, bound to
-variables where Figma allows. No hardcoded hex or px in the documentation frame.
-Tokens are guaranteed to exist (token-builder runs first), so the doc cards
-double as live proof the tokens actually work; if a card can't be built cleanly
-from tokens, that's surfacing a real gap in the token set.
+variables where Figma allows. **No hardcoded hex or px anywhere in the
+documentation frame.** Tokens are guaranteed to exist (token-builder runs first),
+so the doc cards double as live proof the tokens actually work; if a card can't be
+built cleanly from tokens, that's surfacing a real gap in the token set (add the
+token — don't hardcode around it).
+
+**How to actually bind it — this is where it goes wrong: the model hardcodes
+because it never fetched the variable IDs.** Binding requires the variable's ID,
+so *before* styling the card: (1) read the semantic variables with
+`figma_get_variables` to get their IDs; (2) **bind, don't set raw values** — set
+`boundVariables` / `setBoundVariable(...)` in the script, never a literal hex or
+px. Map the card chrome to semantic tokens:
+- card / header **background** → a `Color/Semantic` surface role (e.g.
+  `bg/surface`, `bg/default`);
+- **title / description / labels** text color → `Color/Semantic` text roles
+  (`text/default`, `text/muted`);
+- **status chip** fill → the status's semantic color (`stable`→success,
+  `draft`/`beta`→warning, `deprecated`→neutral/danger) — this is the *same*
+  binding the finalize write-back later re-binds, so it MUST be a variable, not a
+  hex, or promotion can't recolor it;
+- **dividers / borders** → `Border/Semantic`;
+- **corner radius** → `Radius/Semantic`;
+- **padding and gaps (`itemSpacing`)** → `Spacing/Semantic` (or `Spacing/Primitive`).
+Use text/effect **styles** where one exists rather than re-specifying type.
+
+**Verify the bindings, not just the look — a screenshot CANNOT see them.** The
+visual-validation loop below confirms layout, but a hardcoded hex and a bound
+variable render pixel-identically, so it will **not** catch this violation. After
+building the card, read it back (inspect the nodes' `boundVariables` via
+`figma_get_variables` / a `figma_execute` read) and confirm every fill, stroke,
+text color, corner radius, `itemSpacing`, and padding carries a **bound variable**.
+Any property resolving to a raw value is the bug — rebind it. This binding check is
+**required, not optional**, and is separate from the visual check.
 
 ### Auto layout inside the card (fixes overlapping text)
 
@@ -205,7 +234,10 @@ on a Frame, but the auto-layout Frame is preferred.)
 After generating or rearranging, this is **not optional**: screenshot → inspect
 for overlaps, misalignment, and lopsided "hug vs fill" sizing → fix →
 re-screenshot. Iterate up to ~3 times before handing off. Confirm visually; don't
-declare a clean layout on faith.
+declare a clean layout on faith. **Before handing off, also run the binding check
+from "The doc card must dogfood the design system" above** — confirm the card's
+fills, text, radius, and spacing resolve to bound variables, not raw hex/px. The
+screenshot won't reveal a hardcoded value, so this is a separate, required gate.
 
 **Use the plugin-side capture, not the REST one.** Prefer
 **`figma_capture_screenshot`** — it renders through the bridge plugin's
