@@ -10,13 +10,18 @@ description: Build a modern two-tier (primitive + semantic) design token system 
 > Sonnet is a solid default; Opus helps for large or multi-mode systems. See the
 > model guide in the plugin README.
 
-Creates a two-tier design token system as Figma variables:
+Creates a two-tier design token system as Figma variables. Each tier is split
+into **one collection per category** (color, spacing, type, radius, border) so
+every category owns its own modes — see Step 1 for why. Within a collection,
+Figma variables are grouped with `/` and omit the category prefix (the
+collection already carries it); the sync layer later derives the dotted logical
+name (`color.gray.50`) by prefixing the collection's category.
 
-- **Primitives** — raw values with no meaning attached. `color.gray.50`,
-  `space.4`, `font.size.300`. The full palette of possible values.
-- **Semantic** — meaning-bearing tokens that **alias onto primitives**.
-  `color.bg.default` → `{color.gray.50}`, `color.text.primary` →
-  `{color.gray.900}`. This is the layer the rest of the system consumes.
+- **Primitives** — raw values with no meaning attached: `gray/50`, `space/4`
+  in their category's primitive collection. The full palette of possible values.
+- **Semantic** — meaning-bearing tokens that **alias onto primitives**:
+  `bg/default` → `{gray/50}`, `text/primary` → `{gray/900}`. This is the layer
+  the rest of the system consumes.
 
 The power of two tiers: change a primitive once and every semantic token
 referencing it updates automatically, which cascades through sheets, components,
@@ -67,17 +72,20 @@ user, in readable chunks:
   scale.
 - **Primitive naming convention** — the single most important decision, because
   the semantic tier aliases onto these names and renaming later breaks every
-  alias. Lock it explicitly. Default: `category.subcategory.step`
-  (`color.gray.50`, `space.4`, `font.size.300`). Keep names **neutral and
-  semantic — never framework-specific** (don't name a token `--background` to
-  match shadcn; the adapter sync layer renames per framework later). Figma is
-  framework-agnostic; the adapter absorbs all framework-specific shaping.
+  alias. Lock it explicitly. In Figma, name variables **without the category
+  prefix** (the collection supplies it) and group with `/`: e.g. `gray/50`,
+  `space/4`, `radius/md` inside their category's primitive collection. The sync
+  layer derives the dotted logical identity (e.g. `color.gray.50`) by prefixing
+  the collection's category. Keep names **neutral and semantic — never
+  framework-specific** (don't name a token `--background` to match shadcn; the
+  adapter renames per framework later). Figma is framework-agnostic; the adapter
+  absorbs all framework-specific shaping.
 - **Tiers** — default to **two-tier** (primitive + semantic). Only raise the
   option of a third **component** tier if the user signals multi-brand,
   white-labeling, or a very large/robust component library — for a single-brand
   project it adds complexity without payoff, so don't even surface it. If the
   user opts in, component tokens alias onto semantic tokens (e.g.
-  `button.bg.primary` → `{color.bg.emphasis}`).
+  `bg/primary` → `{bg/emphasis}`).
 - **Collection structure** — two *tiers*, but **one collection per category per
   tier**, never one giant `Primitives` + one giant `Semantic`. In Figma a mode
   axis (Light/Dark, Desktop/Mobile, Brand) belongs to the *collection*, so every
@@ -186,7 +194,7 @@ under the structural-consistency rule; keep the role names real (`inset/md`, not
 `space/16`).
 
 The **color** semantic tier is where the Light/Dark switch lives:
-`color.bg.default` → `{gray/50}` in Light and `{gray/900}` in Dark. Primitives
+`bg/default` → `{gray/50}` in Light and `{gray/900}` in Dark. Primitives
 stay fixed; the semantic aliases differ per mode. This is exactly what lets the
 sync layer emit `:root`/`.dark` for web later.
 
