@@ -1,9 +1,11 @@
 ---
 name: token-builder
-description: Build a modern two-tier (primitive + semantic) design token system as Figma variables — color ramps, spacing, type scale, radius, shadows — with light/dark or brand modes, where semantic tokens alias onto primitives so changing a primitive cascades everywhere. Use this when the user wants to create design tokens, design variables, a color system, a type scale, a spacing system, or "build my tokens" in Figma. Also trigger when the user mentions primitives and semantic tokens, variable collections, design system foundations, or modes/themes in Figma. Make sure to use this skill whenever someone is starting the foundation of a design system in Figma, even if they just say "let's build the foundation" — tokens are the base everything else (sheets, components, code sync) depends on.
+description: "Build a two-tier (primitive + semantic) design token system as Figma variables — color ramps, spacing, type scale, radius, shadows — with light/dark or brand modes. IMPORTANT: this uses ONE COLLECTION PER CATEGORY PER TIER, never one giant Primitives collection + one giant Semantic collection. Each category (color, spacing, type, radius, border) gets its own primitive collection and its own semantic collection so that mode axes (Light/Dark, Desktop/Mobile) belong only to the categories that need them. Use this when the user wants to create design tokens, design variables, a color system, a type scale, a spacing system, or 'build my tokens' in Figma. Also trigger when the user mentions primitives and semantic tokens, variable collections, design system foundations, or modes/themes in Figma."
 ---
 
 # Token builder
+
+> **Critical collection rule:** this system uses **one collection per category per tier** — never one giant `Primitives` + one giant `Semantic`. Color, spacing, typography, radius, and border each get their own primitive collection and their own semantic collection. This is non-negotiable: modes (Light/Dark, Desktop/Mobile) belong to a collection, so mixing categories in one collection forces unrelated variables to share the same mode axis.
 
 > **Model tip (#3):** building a coherent token system (ramps, type scale, modes,
 > primitive→semantic aliasing) is reasoning-heavy. It runs on your session model —
