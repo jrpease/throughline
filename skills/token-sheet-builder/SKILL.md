@@ -38,9 +38,10 @@ lower-stakes, easily-regenerated artifact. Settle: which collections get their
 own section, how much per-token detail to show (just swatches, or swatches +
 names + values + descriptions), and any brand styling direction for the page
 itself (the page should feel like the brand it documents). Default to a clean,
-sectioned layout: Color (ramps as rows of swatches), Typography (the type scale
-rendered in the actual text styles), Spacing (visual bars), Radius (sample
-shapes), Elevation (sample cards with the effect styles).
+sectioned layout, one section per collection/style group: Color (ramps as rows
+of swatches), Typography (the type scale rendered in the actual text styles),
+Spacing (visual bars), Radius (sample shapes), Border width (sample rules at
+each width), Elevation (sample cards with the effect styles).
 
 ## Step 2 — Build the Foundations page
 
