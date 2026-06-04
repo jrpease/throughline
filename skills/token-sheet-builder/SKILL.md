@@ -13,8 +13,8 @@ utilitarian dump of swatches.
 ## Live vs regenerated — set expectations clearly
 
 Bind to variables wherever Figma allows so the sheet **live-updates** for those
-properties: a color swatch bound to `color.gray.50` re-colors automatically when
-that primitive changes; spacing/radius examples bound to the variables resize
+properties: a color swatch bound to `gray/50` (in `_Color/Primitive`) re-colors
+automatically when that primitive changes; spacing/radius examples bound to the variables resize
 automatically. But labels, hex/value text, token names, descriptions, and the
 set of tokens shown (adding/removing tokens) are **snapshots** — they don't
 auto-update. So tell the user plainly: "The swatches update live when you change
