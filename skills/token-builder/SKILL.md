@@ -121,25 +121,43 @@ usage rather than mirroring the primitive scale step-for-step.
 
 ## Step 2 — Build the PRIMITIVE tier, then PAUSE
 
-Create the primitive variable collection (e.g. named `Primitives`) and all
-primitive variables, using a scripted loop via the active write mechanism.
+Create the **per-category primitive collections** and their variables via a
+scripted loop on the active write mechanism. Default set:
 
-Mode handling: create the mode structure the user chose. For light/dark,
-primitives are usually mode-independent raw values (a gray ramp is the same in
-both modes) OR you define both — follow what the brainstorm settled. Keep the
-mode setup consistent with how the semantic tier will use it.
+- `_Color/Primitive` — color ramps (`gray/50…900`, `brand/50…900`,
+  `success`/`warning`/`danger`, `white`, `black`).
+- `Spacing/Primitive` — the spacing scale (`space/0,2,4,8,12,16,24,32,48,64`)
+  **plus** `size/icon/{sm,md,lg}`.
+- `_Typography/Primitive` — `family/*`, `size/*`, `weight/*`, `lineHeight/*`,
+  `letterSpacing/*`.
+- `_Radius/Primitive` — `radius/{none,sm,md,lg,xl,full}`.
+- `_Border/Primitive` — `width/{0,1,2,4}`. **Do not skip border width** — borders
+  need a width primitive, not only a color.
+
+**Privacy:** the leading-`_` prefix hides a collection from the published
+library. Keep color/type/radius/border primitives private (they're always
+consumed through semantics or styles). Make **`Spacing/Primitive` public** (no
+underscore) — spacing semantics are intentionally minimal, so designers will grab
+raw `space/*` for one-off gaps. Note the trade-off in your checkpoint summary: a
+value applied directly from `Spacing/Primitive` is *frozen across device modes*;
+only `Spacing/Semantic` carries future Desktop/Mobile responsiveness.
+
+**Modes at the primitive tier:** primitives are usually mode-free (a single
+*Value* mode). The exception is multi-brand: give `_Color/Primitive` a Brand mode
+axis (Brand A, Brand B) holding each brand's raw palette. All other primitive
+collections stay single-mode.
 
 Then **stop and checkpoint.** This is the critical seam: semantic tokens are
 about to alias onto these primitives, so the primitive names and values must be
-right *before* you build on them. Show the user the created primitive collection
-— summarize the ramps and scales, and if helpful, note that the
-token-sheet-builder skill can render them visually later. Ask for explicit
-confirmation: "Here are your primitives. Once you're happy, I'll build the
-semantic layer on top — and after that, renaming primitives gets disruptive, so
-this is the moment to adjust names or values."
+right *before* you build on them. Show the user the created collections —
+summarize the ramps and scales, note which are public vs private, and if helpful
+mention the token-sheet-builder skill can render them visually later. Ask for
+explicit confirmation: "Here are your primitives. Once you're happy, I'll build
+the semantic layer on top — and after that, renaming primitives gets disruptive,
+so this is the moment to adjust names or values."
 
-Update the manifest: `tokens.primitivesBuilt` = `true`, add the collection name
-to `tokens.collections`.
+Update the manifest: `tokens.primitivesBuilt` = `true`, add every created
+collection name to `tokens.collections`.
 
 Do not proceed to the semantic tier until the user confirms.
 
