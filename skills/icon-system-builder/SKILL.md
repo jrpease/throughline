@@ -24,9 +24,20 @@ well-named components**, in this preference order:
    from the library source, sometimes the latest release; can often import a
    subset). Use when no suitable community file fits, or when the user wants the
    latest/source-of-truth set.
-3. **Generate from source SVGs (last resort)** — only for custom icons the user
-   brings, or when neither above works. Even then, batch the import; never
-   hand-draw.
+3. **Generate from source SVGs (last resort)** — only for genuinely **custom**
+   icons the user brings, or when neither above works. Even then, batch the
+   import; never hand-draw.
+
+**This order is a hard gate, not a vibe — the library determines the path.** For
+a known library (Lucide, Material), the answer is **#1**, falling back to **#2**
+only if no community file fits. **Never #3 for a known library.** In particular:
+**fetching a library's SVGs from its website (e.g. lucide.dev) and hand-prepping
+them into components IS mechanism #3 wearing a disguise** — it is the slow,
+last-resort path, not a reasonable default. Do not take it for Lucide or Material;
+they always have a community file (#1) or importer plugin (#2). Reserve SVG import
+for custom icon sets only. Choosing a *different* mechanism on different runs for
+the *same* library is a bug: the library fixes the choice, so it must be
+deterministic.
 
 ## Default to a CURATED SUBSET, not the whole library
 
@@ -43,10 +54,27 @@ grow later by re-running.
 
 Community files and importer plugins are **unofficial and variable in quality**
 (some popular plugins are reported buggy/slow). So: name the *specific* vetted
-resource you intend to use ("I'll use [this Lucide community component file] / [this
-importer plugin]"), briefly say why, and let the user confirm or pick another
-before proceeding. Don't silently grab whatever's first. Prefer well-maintained,
-clearly-licensed resources; surface the license for commercial use.
+resource you intend to use, briefly say why, and let the user confirm or pick
+another before proceeding. Don't silently grab whatever's first. Prefer
+well-maintained, clearly-licensed resources; surface the license for commercial
+use.
+
+**Start from these default candidates so the choice is consistent across runs**
+(verify the current link with the user — don't assume a stale URL/file key is
+still live; if the named resource has moved, search Figma Community for the
+official/most-installed equivalent and confirm before using):
+
+- **Lucide** → prefer Lucide's **official Figma resource** (the Lucide-team
+  community file, or the official "Lucide Icons" importer plugin for a subset/
+  latest set). MIT-licensed. This is mechanism #1/#2 — never fall back to
+  fetching SVGs off lucide.dev.
+- **Material** → prefer the **official Material Symbols** community file, or the
+  official Material icon importer plugin. Apache-2.0.
+- **Custom** → the user's own SVGs via batched import (mechanism #3).
+
+If you genuinely cannot confirm a community file or importer plugin for a known
+library, **say so and ask the user** which resource to use — do **not** silently
+drop to fetching website SVGs.
 
 ## Step 1 — Choose library + mechanism
 
