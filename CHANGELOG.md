@@ -6,6 +6,57 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-04
+
+### Added
+- **Import mode runs a completeness pass.** `token-builder` import no longer does
+  a 1:1 transcription of a partial source (e.g. a marketing site + brand guide).
+  After preserving and organizing the user's values, it diffs them against a
+  reference model of a full, flexible system and proactively proposes the missing
+  pieces — derived from their existing values — as a preserve-first, opt-in menu
+  (tonal ramps, neutral ramp, state colors, dark mode, elevation/radius scales,
+  semantic role layer). Adds an explicit full-system checklist.
+- **Post-build audit gate for all Figma-writing skills.** A single canonical
+  "Post-build audit (REQUIRED before handoff)" checklist in
+  `figma-component-standards.md` that reads back the actual node tree (container
+  type, auto layout, bound variables, deterministic names, scope/status, visual)
+  rather than trusting a screenshot. Wired into `component-builder`,
+  `icon-system-builder`, and `token-sheet-builder`.
+- **Scope-recognition handoff.** New `references/scaling-up-handoff.md`: when a
+  step outgrows a single skill (retrofits, migrations, multi-package refactors),
+  skills now surface risks and major parts, confirm scope, and brainstorm/plan
+  before building — handing off to Superpowers when available, else planning
+  natively. Never a hard dependency. Wired into `component-builder` (retrofit) and
+  `repository-builder` (existing app).
+
+### Fixed
+- **Setup routes before brainstorming.** `figma-environment-setup` is now labelled
+  a setup/process skill that runs before generic brainstorming, with explicit
+  trigger phrases, so prompts like "let's set up my design system" no longer get
+  hijacked by `superpowers:brainstorming`.
+- **Per-category collection segmentation enforced.** `token-builder` description
+  and body now lead with the one-collection-per-category-per-tier rule, so it
+  stops defaulting to a two-collection (Primitives + Semantic) approach.
+- **Deterministic icon acquisition.** `icon-system-builder` now treats the
+  cheapest-first mechanism order as a hard gate: a known library (Lucide, Material)
+  always uses a community file (#1) or importer plugin (#2), never website-SVG
+  fetching (#3, the last resort). Provides named default resources so the choice is
+  consistent across runs instead of improvised.
+- **Layout container must be an auto-layout Frame, never a Section.** Corrected the
+  self-contradictory "Section or Frame with auto layout" rule (Sections have no
+  `layoutMode`), across `figma-component-standards.md` and the three skills that
+  restate it. Adds a verify step.
+- **Doc-card token binding enforced.** The "dogfood the design system" rule now
+  includes the binding mechanics (fetch variable IDs, bind don't hardcode), a map
+  of card chrome → semantic tokens, and a required read-back gate — since a
+  hardcoded hex and a bound variable render identically in a screenshot.
+
+### Changed
+- **README** documents the Superpowers partner handoff for big, ambiguous work,
+  framed as graceful degradation (plans natively when Superpowers isn't installed).
+- **`plugin.json` version** corrected to track the release (was left at `0.3.0`
+  through the `0.4.0` tag).
+
 ## [0.4.0] - 2026-06-04
 
 ### Added
