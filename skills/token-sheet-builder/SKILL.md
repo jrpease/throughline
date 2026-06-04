@@ -84,7 +84,9 @@ grouping) so nothing overlaps — follow the
 "Documentation artboards & canvas layout" rules in
 `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md`, and run its
 visual-validation loop (screenshot → fix any overlapping text or colliding
-sections → re-screenshot) before the checkpoint. A showcase with overlaps isn't
+sections → re-screenshot) **and its "Post-build audit (REQUIRED before handoff)"
+read-back checklist** (Frame-not-Section containers, auto layout, bound variables,
+deterministic names) before the checkpoint. A showcase with overlaps isn't
 a showcase.
 
 **Validate both modes.** If the file has more than one mode (e.g. Dark/Light),
