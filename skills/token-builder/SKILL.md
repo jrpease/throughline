@@ -102,22 +102,22 @@ user, in readable chunks:
 Show the proposed full structure back to the user and get sign-off before
 creating anything.
 
-### The anti-redundancy rule (prevents the "different every time" problem)
+### The structural-consistency rule (prevents the "different every time" problem)
 
-A semantic token earns its existence **only when it represents a genuine mapping
-decision** — a role that could plausibly point at a different primitive, or that
-changes across modes. Do **not** manufacture a semantic token that is a 1:1
-passthrough to the only primitive that could fill it, and do **not** create a
-parallel semantic collection for a category that has no real mapping choices
-(this is the redundant-borders trap: a "semantic" border layer that just mirrors
-the one primitive border value adds pure overhead).
+Every token concern gets **both** a primitive and a semantic collection, even
+when the semantic tier is a 1:1 passthrough today. A dimensional semantic tier
+(`Spacing/Semantic`, `Radius/Semantic`, `Border/Semantic`) is justified by a
+**plausible future mode axis** — e.g. adding Desktop/Mobile to spacing later —
+which only works if the semantic collection already exists to carry that axis.
+Building every concern the same way is also what makes the output consistent
+run-to-run instead of an arbitrary guess about which categories to duplicate.
 
-Apply this test per category: *"Could this semantic role sensibly point at a
-different primitive, now or in another mode?"* If yes, it's a real semantic
-token. If no, keep that category single-tier — consumers reference the primitive
-directly, and you don't build a mirror collection. This is what makes the output
-consistent run-to-run instead of an arbitrary guess about which categories to
-duplicate.
+The one guardrail: **consistency does not license invented roles.** Semantic
+names must be real usage roles (`inset/md`, `width/focus`, `text/primary`),
+never just renamed primitive steps (`space/12`, `width/1`). A passthrough role
+with a meaningful name is fine; a fake role nobody applies is not. If you can't
+name a genuine role for a category, give it semantic roles that map to actual
+usage rather than mirroring the primitive scale step-for-step.
 
 ## Step 2 — Build the PRIMITIVE tier, then PAUSE
 
