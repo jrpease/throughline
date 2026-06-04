@@ -11,11 +11,11 @@ what changed. Gating decisions are made by reading this file: if a prerequisite
 field is unset, the skill **offers** to run the prerequisite skill rather than
 bailing or running silently.
 
-## Schema (schemaVersion 2)
+## Schema (schemaVersion 3)
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "user": {
     "codingLevel": "new"
   },
@@ -127,7 +127,7 @@ bailing or running silently.
   - `"greenfield"` — empty or newly created folder; no repo or tooling detected
   - `"existing-repo"` — `package.json` present but no monorepo config; user will need
     to convert to monorepo before the code phase
-  - `"existing-monorepo"` — both `turbo.json` and `pnpm-workspace.yaml` present; code
+  - `"existing-monorepo"` — `detectedLayers.monorepo` is `true` (see detection criteria there); code
     phase skills should adapt rather than scaffold from scratch
   - `"unknown"` — scan was inconclusive; treat conservatively (prompt the user)
   - `null` — intake has not yet run (default)
@@ -135,10 +135,11 @@ bailing or running silently.
 - `detectedLayers` — snapshot of tooling found in the working directory at intake time.
   Written by `figma-environment-setup` Step 0, read by downstream skills to adapt
   behavior. `null` = not yet scanned. `false` = scanned, not found. `true` = found.
+  `detectedLayers` records pre-existing tooling found before any skill ran; it does not replace the canonical per-skill flags (`storybook.initialized`, `repo.monorepo`, etc.) which track whether this project's skills have set those layers up.
   - `monorepo` — both `turbo.json` and `pnpm-workspace.yaml` are present
   - `storybook` — `.storybook/` directory is present
   - `tokens` — `tokens.json` or a `tokens/` directory is present
-  - `syncLayer` — `style-dictionary.config.js` or `*.style-dictionary.js` files present
+  - `syncLayer` — `style-dictionary.config.js` or `*.style-dictionary.js` files present at the project root or within immediate subdirectories
 
 ### `figma`
 - `mechanism` — which write mechanism is active. One of `"console-mcp"`
