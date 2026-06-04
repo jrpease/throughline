@@ -156,8 +156,10 @@ Built your own system with Throughline? Add the badge so others can find it:
   open-ended engineering work — and the two hand off cleanly. Two places it
   shines:
   - **Big, ambiguous changes mid-build.** When a step turns into a real project,
-    Throughline lays out the risks and the major pieces, then hands off to
-    Superpowers' brainstorming and planning to structure the work. Real example:
+    Throughline lays out the risks and the major pieces and switches into
+    brainstorm-and-plan mode before building — handing off to Superpowers when
+    it's installed, or planning natively when it isn't (the recognition is
+    Throughline's; Superpowers is an upgrade, not a requirement). Real example:
     on [radicool.studio](https://radicool.studio), an existing vanilla-React app
     with a full custom motion layer — custom cursors, magnetic buttons — was
     retrofitted onto shadcn to make it formal and ready to scale. Throughline
