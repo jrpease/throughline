@@ -163,29 +163,42 @@ Do not proceed to the semantic tier until the user confirms.
 
 ## Step 3 — Build the SEMANTIC tier as aliases
 
-Create the semantic variable collection (e.g. `Semantic`) where every variable
-**references a primitive**, not a literal value. In Figma variable terms, bind
-each semantic variable to its primitive variable so the alias is live.
+Create the **per-category semantic collections**, where every variable
+**references a primitive**, not a literal value. Bind each semantic variable to
+its primitive so the alias is live. Default set and modes:
 
-Organize semantics by role, e.g.:
-- `color.bg.default`, `color.bg.subtle`, `color.bg.emphasis`
-- `color.text.primary`, `color.text.secondary`, `color.text.disabled`
-- `color.border.default`, `color.border.focus`
-- `space.inset.sm/md/lg`, `space.stack.*`
-- `radius.sm/md/lg`, etc.
+- `Color/Semantic` — modes **Light, Dark** (+ a Brand mode only if a brand needs
+  a different *mapping*, not just a different palette). Roles: `bg/{default,
+  subtle,muted,emphasis,inverse}`, `text/{primary,secondary,disabled,inverse,
+  link}`, `border/{default,subtle,focus,emphasis}`, `status/{success,warning,
+  danger}/{bg,text,border}`.
+- `Spacing/Semantic` — single *Default* mode now, structured so Desktop/Mobile
+  can be added later. Roles: `inset/{xs,sm,md,lg,xl}`, `stack/*`, `inline/*`.
+- `Typography/Semantic` — single *Default* mode (room for Desktop/Mobile). Roles:
+  `size/{body,bodyLg,heading/sm…xl,caption}` and role line-heights; these feed
+  the text styles built in Step 4.
+- `Radius/Semantic` — single mode. Roles: `control`, `card`, `pill`, `field`.
+- `Border/Semantic` — single mode. Roles: `width/{default,focus,emphasis}`
+  aliasing `_Border/Primitive` widths.
 
-If the system has light/dark modes, the **semantic** tier is typically where the
-mode switch lives: `color.bg.default` points at `{color.gray.50}` in light mode
-and `{color.gray.900}` in dark mode. The primitives stay fixed; the semantic
-aliases differ per mode. This keeps theming clean and is exactly what lets the
-sync layer emit `:root` / `.dark` (or equivalent) for web adapters later.
+These dimensional semantic tiers are often passthroughs today — that's expected
+under the structural-consistency rule; keep the role names real (`inset/md`, not
+`space/16`).
+
+The **color** semantic tier is where the Light/Dark switch lives:
+`color.bg.default` → `{gray/50}` in Light and `{gray/900}` in Dark. Primitives
+stay fixed; the semantic aliases differ per mode. This is exactly what lets the
+sync layer emit `:root`/`.dark` for web later.
+
+**Mode-application reality (state this to the user):** a frame can now carry up
+to three independent modes — Brand (`_Color/Primitive`), Theme (`Color/Semantic`),
+and later Device (`Spacing`/`Typography`). That's the cost of independent axes.
 
 Verify the aliases resolve (a quick read showing semantic tokens point at
-primitives, not literals). Then checkpoint with the user: show the semantic
-layer and demonstrate the cascade if useful ("if you change `color.gray.50`,
-`color.bg.default` follows automatically").
+primitives, not literals). Then checkpoint: show the semantic layer and
+demonstrate the cascade if useful ("change `gray/50` and `bg/default` follows").
 
-Update the manifest: `tokens.semanticBuilt` = `true`, add the semantic
+Update the manifest: `tokens.semanticBuilt` = `true`, add every semantic
 collection to `tokens.collections`.
 
 ## Step 4 — Build Figma STYLES (the third phase)
