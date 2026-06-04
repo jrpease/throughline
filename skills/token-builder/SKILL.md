@@ -239,6 +239,13 @@ comes later.
 ## Notes that matter
 
 - **Never flatten semantic into literals.** Aliases are the whole point.
+- **One collection per category per tier.** Modes belong to the collection, so
+  splitting by category is what keeps color's Light/Dark from infecting spacing.
+- **Privacy is the `_` prefix.** Only `Spacing/Primitive` is public by default;
+  all other primitives are private.
+- **Primitives can be multi-mode.** Brand lives on `_Color/Primitive`; the sync
+  layer must emit brand themes from the primitive tier, not just light/dark from
+  semantics.
 - **Lock primitive names before building semantics.** The checkpoint between
   tiers exists precisely to prevent rename cascades.
 - **Think in DTCG terms even though you're writing Figma variables.** Each token
