@@ -87,8 +87,11 @@ emit as references to primitive vars rather than flattened literals.
 
 - **Web adapters** (`shadcn`, `tailwind`, `mui`, `vanilla-css`): set
   `outputReferences: true` so `--color-bg-default: var(--color-gray-50)` is
-  emitted, preserving the cascade. Modes map to selectors: primitives in
-  `:root`, semantic mode overrides under `.dark` / `[data-theme="..."]`. The
+  emitted, preserving the cascade. Modes map to selectors per axis: theme
+  overrides (from `Color/Semantic`) under `.dark` / `[data-theme="..."]`, and
+  **brand overrides (from the multi-mode `_Color/Primitive`)** under a
+  `[data-brand="..."]` selector. Single-mode collections emit flat values in
+  `:root` with no theme selector. The
   `shadcn` adapter additionally emits a Tailwind preset mapping the CSS vars to
   Tailwind tokens; the standalone `tailwind` adapter maps tokens into the
   Tailwind theme config directly; `mui` emits a JS theme object whose palette
