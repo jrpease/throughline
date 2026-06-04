@@ -6,6 +6,28 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-04
+
+### Added
+- **Skill 0 intake step (Locate → Scan → Brief).** `figma-environment-setup` now
+  opens by asking where to work — use the current directory, point to an existing
+  project, or create a new folder — then scans for existing tooling (monorepo,
+  Storybook, token pipeline, sync layer) and gives a plain-language situational
+  briefing before taking any action. This replaces the old assumption that the user
+  is always starting from scratch in the current directory.
+- **`workspace.origin` manifest field.** Records how the user's project was
+  configured at intake: `"greenfield"`, `"existing-repo"`,
+  `"existing-monorepo"`, or `"unknown"`. Set once, immutable after intake.
+  Downstream skills will read this to adapt behavior in future brownfield modes.
+- **`workspace.detectedLayers` manifest field.** Snapshot of tooling found at
+  intake time (`monorepo`, `storybook`, `tokens`, `syncLayer`) with three-state
+  semantics (`null` = not yet scanned, `false` = scanned/not found, `true` =
+  found). Distinct from the canonical per-skill flags — records what existed
+  *before* any skill ran.
+- **Manifest schemaVersion 3** — adds the two new workspace fields above and a
+  new immutability rule (rule 6: `workspace.origin` must not be overwritten after
+  intake).
+
 ### Fixed
 - **`token-builder` read-backs now use the dynamic-page-safe APIs.** The Console
   MCP bridge runs in Figma's `dynamic-page` document mode, where the synchronous
@@ -161,6 +183,10 @@ to [Semantic Versioning](https://semver.org).
 - Reference docs for coding level, manifest schema, sync adapters, Figma
   component standards, and brainstorm-before-build.
 
-[Unreleased]: https://github.com/jrpease/throughline/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/jrpease/throughline/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/jrpease/throughline/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/jrpease/throughline/compare/v0.2.3...v0.3.0
+[0.2.3]: https://github.com/jrpease/throughline/compare/v0.2.1...v0.2.3
+[0.2.1]: https://github.com/jrpease/throughline/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/jrpease/throughline/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jrpease/throughline/releases/tag/v0.1.0

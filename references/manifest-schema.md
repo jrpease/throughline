@@ -11,11 +11,11 @@ what changed. Gating decisions are made by reading this file: if a prerequisite
 field is unset, the skill **offers** to run the prerequisite skill rather than
 bailing or running silently.
 
-## Schema (schemaVersion 2)
+## Schema (schemaVersion 3)
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "user": {
     "codingLevel": "new"
   },
@@ -25,7 +25,14 @@ bailing or running silently.
   "workspace": {
     "name": "my-design-system",
     "localPath": ".",
-    "stage": "folder"
+    "stage": "folder",
+    "origin": null,
+    "detectedLayers": {
+      "monorepo": null,
+      "storybook": null,
+      "tokens": null,
+      "syncLayer": null
+    }
   },
   "figma": {
     "mechanism": null,
@@ -113,6 +120,26 @@ bailing or running silently.
   Advancing stages is the job of the repository-builder skill (5). Downstream
   skills that need a later stage (e.g. token-sync wants at least `local-git`)
   read this field and offer to advance it.
+
+- `origin` — how the user's project was configured at intake time. Set **once** by
+  `figma-environment-setup` Step 0 and never overwritten by any downstream skill.
+  Values:
+  - `"greenfield"` — empty or newly created folder; no repo or tooling detected
+  - `"existing-repo"` — `package.json` present but no monorepo config; user will need
+    to convert to monorepo before the code phase
+  - `"existing-monorepo"` — `detectedLayers.monorepo` is `true` (see detection criteria there); code
+    phase skills should adapt rather than scaffold from scratch
+  - `"unknown"` — scan was inconclusive; treat conservatively (prompt the user)
+  - `null` — intake has not yet run (default)
+
+- `detectedLayers` — snapshot of tooling found in the working directory at intake time.
+  Written by `figma-environment-setup` Step 0, read by downstream skills to adapt
+  behavior. `null` = not yet scanned. `false` = scanned, not found. `true` = found.
+  `detectedLayers` records pre-existing tooling found before any skill ran; it does not replace the canonical per-skill flags (`storybook.initialized`, `repo.monorepo`, etc.) which track whether this project's skills have set those layers up.
+  - `monorepo` — both `turbo.json` and `pnpm-workspace.yaml` are present
+  - `storybook` — `.storybook/` directory is present
+  - `tokens` — `tokens.json` or a `tokens/` directory is present
+  - `syncLayer` — `style-dictionary.config.js` or `*.style-dictionary.js` files present at the project root or within immediate subdirectories
 
 ### `figma`
 - `mechanism` — which write mechanism is active. One of `"console-mcp"`
@@ -242,3 +269,6 @@ bailing or running silently.
 5. **Never store secrets.** No Figma tokens, no Chromatic tokens, no
    credentials of any kind. The manifest is committed to the repo once
    `workspace.stage` advances — treat it as public.
+6. **`workspace.origin` is immutable after intake.** Written once by
+   `figma-environment-setup` Step 0 and must not be overwritten by any downstream
+   skill. Skills read it to adapt behavior — they do not modify it.
