@@ -29,6 +29,15 @@ if they want (some intentionally do). This is a recommendation, not a hard block
 
 ## Step 1 — Capture framework + brainstorm the set and variant matrices
 
+**First, check the scope.** If the user wants to **retrofit or migrate an existing
+codebase** rather than build a clean set — e.g. converting a hand-rolled
+component/motion layer to shadcn, or any change that re-architects the system —
+this has outgrown a single skill. Follow
+`${CLAUDE_PLUGIN_ROOT}/references/scaling-up-handoff.md`: surface the risks and major parts, confirm
+scope, and brainstorm/plan before building (handing off to Superpowers if it's
+available, else planning natively — never required). For a normal from-the-system
+build, continue here.
+
 **Framework (capture lazily, here if not already set).** Read
 `project.uiFramework` from the manifest. If it's null, this is the first
 relevant moment — ask which UI framework the components target (shadcn, MUI,

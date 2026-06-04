@@ -33,6 +33,13 @@ action statements. The hard secret-safety rules never scale.
 
 ## The folder → local-git → github progression
 
+**Scope check first.** If the user is bringing an **existing app** to retrofit or
+migrate (not scaffolding a clean monorepo) — or the repo work is entangled with a
+larger re-architecture — that has outgrown this skill. Follow
+`${CLAUDE_PLUGIN_ROOT}/references/scaling-up-handoff.md`: surface risks and major parts, confirm scope,
+and brainstorm/plan first (handing off to Superpowers if available, else planning
+natively — never required). For a normal scaffold-from-scratch, continue here.
+
 The user is at one of three `workspace.stage` values. This skill advances them
 one step at a time, introducing each concept only when its payoff is concrete.
 Read the current stage from the manifest and pick up where they are.
