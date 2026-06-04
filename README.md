@@ -150,11 +150,25 @@ Built your own system with Throughline? Add the badge so others can find it:
 
 ## Works well with
 
-- **[Superpowers](https://github.com/obra/superpowers)** — when you've got your
-  design system synced to code and you're ready to build the actual app in the
-  `apps/` folder, Superpowers' subagent-driven development methodology is a great
-  next step. It's a heavier, engineering-focused toolkit, so it shines once
-  you're getting comfortable with code — not required to use this plugin.
+- **[Superpowers](https://github.com/obra/superpowers)** — a great planning and
+  engineering partner for the moments that grow bigger than a single skill.
+  Throughline owns the design-system line; Superpowers owns the heavier,
+  open-ended engineering work — and the two hand off cleanly. Two places it
+  shines:
+  - **Big, ambiguous changes mid-build.** When a step turns into a real project,
+    Throughline lays out the risks and the major pieces, then hands off to
+    Superpowers' brainstorming and planning to structure the work. Real example:
+    on [radicool.studio](https://radicool.studio), an existing vanilla-React app
+    with a full custom motion layer — custom cursors, magnetic buttons — was
+    retrofitted onto shadcn to make it formal and ready to scale. Throughline
+    surfaced the risks and the major parts; the moment the answer was "let's do
+    all of it," it handed off to Superpowers to brainstorm and plan the retrofit.
+  - **Building the app itself.** Once your system is synced to code and you're
+    building in the `apps/` folder, Superpowers' subagent-driven development
+    methodology is a natural next step.
+
+  It's a heavier, engineering-focused toolkit, so it shines once you're getting
+  comfortable with code — and it's never required to use Throughline.
 
 ## Notes
 
