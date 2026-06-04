@@ -99,8 +99,9 @@ deterministic naming):
 - **Wrap each component in its own documentation card** — a token-styled frame
   with the component name, a short description, a status chip
   (`draft`/`beta`/`stable`/`deprecated`), and a last-updated date — and arrange
-  the cards in an orderly grid inside a parent Section, never floating on bare
-  canvas. A newly built component starts at status **`draft`** (it exists in
+  the cards in an orderly grid inside a parent **auto-layout Frame** (never a
+  Section — Sections have no auto layout; a Section may only *wrap* the Frame for
+  grouping), never floating on bare canvas. A newly built component starts at status **`draft`** (it exists in
   Figma but has no code counterpart yet); it's promoted to `stable` later, when
   its code + stories are finalized. Name the chip and date nodes deterministically
   (`Status`, `Status Label`, `Last Updated`) so that finalize write-back can find
