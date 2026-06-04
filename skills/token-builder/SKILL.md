@@ -78,6 +78,26 @@ user, in readable chunks:
   project it adds complexity without payoff, so don't even surface it. If the
   user opts in, component tokens alias onto semantic tokens (e.g.
   `button.bg.primary` → `{color.bg.emphasis}`).
+- **Collection structure** — two *tiers*, but **one collection per category per
+  tier**, never one giant `Primitives` + one giant `Semantic`. In Figma a mode
+  axis (Light/Dark, Desktop/Mobile, Brand) belongs to the *collection*, so every
+  variable in a collection is forced to share its modes. Putting `space` in the
+  same collection as `color` drags spacing into Light/Dark, which is meaningless.
+  Default layout (single-brand): private primitive collections `_Color/Primitive`,
+  `_Typography/Primitive`, `_Radius/Primitive`, `_Border/Primitive`, and a
+  **public** `Spacing/Primitive`; published semantic collections `Color/Semantic`
+  (Light/Dark), `Spacing/Semantic`, `Typography/Semantic`, `Radius/Semantic`,
+  `Border/Semantic`. Privacy is the leading-`_` prefix. `size/icon/*` lives in
+  `Spacing/Primitive`; don't create a `Sizing` collection unless control
+  heights/avatars become real tokens.
+- **Multi-brand** — keep two axes in two collections so they don't multiply.
+  Brand lives on `_Color/Primitive` (modes = Brand A, Brand B = raw palettes);
+  Theme lives on `Color/Semantic` (modes = Light, Dark). A frame sets both
+  independently and Figma resolves `bg/default`(Light) → `{gray/50}` → Brand A's
+  gray. This keeps each collection ≤2 modes — under the Figma **Professional cap
+  of 4 modes/collection**. (Brand-on-primitive assumes brands differ in raw
+  palette, same role mapping; if a brand needs a *different* mapping, it also
+  becomes a mode on `Color/Semantic`.)
 
 Show the proposed full structure back to the user and get sign-off before
 creating anything.
