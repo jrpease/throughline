@@ -52,10 +52,10 @@ they have started anything already:
 
 **"Here":** Proceed to the existing manifest check below.
 
-**"Somewhere else":** Ask for the path. Verify it exists on disk (`ls` or
-equivalent — just check the directory is real). If it doesn't exist, ask them
-to double-check the spelling. Once confirmed, proceed to the existing manifest
-check.
+**"Somewhere else":** Ask for the path. Expand it to an absolute path (resolve
+`~`, relative segments like `../`, etc.) and verify it exists on disk as a
+directory. If it doesn't exist, ask them to double-check the spelling. Once
+confirmed, proceed to the existing manifest check.
 
 **"A new folder":** Ask what they'd like to name it and where it should live
 (suggest the current directory as the default). Create it. Confirm where it was
@@ -86,8 +86,9 @@ Scan the confirmed directory for the following signals. Check in priority order
 | `tokens.json` or `tokens/` directory present | Existing token pipeline |
 | `style-dictionary.config.js` or `*.style-dictionary.js` files present | Existing sync layer |
 
-After scanning, write the findings to `design-system.json` (creating it if it
-does not exist, using schema defaults for all other fields):
+After scanning, write a full `design-system.json` using all schema defaults
+from `${CLAUDE_PLUGIN_ROOT}/references/manifest-schema.md`, then populate the
+`workspace.origin` and `workspace.detectedLayers` fields with the scan results:
 
 ```json
 "workspace": {
@@ -134,7 +135,7 @@ heads-up, not a warning.
 
 **By scenario:**
 
-*Greenfield (no signals detected):*
+*Greenfield (no signals detected) — condensed, no need for the full format:*
 > "Clean slate — we're building everything fresh. Ready to continue?"
 
 *Existing single repo (`origin: "existing-repo"`):*
@@ -177,13 +178,15 @@ Once the user confirms they're ready, proceed to Step 2.
 
 ## Step 2 — Create the working folder and manifest
 
-**When Step 0 already handled this:** if the user chose "Here" or "Somewhere
-else" in Step 0 Phase 1, the directory already exists and `design-system.json`
-has already been created or loaded. In that case, skip folder creation and
-manifest initialization — the only thing to confirm here is that
-`workspace.name` is set. If it is `null` or `"my-design-system"` (the
+**When Step 0 already set the directory:** if the user chose "Here" or
+"Somewhere else" in Step 0, or an existing `design-system.json` was loaded,
+the directory already exists and the manifest has been created or loaded. In
+that case, skip folder creation below. The only thing to confirm is that
+`workspace.name` is set — if it is `null` or `"my-design-system"` (the
 placeholder default), ask the user what they'd like to name their design system
-and update the field. Otherwise proceed to Step 2.5.
+and update the field. Then proceed directly to Step 2.5.
+
+---
 
 Ask the user what they'd like to name their design system (suggest something
 like `my-design-system` if they're unsure). Then:
