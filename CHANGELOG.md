@@ -6,6 +6,51 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-04
+
+### Changed
+- **Token systems now use per-category variable collections instead of one
+  `Primitives` + one `Semantic` collection.** In Figma a mode axis (Light/Dark,
+  Desktop/Mobile, Brand) belongs to the *collection*, so the old two-collection
+  layout forced every category to share one mode set — dragging spacing, radius,
+  and type into color's Light/Dark, where modes are meaningless. `token-builder`
+  now creates one collection per category per tier (`_Color/Primitive`,
+  `Color/Semantic`, `Spacing/Primitive`, `Spacing/Semantic`, `_Radius/Primitive`,
+  `Radius/Semantic`, `_Typography/Primitive`, `Typography/Semantic`,
+  `_Border/Primitive`, `Border/Semantic`), so each category owns its own mode
+  axis and spacing can take Desktop/Mobile later without disturbing color.
+- **Anti-redundancy rule replaced with a structural-consistency doctrine.** Every
+  concern now gets both a primitive and a semantic collection; passthrough
+  dimensional semantics are kept (they exist to carry a future mode axis) rather
+  than collapsed. The one guardrail: semantic names must be real usage roles
+  (`inset/md`, `width/focus`), never renamed primitive steps (`space/12`). Applied
+  in both `token-builder` and the `brainstorm-before-build` import-mode guidance.
+- **Naming model clarified.** In Figma, variables are `/`-grouped and omit the
+  category prefix (`gray/50`, `text/primary`); the dotted form (`color.gray.50`)
+  is the logical/code identity the sync layer derives by prefixing the
+  collection's category.
+- **`token-sync-layer` now handles the multi-collection structure** — it iterates
+  N collections, treats single-mode collections as non-themed (no phantom
+  `default` theme), emits brand themes from multi-mode primitive collections, and
+  applies a collection→token-name mapping rule. Adapters gain a `[data-brand]`
+  selector for the brand axis.
+
+### Added
+- **Border-width tokens.** Primitive `width/{0,1,2,4}` (`_Border/Primitive`) and
+  semantic `width/{default,focus,emphasis}` (`Border/Semantic`). `component-builder`
+  now binds component borders to them, and `token-sheet-builder` renders a
+  border-width section on the Foundations page. Previously borders only had color.
+- **Multi-brand model.** Brand lives as a mode axis on `_Color/Primitive` (raw
+  palettes) and Theme on `Color/Semantic` (Light/Dark) — two independent axes in
+  two collections, keeping each under the Figma Professional 4-modes-per-collection
+  cap instead of multiplying brand × theme into one collection.
+
+### Fixed
+- **Non-color categories no longer inherit color's Light/Dark modes.** Grouping
+  `space` in the same collection as `color` forced spacing to carry Light/Dark,
+  which made no sense and left no room for spacing's own Desktop/Mobile axis. The
+  per-category split resolves this. Verified end to end against a live Figma file.
+
 ## [0.2.3] - 2026-06-03
 
 ### Fixed
