@@ -59,8 +59,14 @@ over a hand-written script.
 
 Run the protocol in `${CLAUDE_PLUGIN_ROOT}/references/brainstorm-before-build.md`. **First establish
 the intake mode** (generative / descriptive / import) per that reference — it
-changes how much you generate versus preserve. Then lock the structure with the
-user, in readable chunks:
+changes how much you generate versus preserve. **In import mode, do not stop at a
+1:1 transcription of what the user fed you** (a brand guide or marketing site is
+almost always a partial system): after preserving and organizing their values,
+run the **completeness pass** from that reference — diff against the full-system
+model and proactively propose the missing pieces (tonal ramps, neutral ramp,
+state colors, dark mode, semantic roles, elevation/radius scales) as a
+preserve-first, opt-in menu derived from their existing values. Then lock the
+structure with the user, in readable chunks:
 
 - **Seeds and direction** — capture what the user actually has: brand color(s),
   font(s), aesthetic words (modern, rounded, dense, comfortable), reference
