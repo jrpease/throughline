@@ -110,8 +110,10 @@ Whatever mechanism brought them in, ensure the end state is consistent:
   size variants the system wants; stroke consistent with the library.
 - Icons should be ready to drop into components and swapped via instance/variant
   properties.
-- **Lay the page out cleanly.** Arrange the icons in an orderly grid inside a
-  Section/Frame (never floating on bare canvas), and present the whole set on a
+- **Lay the page out cleanly.** Arrange the icons in an orderly grid inside an
+  **auto-layout Frame** (never a Section — Sections have no auto layout; a Section
+  may only *wrap* the Frame for grouping), never floating on bare canvas, and
+  present the whole set on a
   **single documentation card** with a header — name, short description, status,
   last updated — *one card for all icons*, not one per icon. Follow
   `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md` (auto layout,

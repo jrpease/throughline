@@ -181,11 +181,24 @@ proper auto layout eliminates it.
 ### Arrange cards in a parent container (fixes overlapping artboards)
 
 Never drop cards onto blank canvas at coordinates that can collide. Place all doc
-cards inside a parent **Section or Frame with auto layout** — a wrapped
-horizontal auto layout yields a tidy responsive grid — with consistent
-`itemSpacing` and padding. (Equivalently, deterministic grid coordinates with
-explicit gaps.) This matches the Figma Console MCP guidance: always place
-components within a Section/Frame, never floating.
+cards inside a parent **auto-layout Frame** (`layoutMode = "HORIZONTAL"` with
+`layoutWrap = "WRAP"`) — a wrapped horizontal auto layout yields a tidy responsive
+grid — with consistent `itemSpacing` and padding from spacing tokens.
+
+**The layout container MUST be a Frame, never a Section — this is a hard Figma
+constraint, not a preference.** A `SectionNode` has **no `layoutMode`**: Sections
+do not support auto layout at all, so anything inside one is absolutely positioned
+and will drift and overlap — which is the exact bug this rule exists to prevent.
+The Figma Console MCP guidance ("create a Section first" / "place components within
+a Section/Frame") is about **organization, not layout** — do **not** read it as
+permission to use a Section *as* the layout container. A Section is fine **only as
+an optional outer wrapper** for top-level grouping/labelling (e.g. an "Icons" or
+"Components" area); when you use one, the auto-layout **Frame** must sit *inside*
+it and hold the actual grid. In short: **Section = optional label around the work;
+Frame = the thing that has auto layout.** Verify after creating: if the grid
+container's type is `SECTION`, that's the bug — replace it with a `FRAME` that has
+`layoutMode` set. (Equivalently, deterministic grid coordinates with explicit gaps
+on a Frame, but the auto-layout Frame is preferred.)
 
 ### Required visual-validation loop
 
