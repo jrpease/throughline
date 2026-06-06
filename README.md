@@ -2,9 +2,9 @@
 
 # Throughline
 
-### The end-to-end design system plugin for Claude Code
+### One unbroken line from design to production.
 
-**Build a modern, performant, production-grade design system — tokens, icons, components, a synced code monorepo, and CI — starting from a blank Figma file. No code experience required.**
+**Build a real design system from Figma, generate a production-ready codebase, and keep design and code in sync over time.**
 
 [![Version](https://img.shields.io/badge/version-0.5.0-6366f1)](.claude-plugin/plugin.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -12,35 +12,55 @@
 [![See it live — Storybook](https://img.shields.io/badge/See%20it%20live-Storybook-FF4785?logo=storybook&logoColor=white)](https://main--6a1ee089ae3a37b70a6e4559.chromatic.com)
 [![Public Figma file](https://img.shields.io/badge/Public-Figma%20file-F24E1E?logo=figma&logoColor=white)](https://www.figma.com/design/OCiZiGpsJ4ncPD8r205BjC/Throughline-Plugin-Test?node-id=0-1&t=5ERihD6fMqMuTEXD-1)
 
+</div>
+
+Throughline helps designers create:
+
+- **Design tokens**
+- **Foundations**
+- **Icons**
+- **Components**
+- **A synced codebase**
+- **Storybook documentation**
+- **Visual testing and CI**
+
+All from the same source of truth. **No code experience required.**
+
 <!-- TODO: hero demo GIF — a 10–20s capture of "let's set up my design system" → tokens/components appearing in Figma → synced code PR. Drop it here. -->
 <!-- <img src="docs/assets/demo.gif" alt="Throughline in action" width="100%" /> -->
 
-</div>
-
 ---
 
-Throughline draws **one unbroken line from design to code**. You author tokens, icons, and components in **Figma** — the source of truth — and Throughline generates a framework-specific codebase, a Storybook, and CI, then keeps them in sync. It guides you one step at a time from your CLI, explaining every concept the first time it appears and scaling the detail to your comfort level.
+## Why Throughline?
 
-> **Who it's for:** designers becoming developers. You bring the design judgment; Throughline handles the monorepo, the build pipeline, the Style Dictionary config, and the Git. From *"I've never made a GitHub repo"* to *"just scaffold it."*
+Most design systems eventually break down for the same reason.
 
-## Why Throughline
+Design lives in Figma.
 
-- 🎚️ **Built for any skill level** — no code experience needed; it teaches as it builds.
-- 🌱 **Start from anywhere** — a single hex value, a reference website, a brand guide, or a full existing token library.
-- 🧩 **Works with any UI framework** — shadcn, MUI, vanilla, or your own.
-- 🔄 **Syncs to any code target** — React, Tailwind, Angular, Swift, Kotlin, plain CSS, and more, via Style Dictionary.
-- 🏢 **Enterprise-ready** — built-in Figma Code Connect setup for plans that support it.
-- 🧠 **Designed to be thorough** — shared standards, a state-tracking manifest, and read-back audits keep every run consistent.
+Code lives somewhere else.
+
+Documentation lives somewhere else.
+
+Keeping them aligned becomes a full-time job.
+
+Throughline solves that problem by creating a single workflow from design to implementation.
+
+Create tokens in Figma.
+Generate code.
+Review changes.
+Stay in sync.
+
+Instead of rebuilding the same decisions in multiple places, the system flows from one source of truth.
 
 ## See it in action
-
-Everything below was authored in Figma using the plugin, then synced to code automatically — a complete, production-grade design system generated **in a single 2-hour session**.
 
 | | |
 |---|---|
 | 🧩 **[Sample repo](https://github.com/jrpease/throughline-sample)** | The full monorepo — tokens, 14 components, Storybook, CI |
 | 📚 **[Live Storybook](https://main--6a1ee089ae3a37b70a6e4559.chromatic.com)** | Every component, all props, auto-generated docs |
 | 🎨 **[Public Figma file](https://www.figma.com/design/OCiZiGpsJ4ncPD8r205BjC/Throughline-Plugin-Test?node-id=0-1&t=5ERihD6fMqMuTEXD-1)** | The design source of truth it was generated from |
+
+Everything shown below was created during a single working session and synced directly from Figma to a production-ready codebase.
 
 **A token system, visualized.** Every color, space, type, radius, and elevation value lives as a Figma variable. The Foundations page is generated directly from those variables — live-bound, so it always reflects the current state of the system.
 
@@ -54,7 +74,52 @@ Everything below was authored in Figma using the plugin, then synced to code aut
 
 <img src="https://raw.githubusercontent.com/jrpease/throughline-sample/main/.github/assets/storybook.png" alt="Storybook — Button component docs with props panel and live controls" width="100%" />
 
-## Requirements
+## What Throughline does
+
+### Design system foundations
+
+- Primitive and semantic token architecture
+- Multi-brand support
+- Light and dark themes
+- Typography
+- Elevation
+- Spacing
+- Radius
+- Effects
+
+### Component systems
+
+- Variant-based component architecture
+- Slot patterns
+- Accessibility checks
+- Auto-layout best practices
+- Deterministic naming conventions
+
+### Code generation
+
+- Framework-specific outputs
+- Style Dictionary integration
+- Storybook setup
+- Chromatic visual testing
+- CI configuration
+
+### Ongoing synchronization
+
+This is the part most tools never solve.
+
+Change a token in Figma.
+
+Run sync.
+
+Review the pull request.
+
+Merge.
+
+Design and code stay aligned.
+
+## Getting started
+
+### Requirements
 
 | | |
 |---|---|
@@ -63,7 +128,7 @@ Everything below was authored in Figma using the plugin, then synced to code aut
 | **Figma access token** | Required — read/write your file. The setup skill walks you through it; your token stays yours and is never shared in chat. |
 | **GitHub** (or similar) | Optional — only when you're ready to graduate to a real remote repo with PRs and CI. |
 
-## Get started
+### Install
 
 Install from this repo's plugin marketplace:
 
@@ -82,7 +147,55 @@ The setup skill takes it from there — connecting Figma and scanning your envir
 /plugin marketplace update throughline-marketplace
 ```
 
-## What's inside
+## The workflow
+
+1. **Connect Figma**
+2. **Create tokens**
+3. **Generate foundations**
+4. **Build components**
+5. **Create repository**
+6. **Sync to code**
+7. **Publish Storybook**
+8. **Ship**
+
+After that, you're operating in the daily workflow:
+
+**Figma → Sync → Review → Merge**
+
+Tweak a token in Figma → run `/sync-figma-tokens` → Throughline opens a PR with regenerated code and Chromatic visual diffs → review → merge. Add a component → `/new-component`.
+
+## Core concepts
+
+### Figma leads
+
+Design remains the source of truth.
+
+You change the design.
+
+Throughline updates the implementation.
+
+You never hand-edit generated code — change the design and re-sync.
+
+### Learn while building
+
+Every step teaches concepts as they appear.
+
+Beginners get explanations.
+
+Experienced builders get concise guidance.
+
+The safety rules never relax, regardless of which mode you're in.
+
+### Start anywhere
+
+A brand color.
+A mood board.
+An existing design system.
+A mature token library.
+
+Throughline adapts to what already exists — meeting you where you are and filling the gaps (proposing the missing ramps, modes, and roles rather than transcribing a thin system 1:1).
+
+## Architecture
 
 Throughline is more than a pile of skills — it's a small system designed to stay consistent across dozens of generation steps. Four layers work together:
 
@@ -108,46 +221,7 @@ Throughline is more than a pile of skills — it's a small system designed to st
 | **storybook-chromatic-builder** | Storybook, component stories, Chromatic visual testing, and Code Connect (where your Figma plan supports it). |
 | **component-pipeline** | Add one new component end to end: Figma → tokens → code + stories. Installs `/new-component`. |
 
-## How it works
-
-Throughline walks a blank Figma file all the way to a production system. A few principles shape the whole journey:
-
-- **You can start anywhere.** A single brand color, a reference site, or an existing token set — Throughline meets you where you are and fills the gaps (proposing the missing ramps, modes, and roles rather than transcribing a thin system 1:1).
-- **Every concept is explained once, at your level.** New to repos and env files? You get plain-language teaching. Comfortable? You get terse action statements. The safety rules never relax.
-- **Figma leads, code follows.** You never hand-edit generated code. Change the design; re-sync.
-
-The path:
-
-1. **Set up** — connect Figma, create the workspace, scan for anything that already exists.
-2. **Tokens** — build the primitive + semantic variable system, with modes (light/dark, brand) where you need them.
-3. **Foundations** — generate the visual stylesheet so the whole team can see the system.
-4. **Icons** — bring in a curated, on-brand icon set as components.
-5. **Components** — build the component library in Figma, fully variant-mapped and token-bound.
-6. **Repository** — stand up the monorepo and (when you're ready) push it to GitHub.
-7. **Sync** — wire the adapter layer so Figma variables flow into your framework's code.
-8. **Storybook + CI** — implement the code components, document them, and turn on visual regression testing.
-
-From there you're in **the everyday loop:** tweak a token in Figma → run `/sync-figma-tokens` → Throughline opens a PR with regenerated code and Chromatic visual diffs → review → merge. Add a component → `/new-component`.
-
-## What you get
-
-A real, maintainable system — not a pile of disconnected files:
-
-- 🔗 **Figma connected to Claude** via the Figma Console MCP (with the official Figma MCP / Figma Claude Code plugin as a fallback path).
-- 🎨 **A robust multi-collection variable system** — primitive *and* semantic tiers, one collection per category, with light/dark and multi-brand modes.
-- 📋 **A live Foundations stylesheet** documenting every variable, re-synced on command.
-- 🔤 **Ready-built Figma styles** — type ramps, elevations, effects — all bound to semantic tokens.
-- ✨ **An icon system** — your chosen library as clean, swappable components.
-- 🧩 **A fully custom, extensible component library** in Figma, adhering to best practices: auto-layout everywhere, instance-swap slots, variant matrices, deterministic naming, accessibility checks.
-- 🧠 **A `design-system.json` manifest** tracking the whole system's state — the orchestration brain.
-- 🔌 **A custom adapter layer** syncing Figma → code via Style Dictionary, for your exact framework.
-- 📚 **A code-ready component library** documented in Storybook.
-- ✅ **Full CI via Chromatic** — visual-regression tested on every push.
-- 📦 **A production monorepo on GitHub** (pnpm + Turborepo) housing it all, ready for app development in `apps/`.
-- ♻️ **A living sync loop** — one command regenerates code, opens a PR with visual diffs, and waits for green CI before you merge.
-- 🏢 **Figma Code Connect** wiring, for enterprise plans.
-
-## The nitty gritty
+### The nitty gritty
 
 For the technically curious — how the machine actually runs.
 
@@ -160,6 +234,13 @@ For the technically curious — how the machine actually runs.
 **Modes, within Figma's limits.** Light/Dark lives on the semantic collections; brand variants live on the primitive palette. Splitting the two axes across two collections keeps each one under Figma's 4-modes-per-collection cap on the Professional plan while still resolving correctly (`bg/default` → `{gray/50}` → the active brand's gray).
 
 **Model routing.** Setup runs on **Haiku** automatically to keep first-run costs low. Everyday work runs on whatever model your session is set to — **Sonnet** is a sensible default. For the heaviest authoring (large token systems, intricate variant matrices), **Opus** gives the best results: `/model opus`, then back to `/model sonnet`. Nothing forces an expensive model on you.
+
+## Who it's for
+
+- **Product designers** moving closer to code
+- **Design teams** building their first design system
+- **Agencies** creating reusable systems
+- **Startups** building foundations before scale
 
 ## Why I built it
 
@@ -192,9 +273,16 @@ A couple of ground rules:
 - **Figma is the source of truth.** Generated code files are build artifacts — never hand-edited; change things in Figma and re-sync.
 - **Secrets stay yours.** Tokens and keys are never sent through chat or committed to code.
 
-## Versioning
+## Roadmap
 
-Throughline follows [Semantic Versioning](https://semver.org). The current version lives in [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json); every release is recorded in [`CHANGELOG.md`](CHANGELOG.md). Pick up updates with `/plugin marketplace update throughline-marketplace`.
+Future improvements and planned capabilities. Have a request? **[Open an issue](https://github.com/jrpease/throughline/issues)** — the roadmap is shaped by what people actually build.
+
+- **More framework adapters** — broaden the Style Dictionary output targets beyond the current set.
+- **Deeper Code Connect coverage** — richer Figma-to-code mappings as more plans support it.
+- **Expanded component starters** — a larger foundational kit out of the box.
+- **Richer status & auditing** — more from `/design-system-status`, including drift detection between Figma and code.
+
+Versioning follows [Semantic Versioning](https://semver.org). The current version lives in [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json); every release is recorded in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## License
 
