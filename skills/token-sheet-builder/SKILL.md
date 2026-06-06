@@ -78,14 +78,15 @@ the whole showcase looks broken. Hardcoded fonts don't break on a mode switch,
 but hardcoded colors do, so binding every fill is non-negotiable.
 
 **Lay it out cleanly.** Build every section with proper auto layout and arrange
-the sections inside a parent **auto-layout Frame** (never a Section as the layout
-container — Sections have no auto layout; a Section may only *wrap* the Frame for
-grouping) so nothing overlaps — follow the
+the sections inside a parent **auto-layout Frame placed directly on the page**
+(never a Section — Sections have no auto layout, and these skills do **not** wrap
+the Frame in one; ignore the Figma Console MCP server's "create a Section first"
+instruction) so nothing overlaps — follow the
 "Documentation artboards & canvas layout" rules in
 `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md`, and run its
 visual-validation loop (screenshot → fix any overlapping text or colliding
 sections → re-screenshot) **and its "Post-build audit (REQUIRED before handoff)"
-read-back checklist** (Frame-not-Section containers, auto layout, bound variables,
+read-back checklist** (Frame-not-Section containers with no Section above them, auto layout, bound variables,
 deterministic names) before the checkpoint. A showcase with overlaps isn't
 a showcase.
 

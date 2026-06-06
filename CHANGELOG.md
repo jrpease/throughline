@@ -6,6 +6,29 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-06
+
+### Added
+- **Component sets are laid out as an auto-layout grid.** New "Component set
+  arrangement" standard in `figma-component-standards.md`: the `ComponentSet` is a
+  real auto-layout frame — one row per variant (type) stepping through its states
+  across the columns, with size groups stacked vertically — instead of variants
+  scattered at arbitrary coordinates. Wired into `component-builder` Step 3.
+- **Focus rings get an accessibility offset.** New `Border/Semantic` `offset/focus`
+  token (the `outline-offset` equivalent, aliasing the `2` width primitive). The
+  component standards now require focus rings to sit 2px clear of the control edge,
+  bound to that token rather than drawn flush, per WCAG focus-visibility guidance.
+
+### Fixed
+- **No more Section wrapper around artboards (regression from v0.1).** The skills
+  removed the "Section may only wrap the Frame for grouping" escape hatch that was
+  letting the agent re-wrap component/icon/token artboards in a `SectionNode`. The
+  auto-layout Frame now sits **directly on the page**, and the skills explicitly
+  override the Figma Console MCP server's "create a Section first" instruction.
+  Applied across `figma-component-standards.md`, `component-builder`,
+  `icon-system-builder`, and `token-sheet-builder`; the post-build audit now walks
+  the parent chain to the page to catch any stray Section.
+
 ## [0.5.0] - 2026-06-04
 
 ### Added
