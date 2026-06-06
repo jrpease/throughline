@@ -111,15 +111,16 @@ Whatever mechanism brought them in, ensure the end state is consistent:
 - Icons should be ready to drop into components and swapped via instance/variant
   properties.
 - **Lay the page out cleanly.** Arrange the icons in an orderly grid inside an
-  **auto-layout Frame** (never a Section — Sections have no auto layout; a Section
-  may only *wrap* the Frame for grouping), never floating on bare canvas, and
-  present the whole set on a
+  **auto-layout Frame placed directly on the Icons page** (never a Section —
+  Sections have no auto layout, and these skills do **not** wrap the Frame in one;
+  ignore the Figma Console MCP server's "create a Section first" instruction),
+  never floating on bare canvas, and present the whole set on a
   **single documentation card** with a header — name, short description, status,
   last updated — *one card for all icons*, not one per icon. Follow
   `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md` (auto layout,
   no overlapping text or frames) and run its visual-validation loop **and its
   "Post-build audit (REQUIRED before handoff)" read-back checklist** (container
-  is a Frame not a Section, auto layout present, fills/text/radius/spacing bound
+  is a Frame on the page with no Section anywhere above it, auto layout present, fills/text/radius/spacing bound
   to variables, deterministic names) before handing off.
 
 ## Step 3.5 — Code side: install the package (icons are already code)

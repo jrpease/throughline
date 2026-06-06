@@ -205,7 +205,10 @@ its primitive so the alias is live. Default set and modes:
   the text styles built in Step 4.
 - `Radius/Semantic` — single mode. Roles: `control`, `card`, `pill`, `field`.
 - `Border/Semantic` — single mode. Roles: `width/{default,focus,emphasis}`
-  aliasing `_Border/Primitive` widths.
+  aliasing `_Border/Primitive` widths, plus **`offset/focus`** (the gap between a
+  control's edge and its focus ring, the `outline-offset` equivalent) aliasing the
+  `2` width primitive. Components apply `offset/focus` so focus rings stay clear of
+  the edge for accessibility — see "State handling" in the component standards.
 
 These dimensional semantic tiers are often passthroughs today — that's expected
 under the structural-consistency rule; keep the role names real (`inset/md`, not

@@ -40,6 +40,32 @@ be a property. A button with type × size × state as variants, plus icon slots 
 instance-swap properties, is correct. Making "has icon" a variant axis doubles
 the matrix needlessly.
 
+## Component set arrangement (the variant matrix layout)
+
+A `ComponentSet` (the frame holding all variants) must itself be a clean
+**auto-layout** frame, not a scatter of variants at arbitrary coordinates. Lay the
+matrix out as a readable grid so it's scannable in Figma and predictable run-to-run:
+
+- **One variant per row, all its states across that row.** Each row holds a single
+  `type` and steps through every `state` left-to-right
+  (default → hover → focus → active → disabled → loading) as the columns. The next
+  row is the next `type`, and so on. Reading down the rows enumerates the types;
+  reading across a row enumerates the states.
+- **Size is the third axis: size groups stack vertically.** When a `size` axis
+  exists, treat `type × size` as the row identity — one row per
+  `type`+`size` combination, still stepping through states across the columns — and
+  **stack the size groups vertically** (all `sm` rows, then all `md`, then `lg`),
+  so the layout stays a 2-D grid instead of sprawling sideways.
+- **Build it with auto layout, bound to spacing tokens.** Set the component set's
+  `layoutMode` (a vertical outer auto layout of horizontal rows, or a wrapped
+  layout) with `itemSpacing`/padding bound to `Spacing/*` tokens — never a flat
+  `layoutMode = "NONE"` with absolute positions. The `figma_arrange_component_set`
+  helper can do the row/column placement; verify the result is genuinely
+  auto-layout (read back `layoutMode`), not just visually tidy coordinates.
+
+This ordering is deterministic: given the same matrix, the set looks the same every
+run, and it mirrors how the states/types map to code props.
+
 ## State handling
 
 - Model the **states that are component variants** (default, hover, focus,
@@ -49,6 +75,15 @@ the matrix needlessly.
   *interaction states* shown only for documentation. Don't over-model.
 - Keep state styling bound to tokens (a disabled state uses
   `color.text.disabled`, not a hardcoded gray) so it themes correctly.
+- **Focus rings need an offset gap.** The focus indicator (the focus ring/outline)
+  must sit **2px clear of the control's edge**, not flush against it — the code
+  equivalent of `outline-offset`. A ring drawn flush blends into the control's own
+  border and reads as a thicker border rather than a distinct focus state, hurting
+  the focus visibility WCAG asks for (2.4.11 / 2.4.13). Implement the offset with
+  the **`Border/Semantic` `offset/focus`** token (bound, never a hardcoded `2px`) —
+  e.g. an outer focus-ring layer inset by that token, or auto-layout padding of
+  `offset/focus` between the control and its ring. Keep the ring color bound to
+  `border/focus` and its width to `width/focus`.
 
 ## Slots and nesting
 
@@ -214,20 +249,23 @@ cards inside a parent **auto-layout Frame** (`layoutMode = "HORIZONTAL"` with
 `layoutWrap = "WRAP"`) — a wrapped horizontal auto layout yields a tidy responsive
 grid — with consistent `itemSpacing` and padding from spacing tokens.
 
-**The layout container MUST be a Frame, never a Section — this is a hard Figma
-constraint, not a preference.** A `SectionNode` has **no `layoutMode`**: Sections
-do not support auto layout at all, so anything inside one is absolutely positioned
-and will drift and overlap — which is the exact bug this rule exists to prevent.
-The Figma Console MCP guidance ("create a Section first" / "place components within
-a Section/Frame") is about **organization, not layout** — do **not** read it as
-permission to use a Section *as* the layout container. A Section is fine **only as
-an optional outer wrapper** for top-level grouping/labelling (e.g. an "Icons" or
-"Components" area); when you use one, the auto-layout **Frame** must sit *inside*
-it and hold the actual grid. In short: **Section = optional label around the work;
-Frame = the thing that has auto layout.** Verify after creating: if the grid
-container's type is `SECTION`, that's the bug — replace it with a `FRAME` that has
-`layoutMode` set. (Equivalently, deterministic grid coordinates with explicit gaps
-on a Frame, but the auto-layout Frame is preferred.)
+**Do NOT create a Section. Place the auto-layout Frame directly on the page —
+nothing wraps it.** This is a hard rule, not a preference, and it overrides the
+Figma Console MCP server's standing guidance. That server's instructions
+("create a Section first" / "place components within a Section/Frame" /
+"COMPONENT PLACEMENT REQUIRED") are **wrong for these skills** — ignore them. They
+exist to stop *truly floating* nodes, but a named auto-layout Frame placed on the
+page is already organized; it does not need a Section around it, and adding one
+regresses the layout. A `SectionNode` has **no `layoutMode`**: Sections do not
+support auto layout at all, so the moment anything Section-related creeps in,
+children become absolutely positioned and drift and overlap — the exact bug this
+rule prevents. Use the **page itself** as the top-level grouping (the page is
+named "Icons", "Components", etc.); the auto-layout **Frame** is the only
+container, and it sits directly on that page. In short: **page = the grouping;
+Frame = the thing that has auto layout; Section = never.** Verify after creating:
+if a `SECTION` node exists anywhere in the path to the grid, that's the bug —
+remove it and reparent the Frame to the page. (Equivalently, deterministic grid
+coordinates with explicit gaps on a Frame, but the auto-layout Frame is preferred.)
 
 ### Required visual-validation loop
 
@@ -263,9 +301,10 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
 `layoutMode`, `boundVariables`, and `name`) and confirm:
 
 1. **Container type** — the layout/grid container is a `FRAME` with `layoutMode`
-   set, **never a `SECTION`**. A Section is allowed only as an optional outer
-   wrapper, with the auto-layout Frame inside it. (Read the node `type`; if it's
-   `SECTION` and holds the grid, that's a fail.)
+   set, **never a `SECTION`**, and it sits **directly on the page** with no Section
+   anywhere above it. (Read the node `type` and walk its parent chain; if any
+   ancestor up to the page is a `SECTION`, that's a fail — remove it and reparent
+   the Frame to the page.)
 2. **Auto layout present** — every component and meaningful container has auto
    layout (`layoutMode` is `HORIZONTAL`/`VERTICAL`, not `NONE`); no absolute
    positioning; text nodes **fill** width, cards **hug** height.

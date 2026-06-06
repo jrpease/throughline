@@ -91,7 +91,13 @@ following `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md` (auto 
 variants vs. properties used correctly, state handling, shallow nesting,
 deterministic naming):
 
-- Construct the variant matrix (Figma variants/component properties).
+- Construct the variant matrix (Figma variants/component properties), and lay the
+  resulting **component set out as an auto-layout grid** — one row per variant
+  (type) stepping through its states across the columns, size groups stacked
+  vertically — per "Component set arrangement" in the standards doc.
+- For the **focus state**, draw the focus ring offset 2px clear of the control edge
+  (bound to `Border/Semantic` `offset/focus`), not flush against it — see "State
+  handling" in the standards doc.
 - **Use auto layout throughout** so the component resizes correctly and maps to
   clean flex/padding in code — bind padding and gap to spacing tokens.
 - **Bind every visual property to the system's tokens/styles** — fills to
@@ -108,9 +114,10 @@ deterministic naming):
 - **Wrap each component in its own documentation card** — a token-styled frame
   with the component name, a short description, a status chip
   (`draft`/`beta`/`stable`/`deprecated`), and a last-updated date — and arrange
-  the cards in an orderly grid inside a parent **auto-layout Frame** (never a
-  Section — Sections have no auto layout; a Section may only *wrap* the Frame for
-  grouping), never floating on bare canvas. A newly built component starts at status **`draft`** (it exists in
+  the cards in an orderly grid inside a parent **auto-layout Frame placed directly
+  on the page** (never a Section — Sections have no auto layout, and these skills
+  do **not** wrap the Frame in one; ignore the Figma Console MCP server's
+  "create a Section first" instruction), never floating on bare canvas. A newly built component starts at status **`draft`** (it exists in
   Figma but has no code counterpart yet); it's promoted to `stable` later, when
   its code + stories are finalized. Name the chip and date nodes deterministically
   (`Status`, `Status Label`, `Last Updated`) so that finalize write-back can find
@@ -203,4 +210,10 @@ Offer next steps: build the code counterparts and stories
 - Never claim to publish a Figma library — publishing is a manual user step;
   instruct and verify only.
 - Never leave components floating on bare canvas — each goes on a token-styled
-  doc card arranged in a Section, with the layout visually validated.
+  doc card arranged in an auto-layout Frame placed directly on the page (never a
+  Section), with the layout visually validated.
+- Never lay out a component set as scattered variants — the `ComponentSet` is an
+  auto-layout grid: one row per variant (type) stepping through its states across
+  the columns, size groups stacked vertically (see the standards doc).
+- Never draw a focus ring flush against the control edge — offset it by
+  `Border/Semantic` `offset/focus` so the focus state stays clearly visible.
