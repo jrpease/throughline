@@ -50,6 +50,19 @@ search, menu, chevrons, common actions) and let them add domain-specific ones.
 Only import the full library if the user explicitly wants it. Recorded subset can
 grow later by re-running.
 
+**Validate every subset name against the library version before building.** Icon
+libraries add and **remove** icons between versions — e.g. `lucide-react` 1.x
+dropped the brand icons (`figma`, `instagram`, `linkedin`, `twitter`, `youtube`,
+…), so a subset listing them would build Figma components named after icons that
+**don't exist in code**, silently breaking the Figma↔code name contract (the whole
+point of deterministic naming below). Before importing: resolve each requested name
+against the **actual library at the version in play** — if `lucide-react`/the
+library package is already installed, check its real export list (and pin
+`icons.version` to that); otherwise check the version's published icon manifest.
+**Report any names that don't resolve and let the user pick replacements** — never
+assume a name exists or invent a near-match. Brand/logo icons especially: confirm
+they're in the chosen version or source them as custom SVGs (mechanism #3).
+
 ## Name the specific resource and let the user verify
 
 Community files and importer plugins are **unofficial and variable in quality**
@@ -116,7 +129,11 @@ Whatever mechanism brought them in, ensure the end state is consistent:
   ignore the Figma Console MCP server's "create a Section first" instruction),
   never floating on bare canvas, and present the whole set on a
   **single documentation card** with a header — name, short description, status,
-  last updated — *one card for all icons*, not one per icon. Follow
+  last updated — *one card for all icons*, not one per icon. When you script this
+  grid via `figma_execute`, follow
+  `${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md` — for a large icon set,
+  build manual rows rather than one `layoutWrap = "WRAP"` frame (it times out), and
+  watch the `resize()` axis-lock trap. Follow
   `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md` (auto layout,
   no overlapping text or frames) and run its visual-validation loop **and its
   "Post-build audit (REQUIRED before handoff)" read-back checklist** (container

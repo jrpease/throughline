@@ -31,6 +31,13 @@ Needs tokens in Figma (`tokens.semanticBuilt` true) and a live Figma connection.
 If tokens don't exist, offer to run `token-builder`. If Figma isn't connected,
 offer `figma-environment-setup`. Use the mechanism in `figma.mechanism`.
 
+**Before scripting any `figma_execute`, read
+`${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md`.** This sheet builds large
+swatch/type grids — exactly the layouts that hit the two worst traps: the
+`resize()` axis-lock (collapses a color grid or type-meta column to ~10px) and the
+single-call `layoutWrap = "WRAP"` timeout on big grids (build manual rows or split
+across calls instead). Also run the single-bridge-instance preflight before writing.
+
 ## Step 1 — Brainstorm the layout (lightly)
 
 Run `${CLAUDE_PLUGIN_ROOT}/references/brainstorm-before-build.md`, but keep it light — this is a

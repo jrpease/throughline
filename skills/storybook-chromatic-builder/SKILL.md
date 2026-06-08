@@ -32,6 +32,25 @@ system). Wire it to consume `packages/tokens` output so stories render with the
 real design tokens (import the generated CSS/theme). Checkpoint: confirm
 Storybook runs and shows the token-themed canvas.
 
+**pnpm build-script allowlist (first-run gotcha).** On pnpm workspaces, the
+`@storybook/react-vite` install pulls `esbuild`, whose postinstall is blocked by
+pnpm's default `onlyBuiltDependencies` policy — Storybook then fails to start with a
+binary-not-found error. When installing Storybook in a pnpm workspace, add `esbuild`
+(and any other native postinstall dep Storybook pulls) to root `package.json`
+`"pnpm": { "onlyBuiltDependencies": [...] }` as part of setup, so first run works.
+
+**Don't duplicate the app's CSS — share it.** Storybook needs the same Tailwind v4
+`@utility` typography rules the app uses to render correctly. **Before adding any,
+check whether the app's global stylesheet (e.g. `apps/web/app/globals.css`) already
+defines them.** If it does, extract the shared `@utility` blocks into a single
+source — e.g. `packages/ui/src/typography.css`, added to the UI package's `exports`
+(`"./typography.css"`) — and replace the inline copies in *both* the app and the UI
+package with one `@import`. If they don't exist yet, create that shared file from
+the start. Copying the rules inline into a second file starts immediate drift (one
+side ends up on the wrong `--font-*` var and nobody notices). Keep Storybook-only
+concerns (Google Fonts `@import`, `:root` font-var fallbacks) in a *separate*
+`styles.css` layer so the shared typography file stays clean and app-shareable.
+
 ## Step 2 — Build code components from the Figma spec + slot contracts
 
 For each Figma component (`components.built`), build its code counterpart
@@ -60,6 +79,22 @@ write its stories — a story per meaningful variant, controls wired to props,
 slot props demonstrated. Each subagent verifies its work (the story builds and
 renders). Two-stage review (does it match the component spec; is it quality
 code) before combining.
+
+**Controls must actually drive the component (args-through render).** A `render`
+that ignores its args silently breaks the Controls panel — the toggle writes to
+`args` but nothing re-renders. So:
+
+- Always thread args through: **`render: (args) => <Component {...args} />`**, never
+  `render: () => <Component variant="..." />` (hardcoded props make the variant
+  radio and other controls dead). Add fixed children/body *after* the spread:
+  `render: (args) => <Card {...args}>{body}</Card>`.
+- **`ReactElement` slot props** (e.g. `avatar?: React.ReactElement`) can't be driven
+  by an auto-generated object control — the panel renders a broken `[object Object]`
+  input. Suppress it (`avatar: { control: false, table: { disable: true } }`) and
+  add a **boolean helper arg** under a `Slots` category that the render function maps
+  to a concrete element — e.g. a `showAvatar` toggle → `avatar={showAvatar ? <Avatar
+  … /> : undefined}`. This gives a real, working slot toggle without asking the user
+  to type JSX into the panel.
 
 **Icon gallery story** — don't write a story per library icon. Generate ONE
 searchable gallery story that imports the icon package and renders the grid
@@ -142,9 +177,18 @@ component renders and its stories build (and the user has approved the result),
 **promote each finalized component to `stable`** so the design system tells the
 truth in both places.
 
+**Confirm the write-back once, up front.** Before touching Figma, state the batched
+change in one line and get a yes — *"I'll update the N doc cards in Figma: flip the
+status chips amber → green and set Last Updated to today. Confirm?"* The user
+approved the *components*, but writing to their Figma file is a separate external-
+system action that needs explicit consent (and an unannounced write trips the safety
+classifier, forcing the round-trip anyway). One confirmation covers all cards.
+
 For every component you finalized in this run, follow the **"Promoting a
 component's status (write-back on finalize)"** routine in
-`${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md`:
+`${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md` (which also covers
+the `figma_execute` scripting gotchas — `getNodeByIdAsync` and an explicit
+`timeout` for the multi-card write):
 
 - Set `components.meta[name].status` = `"stable"` and refresh
   `components.meta[name].updatedAt` to today.
@@ -156,10 +200,9 @@ component's status (write-back on finalize)"** routine in
 - If Figma isn't connected, still update the manifest and tell the user the card
   will reconcile next Figma session (or offer to reconnect and fix it now).
 
-Do this automatically as part of finishing — the user already approved the
-component; don't make them ask for the chip to flip. (`stable` is the finalized
-status; if a component is intentionally still experimental, leave it at `beta`
-and say so.)
+Once confirmed, do the whole batch in one pass as part of finishing — don't make
+the user re-approve each chip. (`stable` is the finalized status; if a component is
+intentionally still experimental, leave it at `beta` and say so.)
 
 ## Step 7 — Update manifest + hand off
 

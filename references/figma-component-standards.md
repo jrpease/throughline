@@ -19,6 +19,33 @@ non-negotiable:
 - Bind padding and gap to **spacing tokens**, not hardcoded numbers, so the
   token cascade reaches layout.
 
+## Clip content — off by default
+
+Figma creates every new frame with **`clipsContent = true`**, so if you don't set
+it, your layout and component frames silently clip. That clipping cuts off anything
+a child draws **at or past the frame's edge**, which is exactly the stuff that makes
+a component read as polished:
+
+- **Outer strokes / borders.** A child with `strokeAlign = "OUTSIDE"` (or a flush-to-
+  edge border) gets the outer half of its stroke sliced away — borders look thin,
+  uneven, or missing on one side.
+- **Focus rings.** The focus indicator deliberately sits **2px clear of the control's
+  edge** (see *State handling* — the `offset/focus` rule), so it extends *beyond* the
+  control frame by design. A clipping parent eats it, defeating the focus-visibility
+  requirement.
+- **Shadows / elevation.** Drop shadows on a child near the edge get cut at the frame
+  boundary instead of feathering out.
+
+**The rule:** explicitly set **`clipsContent = false`** on component frames, variant
+rows, component sets, and the layout frames that hold them. Don't rely on the default —
+set it, and read it back.
+
+**Turn clipping ON only for a deliberate cutoff** — a frame whose *job* is to crop its
+contents to a fixed window: a scroll container, an image/media crop frame, an
+avatar/thumbnail masked to its bounds, or anything emulating CSS `overflow: hidden`.
+These are the viewport-level cases; everywhere else, leave content unclipped so strokes,
+focus rings, and shadows render in full.
+
 ## Variants vs. component properties — use the right tool
 
 Figma offers variants (a matrix of discrete options) and component properties
@@ -175,11 +202,22 @@ or the card lies — it keeps showing `draft` after the component is actually do
 This is the canonical routine; the finalize step references it rather than
 re-describing it:
 
+0. **Confirm the Figma write-back first (single batched checkpoint).** A doc-card
+   write is an external-system write, so get explicit consent before it — both
+   because the user's "I approve the component" is *not* the same as "write to my
+   Figma file," and because an unannounced external write trips the safety
+   classifier and forces an extra round-trip anyway. State the concrete change in
+   one line and proceed on confirmation — e.g. *"I'll update the 9 doc cards in
+   Figma: flip the status chips amber → green and set Last Updated to today.
+   Confirm?"* One confirmation covers the whole batch; don't ask per card.
 1. Set `components.meta[name].status` to the new status (`stable` on finalize) and
    `components.meta[name].updatedAt` to today (ISO date). The manifest is the
    source of truth.
 2. If Figma is connected (use `figma.mechanism`), locate the component's doc card
-   by its deterministic name, then inside it:
+   by its deterministic name (script the write-back per
+   `${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md` — `getNodeByIdAsync`, and
+   an explicit `timeout` since multi-card font-loading writes blow past the default
+   ~5s budget), then inside it:
    - set the `Status Label` text to the new status (e.g. `stable`);
    - re-bind the `Status` chip fill to the matching semantic color variable
      (`stable` → success, `draft`/`beta` → warning, `deprecated` → neutral/danger)
@@ -305,9 +343,13 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
    anywhere above it. (Read the node `type` and walk its parent chain; if any
    ancestor up to the page is a `SECTION`, that's a fail — remove it and reparent
    the Frame to the page.)
-2. **Auto layout present** — every component and meaningful container has auto
-   layout (`layoutMode` is `HORIZONTAL`/`VERTICAL`, not `NONE`); no absolute
-   positioning; text nodes **fill** width, cards **hug** height.
+2. **Auto layout present and not axis-locked** — every component and meaningful
+   container has auto layout (`layoutMode` is `HORIZONTAL`/`VERTICAL`, not `NONE`);
+   no absolute positioning; text nodes **fill** width, cards **hug** height. **Read
+   back `primaryAxisSizingMode`/`counterAxisSizingMode`** (or `layoutSizing*`): a
+   `resize()` call silently flips the opposite axis to `FIXED`, collapsing a frame
+   to ~10px — invisible in a screenshot. See the `resize()` trap in
+   `${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md`.
 3. **Variables bound** — every fill, stroke, text color, corner radius,
    `itemSpacing`, and padding resolves to a **bound variable** (`boundVariables`
    present), not a raw hex/px. No hardcoded values anywhere in the doc-card chrome.
@@ -318,11 +360,15 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
 5. **Scope / status correct** — icons are the curated subset (not the full 1,700),
    and each doc card's status value matches `components.meta[name].status` in the
    manifest.
-6. **Visual** — the screenshot (from the validation loop) shows no overlaps,
-   misalignment, or lopsided hug/fill sizing.
+6. **Content not clipped** — component frames, variant rows, sets, and layout
+   frames have **`clipsContent = false`** (read it back), so outer strokes, focus
+   rings, and shadows aren't sliced at the edge. `clipsContent = true` is allowed
+   **only** on deliberate cutoffs (scroll containers, image/avatar crop frames).
+7. **Visual** — the screenshot (from the validation loop) shows no overlaps,
+   misalignment, lopsided hug/fill sizing, or clipped strokes/focus rings.
 
 If any item fails, **fix and re-audit** — don't hand off a partial pass. Iterate
-with the same ~3-pass budget as the visual loop. Only when all six pass is the
+with the same ~3-pass budget as the visual loop. Only when all seven pass is the
 build done.
 
 ## Naming

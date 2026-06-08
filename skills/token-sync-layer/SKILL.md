@@ -93,6 +93,15 @@ Three rules for the multi-collection structure:
   `color.primitive.gray.500`); `Color/Semantic` + `text/primary` →
   `color.text.primary`. The category drives the top-level group; the tier (and
   the `_`) is dropped from the emitted name.
+- **Opacity: normalize 0–100 → 0–1 on extraction.** Opacity tokens are stored in
+  Figma on the **0–100 scale** (a quirk of how Figma binds variables to a node's
+  `opacity` field — see the opacity scale rule in `token-builder`). CSS `opacity`,
+  Tailwind opacity, and native alpha are all **0–1**, so when normalizing any
+  opacity token (the `Opacity/*` collections, or any FLOAT bound to opacity)
+  **divide its value by 100** before writing DTCG (`40` → `0.4`). Do this once at
+  extraction so every adapter emits a correct 0–1 value; an un-normalized `40`
+  lands as `opacity: 40` in CSS and renders the element fully opaque. token-builder
+  and token-sync-layer are a **matched pair** on this — neither is correct alone.
 
 This DTCG JSON is the canonical intermediate. Write it to a known location in
 `packages/tokens/` (e.g. `packages/tokens/dtcg/tokens.json`). Do not trust the
