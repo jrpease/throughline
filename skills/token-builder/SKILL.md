@@ -45,15 +45,16 @@ With Console MCP, prefer `figma_execute` to create variables in scripted loops
 rather than one tool call per variable — this is dramatically more
 token-efficient for the potentially hundreds of primitives across modes.
 
-**Reading back via `figma_execute` (dynamic-page gotcha):** the Console MCP
-bridge runs in Figma's `dynamic-page` document mode, where the *synchronous*
-document-wide getters throw (`getLocalVariableCollections`, `getVariableById`,
-`getVariablesByCollection`). When a script reads variables, use the **async**
-APIs and `await` them (`getLocalVariableCollectionsAsync`,
-`getVariableByIdAsync`, `getVariablesByCollectionAsync`). For a simple
-verification read, prefer the dedicated `figma_get_variables` tool (it handles
-dynamic-page correctly and can resolve aliases with `resolveAliases: true`)
-over a hand-written script.
+**Scripting via `figma_execute`:** see
+`${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md` for the shared gotchas —
+the single-bridge-instance preflight (concurrent writes corrupt the file), the
+`dynamic-page` async APIs (synchronous document-wide getters like
+`getLocalVariableCollections` **and** setters like `figma.currentPage =` /
+`node.textStyleId =` throw — use `getLocalVariableCollectionsAsync`,
+`setCurrentPageAsync`, `setTextStyleIdAsync`, …), the `resize()` axis-lock trap,
+and why large `WRAP` grids time out. For a simple verification read, prefer the
+dedicated `figma_get_variables` tool (it handles dynamic-page correctly and
+resolves aliases with `resolveAliases: true`) over a hand-written script.
 
 ## Step 1 — Brainstorm the structure (before building anything)
 
@@ -196,8 +197,14 @@ its primitive so the alias is live. Default set and modes:
 - `Color/Semantic` — modes **Light, Dark** (+ a Brand mode only if a brand needs
   a different *mapping*, not just a different palette). Roles: `bg/{default,
   subtle,muted,emphasis,inverse}`, `text/{primary,secondary,disabled,inverse,
-  link}`, `border/{default,subtle,focus,emphasis}`, `status/{success,warning,
-  danger}/{bg,text,border}`.
+  link,onEmphasis}`, `border/{default,subtle,focus,emphasis}`,
+  `status/{success,warning,danger}/{bg,text,border}`. **`text/onEmphasis`** is the
+  label/icon color that sits **on** `bg/emphasis` (a primary button's text, a
+  filled badge) — it must contrast with the emphasis fill in *every* mode, so it's
+  a distinct role, **not** `text/inverse` (which flips with the theme and won't
+  reliably contrast a brand-colored emphasis fill). Component-builder binds primary/
+  filled control labels to this role; without it, builds fall back to literals and
+  break the "everything bound" audit.
 - `Spacing/Semantic` — single *Default* mode now, structured so Desktop/Mobile
   can be added later. Roles: `inset/{xs,sm,md,lg,xl}`, `stack/*`, `inline/*`.
 - `Typography/Semantic` — single *Default* mode (room for Desktop/Mobile). Roles:
@@ -209,6 +216,19 @@ its primitive so the alias is live. Default set and modes:
   control's edge and its focus ring, the `outline-offset` equivalent) aliasing the
   `2` width primitive. Components apply `offset/focus` so focus rings stay clear of
   the edge for accessibility — see "State handling" in the component standards.
+- `Opacity/Semantic` (when the system needs disabled/overlay states) — single
+  mode. Roles: `disabled`, `muted`, `overlay/scrim`, `hover`, aliasing
+  `_Opacity/Primitive`. See the **opacity scale rule** below — this is the one
+  category where the Figma value scale is a trap.
+
+> **⚠️ Opacity is stored 0–100, NOT 0–1 (critical).** When a variable is bound to
+> a node's **`opacity`** field, Figma treats the value as a **0–100 percentage and
+> divides by 100**. So an opacity primitive must be created on the **0–100 scale**:
+> `_Opacity/Primitive` `40` has the value **`40`** (which renders as 0.4), never
+> `0.4` (which would render as 0.004 — effectively invisible). Name and value must
+> match (`40` = `40`), and a bound `disabled`/`overlay` element renders correctly.
+> The sync layer is responsible for the inverse: CSS `opacity` is 0–1, so it
+> **÷100 on emit** — token-builder and token-sync-layer are a **matched pair** here.
 
 These dimensional semantic tiers are often passthroughs today — that's expected
 under the structural-consistency rule; keep the role names real (`inset/md`, not

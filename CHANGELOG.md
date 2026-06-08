@@ -6,6 +6,67 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-08
+
+Hardening pass from real build-session testing (token → foundations → icons →
+components → Storybook on a pnpm + Turborepo + Next.js 16 + Tailwind v4 monorepo).
+
+### Added
+- **New `references/figma-scripting.md` — one home for every `figma_execute`
+  gotcha.** A shared reference, wired into `token-builder`, `component-builder`,
+  `icon-system-builder`, `token-sheet-builder`, and the status write-back routine.
+  Covers: the single-bridge-instance preflight (concurrent writes corrupt the
+  file), the `dynamic-page` async APIs (reads, setters, and `getNodeByIdAsync`),
+  the `resize()` axis-lock trap, the explicit-`timeout` rule for batch writes
+  (`node_count * 3000`), and why large `layoutWrap = "WRAP"` builds time out.
+- **Opacity token category (`token-builder`).** First-class `_Opacity/Primitive` +
+  `Opacity/Semantic` (disabled, muted, overlay/scrim, hover) on the **0–100 scale**.
+- **`text/onEmphasis` color role.** The label/icon color that contrasts a
+  `bg/emphasis` fill in every mode — emitted by `token-builder`, consumed by
+  `component-builder` for primary/filled controls (distinct from `text/inverse`).
+- **"Clip content — off by default" standard.** New section in
+  `figma-component-standards.md` and a post-build audit gate: component/layout
+  frames set `clipsContent = false` so outer strokes, focus rings, and shadows
+  aren't sliced; clipping is reserved for deliberate cutoffs (scroll/crop frames).
+
+### Changed
+- **Figma write-back now confirms once, up front.** The status-promotion routine
+  and `storybook-chromatic-builder` Step 6 surface a single batched confirmation
+  before writing to Figma ("update N doc cards…"), matching the user's mental model
+  and pre-empting the safety classifier instead of eating a forced round-trip.
+- **Figma scripts default to the async APIs** (`getNodeByIdAsync`,
+  `setCurrentPageAsync`, `setTextStyleIdAsync`, …) — the synchronous forms throw
+  under the Console MCP's `dynamic-page` document mode.
+
+### Fixed
+- **Opacity rendered everything invisible.** Opacity tokens stored `0.1–0.9` were
+  divided again by Figma's 0–100 `opacity` binding (→ ~0.004), blanking every
+  disabled/overlay state. Primitives are now authored 0–100; `token-sync-layer`
+  normalizes ÷100 on extraction so CSS/native get correct 0–1 values. The two
+  skills are documented as a matched pair.
+- **`resize()` silently collapsed auto-layout frames.** Calling `resize()` on an
+  auto-layout frame pinned the opposite axis to `FIXED` (frames stuck at ~10px).
+  Documented the re-assert pattern; the post-build audit now reads sizing modes back.
+- **Storybook Controls panel was dead.** Generated stories used
+  `render: () => …`, so control changes never re-rendered. Step 3 now mandates
+  `render: (args) => <Component {...args} />`, and `ReactElement` slot props get
+  `control: false` plus a boolean helper arg (e.g. `showAvatar`) instead of a
+  broken `[object Object]` control.
+- **Typography `@utility` rules were duplicated into Storybook and drifted.**
+  Step 1 now checks the app's global stylesheet first and wires a single shared
+  `@import` (extracted to the UI package), keeping Storybook-only concerns in a
+  separate layer.
+- **Storybook wouldn't start on fresh pnpm installs.** Documented adding `esbuild`
+  to the root `onlyBuiltDependencies` allowlist when installing
+  `@storybook/react-vite` in a pnpm workspace.
+- **Icon subset names weren't validated against the package version.** Names
+  removed between versions (e.g. `lucide-react` 1.x dropping brand icons) would
+  build Figma components with no code counterpart. `icon-system-builder` now
+  resolves every subset name against the installed/published library before
+  building and reports unavailable ones.
+- **Large `WRAP` grids timed out.** Skills now chunk big swatch/variant/icon grids
+  into manual rows instead of one wrapped-auto-layout `figma_execute` call.
+
 ## [0.6.0] - 2026-06-06
 
 ### Added

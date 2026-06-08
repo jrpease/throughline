@@ -15,6 +15,12 @@ Needs tokens (`tokens.semanticBuilt` true) — offer to run `token-builder` if
 missing. Needs a live Figma connection (offer `figma-environment-setup` if not).
 Use the mechanism in `figma.mechanism`.
 
+**Before scripting any `figma_execute`, read
+`${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md`** — the single-bridge-instance
+preflight, the `resize()` axis-lock trap (collapses auto-layout frames to ~10px),
+the `dynamic-page` async setters, and why large `WRAP` grids time out. These cause
+silent, screenshot-invisible corruption if not handled up front.
+
 **Recommend icons first (soft gate).** Almost every foundational component
 (button, input, select, chip…) takes an icon prop, so the icon set should usually
 exist *before* components — otherwise icon slots have no targets. If
@@ -104,7 +110,13 @@ deterministic naming):
   `Color/Semantic` variables, corners to `Radius/Semantic` variables, **border
   width to `Border/Semantic` width variables and border color to `Color/Semantic`
   border variables** (a button/input/card border needs both), text to text
-  styles, shadows to effect styles. For padding and gap, bind to
+  styles, shadows to effect styles. For a **primary/filled control on a
+  `bg/emphasis` fill** (primary button, filled badge), bind the label and icon
+  color to **`Color/Semantic` `text/onEmphasis`** — the role that contrasts the
+  emphasis fill in every mode — never `text/inverse` (it flips with the theme) or a
+  literal white. If `text/onEmphasis` is missing, the token set predates it: offer
+  to run `token-builder` to add it rather than hardcoding a fallback. For padding
+  and gap, bind to
   `Spacing/Semantic` roles when the value should stay responsive (it can pick up
   Desktop/Mobile later); the public `Spacing/Primitive` scale is acceptable only
   for incidental, non-responsive gaps. A component must *consume* the design
