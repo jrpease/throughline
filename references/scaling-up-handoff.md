@@ -1,6 +1,6 @@
 # Scaling up: when a step outgrows a single skill
 
-Throughline skills are built for **bounded design-system work** — author tokens,
+ThroughLine skills are built for **bounded design-system work** — author tokens,
 build a component, scaffold a repo. Sometimes a step inflates into **open-ended
 engineering** with real architectural risk: retrofitting an existing app onto a
 new component library (e.g. → shadcn), migrating a whole motion/interaction layer,
@@ -8,7 +8,7 @@ a multi-package refactor — anything where "build the component" has quietly be
 "re-architect the system." When that happens, **do not just start building.**
 
 The valuable behavior here is **recognizing the inflection and planning before
-building** — that behavior is Throughline's, and it works whether or not any other
+building** — that behavior is ThroughLine's, and it works whether or not any other
 plugin is installed. Handing off to a planning partner (below) is an *enhancement*
 of that behavior, never a requirement for it.
 
@@ -40,12 +40,12 @@ Signs the work has outgrown the skill:
   approach, then write an executable plan. Announce the handoff so the user
   understands the switch and why.
 - **If Superpowers is not installed** — do **not** stall and do **not** require it.
-  Run Throughline's own `brainstorm-before-build.md` protocol, scaled to the larger
+  Run ThroughLine's own `brainstorm-before-build.md` protocol, scaled to the larger
   scope, and produce a written plan (goals, risks, major parts, ordered steps,
   checkpoints) before building. You may note **once** that Superpowers is a great
   optional partner for this kind of work — then proceed. Never nag, never block.
 
-Throughline must be able to complete the work **with or without** Superpowers.
+ThroughLine must be able to complete the work **with or without** Superpowers.
 Superpowers makes the big-scope path better; it is never a prerequisite.
 
 ## The routing rule (keep both directions consistent)
@@ -54,7 +54,7 @@ This is one rule with two directions — getting one right but not the other is 
 the wrong skill ends up driving:
 
 - **Bounded design-system work** (tokens, icons, a single component, repo scaffold)
-  → Throughline owns it directly. Do **not** hand a simple setup prompt off to a
+  → ThroughLine owns it directly. Do **not** hand a simple setup prompt off to a
   generic brainstorming skill — that is the inverse mistake (see the priority note
   in `figma-environment-setup`).
 - **Open-ended engineering** (retrofits, migrations, app builds) → brainstorm and

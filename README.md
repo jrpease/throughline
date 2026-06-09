@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="docs/assets/hero.png" alt="Throughline" width="100%" />
+<img src="docs/assets/hero.png" alt="ThroughLine" width="100%" />
 
-# Throughline
+# ThroughLine
 
 ### Your agentic design team
 
@@ -16,13 +16,13 @@
 
 </div>
 
-Whether you're starting from scratch or retrofitting an existing design system, Throughline puts you in the driver's seat — you make the high-level decisions while your agentic team powers through the production work. You stay in control of the *what*; it handles the *how*.
+Whether you're starting from scratch or retrofitting an existing design system, ThroughLine puts you in the driver's seat — you make the high-level decisions while your agentic team powers through the production work. You stay in control of the *what*; it handles the *how*.
 
 **No code experience required.**
 
 ---
 
-## What Throughline builds
+## What ThroughLine builds
 
 ### In Figma
 
@@ -46,7 +46,7 @@ Whether you're starting from scratch or retrofitting an existing design system, 
 
 ## See a real end-to-end system built with it
 
-<img src="docs/assets/case-study.png" alt="A complete Throughline design system — Foundations, Button variants, Icons, and Figma variables" width="100%" />
+<img src="docs/assets/case-study.png" alt="A complete ThroughLine design system — Foundations, Button variants, Icons, and Figma variables" width="100%" />
 
 | | |
 |---|---|
@@ -54,19 +54,7 @@ Whether you're starting from scratch or retrofitting an existing design system, 
 | 📚 **[Live Storybook](https://main--6a1ee089ae3a37b70a6e4559.chromatic.com)** | Every component, all props, auto-generated docs |
 | 🎨 **[Public Figma file](https://www.figma.com/design/OCiZiGpsJ4ncPD8r205BjC/Throughline-Plugin-Test?node-id=0-1&t=5ERihD6fMqMuTEXD-1)** | The design source of truth it was generated from |
 
-Everything shown below was created during a single working session and synced directly from Figma to a production-ready codebase.
-
-**A token system, visualized.** Every color, space, type, radius, and elevation value lives as a Figma variable. The Foundations page is generated directly from those variables — live-bound, so it always reflects the current state of the system.
-
-<img src="https://raw.githubusercontent.com/jrpease/throughline-sample/main/.github/assets/foundations.png" alt="Foundations page — color primitives, semantic tokens, typography, spacing, radius, and elevation" width="100%" />
-
-**Components as full variant matrices.** Each component is built in Figma as a single artboard documenting every variant — here, 90 Button variants across types, sizes, and states — then implemented in React consuming the synced tokens, without you ever moving a pixel by hand.
-
-<img src="https://raw.githubusercontent.com/jrpease/throughline-sample/main/.github/assets/button-artboard.png" alt="Button component artboard — 90 variants across types, sizes, and states" width="100%" />
-
-**Documented and visually tested in code.** Every component ships in Storybook with a live props panel and auto-generated docs, and is visual-regression-tested on every push via Chromatic.
-
-<img src="https://raw.githubusercontent.com/jrpease/throughline-sample/main/.github/assets/storybook.png" alt="Storybook — Button component docs with props panel and live controls" width="100%" />
+Everything above was created during a single working session and synced directly from Figma to a production-ready codebase.
 
 ## Getting started
 
@@ -74,7 +62,7 @@ Everything shown below was created during a single working session and synced di
 
 | | |
 |---|---|
-| **[Claude Code](https://docs.claude.com/en/docs/claude-code)** | Required — Throughline is a Claude Code plugin. |
+| **[Claude Code](https://docs.claude.com/en/docs/claude-code)** | Required — ThroughLine is a Claude Code plugin. |
 | **Figma** | Required, **desktop app** (the browser version causes connection errors). **Professional plan or higher recommended** — multi-mode variables (Light/Dark, brand themes) need it. |
 | **Figma access token** | Required — read/write your file. The setup skill walks you through it; your token stays yours and is never shared in chat. |
 | **GitHub** (or similar) | Optional — only when you're ready to graduate to a real remote repo with PRs and CI. |
@@ -102,7 +90,7 @@ Update anytime with:
 
 ## Architecture
 
-Throughline is more than a pile of skills — it's a small system designed to stay consistent across dozens of generation steps. Four layers work together:
+ThroughLine is more than a pile of skills — it's a small system designed to stay consistent across dozens of generation steps. Four layers work together:
 
 **🛠 Nine skills — the steps.** Each owns one stage of the journey, from connecting Figma to standing up CI. They're sequenced, and each knows its prerequisites.
 
@@ -132,7 +120,7 @@ For the technically curious — how the machine actually runs.
 
 **The sync layer.** Figma variables are extracted to **DTCG-format** JSON (the W3C design-tokens standard), run through **Style Dictionary**, and shaped by a framework **adapter** into the exact output your stack expects — shadcn CSS variables, a Tailwind theme, MUI theme objects, Swift/Kotlin constants, or plain CSS. Because the code is *generated* from the extract, design and code can't drift: you never hand-edit outputs, you change Figma and re-run. The sync lands as a **pull request**, so every design change is reviewable, diffable, and CI-checked before it merges.
 
-**The monorepo.** A **pnpm + Turborepo** workspace: `packages/` holds the generated tokens and the component library; `apps/` is where you build the actual product against your own design system. Throughline grows it in stages — plain folder → local git → GitHub remote with PRs and CI — introducing each concept only when its payoff is concrete, so you're never dropped into the deep end.
+**The monorepo.** A **pnpm + Turborepo** workspace: `packages/` holds the generated tokens and the component library; `apps/` is where you build the actual product against your own design system. ThroughLine grows it in stages — plain folder → local git → GitHub remote with PRs and CI — introducing each concept only when its payoff is concrete, so you're never dropped into the deep end.
 
 **The manifest.** `design-system.json` is the single source of truth for *state*: a versioned schema, canonical per-skill flags, an immutable record of how your project began (greenfield vs. existing repo), and a snapshot of tooling detected at setup. Skills read it to know what's done and what's safe to do next — which is how the system stays coherent across many sessions.
 
@@ -150,30 +138,30 @@ For the technically curious — how the machine actually runs.
 
 ## Why I built it
 
-I'm a designer who got tired of the handoff. Design systems live in two places that never quite agree — the Figma file and the codebase — and keeping them in sync is a full-time job nobody wants. Throughline is the tool I wished existed: it lets a designer drive the whole pipeline, learn the engineering one concept at a time, and end up with a real, shippable system instead of a pile of redlines. If you're a designer who's becoming a developer, this was built for you.
+I'm a designer who got tired of the handoff. Design systems live in two places that never quite agree — the Figma file and the codebase — and keeping them in sync is a full-time job nobody wants. ThroughLine is the tool I wished existed: it lets a designer drive the whole pipeline, learn the engineering one concept at a time, and end up with a real, shippable system instead of a pile of redlines. If you're a designer who's becoming a developer, this was built for you.
 
 ## Works well with
 
-**[Superpowers](https://github.com/obra/superpowers)** — a great planning and engineering partner for the moments that grow bigger than a single skill. Throughline owns the design-system line; Superpowers owns the heavier, open-ended engineering work — and the two hand off cleanly.
+**[Superpowers](https://github.com/obra/superpowers)** — a great planning and engineering partner for the moments that grow bigger than a single skill. ThroughLine owns the design-system line; Superpowers owns the heavier, open-ended engineering work — and the two hand off cleanly.
 
-- **Big, ambiguous changes mid-build.** When a step turns into a real project, Throughline lays out the risks and major pieces and switches into brainstorm-and-plan mode before building — handing off to Superpowers when it's installed, or planning natively when it isn't (the recognition is Throughline's; Superpowers is an upgrade, not a requirement). Real example: on [radicool.studio](https://radicool.studio), an existing vanilla-React app with a full custom motion layer — custom cursors, magnetic buttons — was retrofitted onto shadcn to make it formal and ready to scale.
+- **Big, ambiguous changes mid-build.** When a step turns into a real project, ThroughLine lays out the risks and major pieces and switches into brainstorm-and-plan mode before building — handing off to Superpowers when it's installed, or planning natively when it isn't (the recognition is ThroughLine's; Superpowers is an upgrade, not a requirement). Real example: on [radicool.studio](https://radicool.studio), an existing vanilla-React app with a full custom motion layer — custom cursors, magnetic buttons — was retrofitted onto shadcn to make it formal and ready to scale.
 - **Building the app itself.** Once your system is synced to code and you're building in `apps/`, Superpowers' subagent-driven development methodology is a natural next step.
 
-It's never required to use Throughline.
+It's never required to use ThroughLine.
 
 ## Show it off
 
-Built your own system with Throughline? Add the badge so others can find it:
+Built your own system with ThroughLine? Add the badge so others can find it:
 
 ```markdown
-[![Built with Throughline](https://img.shields.io/badge/Built%20with-Throughline-6366f1)](https://github.com/jrpease/throughline)
+[![Built with ThroughLine](https://img.shields.io/badge/Built%20with-ThroughLine-6366f1)](https://github.com/jrpease/throughline)
 ```
 
-[![Built with Throughline](https://img.shields.io/badge/Built%20with-Throughline-6366f1)](https://github.com/jrpease/throughline)
+[![Built with ThroughLine](https://img.shields.io/badge/Built%20with-ThroughLine-6366f1)](https://github.com/jrpease/throughline)
 
 ## Contributing
 
-Throughline is open source and contributions are welcome. Found a bug or have an idea? **[Open an issue](https://github.com/jrpease/throughline/issues)**. Want to improve a skill or reference doc? PRs are encouraged — the skills are Markdown, so they're approachable to edit.
+ThroughLine is open source and contributions are welcome. Found a bug or have an idea? **[Open an issue](https://github.com/jrpease/throughline/issues)**. Want to improve a skill or reference doc? PRs are encouraged — the skills are Markdown, so they're approachable to edit.
 
 A couple of ground rules:
 - **Figma is the source of truth.** Generated code files are build artifacts — never hand-edited; change things in Figma and re-sync.
