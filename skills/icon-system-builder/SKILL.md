@@ -1,6 +1,6 @@
 ---
 name: icon-system-builder
-description: Build an icon system in Figma — a dedicated "Icons" page populated with the user's chosen icon library (Lucide, Material, or custom SVGs) as well-named, scalable components — using the fastest and cheapest mechanism (duplicating a vetted community component file or running an importer plugin) rather than hand-generating icons. Use this when the user wants to set up icons, add an icon library, import Lucide or Material icons, create icon components, or build an icon set in Figma. Also trigger when the user mentions iconography, an icon page, or needs icons for their components. Make sure to use this whenever someone needs a managed set of icon components in their Figma design system.
+description: Build an icon system in Figma — a dedicated "Icons" page populated with the user's chosen icon library (Lucide, Material, or custom SVGs) as well-named, scalable components — using the fastest, most-automated mechanism per library (for Lucide, batch-fetching the curated subset's official SVGs from the source repo and componentizing them hands-off; for Material, the official community file or importer plugin) rather than hand-generating icons or making the user copy components by hand. Use this when the user wants to set up icons, add an icon library, import Lucide or Material icons, create icon components, or build an icon set in Figma. Also trigger when the user mentions iconography, an icon page, or needs icons for their components. Make sure to use this whenever someone needs a managed set of icon components in their Figma design system.
 ---
 
 # Icon system builder
@@ -11,33 +11,66 @@ and swapped via instance properties.
 
 ## Core principle: don't make Claude draw 1,700 icons
 
-The expensive, wrong path is Claude generating icon components one by one via the
-write mechanism — slow and token-hungry. The icon libraries already publish Figma
-resources. **Get to the end state via the cheapest mechanism that produces clean,
-well-named components**, in this preference order:
+The expensive, wrong path is Claude generating icon components one by one, by
+hand, via the write mechanism — slow and token-hungry. Get to the end state via
+the **cheapest mechanism that is also fully automated and produces clean,
+well-named components.** "Cheapest" is not just Claude tokens: a mechanism that
+burns near-zero tokens but makes the *user* hunt down a community file, duplicate
+it, and copy components by hand isn't actually cheap — it just moves the cost onto
+them. **The library determines the mechanism, deterministically** — same library,
+same path every run.
 
-1. **Duplicate a vetted community component file** (cheapest — near-zero Claude
-   tokens; the user copies a Figma Community resource where icons are already
-   components). Lucide and Material both have community files with the icons as
-   publishable components.
-2. **Run a reputable importer plugin** inside Figma (builds the component set
-   from the library source, sometimes the latest release; can often import a
-   subset). Use when no suitable community file fits, or when the user wants the
-   latest/source-of-truth set.
-3. **Generate from source SVGs (last resort)** — only for genuinely **custom**
-   icons the user brings, or when neither above works. Even then, batch the
-   import; never hand-draw.
+### Lucide → fetch the official SVGs directly (default)
 
-**This order is a hard gate, not a vibe — the library determines the path.** For
-a known library (Lucide, Material), the answer is **#1**, falling back to **#2**
-only if no community file fits. **Never #3 for a known library.** In particular:
-**fetching a library's SVGs from its website (e.g. lucide.dev) and hand-prepping
-them into components IS mechanism #3 wearing a disguise** — it is the slow,
-last-resort path, not a reasonable default. Do not take it for Lucide or Material;
-they always have a community file (#1) or importer plugin (#2). Reserve SVG import
-for custom icon sets only. Choosing a *different* mechanism on different runs for
-the *same* library is a bug: the library fixes the choice, so it must be
-deterministic.
+**Default for Lucide: fetch the curated subset straight from the official source
+repo and batch-componentize it.** Lucide publishes every icon as a uniform 24px
+SVG at a deterministic path (`github.com/lucide-icons/lucide`, `icons/<name>.svg`),
+and the filename *is* the canonical name (`arrow-right` ↔ `ArrowRight` in
+`lucide-react`). So the agent can do the whole thing hands-off:
+
+1. Resolve the subset to kebab-case icon names (see name validation below) and
+   pin a release **tag** — ideally the tag matching the installed `lucide-react`
+   version, so the Figma mirror and the code package are the same generation.
+2. Batch-fetch each
+   `https://raw.githubusercontent.com/lucide-icons/lucide/<tag>/icons/<name>.svg`.
+   A **404 means that icon doesn't exist at that version** — report it and let the
+   user pick a replacement. (This *is* the name-validation gate, for free.)
+3. In one scripted pass, turn each SVG into a component via
+   `figma.createNodeFromSvg(svg)`, convert to a component, name it per the naming
+   contract (Step 3), and set the base size.
+
+This is **fully automated, official source-of-truth, deterministic-named, and
+needs no manual user steps** — strictly better than a community-file copy for a
+library shaped like this. This is **not** the old "fetch SVGs off a website and
+hand-prep them" anti-pattern: that meant a human manually downloading and cleaning
+files. Batch-grabbing the official repo by deterministic path and scripting
+`createNodeFromSvg` is cheap *and* hands-off.
+
+**Fallbacks (only if the fetch path is blocked or the user prefers):** a vetted
+Lucide community component file, or the official Lucide importer plugin — e.g. if
+GitHub is unreachable, the user is on a restricted network, or they explicitly
+want the community file. Name the specific resource and surface its license first
+(see below).
+
+### Material → official community file / importer (default)
+
+Material has **variant axes** (outlined / rounded / sharp × fill / weight / grade /
+optical size), so there is no single clean per-icon file to grab — a direct repo
+fetch isn't the clean default it is for Lucide. **Default to the official Material
+Symbols community file or the official Material importer plugin** (Apache-2.0):
+name the specific vetted resource, say why, surface the license, and get the
+user's confirmation (see below). Only consider a direct fetch if the user pins one
+specific style, and even then prefer the importer. Never hand-draw or generate
+one-by-one.
+
+### Custom → batched SVG import
+
+The user's own SVGs, brought in via **batched import + componentize** (never
+hand-drawn, never one at a time). The sync layer later turns these into code via
+its SVGR pipeline — see Step 3.5.
+
+**Choosing a *different* mechanism on different runs for the *same* library is a
+bug:** the library fixes the choice, so it must be deterministic.
 
 ## Default to a CURATED SUBSET, not the whole library
 
@@ -63,49 +96,61 @@ library package is already installed, check its real export list (and pin
 assume a name exists or invent a near-match. Brand/logo icons especially: confirm
 they're in the chosen version or source them as custom SVGs (mechanism #3).
 
-## Name the specific resource and let the user verify
+## Name the resource and license (community-file / importer paths)
 
-Community files and importer plugins are **unofficial and variable in quality**
-(some popular plugins are reported buggy/slow). So: name the *specific* vetted
-resource you intend to use, briefly say why, and let the user confirm or pick
-another before proceeding. Don't silently grab whatever's first. Prefer
-well-maintained, clearly-licensed resources; surface the license for commercial
-use.
+When a path uses an **unofficial** community file or importer plugin — Material's
+default, or a Lucide *fallback* — those resources are variable in quality (some
+popular plugins are reported buggy/slow). So: name the *specific* vetted resource
+you intend to use, briefly say why, surface its license for commercial use, and
+let the user confirm or pick another before proceeding. Don't silently grab
+whatever's first. Verify the link is still live — don't assume a stale URL/file
+key works; if the named resource has moved, search Figma Community for the
+official/most-installed equivalent and confirm before using.
 
-**Start from these default candidates so the choice is consistent across runs**
-(verify the current link with the user — don't assume a stale URL/file key is
-still live; if the named resource has moved, search Figma Community for the
-official/most-installed equivalent and confirm before using):
+Default candidates for these paths, so the choice is consistent across runs:
 
-- **Lucide** → prefer Lucide's **official Figma resource** (the Lucide-team
-  community file, or the official "Lucide Icons" importer plugin for a subset/
-  latest set). MIT-licensed. This is mechanism #1/#2 — never fall back to
-  fetching SVGs off lucide.dev.
-- **Material** → prefer the **official Material Symbols** community file, or the
-  official Material icon importer plugin. Apache-2.0.
-- **Custom** → the user's own SVGs via batched import (mechanism #3).
+- **Lucide fallback** → Lucide's **official Figma resource** (the Lucide-team
+  community file, or the official "Lucide Icons" importer plugin). MIT-licensed.
+  Only used if the official-SVG fetch (the Lucide default, above) is blocked.
+- **Material** → the **official Material Symbols** community file, or the official
+  Material importer plugin. Apache-2.0.
+- **Custom** → the user's own SVGs via batched import.
 
-If you genuinely cannot confirm a community file or importer plugin for a known
-library, **say so and ask the user** which resource to use — do **not** silently
-drop to fetching website SVGs.
+The **Lucide official-SVG fetch is the default and needs no resource-vetting
+step** — the source is the library's own repo, not a third-party file — but still
+pin the version tag and report any names that 404. If you genuinely cannot reach
+the Lucide repo *and* cannot confirm a community file or importer, **say so and
+ask the user** which resource to use — never invent a source.
 
 ## Step 1 — Choose library + mechanism
 
 - Ask which library: **Lucide** (the shadcn default; outline only),
   **Material**, or **custom** (user brings SVGs). Record in `icons.library`.
 - Determine the subset (brainstorm, above).
-- Pick the mechanism cheapest-first, name the specific resource, get the user's
-  confirmation. For custom, plan a batched SVG import.
+- The library fixes the mechanism (Core principle): **Lucide → fetch official
+  SVGs from the repo; Material → official community file / importer; custom →
+  batched SVG import.** Pin the version tag for Lucide. Only name + confirm a
+  specific community-file/importer resource for the paths that use one (Material,
+  or a Lucide fallback).
 
 ## Step 2 — Bring icons in
 
-Execute the chosen mechanism. If duplicating a community file, guide the user
-through copying it (or the relevant components) into their file's **Icons** page.
-If using an importer plugin, walk the install/run and the subset selection. If
-custom SVGs, batch-import and componentize them.
+Execute the library's mechanism:
+
+- **Lucide (default):** batch-fetch the subset's SVGs from
+  `raw.githubusercontent.com/lucide-icons/lucide/<tag>/icons/<name>.svg`, then in
+  one scripted pass build each into a named component via
+  `figma.createNodeFromSvg`. Report any 404s and let the user pick replacements
+  before finishing. No manual user steps. (If the fetch is blocked, fall back to
+  the community file / importer and guide the copy.)
+- **Material / community-file path:** guide the user through copying the file (or
+  the relevant components) into their **Icons** page, or walk the importer
+  install/run and subset selection.
+- **Custom SVGs:** batch-import and componentize them.
 
 This is a Figma-authoring step — sequential, with the user in the loop; no
-subagents.
+subagents. When scripting the SVG-to-component pass, follow
+`${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md`.
 
 ## Step 3 — Normalize: page, naming, sizing, variants
 
@@ -190,8 +235,12 @@ icons; the sync layer handles custom-icon code and version-drift checks).
 
 ## What this skill must NOT do
 
-- Never hand-generate the full icon set via the write mechanism when a community
-  file or importer plugin can do it far cheaper.
+- Never **hand-draw** icons or generate them one-by-one. (Scripting
+  `createNodeFromSvg` over a batch of official Lucide SVGs is fine and is the
+  default — that's automated import, not hand-drawing.)
 - Never import 1,700 icons by default — curate to what's needed.
-- Never grab an unnamed/unvetted resource silently — name it, surface the
-  license, let the user verify.
+- Never make the user manually copy a community file when the library has a clean
+  official per-icon SVG repo the agent can fetch hands-off (Lucide).
+- Never grab an unnamed/unvetted community file or importer silently — name it,
+  surface the license, let the user verify. (The Lucide official-repo fetch is
+  exempt — it's the library's own source.)

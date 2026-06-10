@@ -6,6 +6,44 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-06-10
+
+### Added
+- **`/throughline:start` command — the deterministic entry point.** A slash
+  command that routes straight into `figma-environment-setup`, bypassing
+  natural-language skill competition. The README now leads with it. This fixes
+  cases where another installed plugin (e.g. superpowers' `brainstorming`) would
+  intercept "let's build my design system"–style phrases and run ahead of
+  environment setup.
+
+### Changed
+- **Lucide icons now fetched directly from the official source repo
+  (`icon-system-builder`).** The skill previously defaulted to duplicating a
+  community Figma file — "cheapest" in Claude tokens but it pushed manual work
+  onto the user (find file, duplicate, copy components). For Lucide, which
+  publishes every icon as a uniform 24px SVG at a deterministic repo path, the new
+  default is to batch-fetch the curated subset from
+  `raw.githubusercontent.com/lucide-icons/lucide/<tag>/icons/<name>.svg` and
+  componentize via `figma.createNodeFromSvg` in one scripted pass — fully
+  automated, official source-of-truth, deterministic naming, and a 404 doubles as
+  the name-validation check. Community file / importer plugin are now fallbacks.
+  Material (variant axes, no clean per-icon file) and custom SVGs are unchanged.
+
+### Fixed
+- **Cover page no longer built before tokens/styles exist (`figma-environment-setup`,
+  `token-sheet-builder`, `manifest-schema.md`).** Setup used to build the branded
+  Cover page during environment setup — before any tokens or styles existed — so
+  it could never be on-brand. Setup now does a throwaway write test only; the
+  real, fully token-bound Cover page is built by `token-sheet-builder` alongside
+  the Foundations page, where it can consume the system and survive mode switches.
+  `figma.coverPageBuilt` is now owned by `token-sheet-builder`.
+- **Elevations are now dark-mode-aware (`token-builder`).** Elevation effect
+  styles baked in a literal shadow color, so toggling Light/Dark never recolored
+  shadows. Shadow color now lives in mode-aware `shadow/*` semantic color
+  variables, and the effect styles **bind** their shadow color to those variables
+  (only the offset/blur/spread composition stays in the style). Toggling modes now
+  recolors every elevation automatically.
+
 ## [0.8.0] - 2026-06-10
 
 ### Added
@@ -342,7 +380,8 @@ components → Storybook on a pnpm + Turborepo + Next.js 16 + Tailwind v4 monore
 - Reference docs for coding level, manifest schema, sync adapters, Figma
   component standards, and brainstorm-before-build.
 
-[Unreleased]: https://github.com/jrpease/throughline/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/jrpease/throughline/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/jrpease/throughline/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/jrpease/throughline/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/jrpease/throughline/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/jrpease/throughline/compare/v0.5.0...v0.6.0

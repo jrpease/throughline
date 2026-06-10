@@ -153,8 +153,10 @@ bailing or running silently.
   verified live each run (see skill 0's liveness check).
 - `lastVerified` — ISO timestamp of the last successful liveness check.
 - `coverPageBuilt` — whether the branded **Cover** page has been generated in the
-  file (set by `figma-environment-setup`). The plugin cannot set the file
-  thumbnail via the API, so "set as thumbnail" stays a one-time manual user step.
+  file (set by `token-sheet-builder`, *not* `figma-environment-setup` — the Cover
+  is built after tokens and styles exist so it can be on-brand). The plugin cannot
+  set the file thumbnail via the API, so "set as thumbnail" stays a one-time manual
+  user step.
 - `canPublish` — whether the user can publish a Figma **team library** (requires
   a paid plan, Professional+). `true` / `false` / `null` (unknown / not yet
   asked). Asked once and recorded; gates the typed instance-swap dropdown path.

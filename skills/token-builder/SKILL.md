@@ -198,7 +198,14 @@ its primitive so the alias is live. Default set and modes:
   a different *mapping*, not just a different palette). Roles: `bg/{default,
   subtle,muted,emphasis,inverse}`, `text/{primary,secondary,disabled,inverse,
   link,onEmphasis}`, `border/{default,subtle,focus,emphasis}`,
-  `status/{success,warning,danger}/{bg,text,border}`. **`text/onEmphasis`** is the
+  `status/{success,warning,danger}/{bg,text,border}`,
+  `shadow/{ambient,key}`. The **`shadow/*`** roles are the colors the elevation
+  effect styles consume (Step 4) — they carry alpha and are **mode-aware**: a
+  low-alpha near-black in Light, and a darker/higher-alpha value in Dark, so
+  toggling modes recolors every elevation. They live here in `Color/Semantic`
+  (rather than as part of the effect style) precisely so the Light/Dark switch
+  reaches them; alias a near-black primitive where the alpha allows, otherwise
+  set the rgba per mode directly. **`text/onEmphasis`** is the
   label/icon color that sits **on** `bg/emphasis` (a primary button's text, a
   filled badge) — it must contrast with the emphasis fill in *every* mode, so it's
   a distinct role, **not** `text/inverse` (which flips with the theme and won't
@@ -266,8 +273,17 @@ they can **bind to the tokens you just built** rather than duplicating values:
   primitive updates the text styles. A type scale is NOT just variables — these
   composed text styles are what designers actually apply to text layers.
 - **Effect styles** — drop shadows and elevation levels (e.g. `Elevation/1`
-  through `Elevation/5`). These can't be variables; create them as effect
-  styles, driven by the shadow scale from the brainstorm.
+  through `Elevation/5`), driven by the shadow scale from the brainstorm. The
+  *composition* (offset, blur, spread) is what makes this a style rather than a
+  variable — but the shadow **color must be bound to the `shadow/*`
+  `Color/Semantic` variables**, never hardcoded. Figma supports binding the color
+  of a drop shadow inside an effect style to a color variable; do that for every
+  shadow in every elevation level. This is what makes elevations **mode-aware**:
+  because the bound `shadow/*` variable carries different values per mode, toggling
+  Light/Dark recolors all elevations automatically. A style with a literal shadow
+  color is the bug — it stays the same color in dark mode. (Heavier elevations may
+  layer two shadows, e.g. an ambient + a key shadow; bind each to `shadow/ambient`
+  and `shadow/key` respectively.)
 - **Grid styles** — layout grids if the user wants them (column/row grids for
   their breakpoints). Optional; only if requested.
 
