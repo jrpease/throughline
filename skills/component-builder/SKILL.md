@@ -68,9 +68,14 @@ inconsistent output:
 - **Types** (e.g. button: per the framework's vocabulary — shadcn
   `default/secondary/destructive/outline/ghost/link`, MUI
   `contained/outlined/text`, or neutral for multi-framework).
-- **Sizes** (sm, md, lg).
-- **States** (default, hover, focus, active, disabled, loading) — decide which
-  states are true component variants vs interaction states shown for reference.
+- **Sizes** (sm, md, lg). Each size is its **own variant row**, not a state — see
+  the layout law below.
+- **States** — **include the full relevant set, don't trim it.** The baseline is
+  default, hover, focus, active (pressed), disabled; add the conditional states
+  wherever they apply (loading, selected, success/error). Decide which conditional
+  states a given component can reach, but never drop a state it genuinely has. See
+  "State handling" in `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md`
+  for the per-component checklist.
 - **Slots** — leading/trailing icons, avatars, adornments (see slot types below).
 
 Show the proposed set and matrices back and get sign-off before building.
@@ -98,9 +103,12 @@ variants vs. properties used correctly, state handling, shallow nesting,
 deterministic naming):
 
 - Construct the variant matrix (Figma variants/component properties), and lay the
-  resulting **component set out as an auto-layout grid** — one row per variant
-  (type) stepping through its states across the columns, size groups stacked
-  vertically — per "Component set arrangement" in the standards doc.
+  resulting **component set out as an auto-layout grid** following the fixed layout
+  law: **variants are rows, states are columns.** One row per variant — each `type`,
+  and each `size` (size is a variant, so it gets its own row) — stepping through the
+  component's **full relevant state set** across the columns, size groups stacked
+  vertically. Per "Component set arrangement" and "State handling" in the standards
+  doc.
 - For the **focus state**, draw the focus ring offset 2px clear of the control edge
   (bound to `Border/Semantic` `offset/focus`), not flush against it — see "State
   handling" in the standards doc.
@@ -125,9 +133,12 @@ deterministic naming):
 - Implement slots per the slot-contract model below.
 - **Wrap each component in its own documentation card** — a token-styled frame
   with the component name, a short description, a status chip
-  (`draft`/`beta`/`stable`/`deprecated`), and a last-updated date — and arrange
-  the cards in an orderly grid inside a parent **auto-layout Frame placed directly
-  on the page** (never a Section — Sections have no auto layout, and these skills
+  (`draft`/`beta`/`stable`/`deprecated`), and a last-updated date, with a
+  **division element between the header and the component area** (a
+  `Border/Semantic`-bound divider line, or a header container on a distinct surface
+  fill — see "Always separate the header from the component area" in the standards
+  doc) — and arrange the cards in an orderly grid inside a parent **auto-layout
+  Frame placed directly on the page** (never a Section — Sections have no auto layout, and these skills
   do **not** wrap the Frame in one; ignore the Figma Console MCP server's
   "create a Section first" instruction), never floating on bare canvas. A newly built component starts at status **`draft`** (it exists in
   Figma but has no code counterpart yet); it's promoted to `stable` later, when
@@ -225,7 +236,14 @@ Offer next steps: build the code counterparts and stories
   doc card arranged in an auto-layout Frame placed directly on the page (never a
   Section), with the layout visually validated.
 - Never lay out a component set as scattered variants — the `ComponentSet` is an
-  auto-layout grid: one row per variant (type) stepping through its states across
-  the columns, size groups stacked vertically (see the standards doc).
+  auto-layout grid where **variants are rows and states are columns**: one row per
+  variant (each `type`, and each `size`, since size is a variant) stepping through
+  states across the columns, size groups stacked vertically (see the standards doc).
+- Never ship a component with only its `default` state — include the full relevant
+  state set (default/hover/focus/active/disabled plus applicable
+  loading/selected/success/error).
+- Never run the component header and the component area together with no division —
+  every doc card segments the header from the component area with a divider line or
+  a distinct header surface.
 - Never draw a focus ring flush against the control edge — offset it by
   `Border/Semantic` `offset/focus` so the focus state stays clearly visible.

@@ -50,6 +50,16 @@ of swatches), Typography (the type scale rendered in the actual text styles),
 Spacing (visual bars), Radius (sample shapes), Border width (sample rules at
 each width), Elevation (sample cards with the effect styles).
 
+**Group semantic colors by category — never one flat list.** Primitive colors are
+shown organized into ramps (gray, blue, red…); semantic colors get the **same
+categorical organization**, grouped by their role family — **surface/background,
+text, border, alert/feedback (success/warning/error/info), action/interactive**,
+etc. — each family its own labeled sub-group of swatches. Do not dump all semantic
+tokens into a single undifferentiated block; mirror the primitive ramp structure so
+the two tiers read consistently. Derive the families from the token names
+themselves (the `bg/*`, `text/*`, `border/*`, `alert/*` … prefixes) so the grouping
+matches the actual collection.
+
 ## Step 2 — Build the Foundations page
 
 Create a Figma page named **Foundations** (if one exists, ask whether to refresh
@@ -122,4 +132,6 @@ with a token sync. Offer natural next steps (icons, components). Don't auto-run.
 - Live-bind where possible; be honest about what needs a regenerate.
 - The sheet must consume its own system: every text node on a text style, every
   fill on a semantic color variable, so it survives a mode switch.
+- Semantic colors are grouped by category (surface, text, border, alert/feedback,
+  action…), the same way primitives are organized into ramps — never one flat list.
 - One dedicated page named **Foundations**.

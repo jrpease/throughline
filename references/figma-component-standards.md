@@ -70,19 +70,26 @@ the matrix needlessly.
 ## Component set arrangement (the variant matrix layout)
 
 A `ComponentSet` (the frame holding all variants) must itself be a clean
-**auto-layout** frame, not a scatter of variants at arbitrary coordinates. Lay the
-matrix out as a readable grid so it's scannable in Figma and predictable run-to-run:
+**auto-layout** frame, not a scatter of variants at arbitrary coordinates. The
+layout law is fixed: **variants are rows, states are columns.** Lay the matrix out
+as a readable grid so it's scannable in Figma and predictable run-to-run:
 
-- **One variant per row, all its states across that row.** Each row holds a single
-  `type` and steps through every `state` left-to-right
-  (default → hover → focus → active → disabled → loading) as the columns. The next
-  row is the next `type`, and so on. Reading down the rows enumerates the types;
-  reading across a row enumerates the states.
-- **Size is the third axis: size groups stack vertically.** When a `size` axis
-  exists, treat `type × size` as the row identity — one row per
-  `type`+`size` combination, still stepping through states across the columns — and
-  **stack the size groups vertically** (all `sm` rows, then all `md`, then `lg`),
-  so the layout stays a 2-D grid instead of sprawling sideways.
+- **Variants are always their own row; states are always the columns.** Each row is
+  a single variant (one `type`, or one `type`+`size` combination) and steps through
+  every `state` left-to-right (default → hover → focus → active → disabled →
+  loading…) as the columns. The next row is the next variant. Reading down the rows
+  enumerates the variants; reading across a row enumerates the states. This holds
+  for every component — never put states on rows or variants on columns.
+- **Size variations are variants — each size gets its own row.** A different size is
+  a distinct variant, not a state, so treat `type × size` as the row identity (one
+  row per `type`+`size` combination, still stepping through states across the
+  columns) and **stack the size groups vertically** (all `sm` rows, then all `md`,
+  then `lg`), so the layout stays a 2-D grid instead of sprawling sideways. Never
+  model size as a column or as anything other than its own row.
+- **Always include the full relevant state set per row** — don't ship a component
+  with only `default`. Every component renders its complete, applicable state set
+  across the columns (see "State handling" for the per-component checklist), so the
+  set documents the real interaction surface, not a single resting state.
 - **Build it with auto layout, bound to spacing tokens.** Set the component set's
   `layoutMode` (a vertical outer auto layout of horizontal rows, or a wrapped
   layout) with `itemSpacing`/padding bound to `Spacing/*` tokens — never a flat
@@ -95,11 +102,26 @@ run, and it mirrors how the states/types map to code props.
 
 ## State handling
 
-- Model the **states that are component variants** (default, hover, focus,
-  active, disabled, loading) as a `state` variant axis where they change
-  appearance meaningfully.
+- **Always include every relevant state for the component — completeness is the
+  default, not a judgment call.** A component's `state` axis must enumerate its full
+  applicable interaction surface, not just `default`. The baseline interactive set
+  is **default, hover, focus, active (pressed), disabled**; add the **conditional**
+  states whenever they apply to that component: **loading** (anything that triggers
+  async work — buttons, submit inputs), **selected** (toggles, segmented controls,
+  list/menu items, chips), and **success / error** (validated inputs, form fields,
+  async-result buttons). Decide *which* conditional states apply, but never drop a
+  state that does apply to keep the matrix small.
+  - **Button:** default, hover, focus, active (pressed), disabled — plus loading
+    (and selected / success / error where the button supports them).
+  - **Input / text field:** default, hover, focus, disabled — plus error, success,
+    and (where async) loading.
+  - **Checkbox / radio / toggle / chip:** default, hover, focus, active, disabled —
+    plus selected (and indeterminate where it applies).
+- Keep these on a `state` variant axis where they change appearance meaningfully;
+  each becomes a column in the set per "Component set arrangement".
 - Distinguish *component states* (part of the component's definition) from
-  *interaction states* shown only for documentation. Don't over-model.
+  purely *decorative* states. Include every interaction state a user can actually
+  reach; only omit a state when the component genuinely cannot enter it.
 - Keep state styling bound to tokens (a disabled state uses
   `color.text.disabled`, not a hardcoded gray) so it themes correctly.
 - **Focus rings need an offset gap.** The focus indicator (the focus ring/outline)
@@ -191,6 +213,23 @@ shows:
 - **Last updated** — a date, from `components.meta[name].updatedAt`, refreshed
   whenever the component is rebuilt. **Name this text node `Last Updated`** for
   the same reason.
+
+**Always separate the header from the component area with a division element.** The
+header block (name, description, status, date) and the component/variant area below
+it must be **visually segmented** — never let them run together as one undivided
+block. Use one of two approaches, both token-bound:
+
+- **A divider line** between the header and the component area — a 1px rule (or a
+  bottom border on the header container) bound to `Border/Semantic`. Name it
+  `Header Divider` so it's findable. This is the simplest default.
+- **A distinct header surface** — give the header container a slightly different
+  surface fill (e.g. header → `bg/subtle`/`bg/muted`, component area → `bg/surface`)
+  so the change in surface color creates the segmentation on its own.
+
+Pick whichever reads better for the card's styling, but **one of them is required** —
+a doc card with no header/component division is a fail in the post-build audit.
+Whichever you choose, bind it to variables (border or surface tokens), never a
+hardcoded hex.
 
 ### Promoting a component's status (write-back on finalize)
 
@@ -364,11 +403,19 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
    frames have **`clipsContent = false`** (read it back), so outer strokes, focus
    rings, and shadows aren't sliced at the edge. `clipsContent = true` is allowed
    **only** on deliberate cutoffs (scroll containers, image/avatar crop frames).
-7. **Visual** — the screenshot (from the validation loop) shows no overlaps,
+7. **Header division present** — each doc card has a division between its header and
+   the component area: either a `Header Divider` rule bound to `Border/Semantic`, or
+   a header container whose surface fill differs from the component area (both
+   token-bound). A card with no header/component segmentation is a fail.
+8. **States complete** — each component set's `state` axis includes every relevant
+   state for that component (default/hover/focus/active/disabled plus the applicable
+   conditional states — loading/selected/success/error), with variants (incl. each
+   size) as rows and states as columns. A set shipping only `default` is a fail.
+9. **Visual** — the screenshot (from the validation loop) shows no overlaps,
    misalignment, lopsided hug/fill sizing, or clipped strokes/focus rings.
 
 If any item fails, **fix and re-audit** — don't hand off a partial pass. Iterate
-with the same ~3-pass budget as the visual loop. Only when all seven pass is the
+with the same ~3-pass budget as the visual loop. Only when all nine pass is the
 build done.
 
 ## Naming
