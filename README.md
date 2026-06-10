@@ -175,6 +175,8 @@ Future improvements and planned capabilities. Have a request? **[Open an issue](
 - **Deeper Code Connect coverage** — richer Figma-to-code mappings as more plans support it.
 - **Expanded component starters** — a larger foundational kit out of the box.
 - **Richer status & auditing** — more from `/design-system-status`, including drift detection between Figma and code.
+- **Built-in accessibility checks** — automatic a11y validation when tokens and components are created, so modes can't be built with poor color contrast and components can't ship with accessibility gaps. Catches issues at creation time rather than in review.
+- **One library, many platforms** — support a single Figma token library that syncs to multiple platforms at once (React, Android, iOS), with a component lifecycle flexible enough to target per platform — every platform, or native-only components that don't need a React counterpart.
 
 Versioning follows [Semantic Versioning](https://semver.org). The current version lives in [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json); every release is recorded in [`CHANGELOG.md`](CHANGELOG.md).
 

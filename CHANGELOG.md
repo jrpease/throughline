@@ -6,6 +6,30 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-06-10
+
+### Added
+- **Header/component division on doc cards (`component-builder`,
+  `figma-component-standards.md`).** Every component doc card must now segment its
+  header from the component area with a division element — a `Border/Semantic`-bound
+  divider line or a header container on a distinct surface fill. Enforced by a new
+  post-build audit gate.
+- **Two roadmap items (README).** Built-in accessibility checks at token/component
+  creation time, and one Figma token library syncing to multiple platforms (React,
+  Android, iOS) with a per-platform-flexible component lifecycle.
+
+### Changed
+- **Component organization is now a fixed law (`figma-component-standards.md`,
+  `component-builder`).** Variants are always rows, states are always columns; each
+  size variation is its own variant row (never a state or a column); and every
+  component must include its full relevant state set (default/hover/focus/active/
+  disabled plus applicable loading/selected/success/error) rather than trimming to
+  `default`. Added a per-component state checklist and two post-build audit gates.
+- **Semantic colors grouped by category in the Foundations sheet
+  (`token-sheet-builder`).** Semantic colors are now organized by role family
+  (surface, text, border, alert/feedback, action…), mirroring how primitive ramps
+  are organized — never a single flat list.
+
 ## [0.7.0] - 2026-06-08
 
 Hardening pass from real build-session testing (token → foundations → icons →
@@ -318,7 +342,11 @@ components → Storybook on a pnpm + Turborepo + Next.js 16 + Tailwind v4 monore
 - Reference docs for coding level, manifest schema, sync adapters, Figma
   component standards, and brainstorm-before-build.
 
-[Unreleased]: https://github.com/jrpease/throughline/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/jrpease/throughline/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/jrpease/throughline/compare/v0.7.0...v0.8.0
+[0.7.0]: https://github.com/jrpease/throughline/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/jrpease/throughline/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/jrpease/throughline/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/jrpease/throughline/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/jrpease/throughline/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/jrpease/throughline/compare/v0.2.1...v0.2.3
