@@ -114,12 +114,41 @@ stays legible — no invisible titles, no stranded backgrounds. Then clear the
 explicit mode to restore the default. If anything breaks, the culprit is a fill
 that isn't bound to a semantic variable — bind it and re-check.
 
+## Step 2.5 — Build the Cover page
+
+Now that tokens and styles exist, build the file's first impression: a branded
+**Cover** page. (Environment setup deliberately skips this — there was nothing
+on-brand to build it from yet. If `figma.coverPageBuilt` is already `true`, just
+refresh the "Last updated" date instead of creating a second Cover.)
+
+- Find the file's first page. If it's the default empty "Page 1" (no meaningful
+  content), **rename it to `Cover`** and use it. If it has content, create a new
+  page named `Cover` and move it to the **top** of the page list. Don't clobber a
+  page the user has already worked in.
+- On that page, build one clean **Cover** frame with:
+  - the design system name (`workspace.name`),
+  - the author/owner name (ask once if you don't have it, or use the file owner),
+  - "Last updated" with the current date,
+  - a tasteful branded graphic — a bold wordmark, a few shapes, generous spacing,
+    not an elaborate illustration.
+- **Bind everything to the system you just documented** — text to text styles,
+  fills to `Color/Semantic` variables (page background → `bg/default`, etc.) — so
+  the Cover survives a mode switch exactly like the Foundations page. This is the
+  whole reason it's built here and not at setup. Validate both modes the same way.
+- Use proper **vertical auto layout** and place content inside the frame (no
+  floating, no overlapping text) per
+  `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md`.
+- **Setting it as the file thumbnail is a manual step** — the plugin API can't do
+  it. Tell the user plainly: "To make this the file's cover image, right-click the
+  Cover frame and choose **Set as thumbnail**." Offer it; don't block on it.
+- Record `figma.coverPageBuilt` = `true`.
+
 ## Step 3 — Checkpoint
 
-Show the user the Foundations page. Sequential review (this is a Figma-authoring
-skill — no subagents). Iterate on layout/styling if they want changes. Then
-update the manifest: `sheets.built` = `true`, append `token-sheet-builder` to
-`completedSkills`.
+Show the user the Foundations page and the Cover page. Sequential review (this is
+a Figma-authoring skill — no subagents). Iterate on layout/styling if they want
+changes. Then update the manifest: `sheets.built` = `true`, append
+`token-sheet-builder` to `completedSkills`.
 
 ## Step 4 — Hand off
 

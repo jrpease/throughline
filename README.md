@@ -76,9 +76,13 @@ Install from this repo's plugin marketplace:
 /plugin install throughline@throughline-marketplace
 ```
 
-Then just tell Claude Code:
+Then start with:
 
-> **"let's set up my design system"**
+```
+/throughline:start
+```
+
+This is the reliable entry point — it runs environment setup first, ahead of anything else. (You can also just say *"let's set up my design system"*, but if you have other plugins installed that grab "let's build…" style phrases, the slash command guarantees ThroughLine takes the wheel.)
 
 From there, Claude walks you through executing its **9 skills powered by 7 reference documents**, sequenced based on your unique needs and goals. The plugin is built to provide consistent checkpoints for human review and guidance — letting you make the big decisions while it does the dirty work.
 

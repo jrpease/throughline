@@ -372,35 +372,21 @@ client need a restart? Walk them back through the relevant sub-step.
 
 Do not move on until the liveness check passes.
 
-## Step 6.5 — Create the Cover page
+## Step 6.5 — Prove writes work (throwaway)
 
-Now that writes are proven to work, make the file's first impression: a **Cover**
-page. This is the first thing Claude writes into Figma.
+The liveness check above is a *read*. Before handing off, confirm Claude can also
+**write** to the file — but do **not** leave a permanent artifact behind. The
+file's branded **Cover** page is built later, by `token-sheet-builder`, once
+tokens and styles actually exist, so it can be genuinely on-brand instead of a
+neutral placeholder built against nothing.
 
-- Find the file's first page. If it's the default empty "Page 1" (no meaningful
-  content), **rename it to `Cover`** and use it. If it has content, create a new
-  page named `Cover` and move it to the **top** of the page list. Don't clobber a
-  page the user has already worked in.
-- On that page, build one clean, on-brand **Cover** frame with:
-  - the design system name (`workspace.name`),
-  - the author/owner name (ask once if you don't have it, or use the file owner),
-  - "Last updated" with the current date,
-  - a simple, tasteful branded graphic — keep it clean and token-friendly (a
-    bold wordmark, a few shapes, generous spacing), not an elaborate
-    illustration. If tokens already exist, bind colors/spacing to them; this
-    early they usually don't, so a restrained neutral layout is fine and can be
-    refreshed later.
-- Use proper **vertical auto layout** and place the content inside the frame (no
-  floating, no overlapping text) per
-  `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md`.
-- **Setting it as the file thumbnail is a manual step** — the plugin API can't do
-  it. Tell the user plainly: "To make this the file's cover image, right-click the
-  Cover frame and choose **Set as thumbnail**." Offer it; don't block on it.
-- Record `figma.coverPageBuilt` = `true`. On later runs, refresh the "Last
-  updated" date rather than creating a second Cover page.
+- Create one trivial throwaway node (e.g. a small frame or text node named
+  `__throughline write test`) on any page.
+- Confirm it landed with a quick read or `figma_capture_screenshot`.
+- **Delete it.** If both the write and the delete succeed, writes are proven.
 
-Keep this lightweight and skippable — if the user would rather jump straight to
-tokens, note the Cover can be generated anytime and move on.
+Leave `figma.coverPageBuilt` = `false` here — that flag is set later, when the
+real Cover page is built. Keep this step quick; it's plumbing, not design.
 
 ## Step 7 — Hand off
 
