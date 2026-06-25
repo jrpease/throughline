@@ -325,7 +325,7 @@ Don't declare success on faith. Run one trivial **read** against Figma to prove
 the connection is live — for example, a low-cost call such as reading the file
 name or a single variable collection. This probe proves *connectivity only*.
 
-**Do not report an inventory from this probe (bugs B1/B2).** A cheap or early read
+**Do not report an inventory from this probe (the false-empty read bugs B1/B2).** A cheap or early read
 can come back empty on a fully-populated file (pages not yet loaded, cache/read
 error), and reporting "0 variables" or "no text styles" off the back of it is a
 confidence-destroying first impression. Proving the connection is live is a
