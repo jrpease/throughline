@@ -19,6 +19,21 @@ to [Semantic Versioning](https://semver.org).
   `"retrofit"` value for `tokens.intakeMode`, and clarified publish-state field
   docs (`figma.libraryPublished` default `false` now means *unverified*, not
   "definitely not published"). Additive only; existing manifests migrate forward.
+- **`scripts/` directory** — the plugin's first executable code: canonical,
+  zero-dependency Node (ESM) scripts for brownfield retrofits, tested with
+  `node --test`.
+  - `validate-crosswalk.mjs` — the `tokens:validate` CI gate (resolved value ==
+    new value, N/N).
+  - `build-reverse-index.mjs` — code symbol → new token map for semi-automated
+    SCSS/Tailwind swaps.
+  - `guard-token-removal.mjs` — repo-wide zero-reference grep that blocks cleanup
+    while any reference to an about-to-be-deleted symbol remains.
+  - `lib/crosswalk.mjs` — shared loader + structural validation.
+- **`crosswalk.json` schema** — finalized contract: `references/crosswalk-schema.md`
+  (prose) + `scripts/crosswalk.schema.json` (JSON Schema).
+- **`token-crosswalk-builder` skill** — builds the new-token ↔ old-Figma ↔ old-code
+  crosswalk, installs the vetted scripts into `packages/tokens/`, wires
+  `tokens:validate`, and owns the `tokenCrosswalk` manifest section.
 
 ### Fixed
 - **Read discipline: never report "empty" without a verified read (bugs B1/B2).**
