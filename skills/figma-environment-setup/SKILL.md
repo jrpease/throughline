@@ -322,8 +322,21 @@ Figma files to work in, so I don't have to ask every time."
 ## Step 6 — Liveness check (prove it actually works)
 
 Don't declare success on faith. Run one trivial **read** against Figma to prove
-the connection is live — for example, fetch a quick summary of the file's
-existing variables/styles (a low-cost call). If it succeeds:
+the connection is live — for example, a low-cost call such as reading the file
+name or a single variable collection. This probe proves *connectivity only*.
+
+**Do not report an inventory from this probe (bugs B1/B2).** A cheap or early read
+can come back empty on a fully-populated file (pages not yet loaded, cache/read
+error), and reporting "0 variables" or "no text styles" off the back of it is a
+confidence-destroying first impression. Proving the connection is live is a
+separate concern from inventorying what's in the file — the full per-class
+inventory (with `loadAllPagesAsync` and independent reads for variables, text
+styles, and effect styles) belongs to the `design-system-audit` skill, which
+applies the read discipline in
+`${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md`. Here, only confirm the
+call succeeded — never announce counts.
+
+If the liveness probe succeeds:
 
 - Set `figma.connected` = `true` and `figma.lastVerified` to the current
   timestamp.
