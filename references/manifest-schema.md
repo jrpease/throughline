@@ -285,9 +285,10 @@ system so the retrofit can be right-sized.
 - `figmaInventory` — object snapshot of the existing Figma file from explicit
   per-class reads, e.g. `{ "variables": 0, "bindings": 0, "textStyles": 0,
   "effectStyles": 0, "modes": [] }`. Each count comes from a verified read, never
-  an assumption (see `brownfield-retrofit.md`).
+  an assumption (see `${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md`).
 - `percentSemantic` — integer 0–100: how much of the existing system is already
-  semantic. The single number that decides rename+cleanup vs. rewrite.
+  semantic. The single number that decides rename+cleanup vs. rewrite — see
+  `${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md` for the threshold.
 
 ### `tokenCrosswalk`
 Populated by the `token-crosswalk-builder` skill. Points at the backbone artifact
@@ -297,7 +298,7 @@ that maps new token ↔ old Figma token ↔ code identifier.
 - `statusCounts` — object counting crosswalk rows by `status`, e.g.
   `{ "aligned": 12, "renamed": 151, "driftFix": 2, "added": 42, "mappedNearest": 3 }`.
 - `validatorPassing` — `true`/`false`/`null`: whether the last crosswalk validator
-  run passed (resolved value == new value for every row).
+  run passed (`resolved value == new value` for every row).
 
 ### `retrofit`
 Populated by the `retrofit-planner` orchestrator. Tracks where a multi-phase
