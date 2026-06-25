@@ -83,6 +83,25 @@ test('rejects duplicate newToken', () => {
   assert.throws(() => loadCrosswalk(writeTemp(dup)), /duplicate newToken/);
 });
 
+test('rejects a missing or wrong version', () => {
+  assert.throws(() => loadCrosswalk(writeTemp({ tokens: [validRow] })), /version/);
+  assert.throws(() => loadCrosswalk(writeTemp({ version: 99, tokens: [validRow] })), /version/);
+});
+
+test('rejects an unknown top-level key', () => {
+  const bad = { version: 1, tokens: [validRow], bogus: true };
+  assert.throws(() => loadCrosswalk(writeTemp(bad)), /unknown key|unexpected key/i);
+});
+
+test('rejects an unknown row key (typo guard)', () => {
+  const bad = { version: 1, tokens: [{ ...validRow, codeToken: ['oops'] }] };
+  assert.throws(() => loadCrosswalk(writeTemp(bad)), /unknown key|unexpected key/i);
+});
+
+test('accepts a row with all valid keys including optional recommendedSemantic', () => {
+  assert.doesNotThrow(() => loadCrosswalk(writeTemp({ version: 1, tokens: [validRow] })));
+});
+
 test('rolls up status counts in camelCase', () => {
   const doc = {
     version: 1,

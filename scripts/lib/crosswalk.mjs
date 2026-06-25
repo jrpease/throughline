@@ -31,6 +31,15 @@ export function loadCrosswalk(path) {
   if (!data || typeof data !== 'object' || !Array.isArray(data.tokens)) {
     throw new Error('crosswalk: expected an object with a "tokens" array');
   }
+  if (data.version !== 1) {
+    throw new Error(`crosswalk: version must be 1, got ${JSON.stringify(data.version)}`);
+  }
+  const ALLOWED_TOP_KEYS = new Set(['$schema', 'version', 'tokens']);
+  for (const key of Object.keys(data)) {
+    if (!ALLOWED_TOP_KEYS.has(key)) {
+      throw new Error(`crosswalk: unknown key at top level: "${key}"`);
+    }
+  }
   const seen = new Set();
   data.tokens.forEach((row, i) => validateRow(row, i, seen));
   return data;
@@ -60,6 +69,12 @@ function validateRow(row, i, seen) {
   }
   if (row.recommendedSemantic != null && typeof row.recommendedSemantic !== 'string') {
     throw new Error(`crosswalk: ${where}.recommendedSemantic must be a string or null`);
+  }
+  const ALLOWED_ROW_KEYS = new Set(['newToken', 'newValue', 'tier', 'figmaOld', 'codeTokens', 'status', 'recommendedSemantic']);
+  for (const key of Object.keys(row)) {
+    if (!ALLOWED_ROW_KEYS.has(key)) {
+      throw new Error(`crosswalk: ${where} has unknown key: "${key}"`);
+    }
   }
   if (seen.has(row.newToken)) {
     throw new Error(`crosswalk: duplicate newToken "${row.newToken}"`);
