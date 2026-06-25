@@ -15,16 +15,16 @@ Concurrent writes from two **live** Desktop Bridge instances connected to the sa
 fragments** at negative coordinates — damage a screenshot won't reveal. So a second
 *live* instance is a hard stop.
 
-**But do not hard-block on _stale_ entries (bug B4).** Users routinely hit a wall
+**But do not hard-block on *stale* entries (bug B4).** Users routinely hit a wall
 where `otherInstances` lists ports they never opened — phantom/stale connections
 left by a plugin reload, a file switch, or an MCP reconnect that spawned a new port
 without reaping the old one. Telling them to "close the other instance" is useless
 when they never opened one. Distinguish the two cases before blocking:
 
 1. **Verify liveness, don't assume it.** Treat an `otherInstances` entry as
-   *suspected stale* until confirmed live. If the MCP exposes a liveness/heartbeat
-   signal, use it; otherwise attempt a `figma_reconnect` (or re-read
-   `figma_get_status`) — stale ports typically drop out after a reconnect.
+   *suspected stale* until confirmed live. Attempt a `figma_reconnect` (or re-read
+   `figma_get_status`) — stale ports typically drop out after a reconnect — or use a
+   liveness/heartbeat signal if the MCP exposes one.
 2. **Only the genuinely-live count blocks.** If exactly one live instance remains
    after reaping stale entries, proceed. Only block when **two or more** instances
    are confirmed live.
@@ -34,8 +34,8 @@ when they never opened one. Distinguish the two cases before blocking:
    the others." If only stale entries remain and they won't clear, say so plainly
    and let the user proceed rather than dead-ending them.
 
-This is the bridge-side application of the read-discipline principle
-(`${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md`): don't assert "another
+This is the bridge-side application of the read-discipline principle (B4) in
+`${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md`: don't assert "another
 instance is active" without confirming it's actually live.
 
 ## Read discipline: never report "empty" without a verified read (B1/B2)
