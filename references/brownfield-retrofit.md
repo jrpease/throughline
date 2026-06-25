@@ -48,8 +48,8 @@ Each cost real debugging time on a live retrofit. Treat each as a hard rule.
 3. **Don't delete-and-recreate variables to rename** — it unbinds everything. Rename
    in place to preserve Figma IDs (and therefore every existing binding).
 4. **Don't trust `tsc` / build to catch Tailwind color-utility removal** — deleted
-   utilities become *silent no-ops*. Guard repo-wide (all `.tsx/.ts` minus generated
-   + tests), and let Chromatic be the net.
+   utilities become *silent no-ops*. Guard repo-wide across all `.tsx`/`.ts` files
+   except generated and test files, and let Chromatic be the net.
 5. **Don't assume `build-storybook` exercises all SCSS** — story-unreachable modules
    (and a dead `@import` of a deleted partial) only fail when the real app renders.
    Run the app and spot-check 5–7 routes before declaring an SCSS change done.
@@ -67,7 +67,8 @@ of damage.
    inventory the Figma file with verified per-class reads.
 2. **refine** — rename/realign variables **in place** (`token-builder` brownfield
    branch). Never delete-and-recreate (guardrail 3); run a binding-survival audit.
-3. **rebind** — reconcile components onto the refined variables, preserving IDs.
+3. **rebind** — reconcile components onto the refined variables, preserving IDs. No
+   dedicated tool — the `retrofit-planner` orchestrator drives this step directly.
 4. **sync** — run the sync layer with the brownfield transforms (alpha channels,
    opacity 0–100→0–1, float32 rounding at the export boundary).
 5. **baseline** — capture a Chromatic baseline **before** any code retrofit, so
