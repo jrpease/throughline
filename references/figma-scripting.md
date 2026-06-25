@@ -7,15 +7,55 @@ and executes batched JS. Several behaviors below have caused silent, hard-to-
 screenshot corruption — read this before authoring `figma_execute` scripts, and
 keep the read-backs in your post-build audit.
 
-## Preflight: one bridge instance per file (concurrent-write corruption)
+## Preflight: one *live* bridge instance per file (concurrent-write corruption)
 
-Before any write, call **`figma_get_status`** and inspect `otherInstances`. If
-more than one Desktop Bridge plugin instance is connected to the same `fileKey`
-(e.g. ports 9223 **and** 9224), **stop and warn the user — do not write.**
-Concurrent writes from two instances collide and produce **truncated parent
-frames and orphaned node fragments** scattered at negative coordinates — damage a
-screenshot won't reveal. Ask the user to close the extra plugin instance, confirm
-a single connection via `figma_get_status`, then proceed.
+Before any write, call **`figma_get_status`** and inspect `otherInstances`.
+Concurrent writes from two **live** Desktop Bridge instances connected to the same
+`fileKey` collide and produce **truncated parent frames and orphaned node
+fragments** at negative coordinates — damage a screenshot won't reveal. So a second
+*live* instance is a hard stop.
+
+**But do not hard-block on _stale_ entries (bug B4).** Users routinely hit a wall
+where `otherInstances` lists ports they never opened — phantom/stale connections
+left by a plugin reload, a file switch, or an MCP reconnect that spawned a new port
+without reaping the old one. Telling them to "close the other instance" is useless
+when they never opened one. Distinguish the two cases before blocking:
+
+1. **Verify liveness, don't assume it.** Treat an `otherInstances` entry as
+   *suspected stale* until confirmed live. If the MCP exposes a liveness/heartbeat
+   signal, use it; otherwise attempt a `figma_reconnect` (or re-read
+   `figma_get_status`) — stale ports typically drop out after a reconnect.
+2. **Only the genuinely-live count blocks.** If exactly one live instance remains
+   after reaping stale entries, proceed. Only block when **two or more** instances
+   are confirmed live.
+3. **If you must block, be actionable.** Name the exact ports, state which are
+   suspected stale vs. live, and give a concrete clear path (run `figma_reconnect`,
+   reload the bridge plugin, or restart the MCP client) — never a bare "shut down
+   the others." If only stale entries remain and they won't clear, say so plainly
+   and let the user proceed rather than dead-ending them.
+
+This is the bridge-side application of the read-discipline principle
+(`${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md`): don't assert "another
+instance is active" without confirming it's actually live.
+
+## Read discipline: never report "empty" without a verified read (B1/B2)
+
+Before reporting that a file has no variables, no text styles, or no effect styles,
+you MUST have run an explicit read **for that specific class** that returned empty —
+after the file is fully loaded. Two real bugs came from violating this:
+
+- **B1** — a first read returned `0` variables on a fully-populated file (stale/early
+  read) and was reported as fact. **Fix:** `await figma.loadAllPagesAsync()` before
+  counting; treat a `0` on first read as suspect and re-read before reporting; prefer
+  the dedicated `figma_get_variables` tool (handles `dynamic-page`, resolves aliases).
+- **B2** — "no text styles" was asserted because no text *variables* were found —
+  styles were never read. **Fix:** variables and styles are different surfaces. Read
+  each independently: variables (`figma_get_variables`), text styles
+  (`figma_get_text_styles`), effect/paint styles (`figma_get_styles`). Report "none"
+  only for the class whose own read came back empty.
+
+An unexpectedly-empty result is a possible read error, not ground truth. See the
+full principle in `${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md`.
 
 ## `dynamic-page` mode: use the async APIs — reads **and** writes
 
