@@ -6,6 +6,34 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Added
+- **Brownfield retrofit foundation (Plan 1 of 3).** Groundwork for retrofitting a
+  design system onto a mature codebase *and* an already-populated Figma file,
+  drawn from a production Next.js retrofit case study. Design spec and plan live
+  under `docs/superpowers/`.
+- **`references/brownfield-retrofit.md`** — canonical reference for the
+  retrofit read-discipline principle, the 7 "DON'T" guardrails, the safe retrofit
+  sequence, and the verification triad.
+- **Manifest schemaVersion 4** — adds three new sections (`audit`,
+  `tokenCrosswalk`, `retrofit`) consumed by the forthcoming brownfield skills, a
+  `"retrofit"` value for `tokens.intakeMode`, and clarified publish-state field
+  docs (`figma.libraryPublished` default `false` now means *unverified*, not
+  "definitely not published"). Additive only; existing manifests migrate forward.
+
+### Fixed
+- **Read discipline: never report "empty" without a verified read (bugs B1/B2).**
+  `figma-environment-setup`'s Step 6 liveness check now proves *connectivity only*
+  and never reports an inventory ("0 variables" / "no text styles") off a cheap or
+  early read that can be falsely empty before pages load. `references/figma-scripting.md`
+  gains a read-discipline section directing per-class reads
+  (`figma_get_variables` / `figma_get_text_styles` / `figma_get_styles`) after
+  `loadAllPagesAsync`. *(Behavioral fixes in the consuming brownfield skills land
+  in later plans.)*
+- **Bridge-instance preflight no longer hard-blocks on phantom/stale ports (bug
+  B4).** `references/figma-scripting.md` now distinguishes *live* from *stale*
+  Desktop Bridge instances, blocks only on two or more confirmed-live instances,
+  and gives actionable remediation instead of a bare "close the other instance."
+
 ## [0.9.0] - 2026-06-10
 
 ### Added

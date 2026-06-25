@@ -1,8 +1,8 @@
 # Brownfield Design-System Retrofit — Design Spec
 
 > **Status:** Approved design, pre-implementation.
-> **Source:** `docs/brownfield-retrofit-learnings.md` (the Sweet app PR #443 case
-> study) plus bugs B1–B4 in `BACKLOG.md`.
+> **Source:** `docs/brownfield-retrofit-learnings.md` (a production Next.js
+> retrofit case study) plus bugs B1–B4 in `BACKLOG.md`.
 > **Goal:** Equip the ThroughLine plugin to handle large-scale retrofits — a mature
 > codebase **and** an already-populated Figma file reconciled onto a two-tier token
 > system — as elegantly as it handles greenfield builds today.
@@ -105,7 +105,7 @@ instead of a local JSON.
 1. **Size the code surface** — run the color-usage grep scaffold (adapted to the
    detected repo) to count: SCSS color vars, Tailwind color classes, JS `Colors.*`
    usages, raw hex + `rgba()` literals, SVG hardcoded fills. Produce a worklist with
-   counts (the Sweet table shape).
+   counts (the case-study table shape).
 2. **Inventory the Figma file** — explicit per-class reads (honoring §3): variable
    count, **binding count**, text styles, effect/paint styles, modes.
 3. **Compute "% semantic"** — report e.g. "you're ~90% semantic," which decides
@@ -280,9 +280,53 @@ set once; `completedSkills` append-only; no skill writes another skill's fields.
 
 ## 10. Bug → fix traceability
 
-| Bug | Fixed by |
-| --- | --- |
-| B1 (0-variables false read) | §3 + `design-system-audit` step 2 + `figma-environment-setup` reads |
-| B2 (assumed no text styles) | §3 (per-class independent reads) |
-| B3 (publish-state assumption) | §3 + behavioral detect-or-ask on existing `figma.canPublish`/`libraryPublished`/`publishedAt` (no new field) |
-| B4 (phantom bridge ports) | §3 + `figma-environment-setup` bridge-port preflight hardening |
+| Bug | Fixed by | Status after Plan 1 |
+| --- | --- | --- |
+| B1 (0-variables false read) | §3 + `design-system-audit` step 2 + `figma-environment-setup` reads | **Mitigated** — liveness no longer reports a false count; full per-class inventory lands with `design-system-audit` (Plan 3). Root cause may be MCP-side (see §11). |
+| B2 (assumed no text styles) | §3 (per-class independent reads) | **Mitigated** — read discipline documented; enforced in the audit skill (Plan 3). |
+| B3 (publish-state assumption) | §3 + behavioral detect-or-ask on existing `figma.canPublish`/`libraryPublished`/`publishedAt` (no new field) | **Doc-only in Plan 1.** The behavioral detect-or-ask change must land in the consuming skills (`component-builder`, `figma-publishing.md`) in **Plan 3**. Not yet fixed in production. |
+| B4 (phantom bridge ports) | §3 + `figma-environment-setup` bridge-port preflight hardening | **Mitigated, pending verification** — guidance distinguishes live/stale, but real-world reaping depends on MCP behavior (see §11). |
+
+---
+
+## 11. Carry-forward risks (assigned to later plans)
+
+Surfaced during Plan 1 review; tracked here so plan authoring picks them up.
+
+**For Plan 2 (scripts + `token-crosswalk-builder`):**
+- **Finalize the `crosswalk.json` schema first.** The validator and reverse-index
+  generator depend on it; ship the schema before the scripts that consume it.
+- **"Ship vetted scripts" is only partly achievable.** The color-usage grep is
+  inherently repo-shaped — ship it as an adaptable scaffold, and `log()` plainly
+  what patterns were assumed vs. detected so coverage isn't silently partial.
+
+**For Plan 3 (`design-system-audit`, `retrofit-planner`, brownfield branches):**
+- **B3 behavioral fix** — detect-or-ask publish state in `component-builder` /
+  `figma-publishing.md` (see §10).
+- **Close the interim inventory gap.** Plan 1 removed the (buggy) inventory from
+  `figma-environment-setup` Step 6 and delegated it to `design-system-audit`. Until
+  that skill exists, connecting to a populated file gives *no* inventory feedback.
+  Build the audit skill promptly, or add a correct inline read sooner.
+- **Wire `brownfield-retrofit.md` into the skills that need it.** Today only Step 6
+  and `figma-scripting.md` link to it; the guardrails aren't actively loaded by any
+  skill a brownfield user runs until the new skills `Read` it at the right moments.
+- **Don't hardcode the case-study stack.** The verification triad and guardrails
+  assume Chromatic + `build-storybook` + `tokens:sync`/`tokens:validate`. Real
+  brownfield repos may use other test/CI/token tooling — detect and generalize, or
+  degrade gracefully, rather than asserting the stack.
+- **Surface the new manifest sections in `/design-system-status` and `/start`.**
+  They currently ignore `audit` / `retrofit`.
+
+**Cross-cutting (not plan-specific):**
+- **The B1/B2/B4 fixes are unverified against a real system.** They were authored
+  from a case study, not reproduced. Before trusting them, test against (a) a
+  known-populated Figma file and (b) a genuine multi-bridge-port scenario. If the
+  root cause is in the third-party `figma-console-mcp` (caching a `0`, not reaping
+  stale ports — see the upstream notes in `BACKLOG.md`), the skill-side guidance is
+  a *mitigation*, and the real fix is upstream.
+- **No plugin CI exists.** There is no automated validation of SKILL.md frontmatter,
+  `plugin.json`, or the manifest JSON schema. Markdown self-checks and review are the
+  only net. A lightweight validation workflow would catch future broken edits.
+- **`schemaVersion` migration only triggers in `figma-environment-setup` Step 0.**
+  Fine because it always runs first, but a stale v3 manifest read by a downstream
+  skill won't have the new fields — keep the migrate-forward rule honored everywhere.
