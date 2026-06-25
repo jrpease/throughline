@@ -64,7 +64,10 @@ confirmation. The ordering rules are not arbitrary — each prevents a specific 
 of damage.
 
 1. **audit** — measure both sides (`design-system-audit`). Size the code surface and
-   inventory the Figma file with verified per-class reads.
+   inventory the Figma file with verified per-class reads. Compute `percentSemantic`
+   (manifest `audit.percentSemantic`): a system that is already largely semantic is a
+   **rename-in-place + cleanup** job; a low-semantic one is closer to a **rewrite**.
+   The higher the percentage, the lighter the retrofit — let it right-size the effort.
 2. **refine** — rename/realign variables **in place** (`token-builder` brownfield
    branch). Never delete-and-recreate (guardrail 3); run a binding-survival audit.
 3. **rebind** — reconcile components onto the refined variables, preserving IDs. No

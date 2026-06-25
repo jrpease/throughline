@@ -288,7 +288,8 @@ system so the retrofit can be right-sized.
   an assumption (see `${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md`).
 - `percentSemantic` — integer 0–100: how much of the existing system is already
   semantic. The single number that decides rename+cleanup vs. rewrite — see
-  `${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md` for the threshold.
+  `${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md` (safe sequence, `audit`
+  phase) for how it's used.
 
 ### `tokenCrosswalk`
 Populated by the `token-crosswalk-builder` skill. Points at the backbone artifact
