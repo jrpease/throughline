@@ -75,11 +75,14 @@ Concrete applications:
   variables (`figma_get_variables`), text styles (`figma_get_text_styles`),
   effect/paint styles (`figma_get_styles`). Only report "none" for the specific
   class whose read returned empty.
-- **B3:** Try to detect publish state first (`figma_get_library_components` /
-  `figma_get_library_variables`, library component keys). If detection is
-  unreliable, **ask once** ("Is this library published to a team library?") and
-  persist in the manifest. Frame the unpublished path as a graceful choice, not a
-  failure. (Ties to existing feature #6 — the publishing checkpoint.)
+- **B3:** Uses the **existing** manifest fields `figma.canPublish` (null until
+  asked), `figma.libraryPublished` (default `false`), and `figma.publishedAt` — no
+  new field. The fix is **behavioral**: treat a default/`false` `libraryPublished`
+  as *unverified*, not "definitely not published." Try to detect first
+  (`figma_get_library_components` / `figma_get_library_variables`, library component
+  keys). If detection is unreliable, **ask once** ("Is this library published to a
+  team library?") and persist. Frame the unpublished path as a graceful choice, not
+  a failure. (Ties to existing feature #6 — the publishing checkpoint.)
 - **B4:** Distinguish **live** concurrent bridge instances from **dead/stale**
   entries. Only hard-block on genuinely live ones; auto-reap or offer one-click
   cleanup for stale ones. If a real block is needed, name the exact ports and give a
@@ -252,13 +255,14 @@ Bump `schemaVersion` 3 → 4. **New sections only — no existing field changes.
   "startedAt": "<ISO>",
   "completedAt": null,
   "journalScaffolded": false
-},
-"figma": {
-  "libraryPublished": null     // B3: null = unknown/ask; true/false once detected or answered
 }
 ```
 
-Extend `tokens.intakeMode` enum with `"retrofit"`. Honor immutables: `workspace.origin`
+Extend `tokens.intakeMode` enum with `"retrofit"` (existing values:
+`generative | descriptive | import`). **B3 adds no field** — it reuses
+`figma.canPublish` / `figma.libraryPublished` / `figma.publishedAt`; the field-doc
+text is clarified so a default `false` reads as *unverified* (verify-or-ask before
+asserting), not "definitely not published." Honor immutables: `workspace.origin`
 set once; `completedSkills` append-only; no skill writes another skill's fields.
 
 ---
@@ -280,5 +284,5 @@ set once; `completedSkills` append-only; no skill writes another skill's fields.
 | --- | --- |
 | B1 (0-variables false read) | §3 + `design-system-audit` step 2 + `figma-environment-setup` reads |
 | B2 (assumed no text styles) | §3 (per-class independent reads) |
-| B3 (publish-state assumption) | §3 + `figma.libraryPublished` manifest field + detect-or-ask |
+| B3 (publish-state assumption) | §3 + behavioral detect-or-ask on existing `figma.canPublish`/`libraryPublished`/`publishedAt` (no new field) |
 | B4 (phantom bridge ports) | §3 + `figma-environment-setup` bridge-port preflight hardening |
