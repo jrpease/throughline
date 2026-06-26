@@ -212,6 +212,38 @@ Set `storybook.initialized` = `true`, `storybook.chromatic` accordingly,
 Step 6.) Note the ongoing loop: new components flow through the
 component-pipeline orchestrator; token changes flow through `/sync-figma-tokens`.
 
+## Brownfield: baseline before retrofit + the verification triad
+
+On a **retrofit** (`tokens.intakeMode: "retrofit"`), the order of operations and the
+verification bar are stricter than greenfield. **Read
+`${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md`** — the safe sequence and the
+verification triad live there.
+
+**Capture the Chromatic baseline BEFORE the code retrofit.** Run `build-storybook` +
+Chromatic to establish a green baseline *before* any token/color code is changed. Then,
+when the retrofit lands, every diff is either an **intended drift-fix** (a color the
+audit flagged as wrong) or a **regression** — and the baseline is the only thing that
+tells them apart. Baseline *after* the retrofit and you've thrown away that signal.
+
+**The verification triad — all three are necessary; no single check catches everything:**
+1. **`check-types` (TypeScript)** — catches type errors, but is **blind to Tailwind
+   silent no-ops**: a deleted color utility just stops applying, with no type error
+   (guardrail 4).
+2. **`build-storybook` + Chromatic snapshots** — the visual-regression net, but **blind
+   to story-unreachable code**. `build-storybook` only compiles SCSS that some story
+   actually imports; a dead `@import` of a deleted partial, or a route's styles no story
+   renders, compiles "fine" here and breaks only in the app. **Chromatic — not
+   `tsc`/build — is the source of truth** for whether a color-utility removal was safe.
+3. **Run the actual app + spot-check 5–7 real routes** — the only thing that exercises
+   story-unreachable SCSS (guardrail 5). Don't declare an SCSS/color change done on the
+   strength of a green build alone.
+
+**Don't assume the stack (§11).** This triad names Chromatic + `build-storybook`
+because that's the case-study tooling. Detect what the repo actually uses — read its
+`package.json` scripts for the real type-check / build / visual-test commands — and map
+the triad onto them (or degrade gracefully and say so) rather than asserting commands
+that may not exist.
+
 ## What this skill must NOT do
 
 - Never finish a finalized component while leaving its Figma doc card on `draft`
@@ -225,3 +257,9 @@ component-pipeline orchestrator; token changes flow through `/sync-figma-tokens`
   — its incremental model keeps missing global token changes. Default to full
   snapshots (every story, every run); revisit only at large story counts.
 - Never use the sequential model for story-gen — parallelize via subagents.
+- Never capture the Chromatic baseline *after* a code retrofit — baseline before, so
+  intended drift-fixes are distinguishable from regressions.
+- Never trust `tsc`/build to catch Tailwind color-utility removal — it's a silent
+  no-op; Chromatic is the source of truth (guardrail 4).
+- Never declare an SCSS/color change done on a green build alone — run the app and
+  spot-check 5–7 real routes (guardrail 5).
