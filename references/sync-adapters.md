@@ -102,6 +102,28 @@ emit as references to primitive vars rather than flattened literals.
   indirection. Modes map to the platform's native mechanism (asset catalog
   variants, resource qualifiers).
 
+## Brownfield value transforms
+
+On a retrofit, the values flowing into the adapters get three extra transforms (the
+opacity 0–100→0–1 normalization happens earlier, at extraction). These affect what the
+web adapters emit; native adapters resolve to literals so the channel/`color-mix` forms
+apply to web targets. Full rationale: the 7 guardrails in
+`${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md`.
+
+- **Channel alpha (web).** Color tokens emit as space-separated channels
+  (`--color-bg-default: 239 68 68;`) consumed via
+  `rgb(var(--color-bg-default) / <alpha-value>)`, so Tailwind's `/opacity` modifiers
+  keep working. A finished `rgba(...)` would break them.
+- **`/opacity` → `color-mix` (web).** A `/opacity` modifier on a var-based token can't
+  fold its alpha into the var; emit `color-mix(in srgb, var(--token) NN%, transparent)`
+  instead (or the channel-alpha form).
+- **Float32 rounding at the export boundary.** Round values as they leave the pipeline
+  (`Math.round(v*100)/100`) — normalizing inside Figma is a no-op because Figma
+  re-quantizes to float32 on store.
+
+These are applied in `token-sync-layer`'s extraction/transform step (its "Brownfield
+transforms" subsection), not in the adapter presets.
+
 ## Output location
 
 All adapter output lands in `packages/tokens/` in the monorepo, organized by
