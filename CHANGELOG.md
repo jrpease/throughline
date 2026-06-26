@@ -34,6 +34,25 @@ to [Semantic Versioning](https://semver.org).
 - **`token-crosswalk-builder` skill** — builds the new-token ↔ old-Figma ↔ old-code
   crosswalk, installs the vetted scripts into `packages/tokens/`, wires
   `tokens:validate`, and owns the `tokenCrosswalk` manifest section.
+- **Brownfield retrofit skills (Plan 3 of 3).** Completes the brownfield path end to end.
+  - **`design-system-audit` skill** — the brownfield front door: sizes the code-side
+    color surface (via the new color-usage grep), inventories the Figma file with verified
+    per-class reads, computes `percentSemantic`, and owns the `audit` manifest section
+    (sets `tokens.intakeMode: "retrofit"`).
+  - **`retrofit-planner` skill** — the orchestrator: sequences the safe 7-phase retrofit
+    (audit → refine → rebind → sync → baseline → code → cleanup) with a human gate per
+    phase, offers a decision journal default-on, and owns the `retrofit` manifest section.
+  - **`scripts/grep-color-usage.mjs`** — the repo-shaped color-usage grep scaffold
+    (ships default patterns, logs assumed-vs-detected coverage).
+- **Brownfield branches in existing skills.** `figma-environment-setup` gains brownfield
+  detection + routing to the audit, retrofit resume, and a pre-mutation rollback baseline;
+  `token-builder` gains refine-in-place (rename preserving IDs, binding-survival audit);
+  `token-sync-layer` gains the brownfield transforms (channel alpha, float32 rounding at
+  the export boundary, `/opacity`→`color-mix`); `storybook-chromatic-builder` gains
+  baseline-before-retrofit + the verification triad. The binding-survival audit snippet is
+  added to `references/figma-scripting.md`.
+- **`/design-system-status` + `/start`** now surface the `audit`, `tokenCrosswalk`, and
+  `retrofit` state and route brownfield/in-progress systems to the right next step.
 
 ### Fixed
 - **Read discipline: never report "empty" without a verified read (bugs B1/B2).**
@@ -48,6 +67,11 @@ to [Semantic Versioning](https://semver.org).
   B4).** `references/figma-scripting.md` now distinguishes *live* from *stale*
   Desktop Bridge instances, blocks only on two or more confirmed-live instances,
   and gives actionable remediation instead of a bare "close the other instance."
+- **Publish-state detection is now behavioral, not assumed (bug B3).** `component-builder`
+  and `references/figma-publishing.md` treat a default/`false` `figma.libraryPublished` as
+  *unverified*: they detect first (`figma_get_library_components` /
+  `figma_get_library_variables`), ask once only if inconclusive, persist the answer, and
+  frame the unpublished path as a graceful choice. No new manifest field.
 
 ## [0.9.0] - 2026-06-10
 
