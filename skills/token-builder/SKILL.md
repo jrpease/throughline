@@ -146,6 +146,41 @@ with a meaningful name is fine; a fake role nobody applies is not. If you can't
 name a genuine role for a category, give it semantic roles that map to actual
 usage rather than mirroring the primitive scale step-for-step.
 
+## Step 1.5 — Brownfield: refine existing variables in place (don't rebuild)
+
+If this is a **retrofit** (`tokens.intakeMode: "retrofit"`, or the file already has
+variables), do **not** create a fresh set on top of the old one. Refine what exists,
+in place. **Read `${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md` first** —
+guardrail 3 is the whole point of this branch.
+
+**The hard rule (guardrail 3):** rename and realign variables **in place** to preserve
+their Figma IDs. **Never delete-and-recreate** — every binding (a populated file can
+have thousands) references the variable *id*, so recreating under the same name still
+unbinds everything. A rename keeps the id; a delete+create does not.
+
+**The refine loop:**
+
+1. **Read what exists** (read discipline). Use `figma_get_variables` after
+   `await figma.loadAllPagesAsync()`. List the existing collections, variables, and
+   values. Treat a `0`/empty first read as suspect — re-read before concluding the file
+   is empty.
+2. **Snapshot bindings before.** Run the binding-survival audit in
+   `${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md` to record the total consuming
+   binding count *before* any change. This is your guardrail-3 tripwire.
+3. **Rename / realign in place.** Use the rename operation that keeps the id (e.g.
+   `figma_rename_variable` / setting `variable.name`), and update values in place. Map
+   old names to the new two-tier scheme; record each old→new mapping (the crosswalk
+   consumes it later via `token-crosswalk-builder`).
+4. **Snapshot bindings after, and assert equality.** Re-run the binding-survival audit.
+   The total **must be unchanged**. A drop means a binding was severed — STOP, find the
+   delete-and-recreate that slipped in, and restore from the baseline.
+5. **Add genuinely-new variables** (the `added` rows) as normal creates — only the
+   *existing* ones must be renamed rather than recreated.
+
+After the refine loop, continue with the normal tiers below for any net-new structure,
+but **skip recreating anything that already exists**. The primitive/semantic checkpoint
+(Step 2's PAUSE) still applies: lock names before building dependent semantics.
+
 ## Step 2 — Build the PRIMITIVE tier, then PAUSE
 
 Create the **per-category primitive collections** and their variables via a
@@ -322,3 +357,7 @@ comes later.
   types clean and consistent — it makes the downstream sync trivial.
 - **Token-efficiency:** scripted loops via `figma_execute`, batched per tier —
   not per-variable tool calls.
+- **Brownfield: never delete-and-recreate to rename (guardrail 3).** On a retrofit,
+  rename variables in place to preserve their Figma IDs and every binding. Snapshot the
+  binding count before and after each rename and assert it's unchanged — see Step 1.5
+  and `${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md`.
