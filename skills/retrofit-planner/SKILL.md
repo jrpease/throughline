@@ -8,7 +8,7 @@ description: Orchestrate a full brownfield design-system retrofit end to end —
 Sequences a brownfield retrofit through the safe 7-phase order, gating each phase on a
 human confirmation. Like `component-pipeline`, this skill holds **zero domain logic of
 its own** — it is a sequencer that invokes the real skills and the phase work, and only
-updates the manifest fields it owns (`retrofit.phase`, `completedSkills`). All the
+updates the manifest fields it owns (`retrofit.*`, `completedSkills`). All the
 actual work lives in the skills it calls, so this orchestrator doesn't rot when they
 improve.
 
@@ -67,7 +67,8 @@ Invoke `design-system-audit`: size the code surface, inventory the Figma file wi
 verified per-class reads, compute `percentSemantic`. **Gate:** show the audit results and
 the right-sizing read ("~90% semantic → renames + cleanup, not a rewrite"). Confirm before
 continuing. Capture the rollback baseline (Figma version checkpoint / token export) now if
-`figma-environment-setup` didn't already.
+`figma-environment-setup` didn't already. On first entry, set `retrofit.startedAt` to the
+current ISO timestamp if it is unset.
 
 ### Phase 2 — `refine` (invoke `token-builder` brownfield branch)
 
