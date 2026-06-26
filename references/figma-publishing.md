@@ -34,17 +34,31 @@ slot — not a broken state. The typed dropdown is a later *upgrade*.
    and the typed dropdown is simply unavailable. Frame this as a plan limitation,
    never as a failure or something they did wrong.
 
-## Capability check (ask once, record it)
+## Capability check (detect first, then ask once, record it)
 
-Before relying on publishing, establish whether the user *can* publish and
-whether they *have*:
+Before relying on publishing, establish whether the user *can* publish and whether
+they *have* — but **treat a default/`false` `figma.libraryPublished` as _unverified_,
+not "definitely not published" (bug B3).** Apply the read discipline in
+`${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md`: never assert "unpublished"
+without a verified read.
 
-- If `figma.canPublish` is `null`, ask once, plainly: "Are you on a paid Figma
-  plan (Professional or higher)? Publishing a shared library — which unlocks the
-  nicer typed icon dropdowns on components — needs one." Record `true`/`false`.
-- Record whether they've published in `figma.libraryPublished` (+ `publishedAt`).
+1. **Detect first.** Before asking anything, attempt to detect publish state by reading
+   for published library artifacts: `figma_get_library_components` /
+   `figma_get_library_variables` (and library component keys). If those resolve, the
+   file *is* published — record `figma.libraryPublished: true` (+ `publishedAt`) and skip
+   the question.
+2. **Ask once only if detection is inconclusive.** If the reads are empty or unreliable
+   (detection can't confirm either way), ask the user a single plain question — "Is this
+   file published to a team library?" — and, separately, if `figma.canPublish` is `null`:
+   "Are you on a paid Figma plan (Professional or higher)? Publishing a shared library —
+   which unlocks the nicer typed icon dropdowns — needs one." Record `true`/`false` for
+   each.
+3. **Persist.** Record `figma.libraryPublished` (+ `publishedAt`) and `figma.canPublish`.
+   Don't probe repeatedly; read the manifest and only re-detect/re-ask if state is
+   genuinely missing.
 
-Don't probe repeatedly; read the manifest and only re-ask if state is missing.
+Frame the unpublished path as a **graceful choice**, never a failure — the toggle +
+manual-swap slot is fully functional.
 
 ## Sequencing — one publish checkpoint, after icons
 
@@ -65,12 +79,16 @@ them that's expected, don't make it feel like churn.
 
 For each slot that would be a typed `INSTANCE_SWAP`:
 
-1. **Can the swap targets resolve** (library published, `canPublish` true,
-   `libraryPublished` true)? →
-2. **Yes:** add the typed `INSTANCE_SWAP` dropdown with preferred values.
-3. **No (free plan, or not yet published):** build the **toggle + manual-swap**
-   slot instead, tell the user *why* in plain terms, and add the component name to
-   `components.instanceSwapUpgradePending` in the manifest.
+1. **Resolve publish state via the capability check above** — detect first
+   (`figma_get_library_components` / `figma_get_library_variables`), ask once only if
+   inconclusive, then persist. A default/`false` `libraryPublished` is *unverified*
+   until this runs — never treat it as a final "no".
+2. **Confirmed published** (`libraryPublished` true after detect-or-ask, `canPublish`
+   true): add the typed `INSTANCE_SWAP` dropdown with preferred values.
+3. **Confirmed not published** (free plan, or the user said not yet): build the
+   **toggle + manual-swap** slot instead, tell the user *why* in plain terms, and add
+   the component name to `components.instanceSwapUpgradePending` in the manifest. This
+   is a graceful choice, not a failure.
 
 ## The upgrade pass
 
