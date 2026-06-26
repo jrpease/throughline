@@ -123,3 +123,56 @@ large grids (e.g. a 30+ cell color or variant grid), build **manual rows** —
 nested horizontal auto-layout frames inside a vertical parent — instead of one
 WRAP frame, or split the build across **multiple `figma_execute` calls**. The
 identical content that times out as one WRAP frame builds fine as manual rows.
+
+## Binding-survival audit: count variable bindings before and after a rename
+
+A brownfield retrofit renames variables **in place** to preserve their Figma IDs
+(guardrail 3 in `${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md` — a
+delete-and-recreate unbinds every consumer). The only way to *prove* a rename kept
+its bindings is to count consuming bindings before and after. Run this read with
+the dedicated tooling where possible (`figma_get_variables`), or via `figma_execute`
+when you need the raw consumer count.
+
+A variable's bindings are not enumerable directly, so count **consumers**: nodes and
+styles whose bound properties reference each variable id. The robust, `dynamic-page`-safe
+approach is to snapshot the total consumer count across the file before the rename,
+rename in place, then re-snapshot and assert equality.
+
+```js
+// dynamic-page safe: load everything, then walk consumers counting variable refs.
+await figma.loadAllPagesAsync();
+
+function countBoundVariableRefs(node, tally) {
+  const bv = node.boundVariables;
+  if (bv) {
+    for (const key of Object.keys(bv)) {
+      const entry = bv[key];
+      const refs = Array.isArray(entry) ? entry : [entry];
+      for (const r of refs) {
+        if (r && r.id) tally[r.id] = (tally[r.id] || 0) + 1;
+      }
+    }
+  }
+  if ('children' in node) {
+    for (const child of node.children) countBoundVariableRefs(child, tally);
+  }
+  return tally;
+}
+
+const tally = {};
+for (const page of figma.root.children) countBoundVariableRefs(page, tally);
+const totalBindings = Object.values(tally).reduce((a, b) => a + b, 0);
+// Report totalBindings (and tally per id) BEFORE the rename; re-run AFTER and
+// assert the total is unchanged. A drop means a binding was severed — STOP and
+// investigate (almost always a delete-and-recreate slipped in).
+```
+
+- **Pass an explicit `timeout`** (this walks every node — size it per the batch-timeout
+  rule above; a large file needs tens of seconds).
+- **Style bindings count too.** Text/effect/paint styles can bind variables; include a
+  pass over `getLocalTextStylesAsync()` / `getLocalPaintStylesAsync()` /
+  `getLocalEffectStylesAsync()` and their `boundVariables` if the file uses style-level
+  bindings.
+- **This is the number `design-system-audit` records** as
+  `audit.figmaInventory.bindings`, and the before/after gate the `token-builder`
+  brownfield branch runs around every rename.
