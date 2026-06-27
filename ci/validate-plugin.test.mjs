@@ -54,3 +54,15 @@ test('flags when no marketplace entry name matches plugin.json name', () => {
   const problems = validatePlugin({ plugin: validPlugin, marketplace: bad });
   assert.ok(problems.some((p) => /must match plugin\.json/.test(p)));
 });
+
+test('flags a non-object plugins entry instead of crashing', () => {
+  const bad = { ...validMarketplace, plugins: [null] };
+  const problems = validatePlugin({ plugin: validPlugin, marketplace: bad });
+  assert.ok(problems.some((p) => /plugins\[0\] must be an object/.test(p)));
+});
+
+test('flags a missing author', () => {
+  const { author, ...noAuthor } = validPlugin;
+  const problems = validatePlugin({ plugin: noAuthor, marketplace: validMarketplace });
+  assert.ok(problems.some((p) => /"author" is required/.test(p)));
+});

@@ -41,11 +41,15 @@ export function validatePlugin({ plugin, marketplace }) {
     problems.push('marketplace.json: "plugins" must be a non-empty array');
   } else {
     marketplace.plugins.forEach((p, i) => {
+      if (p === null || typeof p !== 'object') {
+        problems.push(`marketplace.json: plugins[${i}] must be an object`);
+        return;
+      }
       if (!isNonEmptyString(p.name)) problems.push(`marketplace.json: plugins[${i}].name must be a non-empty string`);
       if (!isNonEmptyString(p.source)) problems.push(`marketplace.json: plugins[${i}].source must be a non-empty string`);
       if (!isNonEmptyString(p.description)) problems.push(`marketplace.json: plugins[${i}].description must be a non-empty string`);
     });
-    if (isNonEmptyString(plugin.name) && !marketplace.plugins.some((p) => p.name === plugin.name)) {
+    if (isNonEmptyString(plugin.name) && !marketplace.plugins.some((p) => p !== null && typeof p === 'object' && p.name === plugin.name)) {
       problems.push(`marketplace.json: no plugin entry has name "${plugin.name}" (must match plugin.json)`);
     }
   }
