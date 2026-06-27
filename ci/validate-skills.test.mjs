@@ -67,3 +67,8 @@ test('flags a manifest doc whose schemaVersion is not an integer', () => {
   const problems = validateManifestDoc(src);
   assert.ok(problems.some((p) => /must be an integer/.test(p)));
 });
+
+test('flags a manifest doc with no json block', () => {
+  const problems = validateManifestDoc('no code block here');
+  assert.ok(problems.some((p) => /no.*json.*block/i.test(p)));
+});
