@@ -53,6 +53,14 @@ to [Semantic Versioning](https://semver.org).
   added to `references/figma-scripting.md`.
 - **`/design-system-status` + `/start`** now surface the `audit`, `tokenCrosswalk`, and
   `retrofit` state and route brownfield/in-progress systems to the right next step.
+- **Plugin CI (first GitHub Actions workflow).** `.github/workflows/ci.yml` runs
+  on every pull request and on pushes to `main`: the full `node --test` suite
+  plus two zero-dependency structural validators in `ci/` — `validate-plugin.mjs`
+  (plugin.json / marketplace.json: valid JSON, required fields, semver, name
+  match) and `validate-skills.mjs` (every SKILL.md `name` matches its directory
+  and has a ≤1024-char description; every command has a description; the
+  manifest-doc example JSON parses with an integer `schemaVersion`). Closes the
+  "no plugin CI" carry-forward from the brownfield retrofit effort.
 
 ### Fixed
 - **Read discipline: never report "empty" without a verified read (bugs B1/B2).**
