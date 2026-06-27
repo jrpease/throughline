@@ -25,6 +25,11 @@ test('preserves colons inside a value (splits on first colon only)', () => {
   assert.equal(data.description, 'IMPORTANT: do the thing');
 });
 
+test('leaves a value with interior quotes untouched (not fully wrapped)', () => {
+  const { data } = parseFrontmatter('---\ndescription: "a" or "b"\n---\n');
+  assert.equal(data.description, '"a" or "b"');
+});
+
 test('throws when the opening fence is missing', () => {
   assert.throws(() => parseFrontmatter('name: foo\n---\n'), /opening/);
 });

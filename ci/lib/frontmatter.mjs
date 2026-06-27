@@ -40,11 +40,7 @@ export function parseFrontmatter(text) {
 }
 
 function stripQuotes(s) {
-  if (
-    s.length >= 2 &&
-    ((s[0] === '"' && s[s.length - 1] === '"') ||
-      (s[0] === "'" && s[s.length - 1] === "'"))
-  ) {
+  if (/^"[^"]*"$/.test(s) || /^'[^']*'$/.test(s)) {
     return s.slice(1, -1);
   }
   return s;
