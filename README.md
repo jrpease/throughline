@@ -8,7 +8,7 @@
 
 **A Claude Code plugin packed with every skill you need to launch and manage a production-grade design system in hours — not months.**
 
-[![Version](https://img.shields.io/badge/version-0.9.0-6366f1)](.claude-plugin/plugin.json)
+[![Version](https://img.shields.io/badge/version-0.10.0-6366f1)](.claude-plugin/plugin.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Built for Claude Code](https://img.shields.io/badge/built%20for-Claude%20Code-d97757)](https://docs.claude.com/en/docs/claude-code)
 [![See it live — Storybook](https://img.shields.io/badge/See%20it%20live-Storybook-FF4785?logo=storybook&logoColor=white)](https://main--6a1ee089ae3a37b70a6e4559.chromatic.com)
