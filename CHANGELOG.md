@@ -6,6 +6,81 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Added
+- **Brownfield retrofit foundation (Plan 1 of 3).** Groundwork for retrofitting a
+  design system onto a mature codebase *and* an already-populated Figma file,
+  drawn from a production Next.js retrofit case study. Design spec and plan live
+  under `docs/superpowers/`.
+- **`references/brownfield-retrofit.md`** — canonical reference for the
+  retrofit read-discipline principle, the 7 "DON'T" guardrails, the safe retrofit
+  sequence, and the verification triad.
+- **Manifest schemaVersion 4** — adds three new sections (`audit`,
+  `tokenCrosswalk`, `retrofit`) consumed by the forthcoming brownfield skills, a
+  `"retrofit"` value for `tokens.intakeMode`, and clarified publish-state field
+  docs (`figma.libraryPublished` default `false` now means *unverified*, not
+  "definitely not published"). Additive only; existing manifests migrate forward.
+- **`scripts/` directory** — the plugin's first executable code: canonical,
+  zero-dependency Node (ESM) scripts for brownfield retrofits, tested with
+  `node --test`.
+  - `validate-crosswalk.mjs` — the `tokens:validate` CI gate (resolved value ==
+    new value, N/N).
+  - `build-reverse-index.mjs` — code symbol → new token map for semi-automated
+    SCSS/Tailwind swaps.
+  - `guard-token-removal.mjs` — repo-wide zero-reference grep that blocks cleanup
+    while any reference to an about-to-be-deleted symbol remains.
+  - `lib/crosswalk.mjs` — shared loader + structural validation.
+- **`crosswalk.json` schema** — finalized contract: `references/crosswalk-schema.md`
+  (prose) + `scripts/crosswalk.schema.json` (JSON Schema).
+- **`token-crosswalk-builder` skill** — builds the new-token ↔ old-Figma ↔ old-code
+  crosswalk, installs the vetted scripts into `packages/tokens/`, wires
+  `tokens:validate`, and owns the `tokenCrosswalk` manifest section.
+- **Brownfield retrofit skills (Plan 3 of 3).** Completes the brownfield path end to end.
+  - **`design-system-audit` skill** — the brownfield front door: sizes the code-side
+    color surface (via the new color-usage grep), inventories the Figma file with verified
+    per-class reads, computes `percentSemantic`, and owns the `audit` manifest section
+    (sets `tokens.intakeMode: "retrofit"`).
+  - **`retrofit-planner` skill** — the orchestrator: sequences the safe 7-phase retrofit
+    (audit → refine → rebind → sync → baseline → code → cleanup) with a human gate per
+    phase, offers a decision journal default-on, and owns the `retrofit` manifest section.
+  - **`scripts/grep-color-usage.mjs`** — the repo-shaped color-usage grep scaffold
+    (ships default patterns, logs assumed-vs-detected coverage).
+- **Brownfield branches in existing skills.** `figma-environment-setup` gains brownfield
+  detection + routing to the audit, retrofit resume, and a pre-mutation rollback baseline;
+  `token-builder` gains refine-in-place (rename preserving IDs, binding-survival audit);
+  `token-sync-layer` gains the brownfield transforms (channel alpha, float32 rounding at
+  the export boundary, `/opacity`→`color-mix`); `storybook-chromatic-builder` gains
+  baseline-before-retrofit + the verification triad. The binding-survival audit snippet is
+  added to `references/figma-scripting.md`.
+- **`/design-system-status` + `/start`** now surface the `audit`, `tokenCrosswalk`, and
+  `retrofit` state and route brownfield/in-progress systems to the right next step.
+- **Plugin CI (first GitHub Actions workflow).** `.github/workflows/ci.yml` runs
+  on every pull request and on pushes to `main`: the full `node --test` suite
+  plus two zero-dependency structural validators in `ci/` — `validate-plugin.mjs`
+  (plugin.json / marketplace.json: valid JSON, required fields, semver, name
+  match) and `validate-skills.mjs` (every SKILL.md `name` matches its directory
+  and has a ≤1024-char description; every command has a description; the
+  manifest-doc example JSON parses with an integer `schemaVersion`). Closes the
+  "no plugin CI" carry-forward from the brownfield retrofit effort.
+
+### Fixed
+- **Read discipline: never report "empty" without a verified read (bugs B1/B2).**
+  `figma-environment-setup`'s Step 6 liveness check now proves *connectivity only*
+  and never reports an inventory ("0 variables" / "no text styles") off a cheap or
+  early read that can be falsely empty before pages load. `references/figma-scripting.md`
+  gains a read-discipline section directing per-class reads
+  (`figma_get_variables` / `figma_get_text_styles` / `figma_get_styles`) after
+  `loadAllPagesAsync`. *(Behavioral fixes in the consuming brownfield skills land
+  in later plans.)*
+- **Bridge-instance preflight no longer hard-blocks on phantom/stale ports (bug
+  B4).** `references/figma-scripting.md` now distinguishes *live* from *stale*
+  Desktop Bridge instances, blocks only on two or more confirmed-live instances,
+  and gives actionable remediation instead of a bare "close the other instance."
+- **Publish-state detection is now behavioral, not assumed (bug B3).** `component-builder`
+  and `references/figma-publishing.md` treat a default/`false` `figma.libraryPublished` as
+  *unverified*: they detect first (`figma_get_library_components` /
+  `figma_get_library_variables`), ask once only if inconclusive, persist the answer, and
+  frame the unpublished path as a graceful choice. No new manifest field.
+
 ## [0.9.0] - 2026-06-10
 
 ### Added

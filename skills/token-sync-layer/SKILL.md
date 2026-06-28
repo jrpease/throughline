@@ -108,6 +108,33 @@ This DTCG JSON is the canonical intermediate. Write it to a known location in
 MCP's built-in CSS/Tailwind exporters for final output — route through Style
 Dictionary so the adapter system governs the result.
 
+### Brownfield transforms (learned the hard way)
+
+On a **retrofit** (`tokens.intakeMode: "retrofit"`), apply these transforms in
+addition to the opacity normalization above. Each cost real debugging time on a live
+retrofit — see the guardrails in
+`${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md`.
+
+- **Alpha as channels, not baked CSS vars (so Tailwind `/opacity` survives).** Emit
+  colors as space-separated channels with a slash-alpha slot —
+  `--color-x: 239 68 68;` consumed as `rgb(var(--color-x) / <alpha-value>)` — rather
+  than a finished `rgba(...)`. A baked `rgba()` can't accept Tailwind's `/opacity`
+  modifier; the channel form keeps `bg-x/50` working after the retrofit.
+- **`/opacity` on var-based tokens → `color-mix` or channel alpha (guardrail 6).**
+  Where existing code applies a `/opacity` modifier to a token that is now a CSS var,
+  you can't fold the alpha into the var. Convert to
+  `color-mix(in srgb, var(--color-x) NN%, transparent)` (or the channel-alpha form
+  above). Never carry a raw `/opacity` onto a var-based token.
+- **Round float32 noise at the export boundary (guardrail 2).** Figma stores values as
+  float32 and re-quantizes on write, so normalizing *inside* Figma is a no-op. Round at
+  the **export boundary** instead — `Math.round(v * 100) / 100` as values leave the
+  pipeline — so `0.30000001192092896` lands as `0.3` in the generated files. Do this in
+  the extraction/transform step, never by hand-editing the generated output (guardrail 7).
+
+These are transforms on the *values* the adapters emit; the adapter presets themselves
+are unchanged. See `${CLAUDE_PLUGIN_ROOT}/references/sync-adapters.md` for where they
+fit in the adapter output.
+
 ## Step 3 — Set up Style Dictionary + adapters
 
 Install and configure Style Dictionary v4 in `packages/tokens/`. For each chosen
@@ -201,3 +228,9 @@ source-of-truth model. Confirm the command works by describing how to invoke it.
 - Never write token files silently — always a reviewable PR/diff.
 - Never merge or push to a protected branch on the user's behalf without review.
 - Never skip rename detection — a silent rename is the worst failure mode.
+- Never bake alpha into finished `rgba(...)` on a retrofit — emit channels
+  (`rgb(var(--x) / <alpha-value>)`) so Tailwind `/opacity` modifiers survive.
+- Never carry a `/opacity` modifier onto a var-based token — convert to `color-mix`
+  or channel alpha (guardrail 6).
+- Never normalize float32 inside Figma (it re-quantizes) — round at the export
+  boundary (`Math.round(v*100)/100`, guardrail 2).

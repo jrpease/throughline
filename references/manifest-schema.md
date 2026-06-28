@@ -11,11 +11,11 @@ what changed. Gating decisions are made by reading this file: if a prerequisite
 field is unset, the skill **offers** to run the prerequisite skill rather than
 bailing or running silently.
 
-## Schema (schemaVersion 3)
+## Schema (schemaVersion 4)
 
 ```json
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "user": {
     "codingLevel": "new"
   },
@@ -82,6 +82,23 @@ bailing or running silently.
     "initialized": false,
     "chromatic": false,
     "codeConnect": false
+  },
+  "audit": {
+    "ranAt": null,
+    "codeSurface": null,
+    "figmaInventory": null,
+    "percentSemantic": null
+  },
+  "tokenCrosswalk": {
+    "path": null,
+    "statusCounts": null,
+    "validatorPassing": null
+  },
+  "retrofit": {
+    "phase": null,
+    "startedAt": null,
+    "completedAt": null,
+    "journalScaffolded": false
   },
   "completedSkills": []
 }
@@ -163,14 +180,22 @@ bailing or running silently.
   See `${CLAUDE_PLUGIN_ROOT}/references/figma-publishing.md`.
 - `libraryPublished` — whether the user has published the file as a library at
   least once (so local component keys resolve for `INSTANCE_SWAP`). User-driven
-  and manual; the plugin verifies, never publishes.
+  and manual; the plugin verifies, never publishes. **Treat the default `false`
+  as _unverified_, not "definitely not published" (bug B3): before asserting a
+  library is unpublished, attempt detection (`figma_get_library_components` /
+  `figma_get_library_variables`); if detection is inconclusive, ask the user once
+  and record the answer here. Never silently assume unpublished — see the read
+  discipline in `${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md`.**
 - `publishedAt` — ISO timestamp the user last confirmed a publish, for "you may
   need to re-publish after adding components" messaging.
 
 ### `tokens`
 - `intakeMode` — how the user started: `"generative"` (seed expanded by AI),
-  `"descriptive"` (from aesthetic direction), or `"import"` (existing set
-  organized). Recorded so later runs know how the system was built.
+  `"descriptive"` (from aesthetic direction), `"import"` (existing set
+  organized), or `"retrofit"` (a mature codebase **and** a populated Figma file
+  reconciled onto tokens — the brownfield path; differs from `"import"` by having
+  existing code bindings to inspect and converge). Recorded so later runs know how
+  the system was built.
 - `tiers` — `2` (primitive + semantic, default) or `3` (adds a component tier,
   multi-brand opt-in only).
 - `primitivesBuilt` / `semanticBuilt` / `stylesBuilt` — phase completion flags.
@@ -248,6 +273,44 @@ bailing or running silently.
 - `initialized` / `chromatic` / `codeConnect` — setup flags. `codeConnect` stays
   `false` when the user's Figma plan doesn't support it (the storybook skill
   degrades gracefully).
+
+### `audit`
+Populated by the `design-system-audit` skill (brownfield front door). `null` in
+every field until that skill runs. Records the measured state of a pre-existing
+system so the retrofit can be right-sized.
+- `ranAt` — ISO timestamp the audit last ran.
+- `codeSurface` — object of counts sizing the code-side retrofit, e.g.
+  `{ "scssColorVars": 692, "tailwindColorClasses": 230, "jsColorsUsages": 74,
+  "rawHexRgba": 143, "svgFills": 430 }`. Keys vary by what the repo actually uses.
+- `figmaInventory` — object snapshot of the existing Figma file from explicit
+  per-class reads, e.g. `{ "variables": 0, "bindings": 0, "textStyles": 0,
+  "effectStyles": 0, "modes": [] }`. Each count comes from a verified read, never
+  an assumption (see `${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md`).
+- `percentSemantic` — integer 0–100: how much of the existing system is already
+  semantic. The single number that decides rename+cleanup vs. rewrite — see
+  `${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md` (safe sequence, `audit`
+  phase) for how it's used.
+
+### `tokenCrosswalk`
+Populated by the `token-crosswalk-builder` skill. Points at the backbone artifact
+that maps new token ↔ old Figma token ↔ code identifier.
+- `path` — repo-relative path to the crosswalk file (e.g. `"tokens/crosswalk.json"`),
+  or `null` if not yet built. The manifest stores the pointer, not the map.
+- `statusCounts` — object counting crosswalk rows by `status`, e.g.
+  `{ "aligned": 12, "renamed": 151, "driftFix": 2, "added": 42, "mappedNearest": 3 }`.
+- `validatorPassing` — `true`/`false`/`null`: whether the last crosswalk validator
+  run passed (`resolved value == new value` for every row).
+
+### `retrofit`
+Populated by the `retrofit-planner` orchestrator. Tracks where a multi-phase
+retrofit stands so a later session can resume.
+- `phase` — one of `"audit"`, `"refine"`, `"rebind"`, `"sync"`, `"baseline"`,
+  `"code"`, `"cleanup"`, `"done"`, or `null` (no retrofit in progress). Phases run
+  in that order; see the safe sequence in
+  `${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md`.
+- `startedAt` / `completedAt` — ISO timestamps bounding the retrofit.
+- `journalScaffolded` — whether the `docs/design-system/` decision journal has been
+  created for this retrofit (offered default-on by `retrofit-planner`).
 
 ### `completedSkills`
 - Append-only list of skill identifiers that have run to completion at least

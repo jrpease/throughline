@@ -7,15 +7,55 @@ and executes batched JS. Several behaviors below have caused silent, hard-to-
 screenshot corruption — read this before authoring `figma_execute` scripts, and
 keep the read-backs in your post-build audit.
 
-## Preflight: one bridge instance per file (concurrent-write corruption)
+## Preflight: one *live* bridge instance per file (concurrent-write corruption)
 
-Before any write, call **`figma_get_status`** and inspect `otherInstances`. If
-more than one Desktop Bridge plugin instance is connected to the same `fileKey`
-(e.g. ports 9223 **and** 9224), **stop and warn the user — do not write.**
-Concurrent writes from two instances collide and produce **truncated parent
-frames and orphaned node fragments** scattered at negative coordinates — damage a
-screenshot won't reveal. Ask the user to close the extra plugin instance, confirm
-a single connection via `figma_get_status`, then proceed.
+Before any write, call **`figma_get_status`** and inspect `otherInstances`.
+Concurrent writes from two **live** Desktop Bridge instances connected to the same
+`fileKey` collide and produce **truncated parent frames and orphaned node
+fragments** at negative coordinates — damage a screenshot won't reveal. So a second
+*live* instance is a hard stop.
+
+**But do not hard-block on *stale* entries (bug B4).** Users routinely hit a wall
+where `otherInstances` lists ports they never opened — phantom/stale connections
+left by a plugin reload, a file switch, or an MCP reconnect that spawned a new port
+without reaping the old one. Telling them to "close the other instance" is useless
+when they never opened one. Distinguish the two cases before blocking:
+
+1. **Verify liveness, don't assume it.** Treat an `otherInstances` entry as
+   *suspected stale* until confirmed live. Attempt a `figma_reconnect` (or re-read
+   `figma_get_status`) — stale ports typically drop out after a reconnect — or use a
+   liveness/heartbeat signal if the MCP exposes one.
+2. **Only the genuinely-live count blocks.** If exactly one live instance remains
+   after reaping stale entries, proceed. Only block when **two or more** instances
+   are confirmed live.
+3. **If you must block, be actionable.** Name the exact ports, state which are
+   suspected stale vs. live, and give a concrete clear path (run `figma_reconnect`,
+   reload the bridge plugin, or restart the MCP client) — never a bare "shut down
+   the others." If only stale entries remain and they won't clear, say so plainly
+   and let the user proceed rather than dead-ending them.
+
+This is the bridge-side application of the read-discipline principle (B4) in
+`${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md`: don't assert "another
+instance is active" without confirming it's actually live.
+
+## Read discipline: never report "empty" without a verified read (B1/B2)
+
+Before reporting that a file has no variables, no text styles, or no effect styles,
+you MUST have run an explicit read **for that specific class** that returned empty —
+after the file is fully loaded. Two real bugs came from violating this:
+
+- **B1** — a first read returned `0` variables on a fully-populated file (stale/early
+  read) and was reported as fact. **Fix:** `await figma.loadAllPagesAsync()` before
+  counting; treat a `0` on first read as suspect and re-read before reporting; prefer
+  the dedicated `figma_get_variables` tool (handles `dynamic-page`, resolves aliases).
+- **B2** — "no text styles" was asserted because no text *variables* were found —
+  styles were never read. **Fix:** variables and styles are different surfaces. Read
+  each independently: variables (`figma_get_variables`), text styles
+  (`figma_get_text_styles`), effect/paint styles (`figma_get_styles`). Report "none"
+  only for the class whose own read came back empty.
+
+An unexpectedly-empty result is a possible read error, not ground truth. See the
+full principle in `${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md`.
 
 ## `dynamic-page` mode: use the async APIs — reads **and** writes
 
@@ -83,3 +123,56 @@ large grids (e.g. a 30+ cell color or variant grid), build **manual rows** —
 nested horizontal auto-layout frames inside a vertical parent — instead of one
 WRAP frame, or split the build across **multiple `figma_execute` calls**. The
 identical content that times out as one WRAP frame builds fine as manual rows.
+
+## Binding-survival audit: count variable bindings before and after a rename
+
+A brownfield retrofit renames variables **in place** to preserve their Figma IDs
+(guardrail 3 in `${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md` — a
+delete-and-recreate unbinds every consumer). The only way to *prove* a rename kept
+its bindings is to count consuming bindings before and after. Run this read with
+the dedicated tooling where possible (`figma_get_variables`), or via `figma_execute`
+when you need the raw consumer count.
+
+A variable's bindings are not enumerable directly, so count **consumers**: nodes and
+styles whose bound properties reference each variable id. The robust, `dynamic-page`-safe
+approach is to snapshot the total consumer count across the file before the rename,
+rename in place, then re-snapshot and assert equality.
+
+```js
+// dynamic-page safe: load everything, then walk consumers counting variable refs.
+await figma.loadAllPagesAsync();
+
+function countBoundVariableRefs(node, tally) {
+  const bv = node.boundVariables;
+  if (bv) {
+    for (const key of Object.keys(bv)) {
+      const entry = bv[key];
+      const refs = Array.isArray(entry) ? entry : [entry];
+      for (const r of refs) {
+        if (r && r.id) tally[r.id] = (tally[r.id] || 0) + 1;
+      }
+    }
+  }
+  if ('children' in node) {
+    for (const child of node.children) countBoundVariableRefs(child, tally);
+  }
+  return tally;
+}
+
+const tally = {};
+for (const page of figma.root.children) countBoundVariableRefs(page, tally);
+const totalBindings = Object.values(tally).reduce((a, b) => a + b, 0);
+// Report totalBindings (and tally per id) BEFORE the rename; re-run AFTER and
+// assert the total is unchanged. A drop means a binding was severed — STOP and
+// investigate (almost always a delete-and-recreate slipped in).
+```
+
+- **Pass an explicit `timeout`** (this walks every node — size it per the batch-timeout
+  rule above; a large file needs tens of seconds).
+- **Style bindings count too.** Text/effect/paint styles can bind variables; include a
+  pass over `getLocalTextStylesAsync()` / `getLocalPaintStylesAsync()` /
+  `getLocalEffectStylesAsync()` and their `boundVariables` if the file uses style-level
+  bindings.
+- **This is the number `design-system-audit` records** as
+  `audit.figmaInventory.bindings`, and the before/after gate the `token-builder`
+  brownfield branch runs around every rename.

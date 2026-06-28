@@ -147,6 +147,7 @@ heads-up, not a warning.
 > components, variables — works exactly the same. When we get to the code
 > phase, you'll need to convert this repo to a monorepo first. I'll walk you
 > through that step-by-step when we get there — it's a one-time setup.
+> Because you already have a system here, we'll start by **auditing** what exists — measuring your current colors in code and what's in your Figma file — so we right-size the work before changing anything. That's the `design-system-audit` step.
 > [one line per additional detected layer, e.g.: 'Storybook is already installed
 > — we'll build on top of what you have rather than starting fresh.']
 >
@@ -160,6 +161,7 @@ heads-up, not a warning.
 > Here's what that means for us: you're already in great shape for the code
 > phase. We'll build the Figma side first, then work inside your existing
 > monorepo structure when we get to code.
+> Because you already have a system here, we'll start by **auditing** what exists — measuring your current colors in code and what's in your Figma file — so we right-size the work before changing anything. That's the `design-system-audit` step.
 > [one line per additional detected layer]
 >
 > Ready to continue?"
@@ -322,8 +324,21 @@ Figma files to work in, so I don't have to ask every time."
 ## Step 6 — Liveness check (prove it actually works)
 
 Don't declare success on faith. Run one trivial **read** against Figma to prove
-the connection is live — for example, fetch a quick summary of the file's
-existing variables/styles (a low-cost call). If it succeeds:
+the connection is live — for example, a low-cost call such as reading the file
+name or a single variable collection. This probe proves *connectivity only*.
+
+**Do not report an inventory from this probe (the false-empty read bugs B1/B2).** A cheap or early read
+can come back empty on a fully-populated file (pages not yet loaded, cache/read
+error), and reporting "0 variables" or "no text styles" off the back of it is a
+confidence-destroying first impression. Proving the connection is live is a
+separate concern from inventorying what's in the file — the full per-class
+inventory (with `loadAllPagesAsync` and independent reads for variables, text
+styles, and effect styles) belongs to the `design-system-audit` skill, which
+applies the read discipline in
+`${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md`. Here, only confirm the
+call succeeded — never announce counts.
+
+If the liveness probe succeeds:
 
 - Set `figma.connected` = `true` and `figma.lastVerified` to the current
   timestamp.
@@ -395,6 +410,45 @@ step is building your color, spacing, and type tokens — just say something lik
 'let's build my tokens' and I'll take it from there. Or if you'd rather explore
 first, that's fine too." Update the manifest and stop. Don't auto-run the next
 skill.
+
+## Step 8 — Brownfield routing + rollback baseline (existing systems)
+
+After the liveness check passes, decide where to send the user. Most greenfield runs
+continue to token building. A **brownfield** run — a mature codebase and/or an
+already-populated Figma file — routes into the audit first, and an **in-progress
+retrofit** resumes where it left off. This is the front-door routing the spec calls
+for; apply the read discipline in
+`${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md` to every read here.
+
+**Read the manifest and route:**
+
+1. **Resume an in-progress retrofit.** If `retrofit.phase` is set and not `"done"`,
+   a retrofit is already underway — hand back to **`retrofit-planner`** to resume at
+   that phase, rather than starting anything new. Say plainly where it left off
+   (e.g. "Looks like we're mid-retrofit at the `sync` phase — want to pick up there?").
+2. **Route a mature system to the audit.** If `workspace.origin` is `"existing-repo"`
+   or `"existing-monorepo"` (a mature codebase), recommend **`design-system-audit`**
+   as the next step instead of `token-builder`: "You've got an existing system — let's
+   audit it first so we right-size the retrofit." The audit also covers a populated
+   Figma file via its verified per-class reads.
+3. **Greenfield stays greenfield.** If `workspace.origin` is `"greenfield"`, continue
+   the normal path (brainstorm → token-builder). Don't push greenfield users through
+   the audit.
+
+**Capture a rollback baseline before any mutation (brownfield only).** A retrofit
+changes a file that already has value in it, so before *any* write lands, capture a
+restore point:
+- **Figma version checkpoint** — note the current version (e.g. via
+  `figma_get_file_versions`) or have the user name a Figma version so there's a known-good
+  point to restore to. The plugin can read versions; it does not auto-create named
+  versions, so if none exists, ask the user to add one ("File → Save to version
+  history") and record that you did.
+- **Token export** — if the repo already emits tokens, snapshot the current generated
+  output (git is the natural baseline once `workspace.stage` is `local-git`+).
+
+Do this **before** routing into any skill that writes (the audit only reads, so the
+baseline must be in place before `token-builder`'s refine phase runs). Frame it as
+cheap insurance, not alarm.
 
 ## What this skill must NOT do
 

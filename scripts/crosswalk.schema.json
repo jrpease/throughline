@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://throughline.dev/schemas/crosswalk.schema.json",
+  "title": "ThroughLine token crosswalk",
+  "description": "Three-way map: new token <-> old Figma token <-> code identifier. Drives the brownfield code retrofit and the tokens:validate CI gate.",
+  "type": "object",
+  "required": ["version", "tokens"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "const": 1 },
+    "tokens": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/row" }
+    }
+  },
+  "$defs": {
+    "row": {
+      "type": "object",
+      "required": ["newToken", "newValue", "tier", "figmaOld", "codeTokens", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "newToken": { "type": "string", "minLength": 1, "description": "DTCG dot-path, e.g. color.text.primary" },
+        "newValue": { "type": "string", "minLength": 1, "description": "Resolved leaf value (aliases followed)" },
+        "tier": { "type": "string", "enum": ["primitive", "semantic"] },
+        "figmaOld": { "type": ["string", "null"], "description": "Old Figma variable name/path, or null if newly added" },
+        "codeTokens": { "type": "array", "items": { "type": "string" }, "description": "Old code identifiers this token replaces" },
+        "status": { "type": "string", "enum": ["aligned", "renamed", "drift-fix", "added", "mapped-nearest"] },
+        "recommendedSemantic": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

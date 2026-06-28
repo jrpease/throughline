@@ -178,8 +178,13 @@ dropdown requires its swap targets (icons, components) to be **published** —
 Figma rejects local unpublished keys for swap targets. Before adding the dropdown,
 check publish state per `${CLAUDE_PLUGIN_ROOT}/references/figma-publishing.md`:
 
-- **Published (`figma.libraryPublished` true):** add the typed `INSTANCE_SWAP`
-  dropdown with preferred values.
+- **Resolve publish state first (detect-or-ask, bug B3):** a default/`false`
+  `figma.libraryPublished` is *unverified* — attempt detection
+  (`figma_get_library_components` / `figma_get_library_variables`) and ask once only if
+  inconclusive, per `${CLAUDE_PLUGIN_ROOT}/references/figma-publishing.md`. Never treat
+  a `false` as a final "not published" without that check.
+- **Confirmed published (`figma.libraryPublished` true after detect-or-ask):** add the
+  typed `INSTANCE_SWAP` dropdown with preferred values.
 - **Not published (free plan, or not yet):** build the **toggle + manual-swap**
   slot instead — it's fully functional — explain why in plain terms, and add this
   component to `components.instanceSwapUpgradePending` so a later run (after the
@@ -215,9 +220,11 @@ any component built with the toggle + manual-swap fallback is listed in
 `components.instanceSwapUpgradePending`. Append `component-builder` to
 `completedSkills`.
 
-**Upgrade pass:** if `components.instanceSwapUpgradePending` is non-empty and the
-library is now published (`figma.libraryPublished` true), offer to add the typed
-`INSTANCE_SWAP` dropdowns to those components and clear each from the list.
+**Upgrade pass:** if `components.instanceSwapUpgradePending` is non-empty, re-resolve
+publish state (detect-or-ask per `${CLAUDE_PLUGIN_ROOT}/references/figma-publishing.md`);
+only when it is **confirmed published** (`figma.libraryPublished` true via a verified
+detect-or-ask, not a stale default) offer to add the typed `INSTANCE_SWAP` dropdowns to
+those components and clear each from the list.
 
 Offer next steps: build the code counterparts and stories
 (storybook-chromatic-builder), or build a single new component end-to-end later

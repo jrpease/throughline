@@ -8,7 +8,7 @@
 
 **A Claude Code plugin packed with every skill you need to launch and manage a production-grade design system in hours — not months.**
 
-[![Version](https://img.shields.io/badge/version-0.5.0-6366f1)](.claude-plugin/plugin.json)
+[![Version](https://img.shields.io/badge/version-0.9.0-6366f1)](.claude-plugin/plugin.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Built for Claude Code](https://img.shields.io/badge/built%20for-Claude%20Code-d97757)](https://docs.claude.com/en/docs/claude-code)
 [![See it live — Storybook](https://img.shields.io/badge/See%20it%20live-Storybook-FF4785?logo=storybook&logoColor=white)](https://main--6a1ee089ae3a37b70a6e4559.chromatic.com)
@@ -43,6 +43,16 @@ Whether you're starting from scratch or retrofitting an existing design system, 
 
 1. **`/sync-figma-tokens`** — resync changes from Figma to code, landed as a reviewable PR.
 2. **`/new-component`** — ship a new component in Figma, then sync and publish it to code.
+
+## Already have a design system? Retrofit it.
+
+Most teams aren't starting from a blank file — they have a mature codebase with hundreds of hard-coded colors and a Figma file that's drifted from it over the years. ThroughLine treats that as a first-class path, not an afterthought, and it moves *carefully*: it never asserts what's in your files without reading them first, and it never deletes an old token until it's proven nothing still uses it.
+
+1. **Audit before anything changes.** `design-system-audit` sizes both sides of your system — it greps your codebase to measure the real color surface and inventories your Figma file with verified, per-class reads — then tells you how big the migration actually is and how semantic your system already is.
+2. **A crosswalk that guarantees nothing shifts.** `token-crosswalk-builder` maps every new token to its old Figma variable and old code value, then installs a `tokens:validate` gate that fails unless every resolved new value matches the old one (N/N). A zero-reference guard blocks removing an old token while any code still references it.
+3. **A gated, reversible migration.** `retrofit-planner` walks the safe seven-phase sequence — audit → refine variables in place → rebind → sync → capture a visual baseline → retrofit the code → remove the old tokens — pausing for your confirmation between every phase, with an optional decision journal recording each call.
+
+The payoff: your live product looks identical at every step, and you can prove it with a Chromatic baseline captured before the first change.
 
 ## See a real end-to-end system built with it
 
@@ -84,7 +94,7 @@ Then start with:
 
 This is the reliable entry point — it runs environment setup first, ahead of anything else. (You can also just say *"let's set up my design system"*, but if you have other plugins installed that grab "let's build…" style phrases, the slash command guarantees ThroughLine takes the wheel.)
 
-From there, Claude walks you through executing its **9 skills powered by 7 reference documents**, sequenced based on your unique needs and goals. The plugin is built to provide consistent checkpoints for human review and guidance — letting you make the big decisions while it does the dirty work.
+From there, Claude walks you through executing its **12 skills powered by 10 reference documents**, sequenced based on your unique needs and goals. The plugin is built to provide consistent checkpoints for human review and guidance — letting you make the big decisions while it does the dirty work.
 
 Update anytime with:
 
@@ -96,9 +106,9 @@ Update anytime with:
 
 ThroughLine is more than a pile of skills — it's a small system designed to stay consistent across dozens of generation steps. Four layers work together:
 
-**🛠 Nine skills — the steps.** Each owns one stage of the journey, from connecting Figma to standing up CI. They're sequenced, and each knows its prerequisites.
+**🛠 Twelve skills — the steps.** Each owns one stage of the journey, from connecting Figma to retrofitting an existing system to standing up CI. They're sequenced, and each knows its prerequisites.
 
-**📐 Seven reference docs — the constitution.** Shared standards every skill obeys: Figma component rules (auto-layout-on-everything, slot contracts, naming-as-contract, a required post-build audit), the brainstorm-before-build protocol, the sync-adapter specs, the manifest schema, coding-level adaptivity, and the publishing flow. This is *why* two different runs produce the same structure — the rules live in one place, not scattered per skill.
+**📐 Ten reference docs — the constitution.** Shared standards every skill obeys: Figma component rules (auto-layout-on-everything, slot contracts, naming-as-contract, a required post-build audit), the brainstorm-before-build protocol, the sync-adapter specs, the manifest schema, coding-level adaptivity, the publishing flow, and the brownfield-retrofit discipline (read-before-assert, the safe migration sequence, the crosswalk contract). This is *why* two different runs produce the same structure — the rules live in one place, not scattered per skill.
 
 **🧭 An orchestration layer — the memory.** A `design-system.json` manifest in your project records exactly what's set up, with a versioned schema and immutability rules. Every skill reads it, tells you what it's about to do, and offers to run anything missing first. Run **`/design-system-status`** anytime for a plain-language picture of where you stand.
 
@@ -109,14 +119,17 @@ ThroughLine is more than a pile of skills — it's a small system designed to st
 | Skill | What it does |
 |---|---|
 | **figma-environment-setup** | Create your working folder, connect Claude to Figma, scan what already exists. **Start here.** |
+| **design-system-audit** | Measure an existing system *before* retrofitting — size the code-side color surface and inventory the Figma file with verified reads. The brownfield front door. |
 | **token-builder** | A two-tier (primitive + semantic) token system as Figma variables, plus text/effect styles. Generative, descriptive, or import-your-own. |
 | **token-sheet-builder** | A beautiful, on-brand **Foundations** page visualizing every token, live-bound to the variables. |
 | **icon-system-builder** | An **Icons** page with your chosen library (Lucide, Material, or custom) as clean components — the cheap, fast way. |
 | **component-builder** | Your foundational components (button, input, card, modal…) with full variant matrices, slots, and token bindings. |
 | **repository-builder** | Graduate your folder into a pnpm + Turborepo monorepo — folder → local git → GitHub, one gentle step at a time. |
 | **token-sync-layer** | Sync Figma variables to framework-specific code via Style Dictionary, landed as a reviewable PR. Installs `/sync-figma-tokens`. |
+| **token-crosswalk-builder** | Map new tokens to their old Figma variables and old code values, and install the `tokens:validate` gate that proves no value changed during a retrofit. |
 | **storybook-chromatic-builder** | Storybook, component stories, Chromatic visual testing, and Code Connect (where your Figma plan supports it). |
 | **component-pipeline** | Add one new component end to end: Figma → tokens → code + stories. Installs `/new-component`. |
+| **retrofit-planner** | Orchestrate a full retrofit through the safe, gated seven-phase sequence — with a human checkpoint at every phase. |
 
 ## The nitty gritty
 
@@ -170,6 +183,7 @@ ThroughLine is open source and contributions are welcome. Found a bug or have an
 A couple of ground rules:
 - **Figma is the source of truth.** Generated code files are build artifacts — never hand-edited; change things in Figma and re-sync.
 - **Secrets stay yours.** Tokens and keys are never sent through chat or committed to code.
+- **The plugin validates itself.** Every PR runs CI (`.github/workflows/ci.yml`) — the full test suite plus zero-dependency structural validators that check `plugin.json`, the marketplace manifest, and every skill/command's frontmatter. Run them locally with `node --test` and `node ci/validate-plugin.mjs` / `node ci/validate-skills.mjs`.
 
 ## Roadmap
 
