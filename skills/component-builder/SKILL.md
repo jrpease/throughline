@@ -50,9 +50,10 @@ relevant moment — ask which UI framework the components target (shadcn, MUI,
 vanilla, etc.; reuse the same value the sync adapter will use) and record it.
 If sync already set it, reuse it — don't re-ask. The framework does **not**
 change component structure/anatomy; it informs **variant vocabulary and naming**
-so the Figma component API lines up with the code API (see
-`${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md`). For multi-framework targets, use a
-neutral vocabulary.
+so the Figma component API lines up with the code API, **and it drives the focus-state
+idiom** (shadcn ring vs. MUI per-component vs. vanilla-css outline — see "State
+handling" in `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md`). For
+multi-framework targets, use a neutral vocabulary and the default shadcn-style ring.
 
 **Recommended core set (editable).** Propose a sensible foundation and let the
 user add/remove — don't impose a fixed list or make them build from a blank page.
@@ -109,9 +110,16 @@ deterministic naming):
   component's **full relevant state set** across the columns, size groups stacked
   vertically. Per "Component set arrangement" and "State handling" in the standards
   doc.
-- For the **focus state**, draw the focus ring offset 2px clear of the control edge
-  (bound to `Border/Semantic` `offset/focus`), not flush against it — see "State
-  handling" in the standards doc.
+- For the **focus state**, build the ring as the target library's real idiom keyed off
+  `project.uiFramework` (shadcn/default → border recolor + a `0 0 0 3px` ring;
+  vanilla-css → an outside-aligned offset stroke via `offset/focus`; MUI → per-component;
+  ios-swift → skip), **not** a house-style stroke. Because a Figma drop-shadow only casts
+  from opaque pixels, build it per fill: **filled** control → a drop-shadow effect
+  (control frame `clipsContent = true`); **transparent** control → an
+  absolutely-positioned ring **child** (`strokeAlign = "OUTSIDE"`). **Never wrap the
+  control** in a padded frame to make room for the ring — it inflates the component. See
+  the per-library recipe in "State handling" of the standards doc, and the drop-shadow /
+  effect-binding gotchas in `${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md`.
 - **Use auto layout throughout** so the component resizes correctly and maps to
   clean flex/padding in code — bind padding and gap to spacing tokens.
 - **Bind every visual property to the system's tokens/styles** — fills to
@@ -179,10 +187,15 @@ Figma rejects local unpublished keys for swap targets. Before adding the dropdow
 check publish state per `${CLAUDE_PLUGIN_ROOT}/references/figma-publishing.md`:
 
 - **Resolve publish state first (detect-or-ask, bug B3):** a default/`false`
-  `figma.libraryPublished` is *unverified* — attempt detection
-  (`figma_get_library_components` / `figma_get_library_variables`) and ask once only if
-  inconclusive, per `${CLAUDE_PLUGIN_ROOT}/references/figma-publishing.md`. Never treat
-  a `false` as a final "not published" without that check.
+  `figma.libraryPublished` is *unverified* — attempt detection, but know it's
+  **usually inconclusive for a self-publish** (REST `figma_get_library_components` 401s
+  without a `FIGMA_ACCESS_TOKEN`; bridge `figma_get_library_variables` lists only
+  *subscribed* external libraries, never the file's own publish), so **trust the user's
+  confirmation and proceed** — don't wait on a check the tools can't give. Never treat a
+  `false` as a final "not published". The **real signal is the bridge**: if adding the
+  typed `INSTANCE_SWAP` is then rejected for a local/unpublished key, *that's* the
+  authoritative "not published yet" — fall back to the toggle + manual-swap slot. See
+  `${CLAUDE_PLUGIN_ROOT}/references/figma-publishing.md`.
 - **Confirmed published (`figma.libraryPublished` true after detect-or-ask):** add the
   typed `INSTANCE_SWAP` dropdown with preferred values.
 - **Not published (free plan, or not yet):** build the **toggle + manual-swap**
@@ -252,5 +265,12 @@ Offer next steps: build the code counterparts and stories
 - Never run the component header and the component area together with no division —
   every doc card segments the header from the component area with a divider line or
   a distinct header surface.
-- Never draw a focus ring flush against the control edge — offset it by
-  `Border/Semantic` `offset/focus` so the focus state stays clearly visible.
+- Never invent a house-style focus ring or wrap the control in a padded frame to make
+  room for one — derive the focus state from `project.uiFramework`'s real idiom, built
+  as a drop-shadow effect (filled controls) or an absolutely-positioned ring **child**
+  (transparent controls), per "State handling" in the standards doc.
+- Never rebuild a published/consumed component set with a delete-and-recreate without
+  re-instancing downstream — deleting and recreating a set (e.g. to change the Button's
+  internal architecture) **detaches every instance** that referenced its variants (the
+  Card's footer buttons, etc.). Record which components consume which, warn before an
+  architectural rebuild, and re-instance the affected consumers afterward.

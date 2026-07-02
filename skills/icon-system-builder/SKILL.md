@@ -52,6 +52,31 @@ GitHub is unreachable, the user is on a restricted network, or they explicitly
 want the community file. Name the specific resource and surface its license first
 (see below).
 
+### Tabler & Phosphor → fetch the official SVGs directly (same as Lucide)
+
+**Tabler and Phosphor are first-class libraries built by the exact Lucide
+mechanism** — uniform per-icon SVGs published at a deterministic repo path where the
+filename *is* the canonical name, so they get the same fully-automated,
+official-source-of-truth, hands-off treatment (batch-fetch → `createNodeFromSvg` →
+`createComponentFromNode`), not a community-file copy. This path is **proven**: a
+greenfield run imported the Tabler subset by deterministic path with zero 404s and
+bound the vector strokes to `text/primary` for theming. Prefer it whenever the user's
+brand specifies Tabler or Phosphor (both are common picks).
+
+- **Tabler** (MIT, 24px stroke): `github.com/tabler/tabler-icons`, per-icon at
+  `icons/outline/<name>.svg` (and `icons/filled/<name>.svg` for the filled set). Pin a
+  release tag matching the installed `@tabler/icons-react` generation. A 404 is the
+  name-validation gate, same as Lucide.
+- **Phosphor** (MIT, 256px): `github.com/phosphor-icons/core`, per-icon at
+  `assets/<weight>/<name>.svg` where weight ∈ `thin|light|regular|bold|fill|duotone`
+  (regular has no suffix; others are `<name>-<weight>.svg`). Pick one weight as the
+  base to match the code package, pin the tag, and fetch that weight's files.
+
+After fetch, **bind the vector strokes/fills to `text/primary`** (or the icon color
+token) so the icons theme with the system, and name per the Step 3 contract. Fallbacks
+(only if the fetch is blocked) mirror Lucide's: the library's official Figma community
+file or importer plugin, license surfaced first.
+
 ### Material → official community file / importer (default)
 
 Material has **variant axes** (outlined / rounded / sharp × fill / weight / grade /
@@ -124,14 +149,15 @@ ask the user** which resource to use — never invent a source.
 
 ## Step 1 — Choose library + mechanism
 
-- Ask which library: **Lucide** (the shadcn default; outline only),
-  **Material**, or **custom** (user brings SVGs). Record in `icons.library`.
+- Ask which library: **Lucide** (the shadcn default; outline only), **Tabler**,
+  **Phosphor**, **Material**, or **custom** (user brings SVGs). Record in
+  `icons.library`.
 - Determine the subset (brainstorm, above).
-- The library fixes the mechanism (Core principle): **Lucide → fetch official
-  SVGs from the repo; Material → official community file / importer; custom →
-  batched SVG import.** Pin the version tag for Lucide. Only name + confirm a
-  specific community-file/importer resource for the paths that use one (Material,
-  or a Lucide fallback).
+- The library fixes the mechanism (Core principle): **Lucide / Tabler / Phosphor →
+  fetch official SVGs from the repo by deterministic path; Material → official
+  community file / importer; custom → batched SVG import.** Pin the version tag for
+  the fetch libraries. Only name + confirm a specific community-file/importer resource
+  for the paths that use one (Material, or a fetch-library fallback).
 
 ## Step 2 — Bring icons in
 
