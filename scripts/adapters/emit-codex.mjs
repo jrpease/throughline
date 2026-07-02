@@ -1,4 +1,4 @@
-import { translateBody, firstSentence } from './translate.mjs';
+import { translateBody, firstSentence, applyPhrasing } from './translate.mjs';
 
 const BASE = '.throughline';
 
@@ -25,7 +25,7 @@ function indexSection(title, items, note) {
   const lines = [`## ${title}`, ''];
   if (note) { lines.push(note, ''); }
   for (const it of items) {
-    lines.push(`- \`${it.name}\` — ${firstSentence(it.description)} → load \`prompts/${it.name}.md\`.`);
+    lines.push(`- \`${it.name}\` — ${applyPhrasing(firstSentence(it.description), 'codex')} → load \`prompts/${it.name}.md\`.`);
   }
   lines.push('');
   return lines.join('\n');

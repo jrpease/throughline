@@ -6,7 +6,7 @@ This skill does three foundational jobs, in order:
    scan what's already there, and set expectations.
 2. **Create the local working folder** and write the `design-system.json`
    manifest into it (if not already present from step 1).
-3. **Connect Claude to Figma** so later skills can read and write the file,
+3. **Connect the agent to Figma** so later skills can read and write the file,
    then verify the connection works.
 
 It is the required first step. Every other Figma skill does a cheap liveness
@@ -225,7 +225,7 @@ itself doesn't lean on it much, but the code phase (repo, sync, Storybook) does.
 
 ## Step 3 — Choose the Figma write mechanism
 
-Explain there are two ways to connect Claude to Figma, and recommend the first:
+Explain there are two ways to connect the agent to Figma, and recommend the first:
 
 - **Figma Console MCP (recommended).** More capable — it can create many
   variables at once efficiently (which saves time and usage), and it can read
@@ -259,7 +259,7 @@ install it first. Desktop app, every time.
 
 ### 4b. Create a Figma access token
 
-A token is like a password that lets Claude talk to Figma on your behalf. Walk
+A token is like a password that lets the agent talk to Figma on your behalf. Walk
 them through it:
 
 1. In a browser, go to figma.com and sign in (same account as the desktop app).
@@ -293,7 +293,7 @@ the desktop app.
 
 Explain the shape of it plainly: "Figma needs to know it's really you allowing
 this. The little plugin window shows a short code; you'll confirm it, and then
-Claude and Figma are linked for this session."
+the agent and Figma are linked for this session."
 
 ### 4d. Restart the MCP client if needed
 
@@ -312,7 +312,7 @@ the user, never through the chat.
 
 Ask the user for the URL of the Figma file they want to build the design system
 in. Extract the file key from it (the segment after `/file/` or `/design/`) and
-store it in `figma.fileKey`. Explain: "This just tells Claude which of your
+store it in `figma.fileKey`. Explain: "This just tells the agent which of your
 Figma files to work in, so I don't have to ask every time."
 
 ## Step 6 — Liveness check (prove it actually works)
@@ -338,7 +338,7 @@ If the liveness probe succeeds:
   timestamp.
 - Append `figma-environment-setup` to `completedSkills`.
 - Tell the user warmly that the connection works and what they just unlocked:
-  "Claude can now see and edit your Figma file. You're ready to build your first
+  "the agent can now see and edit your Figma file. You're ready to build your first
   tokens whenever you are."
 
 If it fails, first figure out **which kind** of failure it is, because the fixes
@@ -383,7 +383,7 @@ Do not move on until the liveness check passes.
 
 ## Step 6.5 — Prove writes work (throwaway)
 
-The liveness check above is a *read*. Before handing off, confirm Claude can also
+The liveness check above is a *read*. Before handing off, confirm the agent can also
 **write** to the file — but do **not** leave a permanent artifact behind. The
 file's branded **Cover** page is built later, by `token-sheet-builder`, once
 tokens and styles actually exist, so it can be genuinely on-brand instead of a

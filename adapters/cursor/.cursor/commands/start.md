@@ -8,7 +8,7 @@ Invoke the `figma-environment-setup` rule now and follow it exactly. It will:
 
 1. Locate or create the project directory and scan what's already there.
 2. Create the local working folder and write the `design-system.json` manifest.
-3. Connect Claude to Figma and verify the connection.
+3. Connect Cursor to Figma and verify the connection.
 
 If `design-system.json` already exists in this folder, the setup skill will
 detect it and route the user to the right next step rather than starting over —

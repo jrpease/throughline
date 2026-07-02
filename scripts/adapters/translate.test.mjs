@@ -29,3 +29,10 @@ test('firstSentence extracts the leading sentence', () => {
   assert.equal(firstSentence('Build tokens. Use when the user wants X.'), 'Build tokens.');
   assert.equal(firstSentence('No period here'), 'No period here');
 });
+
+test('applyPhrasing rewrites bare Claude to the target agent, without doubling Claude Code', () => {
+  assert.equal(applyPhrasing('Connect Claude to Figma.', 'cursor'), 'Connect Cursor to Figma.');
+  assert.equal(applyPhrasing('Connect Claude to Figma.', 'codex'), 'Connect Codex to Figma.');
+  assert.equal(applyPhrasing('Connect Claude to Figma.', 'generic'), 'Connect the agent to Figma.');
+  assert.equal(applyPhrasing('Use Claude Code now.', 'cursor'), 'Use Cursor now.');
+});

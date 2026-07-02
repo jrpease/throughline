@@ -27,3 +27,10 @@ test('emitCodex emits translated prompt bodies and a toml mcp config', () => {
   assert.match(toml.content, /command = "npx"/);
   assert.match(toml.content, /args = \["-y", "figma-console-mcp@latest"\]/);
 });
+
+test('emitCodex translates Claude in the routing index to the target agent', () => {
+  const m = { mcp: { mcpServers: {} }, skills: [{ name: 's', description: 'Connect Claude to Figma. More text.', body: 'b' }], commands: [] };
+  const agents = emitCodex(m).find((f) => f.path === 'AGENTS.md');
+  assert.match(agents.content, /Connect Codex to Figma\./);
+  assert.doesNotMatch(agents.content, /\bClaude\b/);
+});

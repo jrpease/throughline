@@ -25,6 +25,12 @@ export const PHRASING_RULES = [
     codex: 'Codex',
     generic: 'your coding agent',
   },
+  {
+    pattern: /\bClaude\b/g,
+    cursor: 'Cursor',
+    codex: 'Codex',
+    generic: 'the agent',
+  },
 ];
 
 export function applyPhrasing(text, target) {

@@ -8,12 +8,12 @@ End state: a Figma page named **Icons** containing the relevant icon set as
 **scalable, well-named components**, ready to be consumed by components (skill 4)
 and swapped via instance properties.
 
-## Core principle: don't make Claude draw 1,700 icons
+## Core principle: don't make Cursor draw 1,700 icons
 
-The expensive, wrong path is Claude generating icon components one by one, by
+The expensive, wrong path is Cursor generating icon components one by one, by
 hand, via the write mechanism — slow and token-hungry. Get to the end state via
 the **cheapest mechanism that is also fully automated and produces clean,
-well-named components.** "Cheapest" is not just Claude tokens: a mechanism that
+well-named components.** "Cheapest" is not just Cursor tokens: a mechanism that
 burns near-zero tokens but makes the *user* hunt down a community file, duplicate
 it, and copy components by hand isn't actually cheap — it just moves the cost onto
 them. **The library determines the mechanism, deterministically** — same library,

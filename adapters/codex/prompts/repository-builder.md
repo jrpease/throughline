@@ -130,7 +130,7 @@ The hard rules, regardless of level:
   place it themselves.
 - Secrets **never get committed.** `.env` is gitignored; only `.env.example`
   (key names, no values) is committed.
-- Claude **never** types a secret into a web form or creates a GitHub secret on
+- Codex **never** types a secret into a web form or creates a GitHub secret on
   the user's behalf — it gives the click path and the key name.
 
 For `new` users, teach the *why* once ("a secret key is like a password for a

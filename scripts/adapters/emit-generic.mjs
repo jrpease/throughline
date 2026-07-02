@@ -1,11 +1,11 @@
-import { translateBody, firstSentence } from './translate.mjs';
+import { translateBody, firstSentence, applyPhrasing } from './translate.mjs';
 
 const BASE = '.throughline';
 
 function indexSection(title, items, ext) {
   const lines = [`## ${title}`, ''];
   for (const it of items) {
-    lines.push(`- \`${it.name}\` — ${firstSentence(it.description)} → read \`${ext(it.name)}\`.`);
+    lines.push(`- \`${it.name}\` — ${applyPhrasing(firstSentence(it.description), 'generic')} → read \`${ext(it.name)}\`.`);
   }
   lines.push('');
   return lines.join('\n');
