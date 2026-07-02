@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readSources } from './read-sources.mjs';
@@ -23,14 +23,33 @@ export function writeTargets(outRoot, result) {
   }
 }
 
+function walkFiles(dir) {
+  if (!existsSync(dir)) return [];
+  const out = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === '.DS_Store') continue;
+    const abs = join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...walkFiles(abs));
+    else out.push(abs);
+  }
+  return out;
+}
+
 // Returns a list of drift descriptions ([] === in sync) comparing result to disk.
 export function diffTargets(outRoot, result) {
   const problems = [];
+  const expected = new Set();
   for (const [target, files] of Object.entries(result)) {
     for (const file of files) {
       const abs = join(outRoot, target, file.path);
+      expected.add(abs);
       if (!existsSync(abs)) { problems.push(`missing: ${target}/${file.path}`); continue; }
       if (readFileSync(abs, 'utf8') !== file.content) problems.push(`changed: ${target}/${file.path}`);
+    }
+  }
+  for (const target of Object.keys(result)) {
+    for (const abs of walkFiles(join(outRoot, target))) {
+      if (!expected.has(abs)) problems.push(`orphan: ${abs.slice(outRoot.length + 1)}`);
     }
   }
   return problems;
