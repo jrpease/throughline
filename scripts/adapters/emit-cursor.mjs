@@ -6,11 +6,15 @@ function oneLine(s) {
   return s.replace(/\s+/g, ' ').trim();
 }
 
+function yamlString(s) {
+  return `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
 export function emitCursor(model) {
   const files = [];
   for (const skill of model.skills) {
     const body = translateBody(skill.body, { baseDir: BASE, target: 'cursor' });
-    const content = `---\ndescription: ${oneLine(skill.description)}\nalwaysApply: false\n---\n${body}\n`;
+    const content = `---\ndescription: ${yamlString(oneLine(skill.description))}\nalwaysApply: false\n---\n${body}\n`;
     files.push({ path: `.cursor/rules/${skill.name}.mdc`, content });
   }
   for (const cmd of model.commands) {
