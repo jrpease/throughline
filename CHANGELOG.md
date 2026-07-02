@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-07-02
+
 ### Added
 - **Library-derived focus states.** Focus is now built to match `project.uiFramework`'s
   real `:focus-visible` idiom (shadcn/default `0 0 0 3px` spread-shadow ring, `vanilla-css`
