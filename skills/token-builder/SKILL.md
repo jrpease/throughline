@@ -256,8 +256,10 @@ its primitive so the alias is live. Default set and modes:
 - `Border/Semantic` — single mode. Roles: `width/{default,focus,emphasis}`
   aliasing `_Border/Primitive` widths, plus **`offset/focus`** (the gap between a
   control's edge and its focus ring, the `outline-offset` equivalent) aliasing the
-  `2` width primitive. Components apply `offset/focus` so focus rings stay clear of
-  the edge for accessibility — see "State handling" in the component standards.
+  `2` width primitive. It's used by the **outline-style** focus recipe (e.g.
+  `vanilla-css`) to keep the ring clear of the edge for accessibility; library idioms
+  that render focus as a spread-shadow ring don't need it — see "State handling" in the
+  component standards for the per-library recipes.
 - `Opacity/Semantic` (when the system needs disabled/overlay states) — single
   mode. Roles: `disabled`, `muted`, `overlay/scrim`, `hover`, aliasing
   `_Opacity/Primitive`. See the **opacity scale rule** below — this is the one

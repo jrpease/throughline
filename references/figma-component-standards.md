@@ -29,10 +29,13 @@ a component read as polished:
 - **Outer strokes / borders.** A child with `strokeAlign = "OUTSIDE"` (or a flush-to-
   edge border) gets the outer half of its stroke sliced away — borders look thin,
   uneven, or missing on one side.
-- **Focus rings.** The focus indicator deliberately sits **2px clear of the control's
-  edge** (see *State handling* — the `offset/focus` rule), so it extends *beyond* the
-  control frame by design. A clipping parent eats it, defeating the focus-visibility
-  requirement.
+- **Focus rings.** A focus ring extends *beyond* the control's edge by design (see
+  *State handling*), so a clipping **ancestor** eats it — keep the doc card, variant
+  rows, and component set unclipped. One deliberate exception: a *filled* control that
+  casts its focus ring as a **drop-shadow effect** must have `clipsContent = true` on
+  that control frame itself — a frame's own effect isn't clipped by its own clip, and
+  clipping gives it a clean ring silhouette. The no-clip rule is about *ancestors*, not
+  that control frame.
 - **Shadows / elevation.** Drop shadows on a child near the edge get cut at the frame
   boundary instead of feathering out.
 
@@ -43,8 +46,11 @@ set it, and read it back.
 **Turn clipping ON only for a deliberate cutoff** — a frame whose *job* is to crop its
 contents to a fixed window: a scroll container, an image/media crop frame, an
 avatar/thumbnail masked to its bounds, or anything emulating CSS `overflow: hidden`.
-These are the viewport-level cases; everywhere else, leave content unclipped so strokes,
-focus rings, and shadows render in full.
+The one other legitimate ON case is a **filled control frame that casts its focus ring
+as a drop-shadow effect** — clip ON gives that ring a clean silhouette (see *State
+handling*), and clipping the frame's *children* doesn't clip the frame's own effect.
+Everywhere else, leave content unclipped so strokes, focus rings, and shadows render in
+full.
 
 ## Variants vs. component properties — use the right tool
 
@@ -90,12 +96,25 @@ as a readable grid so it's scannable in Figma and predictable run-to-run:
   with only `default`. Every component renders its complete, applicable state set
   across the columns (see "State handling" for the per-component checklist), so the
   set documents the real interaction surface, not a single resting state.
-- **Build it with auto layout, bound to spacing tokens.** Set the component set's
-  `layoutMode` (a vertical outer auto layout of horizontal rows, or a wrapped
-  layout) with `itemSpacing`/padding bound to `Spacing/*` tokens — never a flat
-  `layoutMode = "NONE"` with absolute positions. The `figma_arrange_component_set`
-  helper can do the row/column placement; verify the result is genuinely
-  auto-layout (read back `layoutMode`), not just visually tidy coordinates.
+- **Small sets — build with auto layout, bound to spacing tokens.** For a handful of
+  variants, set the component set's `layoutMode` (a vertical outer auto layout of
+  horizontal rows) with `itemSpacing`/padding bound to `Spacing/*` tokens. Verify the
+  result is genuinely auto-layout (read back `layoutMode`), not just tidy coordinates.
+- **Large matrices — use deterministic grid coordinates, not layout hacks.** For big
+  sets (many variants, more than ~1 row), lay the showcase out by positioning each
+  variant into a uniform grid cell **centered on its hugged size**, with
+  `layoutMode = "NONE"` on the set. This keeps every variant hugging/flush while the
+  grid stays aligned. Specifically:
+  - **Never set `minWidth` or a fixed width on variants to line up columns.** Width is
+    an **intrinsic component property** — it ships to every instance, so the visual
+    control ends up floating inside a wider component (and stretches any focus ring).
+    Alignment is a *display* concern; solve it with cell coordinates, not variant width.
+  - **Don't rely on `layoutMode = "GRID"`.** CSS-grid auto layout does not lay out
+    reliably through the plugin bridge today — it reads back correct but renders as a
+    single squished row. Use explicit coordinates for matrices larger than ~1 row.
+  - **Don't use `figma_arrange_component_set` on a set already inside a doc card** — it
+    **recreates the set inside its own labeled white container**, detaching it from a
+    hand-built card. Use it only for a standalone set you haven't yet placed.
 
 This ordering is deterministic: given the same matrix, the set looks the same every
 run, and it mirrors how the states/types map to code props.
@@ -124,15 +143,55 @@ run, and it mirrors how the states/types map to code props.
   reach; only omit a state when the component genuinely cannot enter it.
 - Keep state styling bound to tokens (a disabled state uses
   `color.text.disabled`, not a hardcoded gray) so it themes correctly.
-- **Focus rings need an offset gap.** The focus indicator (the focus ring/outline)
-  must sit **2px clear of the control's edge**, not flush against it — the code
-  equivalent of `outline-offset`. A ring drawn flush blends into the control's own
-  border and reads as a thicker border rather than a distinct focus state, hurting
-  the focus visibility WCAG asks for (2.4.11 / 2.4.13). Implement the offset with
-  the **`Border/Semantic` `offset/focus`** token (bound, never a hardcoded `2px`) —
-  e.g. an outer focus-ring layer inset by that token, or auto-layout padding of
-  `offset/focus` between the control and its ring. Keep the ring color bound to
-  `border/focus` and its width to `width/focus`.
+- **Focus states are derived from the target library, not a house style.** Do not
+  invent a custom focus ring. Build the focus state to match `project.uiFramework`'s
+  real `:focus-visible` idiom (the same value `component-builder` already reads for
+  variant vocabulary), keeping the ring color bound to `border/focus` and its width to
+  `width/focus`:
+  - **shadcn / tailwind / default / null / multi-framework** — the modern ring:
+    recolor the control's border to `border/focus` **plus** a `0 0 0 3px`-equivalent
+    ring at ~50% opacity (spread bound to `width/focus`). This is the default whenever
+    no single library is set.
+  - **mui** — per component: inputs thicken + recolor their border to `width/focus` /
+    `border/focus`; buttons and other clickables get a `0 0 0 N` ring. (The ripple
+    isn't represented in Figma.)
+  - **vanilla-css** — an offset **outline stroke**: a ring layer with
+    `strokeAlign = "OUTSIDE"` sitting `offset/focus` clear of the edge (maps to real
+    `outline` / `outline-offset`, satisfying WCAG 2.4.11 / 2.4.13). This is the **only**
+    recipe that uses `offset/focus`; `strokeAlign = "INSIDE"` here grows the stroke
+    inward, eats the gap, and is a fail.
+  - **ios-swift** — no web focus ring; skip (native focus handling).
+  - **tier-2 / other framework** — research that library's focus-visible idiom and
+    replicate it (shadow vs. outline vs. border); fall back to the shadcn ring if
+    unknown.
+- **How you build the ring depends on the control's fill, because a Figma
+  `DROP_SHADOW` only casts from opaque pixels** (unlike CSS `box-shadow`, which draws
+  from the border-box). For the shadow-based recipes:
+  - **Filled control** (has an opaque fill) → a **drop-shadow effect** on the control
+    (offset 0, blur 0, spread = ring width, color = `border/focus`). No extra node. The
+    control frame carrying the effect must have **`clipsContent = true`** so it casts a
+    clean rectangular ring (a frame's own effect isn't clipped by its own clip); its
+    **ancestor** frames stay `clipsContent = false` so the ring isn't sliced.
+  - **Transparent control** (outline / ghost / link, unfilled input — no opaque fill to
+    cast from) → an **absolutely-positioned ring child**: a `RECTANGLE` with
+    `layoutPositioning = "ABSOLUTE"`, `strokeAlign = "OUTSIDE"`, stroke weight = ring
+    width, sized to the parent with `STRETCH` constraints, parent `clipsContent =
+    false`. A **child, never a wrapper** — so it doesn't inflate layout and coexists
+    with any existing border. `clipsContent` does **not** make a transparent frame cast
+    a drop-shadow; use the ring-child instead.
+  Both mechanisms map to the same `box-shadow: 0 0 0 3px var(--ring)` in code.
+- **Never wrap the control to make room for the ring.** Do not add a parent frame with
+  `offset/focus` padding around the control, and do not reserve ring padding on
+  non-focus states — a wrapper makes the component bounds larger than the visual
+  control on every variant (the control floats inside an oversized frame). The ring is
+  an effect or a stroke **child** on the control itself; component bounds stay flush.
+- **Retrofitting a previously-built focus state.** Earlier builds used a house-style
+  **inside/outside offset stroke** or a **padded wrapper** for focus. Whenever you
+  rebuild or touch an existing component, migrate it to the recipe above: replace a
+  padded focus wrapper with an effect or ring-child on the control, replace an
+  inside-aligned stroke, and add the missing ring to any **transparent** variant that
+  has none (the shadow-based recipe silently skips transparent controls — see the
+  fill-based mechanism above). The old pattern is a fail in the post-build audit.
 
 ## Slots and nesting
 
@@ -230,6 +289,14 @@ Pick whichever reads better for the card's styling, but **one of them is require
 a doc card with no header/component division is a fail in the post-build audit.
 Whichever you choose, bind it to variables (border or surface tokens), never a
 hardcoded hex.
+
+**The component area's surface must contrast with every variant's fill.** Choose a
+doc-card component-area background that differs from **all** of the component's resting
+variant fills — default to `bg/default` — and never reuse a token that any variant
+fills with. If the area used `bg/subtle` while a `secondary` variant also fills
+`bg/subtle`, that variant renders invisible against the panel. This is a token-choice
+check, not a visual one: verify the area's token against the variant fills, since a
+low-contrast overlap can still look fine at a glance in the screenshot.
 
 ### Promoting a component's status (write-back on finalize)
 
@@ -388,10 +455,17 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
    back `primaryAxisSizingMode`/`counterAxisSizingMode`** (or `layoutSizing*`): a
    `resize()` call silently flips the opposite axis to `FIXED`, collapsing a frame
    to ~10px — invisible in a screenshot. See the `resize()` trap in
-   `${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md`.
+   `${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md`. **Exception:** a component
+   **set** laid out with deterministic grid coordinates (the large-matrix case in
+   "Component set arrangement") legitimately uses `layoutMode = "NONE"`; the variants
+   *inside* it must still be auto-layout.
 3. **Variables bound** — every fill, stroke, text color, corner radius,
    `itemSpacing`, and padding resolves to a **bound variable** (`boundVariables`
    present), not a raw hex/px. No hardcoded values anywhere in the doc-card chrome.
+   **Check container and component-set background fills specifically** — a paint bind
+   that didn't stick renders the placeholder color instead (a pure-black placeholder
+   reads as accidental dark mode), so read back `fills[0].boundVariables.color` on
+   those container fills and re-bind any that resolve to a raw value.
 4. **Names deterministic** — components match their code counterpart names; the
    `Status` chip, `Status Label`, and `Last Updated` nodes are named exactly so
    finalize write-back can find them; no `Frame 47`-style auto names on meaningful
@@ -411,11 +485,22 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
    state for that component (default/hover/focus/active/disabled plus the applicable
    conditional states — loading/selected/success/error), with variants (incl. each
    size) as rows and states as columns. A set shipping only `default` is a fail.
-9. **Visual** — the screenshot (from the validation loop) shows no overlaps,
+9. **Focus state matches the library idiom** — the focus state is built as
+   `project.uiFramework`'s real pattern (see "State handling"), not a house-style
+   stroke, and with no padded wrapper inflating the component. Shadow-based recipes: a
+   filled control carries a **drop-shadow** ring (effect present; that control frame
+   `clipsContent = true`), a transparent control carries an **absolutely-positioned
+   ring child** (not a wrapper). `vanilla-css`: an **outside-aligned** offset stroke
+   (`strokeAlign = "OUTSIDE"`; `"INSIDE"` is a fail). A wrapper frame that makes the
+   component bounds larger than the visual control is a fail. **This applies to
+   previously-built components too** — when you touch an existing one, a legacy padded
+   wrapper, an inside-aligned stroke, or a transparent variant with no ring at all must
+   be retrofitted to the current recipe (see "State handling").
+10. **Visual** — the screenshot (from the validation loop) shows no overlaps,
    misalignment, lopsided hug/fill sizing, or clipped strokes/focus rings.
 
 If any item fails, **fix and re-audit** — don't hand off a partial pass. Iterate
-with the same ~3-pass budget as the visual loop. Only when all nine pass is the
+with the same ~3-pass budget as the visual loop. Only when all ten pass is the
 build done.
 
 ## Naming

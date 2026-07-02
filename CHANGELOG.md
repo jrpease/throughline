@@ -6,6 +6,42 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Added
+- **Library-derived focus states.** Focus is now built to match `project.uiFramework`'s
+  real `:focus-visible` idiom (shadcn/default `0 0 0 3px` spread-shadow ring, `vanilla-css`
+  outline stroke, MUI per-component, ios-swift skip, tier-2 researched) instead of one
+  house-style stroke — see the per-library recipe in `figma-component-standards.md`
+  "State handling". The ring's *mechanism* is chosen by control fill: a drop-shadow effect
+  for filled controls, an absolutely-positioned ring **child** for transparent ones
+  (a Figma drop-shadow only casts from opaque pixels).
+- **Tabler and Phosphor promoted to first-class icon libraries** in `icon-system-builder`,
+  built by the same official-SVG-fetch mechanism as Lucide; `icons.library` enum extended
+  (`manifest-schema.md`).
+
+### Changed
+- **Focus rings no longer use a padded wrapper or a house-style offset stroke by default.**
+  Wrapping the control to make room for the ring is now forbidden (it inflated component
+  bounds); `offset/focus` is used only by the outline-style (`vanilla-css`) recipe.
+- **Large variant matrices use deterministic grid coordinates**, not `minWidth`/fixed
+  widths (which leak to instances) or `layoutMode="GRID"` (unreliable through the bridge);
+  the auto-layout audit item exempts coordinate-laid component sets.
+- **Self-publish detection reframed** (`figma-publishing.md`): neither REST nor bridge
+  reads can confirm a file's own publish, so the flow trusts the user's confirmation and
+  treats an `INSTANCE_SWAP` key rejection as the authoritative "not published" signal.
+
+### Fixed
+- **Figma scripting gotchas documented** in `references/figma-scripting.md`:
+  `setBoundVariableForEffect` silently resets `spread`/`radius`/`offset` (re-assert after
+  binding); drop-shadows cast only from opaque pixels; text style must be applied before
+  `.characters` (Inter font-load order); `resize()` axis mapping is inverted on VERTICAL
+  frames; `refreshCache: true` is required on read-after-write; seed bound paints with a
+  sensible placeholder and read the bind back; `figma_execute` is capped ~30s regardless
+  of the `timeout` arg, so large builds must be chunked.
+- **Doc-card component area must contrast every variant fill** (a shared surface token hid
+  same-fill variants); container/component-set fills get a bind read-back in the audit.
+- **Architectural rebuilds of a published/consumed component set** now warn that
+  delete-and-recreate detaches downstream instances, requiring re-instancing.
+
 ## [0.10.0] - 2026-06-28
 
 ### Added

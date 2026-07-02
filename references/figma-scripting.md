@@ -57,6 +57,13 @@ after the file is fully loaded. Two real bugs came from violating this:
 An unexpectedly-empty result is a possible read error, not ground truth. See the
 full principle in `${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md`.
 
+- **Read-after-write: pass `refreshCache: true` on the verifying read.** A specific
+  trigger of the false-empty class — immediately after a write in the same session,
+  `figma_get_variables` (and similar reads) can return a **stale cached empty** with an
+  old timestamp. Creating 25 semantic variables and reading them straight back returned
+  `variables: []`; the same read with `refreshCache: true` returned all 25. After **any**
+  variable/style write, pass `refreshCache: true` on the read that confirms it.
+
 ## `dynamic-page` mode: use the async APIs — reads **and** writes
 
 Synchronous document-wide getters *and several setters* throw under
@@ -77,6 +84,71 @@ setter throws mid-build is how partial writes happen. For a simple verification
 read, prefer the dedicated `figma_get_variables` tool (it handles `dynamic-page`
 correctly and resolves aliases with `resolveAliases: true`) over a hand-written
 script.
+
+## Set the text style *before* writing `.characters` (font-load order)
+
+`figma.createText()` starts every node as **Inter Regular** — so writing
+`.characters` first throws `Cannot write to node with unloaded font "Inter Regular"`
+even when you only loaded your brand fonts (e.g. Bricolage Grotesque + DM Mono).
+Applying the text style switches the node to a loaded family, so it must come **first**.
+This is the same call surface as the `setTextStyleIdAsync` (dynamic-page) note above —
+both bite in the same place.
+
+```js
+const t = figma.createText();
+await t.setTextStyleIdAsync(style.id);  // switches font to the loaded family FIRST
+t.characters = str;                     // now safe — no Inter load needed
+```
+
+## Binding an effect resets its geometry — re-assert `spread`/`radius`/`offset` after
+
+`figma.variables.setBoundVariableForEffect(effect, 'color', v)` returns a **new**
+effect object that drops every non-color field back to defaults — `spread → 0`,
+`radius → 0`, `offset → {0,0}`. A focus ring built as a drop-shadow (offset 0, blur 0,
+**spread 3**) therefore renders **invisible** after you bind its color: a read-back
+shows `spread: 0` even though the literal set `spread: 3`. Re-assert the geometry
+fields **after** binding, then assign:
+
+```js
+let eff = {type:'DROP_SHADOW', color:{r:0,g:0,b:0,a:1}, offset:{x:0,y:0}, radius:0, spread:3, visible:true, blendMode:'NORMAL'};
+eff = figma.variables.setBoundVariableForEffect(eff, 'color', ringVar);
+eff = {...eff, spread:3, radius:0, offset:{x:0,y:0}}; // REQUIRED — bind wiped these
+node.effects = [eff];
+```
+
+## A drop-shadow casts only from **opaque pixels** — transparent frames get no ring
+
+Unlike CSS `box-shadow` (which draws from the border-box), a Figma `DROP_SHADOW` is
+computed from the node's rendered **alpha**. A no-fill frame has nothing to cast, so a
+shadow-based focus ring (`0 0 0 3px`) shows on filled controls but is **completely
+absent** on transparent variants (outline / ghost / link). **`clipsContent` does NOT
+fix this** — it changes child clipping, not casting geometry (the commonly-cited
+"clip to make the shadow follow the radius" trick does nothing here). Verify by
+temporarily setting the ring to solid red: only filled frames will show it.
+
+**Pattern for a universal ring:**
+- **Filled control** → a drop-shadow effect (clean, no extra node).
+- **Transparent control** → an **absolutely-positioned ring child**: a `RECTANGLE`
+  with `layoutPositioning = "ABSOLUTE"`, `strokeAlign = "OUTSIDE"`, stroke weight = ring
+  width, sized to the parent with `STRETCH` constraints, parent `clipsContent = false`.
+  A **child, not a wrapper** — it doesn't inflate layout and coexists with an existing
+  border.
+
+Both map to the same `box-shadow: 0 0 0 3px var(--ring)` in code. See the build-side
+rules in `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md` ("State
+handling").
+
+## Give a bound paint a sensible placeholder color, and read the bind back
+
+A paint whose color you intend to bind can briefly render its **literal** color if the
+bind is late or doesn't stick — and a pure-black `{0,0,0}` placeholder then reads as an
+accidental **dark-mode** panel (seen once on a component-set background bound to
+`bg/default`; re-running the identical bind fixed it). Two safeguards:
+
+- Seed the paint with the token's **approximate value**, not pure black, so a
+  failed/late bind degrades gracefully.
+- **Read back `fills[0].boundVariables.color`** on container / component-set fills in
+  the post-build audit — a screenshot can't tell a stuck bind from a placeholder.
 
 ## `resize()` locks the *opposite* auto-layout axis to FIXED
 
@@ -104,6 +176,27 @@ Read back `primaryAxisSizingMode` / `counterAxisSizingMode` (or
 `layoutSizing*`) in the post-build audit — a collapsed axis is otherwise invisible
 until handoff.
 
+**The axis mapping is inverted for VERTICAL frames — this is the part that bites.**
+For a **VERTICAL** auto-layout frame, `primaryAxisSizingMode` controls **height** and
+`counterAxisSizingMode` controls **width** (the *opposite* of a HORIZONTAL frame, where
+primary = width). It's very easy to think "fixed width, hug height" and set the axes
+backwards, after which `resize()` pins the wrong dimension — the real symptoms were an
+Input variant collapsing to 10px tall (placeholders overlapping), a Card's *height*
+locking to 10px, and a parent layout frame's height pinned to a stale value.
+
+This is exactly why the **`layoutSizingHorizontal` / `layoutSizingVertical`** setters
+are safer: they name the dimension directly, so there's no primary/counter axis to get
+backwards.
+
+```js
+// VERTICAL frame, want fixed width + hug height:
+frame.layoutMode = "VERTICAL";
+frame.layoutSizingHorizontal = "FIXED";  // width  — unambiguous
+frame.layoutSizingVertical   = "HUG";    // height — unambiguous
+// Equivalent via axis modes (easy to invert): counter = width, primary = height
+// frame.counterAxisSizingMode = "FIXED"; frame.primaryAxisSizingMode = "AUTO";
+```
+
 ## Pass an explicit `timeout` for batch / multi-node writes
 
 `figma_execute`'s default timeout (~5000ms) is too low for scripts that touch
@@ -113,6 +206,13 @@ with no partial-success signal**, leaving a half-applied write. For any batch
 operation, pass an explicit `timeout` sized to the work — a good rule is
 **`node_count * 3000` ms** (e.g. a 9-card status write-back → `timeout: 30000`).
 Load fonts once and reuse where possible rather than re-loading per node.
+
+**But `figma_execute` is effectively capped at ~30s regardless of the `timeout` you
+pass** — a bigger number is not honored past that ceiling. So `node_count * 3000` is
+only a guide *up to* the cap; a build that genuinely needs more than ~30s must be
+**chunked into multiple `figma_execute` calls**, not handed a larger timeout. Design
+large builds for the cap from the start — the 108-variant Button was built as **3× 36-
+variant passes**. (This is the same ceiling behind the WRAP-chunking rule below.)
 
 ## Large wrapped auto-layout (`layoutWrap = "WRAP"`) is expensive — chunk it
 

@@ -217,13 +217,15 @@ bailing or running silently.
   re-running the token-sheet-builder.
 
 ### `icons`
-- `library` — `"lucide"`, `"material"`, or `"custom"`.
+- `library` — `"lucide"`, `"tabler"`, `"phosphor"`, `"material"`, or `"custom"`.
+  (`lucide`/`tabler`/`phosphor` share the official-SVG-fetch mechanism.)
 - `version` — the library version the Figma mirror was built from (e.g. Lucide
   `"0.424.0"`). The drift check compares this against the installed npm package
   so the Figma icons and code icons stay the same generation. `null` for custom.
 - `built` — whether the Figma Icons page has been populated.
 - `packageInstalled` — whether the code-side npm package (`lucide-react`,
-  `@mui/icons-material`) has been installed. Library icons reach code via install
+  `@tabler/icons-react`, `@phosphor-icons/react`, `@mui/icons-material`) has been
+  installed. Library icons reach code via install
   + name mapping, never by generating component code; custom icons reach code via
   the sync layer's SVGR pipeline instead.
 - `subset` — the curated list of icon names imported (most projects need a
