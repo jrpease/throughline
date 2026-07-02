@@ -55,3 +55,15 @@ node --test
 This auto-discovers every `**/*.test.mjs` recursively (31 tests). Don't use
 `node --test scripts/` — a directory positional is treated as a test name on
 Node >=21 and errors; a `scripts/*.test.mjs` glob silently skips `scripts/lib/`.
+
+## Multi-agent adapters (`scripts/adapters/`)
+
+`SKILL.md`/`commands`/`.mcp.json` are the canonical source. Generated Cursor,
+Codex, and generic-AGENTS.md adapters live in `adapters/<target>/` and are
+committed. After editing any skill or command, regenerate:
+
+    node scripts/adapters/generate.mjs
+
+CI runs `node scripts/adapters/generate.mjs --check` and fails if the committed
+`adapters/` tree is stale. Never hand-edit files under `adapters/` — edit the
+source and regenerate.
