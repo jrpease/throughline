@@ -1,0 +1,124 @@
+---
+description: "Build the brownfield token crosswalk — a persistent three-way map between each new token, the old Figma variable, and the old code identifier(s) — as crosswalk.json, then install the vetted validator/reverse-index scripts into the monorepo and wire the tokens:validate CI gate. Use this when retrofitting a design system onto a mature codebase, when the user wants to map old tokens to new ones, build a crosswalk, set up tokens:validate, or generate a reverse index for SCSS/Tailwind swaps. Also trigger when retrofit-planner reaches the crosswalk stage, or after design-system-audit has sized the retrofit. Make sure to use this whenever someone needs the machine-readable backbone that drives a brownfield code retrofit and its validation gate."
+alwaysApply: false
+---
+# Token crosswalk builder
+
+Builds the **backbone artifact** of a brownfield retrofit: `crosswalk.json`, a
+persistent three-way map of **new token ↔ old Figma variable ↔ old code identifier**.
+It drives the code retrofit and the `tokens:validate` CI gate. This skill also
+installs the canonical scripts into the user's repo and wires the gate.
+
+This is a brownfield skill. **Before doing anything, read**
+`.throughline/references/brownfield-retrofit.md` (read discipline, the 7
+guardrails, the safe sequence) and
+`.throughline/references/crosswalk-schema.md` (the exact contract). Greenfield
+builds don't need this skill.
+
+## Calibrate
+
+Read `user.codingLevel` (`.throughline/references/coding-level.md`) and scale
+explanation accordingly. The crosswalk involves JSON, npm scripts, and a CI gate — for
+`new` users explain each plainly the first time; for `comfortable` users be terse.
+Actions are identical across levels.
+
+## Prerequisites (offer to run them, don't bail)
+
+Read the manifest. This skill needs:
+
+1. **A DTCG token source** at `packages/tokens/dtcg/tokens.json` — the validator
+   resolves against it. If it doesn't exist, offer to run `token-sync-layer` first
+   (it emits this file). Apply the read discipline: confirm the file exists by
+   reading it, never assume it's absent without looking.
+2. **The audit inputs** — ideally the `audit` manifest section (code surface,
+   Figma inventory, `percentSemantic`) populated by `design-system-audit`. If
+   `audit` is present, use it to seed the rows. If it is `null` (audit hasn't run —
+   it lands in Plan 3), don't block: ask the user for the old→new mapping inputs
+   directly (which old Figma variables and code symbols map to which new tokens),
+   and proceed. Note plainly that running `design-system-audit` first would
+   pre-fill this.
+3. **A repo at `local-git` or `github`** (`workspace.stage`) so the installed
+   scripts and `package.json` changes land as a reviewable diff/PR. If still
+   `folder`, offer `repository-builder`.
+
+## Step 1 — Build `crosswalk.json`
+
+Write `packages/tokens/crosswalk.json` per the contract in
+`.throughline/references/crosswalk-schema.md`. One row per new token:
+
+- `newToken` — the DTCG dot-path exactly as it appears in
+  `packages/tokens/dtcg/tokens.json` (e.g. `color.text.primary`).
+- `newValue` — the **resolved** leaf value (follow `{…}` aliases to the literal).
+- `tier` — `primitive` or `semantic`.
+- `figmaOld` — the old Figma variable name/path, or `null` if newly added.
+- `codeTokens[]` — the old code identifiers this token replaces (`$primary-red`,
+  `bg-primary-red`, `Colors.primaryRed`, `--primary-red`). May be `[]`.
+- `status` — `aligned | renamed | drift-fix | added | mapped-nearest`. Assign by:
+  same name & value → `aligned`; same value, new name → `renamed`; value
+  intentionally changed → `drift-fix`; brand-new token → `added`; no exact old
+  equivalent, mapped to nearest → `mapped-nearest`.
+- `recommendedSemantic` — optional semantic target for a raw/primitive usage, else
+  `null`.
+
+Do not guess values. Every `newValue` comes from a read of the DTCG source, not an
+assumption (read discipline).
+
+## Step 2 — Install the vetted scripts + wire `tokens:validate`
+
+Copy these from `.throughline/scripts/` into the user's repo **verbatim**
+(they are zero-dependency and version with the user's repo so their CI can run them):
+
+- `lib/crosswalk.mjs` → `packages/tokens/scripts/lib/crosswalk.mjs`
+- `validate-crosswalk.mjs` → `packages/tokens/scripts/validate-crosswalk.mjs`
+- `build-reverse-index.mjs` → `packages/tokens/scripts/build-reverse-index.mjs`
+- `guard-token-removal.mjs` → `packages/tokens/scripts/guard-token-removal.mjs`
+- `crosswalk.schema.json` → `packages/tokens/crosswalk.schema.json` (beside
+  `crosswalk.json`, so the `$schema` pointer resolves)
+
+Then add to `packages/tokens/package.json` `scripts` (don't clobber existing keys):
+
+```jsonc
+"tokens:validate": "node scripts/validate-crosswalk.mjs --crosswalk crosswalk.json --tokens dtcg/tokens.json",
+"tokens:reverse-index": "node scripts/build-reverse-index.mjs --crosswalk crosswalk.json --out crosswalk.reverse.json"
+```
+
+See `.throughline/scripts/README.md` for the full install contract.
+
+## Step 3 — Run the gate (must pass N/N)
+
+Run `npm run tokens:validate` (from `packages/tokens/`). It must report **N/N** —
+every row's resolved value matches its `newValue`. If it reports mismatches or
+missing tokens, fix the crosswalk (or the token source) and re-run. **Never proceed
+on a red validator and never edit a generated token file to make it pass** — change
+the source in Figma and re-sync (guardrail 7). The validator is the source of truth
+that the crosswalk and the real tokens agree.
+
+## Step 4 — Generate the reverse index
+
+Run `npm run tokens:reverse-index`. This writes `crosswalk.reverse.json`
+(`codeToken → newToken`), which the code-retrofit phase uses to semi-automate the
+SCSS/Tailwind swaps. If it reports conflicts (one old symbol mapping to two new
+tokens), resolve them in the crosswalk before relying on the index.
+
+## Step 5 — Update the manifest
+
+Write the `tokenCrosswalk` section **only** (this skill owns it; never write another
+skill's fields):
+
+- `path` — the actual path written (`"packages/tokens/crosswalk.json"`).
+- `statusCounts` — copy the camelCase object the validator printed
+  (`{ aligned, renamed, driftFix, added, mappedNearest }`).
+- `validatorPassing` — `true` once `tokens:validate` passes N/N.
+
+Append `token-crosswalk-builder` to `completedSkills`.
+
+## What this skill must NOT do
+
+- Never delete old tokens or outputs here — that's the cleanup phase, gated by the
+  token-removal guard returning zero references (safe sequence, guardrail 4).
+- Never edit generated token files to make the validator pass — fix the source.
+- Never write another skill's manifest fields (e.g. `tokens.intakeMode` is owned by
+  `design-system-audit`).
+- Never proceed past a red `tokens:validate`.
+- Never assert a prerequisite is absent without a verified read (read discipline).
+
