@@ -19,3 +19,5 @@ jobs:
         run: node ci/validate-plugin.mjs
       - name: Validate skill/command frontmatter
         run: node ci/validate-skills.mjs
+      - name: Check adapters are up to date
+        run: node scripts/adapters/generate.mjs --check

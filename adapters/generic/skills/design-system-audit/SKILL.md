@@ -1,0 +1,122 @@
+# Design-system audit (brownfield front door)
+
+Measures **both sides** of a pre-existing system so a retrofit can be right-sized,
+before anything is built or changed. It is the brownfield analog of
+`/design-system-status`: where status reports a *local* manifest, this assesses an
+*external, mature* system — a real codebase and an already-populated Figma file.
+
+This is a brownfield skill. **Before doing anything, read**
+`.throughline/references/brownfield-retrofit.md` — especially the
+read-discipline principle (never assert absence without a verified read) and the
+`audit` phase of the safe sequence. Greenfield builds skip this skill entirely.
+
+## Calibrate
+
+Read `user.codingLevel` (`.throughline/references/coding-level.md`) and scale
+explanation accordingly. The audit surfaces grep counts and a `percentSemantic`
+number — for `new` users explain what each means and why it matters (it decides
+rename-vs-rewrite); for `comfortable` users be terse. The measurements are identical
+across levels.
+
+## Prerequisites
+
+Read the manifest. This skill needs Figma connected (`figma.connected: true`) for the
+inventory step, and a repo path for the code-surface step (`workspace.localPath`). If
+Figma isn't connected, offer to run `figma-environment-setup` first. The code-surface
+step works on any repo regardless of `workspace.stage`.
+
+## Step 1 — Size the code surface
+
+Measure how many color decisions live in the codebase. Run the color-usage grep
+scaffold against the user's repo:
+
+```bash
+node .throughline/scripts/grep-color-usage.mjs --root <workspace.localPath>
+```
+
+It counts five categories: SCSS color vars, Tailwind color classes, `Colors.*` JS
+usages, raw hex + `rgba()` literals, and SVG hardcoded fills — producing the
+case-study worklist shape.
+
+**Tune the patterns to the actual repo, and say what you assumed (read discipline +
+§11).** The shipped patterns are *defaults*, not ground truth. Before trusting the
+counts:
+1. Look at the repo's real conventions — open a few SCSS/TS files, check the actual
+   color-variable prefixes (`$primary-*`, `$grey-*`, a custom prefix), the Tailwind
+   color-class names, and whether colors come through a `Colors.*` object or some other
+   accessor.
+2. If the defaults don't fit, write a `--config <patterns.json>` of
+   `{ "<category>": { "files": "<regex>", "pattern": "<regex>" } }` tuned to this repo
+   and re-run with it.
+3. **Report which categories used the assumed defaults vs. a tuned pattern** — never
+   present default-pattern counts as if they were measured. The script prints this; pass
+   it through to the user so partial coverage is visible, not hidden.
+
+**Don't assume the stack.** The categories are color-specific but framework-agnostic; a
+repo with no Tailwind simply scores `0` there. Detect what the repo actually uses (is
+there a `tailwind.config`? SCSS? CSS-in-JS?) and explain the counts in those terms.
+
+## Step 2 — Inventory the Figma file (verified per-class reads)
+
+Variables, text styles, and effect/paint styles are **different surfaces** — read each
+independently and report "none" only for the class whose own read came back empty
+(read discipline, fixes B2). Before counting variables, ensure all pages are loaded
+(`await figma.loadAllPagesAsync()`); treat a `0` on first read as suspect and re-read
+before reporting (fixes B1).
+
+- **Variables** — `figma_get_variables` (handles `dynamic-page`, resolves aliases).
+  Record the count.
+- **Bindings** — run the binding-survival audit snippet in
+  `.throughline/references/figma-scripting.md` to count consuming bindings.
+  This is the load-bearing number: it's what a careless rename would destroy.
+- **Text styles** — `figma_get_text_styles`. Record the count.
+- **Effect/paint styles** — `figma_get_styles`. Record the count.
+- **Modes** — record the mode names per collection (e.g. `["Light", "Dark"]`).
+
+Never report a count you didn't read. If a read genuinely returns empty after a
+reliable load, that's a real `0`; if it's suspect, re-read or ask the user once and
+persist — never guess.
+
+## Step 3 — Compute "% semantic"
+
+From the inventory, estimate how much of the existing system is already **semantic**
+(named by role — `text/default`, `surface/raised`) vs. **raw/primitive** (named by
+value — `grey-900`, or bare hex). Report it as an integer 0–100 (`audit.percentSemantic`).
+
+This single number right-sizes the retrofit: a largely-semantic system (~90%) is a
+**rename-in-place + cleanup** job; a low-semantic one is closer to a **rewrite**.
+Surface it early and plainly — "you're ~90% semantic, so this is mostly renames and a
+cleanup, not a rebuild" — so the user calibrates effort before committing.
+
+## Step 4 — Write the manifest and recommend the next step
+
+Write the `audit` section (this skill owns it):
+
+- `codeSurface` — the per-category counts from Step 1 (keys vary by what the repo uses;
+  omit categories that don't apply rather than reporting a misleading `0`).
+- `figmaInventory` — `{ variables, bindings, textStyles, effectStyles, modes }` from
+  Step 2's verified reads.
+- `percentSemantic` — the integer from Step 3.
+- `ranAt` — the current ISO timestamp.
+
+Set `tokens.intakeMode: "retrofit"` (this skill establishes the brownfield path — it
+owns this transition). Append `design-system-audit` to `completedSkills`.
+
+Then recommend the next step:
+- If the user wants the guided, gated end-to-end retrofit → **`retrofit-planner`**
+  (the orchestrator; recommended for multi-session retrofits).
+- If they only want the crosswalk backbone next → **`token-crosswalk-builder`** (it
+  reads this `audit` section to seed its rows).
+
+## What this skill must NOT do
+
+- Never build, rename, or delete anything — this is a **measurement** skill. Changes
+  belong to `token-builder` (refine), the retrofit phases, and cleanup.
+- Never report a count without a verified read (read discipline). An unexpectedly-empty
+  read is a suspected error, not ground truth.
+- Never present default grep patterns as measured truth — say what was assumed.
+- Never assume the case-study stack (Tailwind/SCSS/Chromatic). Detect what the repo
+  actually uses and degrade gracefully.
+- Never write another skill's manifest fields (e.g. `tokenCrosswalk`, `retrofit.phase`).
+- Never overwrite `workspace.origin` — it is immutable after intake.
+
