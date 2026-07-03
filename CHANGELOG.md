@@ -6,6 +6,22 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-07-03
+
+### Added
+- **Published to npm as [`@radicool/throughline`](https://www.npmjs.com/package/@radicool/throughline).**
+  The multi-agent installer is now installable everywhere: `npx @radicool/throughline init`.
+  (The unscoped `throughline` npm name belongs to an unrelated package.)
+- **Tag-driven release automation.** Pushing a `vX.Y.Z` tag now runs the full CI
+  validation, publishes to npm with provenance via trusted publishing, and creates
+  a GitHub Release with notes extracted from this changelog
+  (`.github/workflows/release.yml` + `ci/extract-changelog.mjs`).
+
+### Changed
+- **Install command for Cursor/Codex/AGENTS.md targets is now `npx @radicool/throughline init`**
+  (previously documented as `npx throughline init`, which was never published).
+- README version badge now reads live from the npm registry.
+
 ## [0.11.0] - 2026-07-02
 
 ### Added
@@ -495,7 +511,9 @@ components → Storybook on a pnpm + Turborepo + Next.js 16 + Tailwind v4 monore
 - Reference docs for coding level, manifest schema, sync adapters, Figma
   component standards, and brainstorm-before-build.
 
-[Unreleased]: https://github.com/jrpease/throughline/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/jrpease/throughline/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/jrpease/throughline/compare/v0.11.0...v0.12.0
+[0.11.0]: https://github.com/jrpease/throughline/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/jrpease/throughline/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/jrpease/throughline/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/jrpease/throughline/compare/v0.7.0...v0.8.0
