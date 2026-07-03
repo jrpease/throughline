@@ -15,7 +15,9 @@ plugin-marketplace submission, and the launch polish around them.
 - The npm name `throughline` is **taken** by an unrelated, actively maintained
   package (kitepon-rgb/Throughline, 42 published versions). The README's
   documented `npx throughline init` would install the wrong package today.
-- `@jrpease/throughline` is confirmed available (404 on the registry).
+- The `@radicool` scope has no published packages (registry search returns
+  zero), so it is very likely free; definitive confirmation happens when the
+  org is created on npmjs.com. Fallback if claimed: `@radicoolstudio`.
 - The GitHub repo `jrpease/throughline` is already public. Git tags exist through
   `v0.9.0`; releases 0.10.0 and 0.11.0 were never tagged.
 - The CHANGELOG's compare-link footer was not updated for 0.11.0: `[Unreleased]`
@@ -26,14 +28,17 @@ plugin-marketplace submission, and the launch polish around them.
 - npm **trusted publishing** (OIDC from GitHub Actions) can only be configured on
   a package that already exists on the registry, so the first publish must be
   manual.
-- The user is not logged into npm on this machine; at publish time the npm
-  username (or an org) must be `jrpease` for the scope to work. If the npm
-  username turns out to differ, the scope changes to match it — everything else
-  in this design is unaffected.
+- The user is not logged into npm on this machine. The `radicool` scope is
+  claimed by creating an npm **organization** (free for public packages),
+  keeping the studio identity separate from the personal login and allowing
+  collaborators later. The GitHub repo stays under `jrpease` — npm scope and
+  GitHub owner need not match; trusted publishing links them explicitly.
 
 ## Decisions (made during brainstorming)
 
-1. **npm name:** `@jrpease/throughline` (scoped). Bin name stays `throughline`.
+1. **npm name:** `@radicool/throughline` — published under the studio brand
+   (radicool.studio) via an npm org. Bin name stays `throughline`. Fallback
+   scope if `radicool` is claimed: `@radicoolstudio`.
 2. **Scope:** all four surfaces (npm, release automation, marketplace, polish).
 3. **First published version:** `0.12.0` — continue the semver line; 1.0 is a
    later marketing moment.
@@ -44,12 +49,12 @@ plugin-marketplace submission, and the launch polish around them.
 
 `package.json` changes:
 
-- `name`: `throughline` → `@jrpease/throughline`
+- `name`: `throughline` → `@radicool/throughline`
 - `version`: `0.11.0` → `0.12.0`
 - add `"publishConfig": { "access": "public" }` — scoped packages default to
   restricted and the publish would otherwise fail.
 - `bin` stays `{ "throughline": "scripts/install.mjs" }`. `npx
-  @jrpease/throughline init` works because npx runs a package's single bin
+  @radicool/throughline init` works because npx runs a package's single bin
   regardless of its name, and global installs still expose a `throughline`
   command.
 
@@ -60,7 +65,7 @@ file carrying a version; `marketplace.json` has none), keeping
 The Claude plugin name stays plain `throughline` — plugin marketplaces
 namespace independently of npm.
 
-Command references: update `npx throughline init` → `npx @jrpease/throughline
+Command references: update `npx throughline init` → `npx @radicool/throughline
 init` in **README.md** and **scripts/README.md** (the latter ships in the npm
 payload). Historical specs and plans under `docs/superpowers/` are records of
 past work and are left unchanged. Re-run the adapter generator if any generated
@@ -85,7 +90,9 @@ New `.github/workflows/release.yml`, triggered on tags matching `v*`:
 
 Because trusted publishing can't be configured until the package exists:
 
-1. `npm login` locally (confirm the username matches the `jrpease` scope).
+1. `npm login` locally, then create the `radicool` organization on npmjs.com
+   (falling back to `radicoolstudio` if taken — the spec's scope references
+   update to match).
 2. `npm publish` v0.12.0 from the tagged commit.
 3. On npmjs.com → package settings → configure trusted publisher: repo
    `jrpease/throughline`, workflow `release.yml`.
@@ -103,7 +110,7 @@ release step) since the tag may predate the workflow landing on main.
 - Fix the CHANGELOG link footer: add `[0.11.0]` and `[0.12.0]` compare links and
   point `[Unreleased]` at `v0.12.0...HEAD`.
 - Add a `0.12.0` CHANGELOG entry covering: published to npm as
-  `@jrpease/throughline`, install command change, release automation.
+  `@radicool/throughline`, install command change, release automation.
 
 ## 4. Plugin marketplace submission
 
@@ -123,7 +130,7 @@ release step) since the tag may predate the workflow landing on main.
 
 - **README:** scoped npm command everywhere; replace the hand-maintained version
   badge with the npm registry badge
-  (`https://img.shields.io/npm/v/%40jrpease%2Fthroughline`), which auto-updates;
+  (`https://img.shields.io/npm/v/%40radicool%2Fthroughline`), which auto-updates;
   once a marketplace accepts the plugin, add its `/plugin install` one-liner
   (deferred until acceptance — not part of this release).
 - **GitHub Release** for v0.12.0 with the CHANGELOG notes.
