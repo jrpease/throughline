@@ -117,3 +117,30 @@ test('a second install produces a byte-identical tree (idempotent)', () => {
 test('install throws on an unknown target', () => {
   assert.throws(() => install({ target: 'windsurf', dir: freshDir('bad'), pkgRoot: PKG_ROOT }), /unknown target/);
 });
+
+import { execFileSync } from 'node:child_process';
+import { parseArgs } from './install.mjs';
+
+const INSTALL = join(PKG_ROOT, 'scripts', 'install.mjs');
+
+test('parseArgs reads command, target, and dir', () => {
+  const a = parseArgs(['init', '--target=codex', '--dir=/tmp/x']);
+  assert.equal(a.cmd, 'init');
+  assert.equal(a.target, 'codex');
+  assert.equal(a.dir, '/tmp/x');
+});
+
+test('parseArgs flags --help', () => {
+  assert.equal(parseArgs(['--help']).help, true);
+});
+
+test('CLI init installs into --dir and prints a summary', () => {
+  const dir = freshDir('cli');
+  const out = execFileSync('node', [INSTALL, 'init', '--target=cursor', `--dir=${dir}`], { encoding: 'utf8' });
+  assert.match(out, /installed cursor adapter/);
+  assert.ok(exists(join(dir, '.cursor', 'mcp.json')), 'wrote mcp.json');
+});
+
+test('CLI exits non-zero on a bad target', () => {
+  assert.throws(() => execFileSync('node', [INSTALL, 'init', '--target=nope'], { stdio: 'pipe' }));
+});

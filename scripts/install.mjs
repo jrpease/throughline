@@ -9,6 +9,29 @@ export const TARGETS = ['cursor', 'codex', 'generic'];
 const START = '<!-- throughline:start -->';
 const END = '<!-- throughline:end -->';
 
+const MCP_NOTE = {
+  cursor: 'Figma MCP written to .cursor/mcp.json — restart Cursor to load it.',
+  codex: 'Add the [mcp_servers] block from codex-mcp.toml to your Codex config (e.g. ~/.codex/config.toml).',
+  generic: 'Add the MCP server shown under "MCP servers" in AGENTS.md to your agent.',
+};
+
+const USAGE = `throughline init --target=cursor|codex|generic [--dir=.]
+
+Stamps the ThroughLine adapter for <target> into your project, plus the
+runtime payload it reads (.throughline/references, .throughline/scripts).
+Safe to re-run: merges AGENTS.md and .cursor/mcp.json non-destructively.`;
+
+export function parseArgs(argv) {
+  const args = { cmd: null, target: null, dir: process.cwd(), help: false };
+  for (const a of argv) {
+    if (a === '--help' || a === '-h') args.help = true;
+    else if (a.startsWith('--target=')) args.target = a.slice('--target='.length);
+    else if (a.startsWith('--dir=')) args.dir = a.slice('--dir='.length);
+    else if (!a.startsWith('-') && !args.cmd) args.cmd = a;
+  }
+  return args;
+}
+
 export function mergeAgentsBlock(existing, block) {
   const wrapped = `${START}\n${block.trim()}\n${END}`;
   if (!existing || !existing.trim()) return `${wrapped}\n`;
@@ -97,4 +120,17 @@ export function install({ target, dir, pkgRoot = PKG_ROOT }) {
     ...stagePayload(join(pkgRoot, 'scripts'), join(dir, BASE, 'scripts'), (r) => r.startsWith('adapters/') || r.endsWith('.test.mjs')),
   ];
   return { target, dir, written, payload };
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const args = parseArgs(process.argv.slice(2));
+  if (args.help) { console.log(USAGE); process.exit(0); }
+  if (args.cmd !== 'init') { console.error(`✗ unknown command; expected "init"\n\n${USAGE}`); process.exit(1); }
+  if (!TARGETS.includes(args.target)) {
+    console.error(`✗ --target must be one of: ${TARGETS.join(', ')}\n\n${USAGE}`);
+    process.exit(1);
+  }
+  const res = install({ target: args.target, dir: args.dir });
+  console.log(`✓ throughline: installed ${res.target} adapter (${res.written.length} files) + ${res.payload.length}-file runtime payload into ${res.dir}`);
+  console.log(`  ${MCP_NOTE[res.target]}`);
 }
