@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write   # create the GitHub Release
+  id-token: write   # npm trusted publishing (OIDC)
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Verify tag matches package.json version
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+      - name: Run test suite
+        run: node --test
+      - name: Validate plugin manifests
+        run: node ci/validate-plugin.mjs
+      - name: Validate skill/command frontmatter
+        run: node ci/validate-skills.mjs
+      - name: Check adapters are up to date
+        run: node scripts/adapters/generate.mjs --check
+      - name: Update npm (trusted publishing needs npm >= 11.5)
+        run: npm install -g npm@latest
+      - name: Publish to npm
+        run: npm publish --provenance
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node ci/extract-changelog.mjs "${GITHUB_REF_NAME#v}" > "$RUNNER_TEMP/notes.md"
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"
