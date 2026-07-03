@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-07-03
+
+### Fixed
+- **`npx @radicool/throughline init` silently did nothing.** npm invokes the bin
+  through a `node_modules/.bin` symlink, which defeated the CLI's
+  direct-invocation guard (`pathToFileURL(process.argv[1])` never matched the
+  real module path), so the installer exited 0 without installing. The guard
+  now realpath-resolves `argv[1]` first, with a symlink-invocation regression
+  test.
+
 ## [0.12.0] - 2026-07-03
 
 ### Added
@@ -511,7 +521,8 @@ components → Storybook on a pnpm + Turborepo + Next.js 16 + Tailwind v4 monore
 - Reference docs for coding level, manifest schema, sync adapters, Figma
   component standards, and brainstorm-before-build.
 
-[Unreleased]: https://github.com/jrpease/throughline/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/jrpease/throughline/compare/v0.12.1...HEAD
+[0.12.1]: https://github.com/jrpease/throughline/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/jrpease/throughline/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/jrpease/throughline/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/jrpease/throughline/compare/v0.9.0...v0.10.0
