@@ -49,3 +49,71 @@ test('mergeMcpJson is idempotent', () => {
   const once = mergeMcpJson(undefined, ours);
   assert.equal(mergeMcpJson(once, ours), once);
 });
+
+import { mkdtempSync, readFileSync as rfs, existsSync as exists, readdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, dirname, relative, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { install } from './install.mjs';
+
+const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const toPosix = (p) => p.split(sep).join('/');
+
+function walkTree(dir, base = dir) {
+  const out = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === '.DS_Store') continue;
+    const abs = join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...walkTree(abs, base));
+    else out.push(toPosix(relative(base, abs)));
+  }
+  return out;
+}
+
+const freshDir = (tag) => mkdtempSync(join(tmpdir(), `tl-${tag}-`));
+
+test('cursor install writes rules, merged mcp.json, and payload', () => {
+  const dir = freshDir('cursor');
+  const res = install({ target: 'cursor', dir, pkgRoot: PKG_ROOT });
+  const files = walkTree(dir);
+  assert.ok(files.some((f) => f.startsWith('.cursor/rules/') && f.endsWith('.mdc')), 'has rules');
+  assert.ok(files.includes('.cursor/mcp.json'), 'has mcp.json');
+  assert.ok(files.some((f) => f.startsWith('.throughline/references/')), 'has references');
+  assert.ok(files.some((f) => f.startsWith('.throughline/scripts/')), 'has scripts');
+  assert.ok(res.written.length > 0 && res.payload.length > 0);
+});
+
+test('codex/generic install merges a single AGENTS.md block', () => {
+  for (const target of ['codex', 'generic']) {
+    const dir = freshDir(target);
+    install({ target, dir, pkgRoot: PKG_ROOT });
+    const agents = rfs(join(dir, 'AGENTS.md'), 'utf8');
+    assert.equal(agents.match(/throughline:start/g).length, 1, `${target}: one start marker`);
+    assert.equal(agents.match(/throughline:end/g).length, 1, `${target}: one end marker`);
+  }
+});
+
+test('no installed file leaks CLAUDE_PLUGIN_ROOT, and scripts/adapters is excluded', () => {
+  const dir = freshDir('leak');
+  install({ target: 'generic', dir, pkgRoot: PKG_ROOT });
+  const files = walkTree(dir);
+  assert.ok(!files.some((f) => f.startsWith('.throughline/scripts/adapters/')), 'adapters excluded');
+  for (const f of files) {
+    if (/\.(md|mdc|json|mjs|toml|txt)$/.test(f)) {
+      assert.doesNotMatch(rfs(join(dir, f), 'utf8'), /CLAUDE_PLUGIN_ROOT/, `${f} leaked the var`);
+    }
+  }
+});
+
+test('a second install produces a byte-identical tree (idempotent)', () => {
+  const dir = freshDir('idem');
+  install({ target: 'codex', dir, pkgRoot: PKG_ROOT });
+  const snap1 = walkTree(dir).sort().map((f) => [f, rfs(join(dir, f), 'utf8')]);
+  install({ target: 'codex', dir, pkgRoot: PKG_ROOT });
+  const snap2 = walkTree(dir).sort().map((f) => [f, rfs(join(dir, f), 'utf8')]);
+  assert.deepEqual(snap2, snap1);
+});
+
+test('install throws on an unknown target', () => {
+  assert.throws(() => install({ target: 'windsurf', dir: freshDir('bad'), pkgRoot: PKG_ROOT }), /unknown target/);
+});
