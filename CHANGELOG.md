@@ -9,8 +9,8 @@ to [Semantic Versioning](https://semver.org).
 ## [0.12.0] - 2026-07-03
 
 ### Added
-- **Published to npm as [`@radicool/throughline`](https://www.npmjs.com/package/@radicool/throughline).**
-  The multi-agent installer is now installable everywhere: `npx @radicool/throughline init`.
+- **Published to npm as [`@radicoolstudio/throughline`](https://www.npmjs.com/package/@radicoolstudio/throughline).**
+  The multi-agent installer is now installable everywhere: `npx @radicoolstudio/throughline init`.
   (The unscoped `throughline` npm name belongs to an unrelated package.)
 - **Tag-driven release automation.** Pushing a `vX.Y.Z` tag now runs the full CI
   validation, publishes to npm with provenance via trusted publishing, and creates
@@ -18,7 +18,7 @@ to [Semantic Versioning](https://semver.org).
   (`.github/workflows/release.yml` + `ci/extract-changelog.mjs`).
 
 ### Changed
-- **Install command for Cursor/Codex/AGENTS.md targets is now `npx @radicool/throughline init`**
+- **Install command for Cursor/Codex/AGENTS.md targets is now `npx @radicoolstudio/throughline init`**
   (previously documented as `npx throughline init`, which was never published).
 - README version badge now reads live from the npm registry.
 

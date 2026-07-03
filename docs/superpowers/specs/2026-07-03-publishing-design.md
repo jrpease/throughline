@@ -36,7 +36,7 @@ plugin-marketplace submission, and the launch polish around them.
 
 ## Decisions (made during brainstorming)
 
-1. **npm name:** `@radicool/throughline` — published under the studio brand
+1. **npm name:** `@radicoolstudio/throughline` — published under the studio brand
    (radicool.studio) via an npm org. Bin name stays `throughline`. Fallback
    scope if `radicool` is claimed: `@radicoolstudio`.
 2. **Scope:** all four surfaces (npm, release automation, marketplace, polish).
@@ -49,12 +49,12 @@ plugin-marketplace submission, and the launch polish around them.
 
 `package.json` changes:
 
-- `name`: `throughline` → `@radicool/throughline`
+- `name`: `throughline` → `@radicoolstudio/throughline`
 - `version`: `0.11.0` → `0.12.0`
 - add `"publishConfig": { "access": "public" }` — scoped packages default to
   restricted and the publish would otherwise fail.
 - `bin` stays `{ "throughline": "scripts/install.mjs" }`. `npx
-  @radicool/throughline init` works because npx runs a package's single bin
+  @radicoolstudio/throughline init` works because npx runs a package's single bin
   regardless of its name, and global installs still expose a `throughline`
   command.
 
@@ -65,7 +65,7 @@ file carrying a version; `marketplace.json` has none), keeping
 The Claude plugin name stays plain `throughline` — plugin marketplaces
 namespace independently of npm.
 
-Command references: update `npx throughline init` → `npx @radicool/throughline
+Command references: update `npx throughline init` → `npx @radicoolstudio/throughline
 init` in **README.md** and **scripts/README.md** (the latter ships in the npm
 payload). Historical specs and plans under `docs/superpowers/` are records of
 past work and are left unchanged. Re-run the adapter generator if any generated
@@ -110,7 +110,7 @@ release step) since the tag may predate the workflow landing on main.
 - Fix the CHANGELOG link footer: add `[0.11.0]` and `[0.12.0]` compare links and
   point `[Unreleased]` at `v0.12.0...HEAD`.
 - Add a `0.12.0` CHANGELOG entry covering: published to npm as
-  `@radicool/throughline`, install command change, release automation.
+  `@radicoolstudio/throughline`, install command change, release automation.
 
 ## 4. Plugin marketplace submission
 
@@ -130,7 +130,7 @@ release step) since the tag may predate the workflow landing on main.
 
 - **README:** scoped npm command everywhere; replace the hand-maintained version
   badge with the npm registry badge
-  (`https://img.shields.io/npm/v/%40radicool%2Fthroughline`), which auto-updates;
+  (`https://img.shields.io/npm/v/%40radicoolstudio%2Fthroughline`), which auto-updates;
   once a marketplace accepts the plugin, add its `/plugin install` one-liner
   (deferred until acceptance — not part of this release).
 - **GitHub Release** for v0.12.0 with the CHANGELOG notes.

@@ -8,7 +8,7 @@
 
 **Every skill you need to launch and manage a production-grade design system in hours — not months. Built for Claude Code, and installable into Cursor, Codex, or any AGENTS.md agent.**
 
-[![npm](https://img.shields.io/npm/v/%40radicool%2Fthroughline?color=6366f1&label=npm)](https://www.npmjs.com/package/@radicool/throughline)
+[![npm](https://img.shields.io/npm/v/%40radicoolstudio%2Fthroughline?color=6366f1&label=npm)](https://www.npmjs.com/package/@radicoolstudio/throughline)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Built for Claude Code](https://img.shields.io/badge/built%20for-Claude%20Code-d97757)](https://docs.claude.com/en/docs/claude-code)
 [![Also on Cursor · Codex · AGENTS.md](https://img.shields.io/badge/also%20on-Cursor%20·%20Codex%20·%20AGENTS.md-22c55e)](#install)
@@ -73,7 +73,7 @@ Everything above was created during a single working session and synced directly
 
 | | |
 |---|---|
-| **A supported agent** | Required — [Claude Code](https://docs.claude.com/en/docs/claude-code) (native plugin), or **Cursor**, **Codex**, or any **AGENTS.md**-aware agent via `npx @radicool/throughline init`. |
+| **A supported agent** | Required — [Claude Code](https://docs.claude.com/en/docs/claude-code) (native plugin), or **Cursor**, **Codex**, or any **AGENTS.md**-aware agent via `npx @radicoolstudio/throughline init`. |
 | **Figma** | Required, **desktop app** (the browser version causes connection errors). **Professional plan or higher recommended** — multi-mode variables (Light/Dark, brand themes) need it. |
 | **Figma access token** | Required — read/write your file. The setup skill walks you through it; your token stays yours and is never shared in chat. |
 | **GitHub** (or similar) | Optional — only when you're ready to graduate to a real remote repo with PRs and CI. |
@@ -106,9 +106,9 @@ Update anytime with `/plugin marketplace update throughline-marketplace`.
 Run the installer in your project — it stamps in the skills, the reference docs, the scripts, and the Figma MCP config for your tool:
 
 ```
-npx @radicool/throughline init --target=cursor    # → .cursor/rules + .cursor/mcp.json
-npx @radicool/throughline init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
-npx @radicool/throughline init --target=generic    # → skills/ + AGENTS.md index
+npx @radicoolstudio/throughline init --target=cursor    # → .cursor/rules + .cursor/mcp.json
+npx @radicoolstudio/throughline init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
+npx @radicoolstudio/throughline init --target=generic    # → skills/ + AGENTS.md index
 ```
 
 It's safe to re-run (it merges `AGENTS.md` and `.cursor/mcp.json` non-destructively) and stages everything the skills read into `.throughline/`. Then open the `figma-environment-setup` skill/rule/prompt for your tool to begin. For Codex, add the printed `codex-mcp.toml` block to your Codex config to enable Figma access.
