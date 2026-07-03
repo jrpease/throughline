@@ -152,3 +152,23 @@ test('CLI init installs into --dir and prints a summary', () => {
 test('CLI exits non-zero on a bad target', () => {
   assert.throws(() => execFileSync('node', [INSTALL, 'init', '--target=nope'], { stdio: 'pipe' }));
 });
+
+import { symlinkSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+
+test('npx-style invocation through a node_modules/.bin symlink actually installs', () => {
+  const binDir = freshDir('npx-bin');
+  const workDir = freshDir('npx-work');
+  const symlinkPath = join(binDir, 'throughline');
+  symlinkSync(INSTALL, symlinkPath);
+
+  const res = spawnSync('node', [symlinkPath, 'init', '--target=generic'], {
+    cwd: workDir,
+    encoding: 'utf8',
+  });
+
+  assert.equal(res.status, 0, `expected exit 0, got ${res.status}; stderr: ${res.stderr}`);
+  assert.ok(exists(join(workDir, 'AGENTS.md')), 'AGENTS.md scaffolded into cwd');
+  assert.ok(exists(join(workDir, 'skills')), 'skills/ scaffolded into cwd');
+  assert.match(res.stdout, /✓ throughline: installed/, 'prints success line');
+});

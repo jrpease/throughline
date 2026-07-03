@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, copyFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, copyFileSync, realpathSync } from 'node:fs';
 import { join, dirname, relative, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { rewritePluginRoot } from './adapters/translate.mjs';
@@ -129,7 +129,14 @@ export function install({ target, dir, pkgRoot = PKG_ROOT }) {
   return { target, dir, written, payload };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+function isDirectInvocation() {
+  if (!process.argv[1]) return false;
+  let invoked = process.argv[1];
+  try { invoked = realpathSync(invoked); } catch { /* keep original */ }
+  return import.meta.url === pathToFileURL(invoked).href;
+}
+
+if (isDirectInvocation()) {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) { console.log(USAGE); process.exit(0); }
   if (args.cmd !== 'init') { console.error(`✗ unknown command; expected "init"\n\n${USAGE}`); process.exit(1); }
