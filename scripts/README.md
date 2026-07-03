@@ -67,3 +67,12 @@ committed. After editing any skill or command, regenerate:
 CI runs `node scripts/adapters/generate.mjs --check` and fails if the committed
 `adapters/` tree is stale. Never hand-edit files under `adapters/` — edit the
 source and regenerate.
+
+Users install a target into their own project with the installer, which copies
+the committed `adapters/<target>/` tree plus the runtime payload
+(`references/` + `scripts/`, minus `scripts/adapters/`) into `.throughline/`,
+rewriting `${CLAUDE_PLUGIN_ROOT}` → `.throughline`:
+
+    npx throughline init --target=cursor|codex|generic
+
+See `scripts/install.mjs` (pure core + CLI + `install.test.mjs`).

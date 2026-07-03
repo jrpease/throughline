@@ -1,0 +1,25 @@
+{
+  "name": "throughline",
+  "version": "0.11.0",
+  "description": "Build a complete design system end to end — author in Figma, sync tokens to code, generate Storybook. Usable from Claude Code, Cursor, Codex, or any AGENTS.md agent.",
+  "type": "module",
+  "bin": {
+    "throughline": "scripts/install.mjs"
+  },
+  "files": [
+    "adapters/",
+    "references/",
+    "scripts/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "author": "Jordan Pease",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jrpease/throughline.git"
+  }
+}
