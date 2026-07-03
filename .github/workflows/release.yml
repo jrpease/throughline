@@ -11,18 +11,24 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    if: github.repository == 'jrpease/throughline'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
-      - name: Verify tag matches package.json version
+      - name: Verify tag matches package.json and plugin.json versions
         run: |
           PKG_VERSION=$(node -p "require('./package.json').version")
+          PLUGIN_VERSION=$(node -p "require('./.claude-plugin/plugin.json').version")
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
             echo "::error::tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+          if [ "$PLUGIN_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match .claude-plugin/plugin.json version $PLUGIN_VERSION"
             exit 1
           fi
       - name: Run test suite
@@ -33,6 +39,8 @@ jobs:
         run: node ci/validate-skills.mjs
       - name: Check adapters are up to date
         run: node scripts/adapters/generate.mjs --check
+      - name: Extract release notes
+        run: node ci/extract-changelog.mjs "${GITHUB_REF_NAME#v}" > "$RUNNER_TEMP/notes.md"
       - name: Update npm (trusted publishing needs npm >= 11.5)
         run: npm install -g npm@latest
       - name: Publish to npm
@@ -40,6 +48,4 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          node ci/extract-changelog.mjs "${GITHUB_REF_NAME#v}" > "$RUNNER_TEMP/notes.md"
-          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"
+        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"

@@ -13,6 +13,7 @@
     "adapters/",
     "references/",
     "scripts/",
+    "!scripts/**/*.test.mjs",
     "README.md",
     "LICENSE"
   ],
