@@ -6,11 +6,12 @@
 
 ### Your agentic design team
 
-**A Claude Code plugin packed with every skill you need to launch and manage a production-grade design system in hours — not months.**
+**Every skill you need to launch and manage a production-grade design system in hours — not months. Built for Claude Code, and installable into Cursor, Codex, or any AGENTS.md agent.**
 
 [![Version](https://img.shields.io/badge/version-0.11.0-6366f1)](.claude-plugin/plugin.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Built for Claude Code](https://img.shields.io/badge/built%20for-Claude%20Code-d97757)](https://docs.claude.com/en/docs/claude-code)
+[![Also on Cursor · Codex · AGENTS.md](https://img.shields.io/badge/also%20on-Cursor%20·%20Codex%20·%20AGENTS.md-22c55e)](#install)
 [![See it live — Storybook](https://img.shields.io/badge/See%20it%20live-Storybook-FF4785?logo=storybook&logoColor=white)](https://main--6a1ee089ae3a37b70a6e4559.chromatic.com)
 [![Public Figma file](https://img.shields.io/badge/Public-Figma%20file-F24E1E?logo=figma&logoColor=white)](https://www.figma.com/design/OCiZiGpsJ4ncPD8r205BjC/Throughline-Plugin-Test?node-id=0-1&t=5ERihD6fMqMuTEXD-1)
 
@@ -72,12 +73,16 @@ Everything above was created during a single working session and synced directly
 
 | | |
 |---|---|
-| **[Claude Code](https://docs.claude.com/en/docs/claude-code)** | Required — ThroughLine is a Claude Code plugin. |
+| **A supported agent** | Required — [Claude Code](https://docs.claude.com/en/docs/claude-code) (native plugin), or **Cursor**, **Codex**, or any **AGENTS.md**-aware agent via `npx throughline init`. |
 | **Figma** | Required, **desktop app** (the browser version causes connection errors). **Professional plan or higher recommended** — multi-mode variables (Light/Dark, brand themes) need it. |
 | **Figma access token** | Required — read/write your file. The setup skill walks you through it; your token stays yours and is never shared in chat. |
 | **GitHub** (or similar) | Optional — only when you're ready to graduate to a real remote repo with PRs and CI. |
 
 ### Install
+
+ThroughLine is authored as a Claude Code plugin and generated into adapters for other agents. Pick your tool:
+
+#### Claude Code
 
 Install from this repo's plugin marketplace:
 
@@ -94,13 +99,19 @@ Then start with:
 
 This is the reliable entry point — it runs environment setup first, ahead of anything else. (You can also just say *"let's set up my design system"*, but if you have other plugins installed that grab "let's build…" style phrases, the slash command guarantees ThroughLine takes the wheel.)
 
-From there, Claude walks you through executing its **12 skills powered by 10 reference documents**, sequenced based on your unique needs and goals. The plugin is built to provide consistent checkpoints for human review and guidance — letting you make the big decisions while it does the dirty work.
+Update anytime with `/plugin marketplace update throughline-marketplace`.
 
-Update anytime with:
+#### Cursor, Codex, or a generic AGENTS.md agent
+
+Run the installer in your project — it stamps in the skills, the reference docs, the scripts, and the Figma MCP config for your tool:
 
 ```
-/plugin marketplace update throughline-marketplace
+npx throughline init --target=cursor    # → .cursor/rules + .cursor/mcp.json
+npx throughline init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
+npx throughline init --target=generic    # → skills/ + AGENTS.md index
 ```
+
+It's safe to re-run (it merges `AGENTS.md` and `.cursor/mcp.json` non-destructively) and stages everything the skills read into `.throughline/`. Then open the `figma-environment-setup` skill/rule/prompt for your tool to begin. For Codex, add the printed `codex-mcp.toml` block to your Codex config to enable Figma access.
 
 ## Architecture
 
