@@ -50,6 +50,11 @@ test('mergeMcpJson is idempotent', () => {
   assert.equal(mergeMcpJson(once, ours), once);
 });
 
+test('mergeMcpJson recovers from malformed existing JSON', () => {
+  const parsed = JSON.parse(mergeMcpJson('{ not valid json', { 'figma-console': { command: 'figma' } }));
+  assert.ok(parsed.mcpServers['figma-console'], 'still yields our config');
+});
+
 import { mkdtempSync, readFileSync as rfs, existsSync as exists, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, relative, sep } from 'node:path';
@@ -98,6 +103,7 @@ test('no installed file leaks CLAUDE_PLUGIN_ROOT, and scripts/adapters is exclud
   install({ target: 'generic', dir, pkgRoot: PKG_ROOT });
   const files = walkTree(dir);
   assert.ok(!files.some((f) => f.startsWith('.throughline/scripts/adapters/')), 'adapters excluded');
+  assert.ok(!files.includes('.throughline/scripts/install.mjs'), 'installer itself excluded');
   for (const f of files) {
     if (/\.(md|mdc|json|mjs|toml|txt)$/.test(f)) {
       assert.doesNotMatch(rfs(join(dir, f), 'utf8'), /CLAUDE_PLUGIN_ROOT/, `${f} leaked the var`);
@@ -106,12 +112,14 @@ test('no installed file leaks CLAUDE_PLUGIN_ROOT, and scripts/adapters is exclud
 });
 
 test('a second install produces a byte-identical tree (idempotent)', () => {
-  const dir = freshDir('idem');
-  install({ target: 'codex', dir, pkgRoot: PKG_ROOT });
-  const snap1 = walkTree(dir).sort().map((f) => [f, rfs(join(dir, f), 'utf8')]);
-  install({ target: 'codex', dir, pkgRoot: PKG_ROOT });
-  const snap2 = walkTree(dir).sort().map((f) => [f, rfs(join(dir, f), 'utf8')]);
-  assert.deepEqual(snap2, snap1);
+  for (const target of ['cursor', 'codex', 'generic']) {
+    const dir = freshDir(`idem-${target}`);
+    install({ target, dir, pkgRoot: PKG_ROOT });
+    const snap1 = walkTree(dir).sort().map((f) => [f, rfs(join(dir, f), 'utf8')]);
+    install({ target, dir, pkgRoot: PKG_ROOT });
+    const snap2 = walkTree(dir).sort().map((f) => [f, rfs(join(dir, f), 'utf8')]);
+    assert.deepEqual(snap2, snap1, `${target}: byte-identical on reinstall`);
+  }
 });
 
 test('install throws on an unknown target', () => {

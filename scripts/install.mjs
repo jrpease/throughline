@@ -46,10 +46,17 @@ export function mergeAgentsBlock(existing, block) {
 export function mergeMcpJson(existing, ourServers) {
   let obj = {};
   if (existing) {
+    let usable = false;
     try {
       const parsed = JSON.parse(existing);
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) obj = parsed;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        obj = parsed;
+        usable = true;
+      }
     } catch { /* malformed → start fresh */ }
+    if (!usable) {
+      console.warn('throughline: existing .cursor/mcp.json is not a JSON object; replacing it with the ThroughLine MCP server config.');
+    }
   }
   obj.mcpServers = { ...(obj.mcpServers || {}), ...ourServers };
   return `${JSON.stringify(obj, null, 2)}\n`;
@@ -117,7 +124,7 @@ export function install({ target, dir, pkgRoot = PKG_ROOT }) {
   }
   const payload = [
     ...stagePayload(join(pkgRoot, 'references'), join(dir, BASE, 'references')),
-    ...stagePayload(join(pkgRoot, 'scripts'), join(dir, BASE, 'scripts'), (r) => r.startsWith('adapters/') || r.endsWith('.test.mjs')),
+    ...stagePayload(join(pkgRoot, 'scripts'), join(dir, BASE, 'scripts'), (r) => r.startsWith('adapters/') || r.endsWith('.test.mjs') || r === 'install.mjs'),
   ];
   return { target, dir, written, payload };
 }
