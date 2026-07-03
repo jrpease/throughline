@@ -51,6 +51,7 @@ Structured like the existing adapter modules: a **pure core** (exported function
 2. **Stage the runtime payload** the translated bodies reference (`baseDir` = `.throughline`):
    - `references/` → `<dir>/.throughline/references/`
    - `scripts/` → `<dir>/.throughline/scripts/`, **excluding `scripts/adapters/`** (build-time tooling, not a runtime dependency of the design-system skills). Colocated `*.test.mjs` under the copied runtime scripts are harmless and copied as-is.
+   - **Path rewrite on staged text files:** the reference docs are *not* pre-translated — several (`manifest-schema.md`, `figma-scripting.md`, …) contain `${CLAUDE_PLUGIN_ROOT}` internally, and a skill that reads such a doc post-install would follow a broken path. So while staging, text files (`.md`/`.mjs`/`.json`/`.toml`/`.mdc`/`.txt`) are passed through the canonical `rewritePluginRoot(content, '.throughline')` from `scripts/adapters/translate.mjs` (a no-op on files without the token). This is the **path rewrite only** — the target-specific phrasing rules are *not* applied to shared payload docs (they'd risk mangling reference prose, and the base is target-independent anyway). Non-text files are byte-copied. The adapter tree itself (`.cursor/…`, `prompts/…`, `skills/…`) is already translated at generation time and is copied verbatim (except the two merged files below).
 3. **`AGENTS.md`** (present in codex + generic trees): non-destructive **delimited-block merge** using `<!-- throughline:start -->` … `<!-- throughline:end -->`.
    - No existing file → create it containing just the block.
    - Existing file containing the delimiters → replace everything between them (inclusive) with the fresh block.
@@ -81,7 +82,7 @@ Run under `node --test` (already the CI command; auto-discovers `*.test.mjs`). U
 - **Integration (per target)** — install into a fresh temp dir and assert:
   - the expected convention files exist (`.cursor/rules/*.mdc` for cursor; `prompts/*.md` + `AGENTS.md` for codex; `skills/*/SKILL.md` + `AGENTS.md` for generic);
   - `.throughline/references/` and `.throughline/scripts/` are populated;
-  - **no copied file contains `${CLAUDE_PLUGIN_ROOT}`** (the payload resolves post-install);
+  - **no copied file contains `${CLAUDE_PLUGIN_ROOT}`** — covers both the pre-translated adapter tree and the payload docs rewritten during staging (this is the regression test for the `rewritePluginRoot`-on-payload step);
   - `scripts/adapters/` is **absent** from the staged payload;
   - a **second run produces a byte-identical tree** (idempotence end-to-end);
   - for codex/generic, `AGENTS.md` contains exactly one delimited throughline block.
