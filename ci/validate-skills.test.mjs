@@ -3,12 +3,17 @@ import assert from 'node:assert/strict';
 import {
   validateSkill,
   validateCommand,
+  validateAgent,
   validateManifestDoc,
   MAX_DESCRIPTION,
 } from './validate-skills.mjs';
 
 function skillSource({ name = 'demo', description = 'a demo skill' } = {}) {
   return `---\nname: ${name}\ndescription: ${description}\n---\n# Demo\n`;
+}
+
+function agentSource({ name = 'code-executor', description = 'an agent', model = 'inherit' } = {}) {
+  return `---\nname: ${name}\ndescription: ${description}\nmodel: ${model}\n---\nbody\n`;
 }
 
 test('a well-formed skill produces no problems', () => {
@@ -71,4 +76,30 @@ test('flags a manifest doc whose schemaVersion is not an integer', () => {
 test('flags a manifest doc with no json block', () => {
   const problems = validateManifestDoc('no code block here');
   assert.ok(problems.some((p) => /no.*json.*block/i.test(p)));
+});
+
+test('a well-formed agent produces no problems', () => {
+  assert.deepEqual(validateAgent({ fileName: 'code-executor.md', source: agentSource() }), []);
+});
+
+test('flags an agent that hardcodes a concrete model', () => {
+  const problems = validateAgent({ fileName: 'code-executor.md', source: agentSource({ model: 'opus' }) });
+  assert.ok(problems.some((p) => /model.*must be.*inherit/i.test(p)));
+});
+
+test('flags an agent missing the model field', () => {
+  const src = `---\nname: code-executor\ndescription: an agent\n---\nbody\n`;
+  const problems = validateAgent({ fileName: 'code-executor.md', source: src });
+  assert.ok(problems.some((p) => /model.*must be.*inherit/i.test(p)));
+});
+
+test('flags an agent missing a description', () => {
+  const src = `---\nname: code-executor\nmodel: inherit\n---\nbody\n`;
+  const problems = validateAgent({ fileName: 'code-executor.md', source: src });
+  assert.ok(problems.some((p) => /"description" is required/.test(p)));
+});
+
+test('flags an agent whose name does not match the file', () => {
+  const problems = validateAgent({ fileName: 'code-executor.md', source: agentSource({ name: 'other' }) });
+  assert.ok(problems.some((p) => /must equal the file name/.test(p)));
 });

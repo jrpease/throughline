@@ -42,6 +42,29 @@ export function validateCommand({ fileName, source }) {
   return problems;
 }
 
+export function validateAgent({ fileName, source }) {
+  let data;
+  try {
+    ({ data } = parseFrontmatter(source));
+  } catch (err) {
+    return [`agents/${fileName}: ${err.message}`];
+  }
+  const problems = [];
+  const expectedName = fileName.replace(/\.md$/, '');
+  if (!isNonEmptyString(data.name)) {
+    problems.push(`agents/${fileName}: "name" is required`);
+  } else if (data.name !== expectedName) {
+    problems.push(`agents/${fileName}: "name" (${data.name}) must equal the file name (${expectedName})`);
+  }
+  if (!isNonEmptyString(data.description)) {
+    problems.push(`agents/${fileName}: "description" is required`);
+  }
+  if (data.model !== 'inherit') {
+    problems.push(`agents/${fileName}: "model" must be exactly "inherit" (agents never hardcode a concrete model)`);
+  }
+  return problems;
+}
+
 export function validateManifestDoc(source) {
   const match = source.match(/```json\n([\s\S]*?)\n```/);
   if (!match) {
@@ -85,10 +108,20 @@ function main() {
     problems.push(...validateCommand({ fileName, source: readFileSync(join(commandsDir, fileName), 'utf8') }));
   }
 
+  const agentsDir = join(REPO_ROOT, 'agents');
+  let agentCount = 0;
+  if (existsSync(agentsDir)) {
+    const agentFiles = readdirSync(agentsDir).filter((f) => f.endsWith('.md'));
+    agentCount = agentFiles.length;
+    for (const fileName of agentFiles) {
+      problems.push(...validateAgent({ fileName, source: readFileSync(join(agentsDir, fileName), 'utf8') }));
+    }
+  }
+
   problems.push(...validateManifestDoc(readFileSync(join(REPO_ROOT, 'references', 'manifest-schema.md'), 'utf8')));
 
   if (problems.length === 0) {
-    console.log(`✓ ${skillDirs.length} skills, ${commandFiles.length} commands, manifest doc OK`);
+    console.log(`✓ ${skillDirs.length} skills, ${commandFiles.length} commands, ${agentCount} agents, manifest doc OK`);
     return;
   }
   console.error(`✗ ${problems.length} problem(s):`);
