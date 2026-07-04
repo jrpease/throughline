@@ -38,6 +38,15 @@ test('codex skill and command prompt names do not collide', () => {
   assert.equal(new Set(promptPaths).size, promptPaths.length);
 });
 
+test('token-sync-layer dispatch degrades to inline for codex', () => {
+  const prompt = result.codex.find((f) => /token-sync-layer/.test(f.path));
+  assert.ok(prompt, 'expected a codex token-sync-layer prompt');
+  const norm = prompt.content.replace(/\s+/g, ' ');
+  assert.match(norm, /no subagent dispatch, generate and verify each adapter inline/);
+  assert.match(prompt.content, /\.throughline\/references\/agent-routing\.md/);
+  assert.doesNotMatch(prompt.content, /CLAUDE_PLUGIN_ROOT/);
+});
+
 test('diffTargets flags an orphan file on disk', () => {
   // A result that expects NOTHING under a target whose real dir has files
   // → every real file becomes an orphan. Use the real OUT_ROOT read-only.
