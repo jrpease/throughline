@@ -5,6 +5,7 @@ import {
   validateCommand,
   validateAgent,
   validateManifestDoc,
+  validateAgentRouting,
   MAX_DESCRIPTION,
 } from './validate-skills.mjs';
 
@@ -102,4 +103,15 @@ test('flags an agent missing a description', () => {
 test('flags an agent whose name does not match the file', () => {
   const problems = validateAgent({ fileName: 'code-executor.md', source: agentSource({ name: 'other' }) });
   assert.ok(problems.some((p) => /must equal the file name/.test(p)));
+});
+
+test('agent-routing doc naming all three tiers passes', () => {
+  const src = '# Routing\n\n- `fast` — cheapest\n- `balanced` — mid\n- `deep` — most capable\n';
+  assert.deepEqual(validateAgentRouting(src), []);
+});
+
+test('agent-routing doc missing a tier is flagged', () => {
+  const src = '# Routing\n\n- `fast`\n- `balanced`\n';
+  const problems = validateAgentRouting(src);
+  assert.ok(problems.some((p) => /deep/.test(p)));
 });

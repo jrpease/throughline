@@ -82,6 +82,14 @@ export function validateManifestDoc(source) {
   return [];
 }
 
+export function validateAgentRouting(source) {
+  const missing = ['fast', 'balanced', 'deep'].filter((tier) => !new RegExp(`\`${tier}\``).test(source));
+  if (missing.length) {
+    return [`references/agent-routing.md: must define tier(s): ${missing.join(', ')}`];
+  }
+  return [];
+}
+
 function isNonEmptyString(v) {
   return typeof v === 'string' && v.trim().length > 0;
 }
@@ -116,6 +124,11 @@ function main() {
     for (const fileName of agentFiles) {
       problems.push(...validateAgent({ fileName, source: readFileSync(join(agentsDir, fileName), 'utf8') }));
     }
+  }
+
+  const routingPath = join(REPO_ROOT, 'references', 'agent-routing.md');
+  if (existsSync(routingPath)) {
+    problems.push(...validateAgentRouting(readFileSync(routingPath, 'utf8')));
   }
 
   problems.push(...validateManifestDoc(readFileSync(join(REPO_ROOT, 'references', 'manifest-schema.md'), 'utf8')));
