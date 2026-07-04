@@ -18,8 +18,7 @@ decisions. If the spec is ambiguous or underspecified, do not guess: return
 1. Read the spec and the files it names.
 2. Produce the files the spec specifies, following existing repo patterns.
 3. **Verify your own work** — run the build/test the spec names and confirm the
-   expected artifacts appear (for token adapters: the config builds, expected
-   files exist, references resolve for web / flatten for native).
+   expected artifacts appear, exactly as the spec defines them.
 4. Return a concise result: files written, verification command + outcome, and
    one of `DONE` / `DONE_WITH_CONCERNS` / `BLOCKED`. Your final message IS the
    return value — return data, not prose for a human.
