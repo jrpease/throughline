@@ -91,9 +91,11 @@ plan, the cheaper execution is *allowed* to be.
    translated to Codex/generic prompts, where subagents don't exist. So dispatch
    is authored to **degrade to inline single-model execution**: each dispatch
    site reads *"if your host supports subagent dispatch, route per
-   `agent-routing.md`; otherwise run inline,"* and the phrasing map neutralizes
-   dispatch idioms for non-Claude targets. `agent-routing.md` states its
-   Claude-specificity.
+   `agent-routing.md`; otherwise run inline."* `agent-routing.md` states its
+   Claude-specificity. **(Implemented as:** self-degrading conditional prose —
+   the else-branch governs on non-Claude hosts and the wording names no
+   Claude-only product, so no phrasing-map entry is needed. Phase 2/3 skills
+   reuse this exact conditional idiom rather than adding phrasing-map rules.)
 
 10. **Observability deferred.** A per-tier "who ran what" log to *prove* savings
     is a conscious v1 non-goal.
@@ -153,9 +155,9 @@ Prove the mechanism on one skill before touching the rest.
   small and gives a real end-to-end signal. This phase builds the **shared**
   machinery: `agents/code-executor.md` + `agents/reviewer.md`,
   `references/agent-routing.md` (ladder, resolution, fallback, override,
-  escalation), the no-hardcoded-model check in `validate-plugin.mjs`, and the
-  Codex/generic degradation (conditional dispatch phrasing + phrasing-map
-  entries). Per-adapter generation → `code-executor` (fast tier); two-stage
+  escalation), the no-hardcoded-model check in `ci/validate-skills.mjs`, and the
+  Codex/generic degradation (self-degrading conditional dispatch prose — no
+  phrasing-map entry needed). Per-adapter generation → `code-executor` (fast tier); two-stage
   review → `reviewer` (balanced). Planning stays inline on the orchestrator here
   — the adapter strategy is preset-driven, so no separate `architect` yet.
 
@@ -184,10 +186,12 @@ Phase 1 only.**
 
 - **Generator drift** — `generate.mjs --check` still passes with `agents/`
   present (agents are ignored, not emitted).
-- **No hardcoded models** — extend `scripts/validate-plugin.mjs` to assert every
-  `agents/*.md` frontmatter is `model: inherit` (fail on a concrete model name).
-- **Phrasing map** — `generate.test.mjs` covers the new dispatch-idiom → inline
-  substitutions for Codex/generic.
+- **No hardcoded models** — extend `ci/validate-skills.mjs` (`validateAgent`) to
+  assert every `agents/*.md` frontmatter is `model: inherit` (fail on a concrete
+  model name), scoped to `agents/` only so skills may still pin a model.
+- **Degradation** — `generate.test.mjs` spot-checks that the generated Codex
+  `token-sync-layer` prompt carries the inline-fallback branch and the rewritten
+  `.throughline/references/agent-routing.md` path with no `CLAUDE_PLUGIN_ROOT` leak.
 - **Dogfood** — run `component-pipeline` end-to-end; confirm the architect
   dispatches on the deep tier and executors on a cheaper tier, and that a Figma
   executor failure leaves a named working frame.
