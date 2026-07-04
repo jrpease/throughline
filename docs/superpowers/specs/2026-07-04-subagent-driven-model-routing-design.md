@@ -144,6 +144,34 @@ Adopt the architect/executor split and reference `agent-routing.md`:
 `references/sync-adapters.md`'s "Figma-authoring skills don't parallelize"
 becomes **"Figma work uses sequential subagents — routing yes, parallel never."**
 
+## Phasing
+
+Prove the mechanism on one skill before touching the rest.
+
+- **Phase 1 — pilot on `token-sync-layer`.** It is already subagent-driven
+  (per-adapter) and lands a reviewable PR by its own rules, so the migration is
+  small and gives a real end-to-end signal. This phase builds the **shared**
+  machinery: `agents/code-executor.md` + `agents/reviewer.md`,
+  `references/agent-routing.md` (ladder, resolution, fallback, override,
+  escalation), the no-hardcoded-model check in `validate-plugin.mjs`, and the
+  Codex/generic degradation (conditional dispatch phrasing + phrasing-map
+  entries). Per-adapter generation → `code-executor` (fast tier); two-stage
+  review → `reviewer` (balanced). Planning stays inline on the orchestrator here
+  — the adapter strategy is preset-driven, so no separate `architect` yet.
+
+- **Phase 2 — Figma path via `component-builder`.** Introduces `architect`
+  (deep) and `figma-executor`, the stable-identifier handoff, the Figma-lane
+  bridge lock, the named-working-frame + screenshot-verify, and the reviewer's
+  visual mode. This is where "plan deep, build cheap" gets proven on Figma.
+
+- **Phase 3 — generalize.** Roll the proven pattern into the remaining skills:
+  `storybook-chromatic-builder`, `icon-system-builder`, `token-builder`,
+  `token-sheet-builder`, and the `component-pipeline` sequencer; reframe
+  `references/sync-adapters.md`.
+
+Each phase is its own spec → plan → implementation cycle. **This plan covers
+Phase 1 only.**
+
 ## Non-goals
 
 - Routing observability / telemetry (deferred).
