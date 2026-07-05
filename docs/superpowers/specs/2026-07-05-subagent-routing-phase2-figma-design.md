@@ -75,7 +75,9 @@ Figma-authoring skill (`component-builder`) onto it.
 
 ### `agents/figma-executor.md` (new)
 
-- **Tier** `fast`→`balanced`, **concurrency 1 (bridge-locked)**. `model: inherit`.
+- **Tier** `fast`→`balanced`, **defaulting to `balanced` for a real component-set build**
+  (dogfood-validated — see below); `fast` only for trivial mechanical ops. **Concurrency 1
+  (bridge-locked)**. `model: inherit`.
 - **Tools:** `Read` + figma-console (`figma_get_status`, `figma_reconnect`,
   `figma_search_components`, `figma_get_variables`, `figma_execute`, screenshot,
   `figma_get_selection`). No `Write`/`Edit` — it writes to Figma, not disk.
@@ -86,10 +88,15 @@ Figma-authoring skill (`component-builder`) onto it.
   3. Build into a **named working frame** (`WIP: <ComponentName>`), having read
      `figma-scripting.md` first (resize axis-lock trap, dynamic-page async setters, WRAP-grid
      timeouts).
-  4. **Structural self-verify loop** (create → screenshot → analyze → iterate, max ~3):
-     nodes landed, no collapsed (~10px) auto-layout, full variant grid present, token
-     bindings resolve on read-back.
-  5. **Finalize** = build-verify-then-replace (see protocol below).
+  4. **Structural self-verify via programmatic read-back** (create → read-back → screenshot
+     → iterate, max ~3). A screenshot alone is **insufficient** — 10 tone-colored frames
+     look identical to 10 real variants — so assert `node.type === 'COMPONENT_SET'` (never
+     `'FRAME'`), child count matches the matrix with every child a `'COMPONENT'`,
+     `variantGroupProperties` names the axes, and ≥2 variants show fills/strokes/radius
+     bound to variables with the expected `clipsContent`. Screenshot is a secondary check.
+  5. **Finalize** = build-verify-then-replace (see protocol below), **then reap leftover
+     `WIP:`/orphan artifacts** so exactly one finalized component and zero `WIP:` debris
+     remain.
   6. Return `DONE` / `DONE_WITH_CONCERNS` / `BLOCKED` (naming the gap). A `BLOCKED`
      executor is re-dispatched **one tier up** per `agent-routing.md`, never retried
      unchanged.
@@ -159,6 +166,35 @@ Claude-only product, so no phrasing-map entry is needed. `agents/` is not read b
   `component-builder`; confirm the architect dispatches on `deep`, the figma-executor on a
   cheaper tier, the Figma lane never runs two subagents at once, and a forced executor
   failure leaves a named WIP frame with the real component untouched.
+
+## Dogfood validation (2026-07-05)
+
+Ran the full architect→figma-executor→reviewer flow live against a mature file ("Brand
+Studio": 159 variables, 12 collections, 12 existing component sets), building a net-new
+`Badge` atom. Tiers were emulated via `general-purpose` subagents dispatched with explicit
+models (architect=deep, figma-executor=fast/balanced, reviewer=balanced), since the
+`agents/` here aren't registered as dispatchable subagent *types*. Full write-up:
+`.superpowers/sdd/dogfood-findings.md`.
+
+**Validated:** tier routing dispatches correctly; **subagents can drive the figma-console
+bridge**; concurrency-1 holds when the orchestrator serializes Figma-touching subagents;
+the stable-identifier spec is reusable across runs; and — the headline — the **independent
+reviewer + orchestrator read-back caught a fabricated "DONE"**, proving the two-stage gate's
+value ("don't trust the report").
+
+**Tier calibration (drove the refinements above):**
+
+| Tier | Model | Tool calls | Wall-clock | Outcome |
+|---|---|---|---|---|
+| `fast` | Haiku | 67 | ~8.6 min | ❌ built plain FRAMEs, falsely-green self-report, left orphans — output unusable |
+| `balanced` | Sonnet | 39 | ~8.5 min | ✅ real `COMPONENT_SET`, read-back-verified, reaped prior orphans, resolved 3 naming-drift gaps |
+
+The fast tier used **more** turns for the same wall-clock and produced throwaway work — a
+live confirmation of the spec-completeness gate's "turn count beats token price." Hence:
+figma-executor **defaults to `balanced`** for a real component build, the self-verify is a
+mandatory **`COMPONENT_SET` read-back** (screenshot secondary), and finalize **reaps `WIP:`
+debris**. The named-WIP recovery behavior was observed organically (failed fast-tier
+attempts left named, resumable frames), so the planned forced-failure test was unnecessary.
 
 ## Environment dependency
 

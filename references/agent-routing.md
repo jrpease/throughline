@@ -48,7 +48,7 @@ to that model everywhere — routing becomes a no-op, never a failure.
 | `code-executor` | `fast` | parallel-safe | Transcribe code/adapter output from a complete spec; verify its own build. |
 | `reviewer` | `balanced` (scale to risk) | parallel-safe | Spec-compliance + quality gate; code-diff or Figma-visual mode. |
 | `architect` | `deep` | 1 | Plan a stage; read Figma read-only; emit a transcription-grade spec in stable identifiers (names, never nodeIds). |
-| `figma-executor` | `fast`→`balanced` | **1 (bridge-locked)** | Resolve names→nodeIds at run time; build into a `WIP:` frame; structural screenshot-verify; finalize by build-verify-then-replace. |
+| `figma-executor` | `fast`→`balanced` (default **`balanced`** for a real component build; `fast` only for trivial mechanical ops) | **1 (bridge-locked)** | Resolve names→nodeIds at run time; build into a `WIP:` frame; verify via `COMPONENT_SET` read-back (not screenshot-only); finalize by build-verify-then-replace and reap `WIP:` debris. |
 
 ## The spec-completeness gate
 
