@@ -227,6 +227,30 @@ variant explosion), so **prefer them for composite components**.
   plain instance-swap property instead — slots are for freeform/repeating areas.)
 - **Single icon** (button leading icon) → instance-swap property, not a slot.
 
+### Rule: icons match the component's text color
+
+**A leading or trailing icon inside a text-bearing component ALWAYS takes the
+same color token as that component's adjacent text/label — in every variant,
+tone, and state.** Bind the icon to the *same* variable the label uses (e.g. a
+badge icon and its label both bind the tone's `fg`; a primary button's icon and
+label both bind `text/onEmphasis`). This is what prevents the mismatch failures:
+a white-text/black-icon control, an icon that stays one fixed color while the
+text changes per tone, or an icon that ignores the theme.
+
+Apply the color on the channel the icon actually draws with, and only that
+channel:
+
+- **Line / outline icons** (Lucide, Material Symbols outlined — most sets here)
+  draw with a **stroke and no fill.** Bind the color on the vectors' **stroke**
+  and leave the **fill empty.** Never bind a line icon's fill — a filled
+  outline path renders as a solid blob.
+- **Solid / filled glyphs** draw with a **fill.** Bind the color on the fill;
+  they have no meaningful stroke.
+
+Never hardcode an icon color, and never leave a fixed dark (or light) icon color
+across tones/states. Bind the override on the icon **instance's** vectors — never
+edit the shared `icon/*` source component, which would recolor every other usage.
+
 **Practical rules (from Figma's constraints):**
 - **Auto layout must be clean first.** Slots depend on a correct auto layout
   setup — a messy one makes everything shift. This is why auto-layout-on-

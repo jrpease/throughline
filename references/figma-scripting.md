@@ -276,3 +276,34 @@ const totalBindings = Object.values(tally).reduce((a, b) => a + b, 0);
 - **This is the number `design-system-audit` records** as
   `audit.figmaInventory.bindings`, and the before/after gate the `token-builder`
   brownfield branch runs around every rename.
+
+## Subagent authoring: named working frame + finalize protocol
+
+Figma writes are not git-committable, so a dead executor must never leave a
+corrupted live component. Any subagent authoring a component (`figma-executor`)
+uses **build-verify-then-replace**:
+
+1. **Always build into a distinct working frame** named `WIP: <ComponentName>` —
+   never edit the live component in place.
+2. **Verify the working frame green before touching anything real** — a
+   screenshot alone is **insufficient**: 10 tone-colored frames render
+   identically to 10 real variants, so a fast model can build plain frames and
+   self-report success. The gate is a **programmatic read-back** (`figma_execute`)
+   that asserts `node.type === 'COMPONENT_SET'` (never `'FRAME'`), the child count
+   matches the variant matrix with every child a `'COMPONENT'`,
+   `variantGroupProperties` names the expected axes, and a spot-check of ≥2
+   variants shows fills/strokes/radius bound to variables (not raw values) with
+   the expected `clipsContent`. A `figma_capture_screenshot` is a **secondary**
+   check (create → read-back → screenshot → iterate, max ~3), never the sole one.
+3. **Only then finalize:** remove/replace any existing same-named component,
+   rename the working frame's component set to the real `<ComponentName>`, **and
+   reap leftover artifacts** — search for and remove any stray `WIP:` frames or
+   orphaned fragments (from this or a prior failed run) so the file is left with
+   exactly one finalized component and zero `WIP:` debris.
+4. **On failure / `BLOCKED`:** leave the `WIP:` frame intact and named; the
+   existing real component is **never touched**. A resumed run finds the `WIP:`
+   frame by name and either continues or rebuilds it. A failure therefore leaves
+   an obvious, named, resumable artifact — not a half-built live component.
+
+Concurrency-1 still applies: the whole Figma surface serializes through the one
+bridge, so only one subagent runs this protocol at a time.

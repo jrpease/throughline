@@ -47,8 +47,8 @@ to that model everywhere — routing becomes a no-op, never a failure.
 |---|---|---|---|
 | `code-executor` | `fast` | parallel-safe | Transcribe code/adapter output from a complete spec; verify its own build. |
 | `reviewer` | `balanced` (scale to risk) | parallel-safe | Spec-compliance + quality gate; code-diff or Figma-visual mode. |
-| `architect` *(Phase 2)* | `deep` | 1 | Plan a stage; emit a transcription-grade spec in stable identifiers. |
-| `figma-executor` *(Phase 2)* | `fast`→`balanced` | **1 (bridge-locked)** | Run the architect's Figma script; screenshot-verify; finalize a named frame. |
+| `architect` | `deep` | 1 | Plan a stage; read Figma read-only; emit a transcription-grade spec in stable identifiers (names, never nodeIds). |
+| `figma-executor` | `fast`→`balanced` (default **`balanced`** for a real component build; `fast` only for trivial mechanical ops) | **1 (bridge-locked)** | Resolve names→nodeIds at run time; build into a `WIP:` frame; verify via `COMPONENT_SET` read-back (not screenshot-only); finalize by build-verify-then-replace and reap `WIP:` debris. |
 
 ## The spec-completeness gate
 
@@ -66,5 +66,5 @@ unchanged. If still blocked at `deep`, escalate to the human.
 
 Code-gen roles are parallel-safe. Figma work is **not**: the figma-console
 bridge is a single live connection with global selection/current-page state, so
-the entire Figma surface is concurrency-1 (Phase 2). Route Figma work through
+the entire Figma surface is concurrency-1. Route Figma work through
 sequential subagents — model routing yes, parallelism never.
