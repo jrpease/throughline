@@ -47,6 +47,15 @@ test('token-sync-layer dispatch degrades to inline for codex', () => {
   assert.doesNotMatch(prompt.content, /CLAUDE_PLUGIN_ROOT/);
 });
 
+test('storybook-chromatic-builder story-gen degrades to inline for codex', () => {
+  const prompt = result.codex.find((f) => /storybook-chromatic-builder/.test(f.path));
+  assert.ok(prompt, 'expected a codex storybook-chromatic-builder prompt');
+  const norm = prompt.content.replace(/\s+/g, ' ');
+  assert.match(norm, /generate and verify each component's stories inline/);
+  assert.match(prompt.content, /\.throughline\/references\/agent-routing\.md/);
+  assert.doesNotMatch(prompt.content, /CLAUDE_PLUGIN_ROOT/);
+});
+
 test('component-builder Figma dispatch degrades to inline for codex', () => {
   const prompt = result.codex.find((f) => /component-builder/.test(f.path));
   assert.ok(prompt, 'expected a codex component-builder prompt');
