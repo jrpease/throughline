@@ -179,7 +179,9 @@ icons (`icons.built` true):
 - **Custom icons** — these the repo owns, so generate them: export the custom
   SVGs from Figma, optimize, and componentize via SVGR into `packages/ui` (or a
   dedicated icons package). This is real code generation and rides the same
-  PR-review and subagent model as token output.
+  **`code-executor` (fast) + `reviewer` (balanced)** routing and PR-review as
+  token output (SVGR transforms are the textbook mechanical op the fast tier is
+  for) — see the Step 4 execution model.
 
 ## Step 5 — Full regeneration + rename detection (the safety net)
 
