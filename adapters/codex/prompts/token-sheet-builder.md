@@ -33,6 +33,18 @@ swatch/type grids — exactly the layouts that hit the two worst traps: the
 single-call `layoutWrap = "WRAP"` timeout on big grids (build manual rows or split
 across calls instead). Also run the single-bridge-instance preflight before writing.
 
+**Execution model — sequential architect → figma-executor with model routing.**
+If your host supports subagent dispatch, plan the sheet layout once with one
+**architect** dispatch (deep tier) — a lighter plan than token-builder's, since
+the tokens already exist; it emits a stable-identifier layout spec (which
+collections/sections, how much per-token detail) — then build the page with
+**figma-executor** dispatches (balanced tier), strictly sequentially: preflight
+`figma_get_status`, concurrency-1, `WIP:` frame + build-verify-then-replace,
+gated by a **reviewer** visual pass. Route per
+`.throughline/references/agent-routing.md`; never parallelize Figma
+work. If your host has no subagent dispatch, build and verify the page inline,
+sequentially, as the steps below describe.
+
 ## Step 1 — Brainstorm the layout (lightly)
 
 Run `.throughline/references/brainstorm-before-build.md`, but keep it light — this is a
@@ -141,7 +153,7 @@ refresh the "Last updated" date instead of creating a second Cover.)
 ## Step 3 — Checkpoint
 
 Show the user the Foundations page and the Cover page. Sequential review (this is
-a Figma-authoring skill — no subagents). Iterate on layout/styling if they want
+a Figma-authoring skill). Iterate on layout/styling if they want
 changes. Then update the manifest: `sheets.built` = `true`, append
 `token-sheet-builder` to `completedSkills`.
 
