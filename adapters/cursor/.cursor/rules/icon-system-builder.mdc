@@ -173,8 +173,16 @@ Execute the library's mechanism:
   install/run and subset selection.
 - **Custom SVGs:** batch-import and componentize them.
 
-This is a Figma-authoring step — sequential, with the user in the loop; no
-subagents. When scripting the SVG-to-component pass, follow
+**Execution model — sequential Figma-lane subagent with model routing.** If your
+host supports subagent dispatch, run the bring-in + componentize pass as a
+**`figma-executor`** dispatch (balanced tier): preflight `figma_get_status`,
+never run two Figma-touching subagents at once (the single bridge is
+concurrency-1), build into a `WIP:` frame and finalize by build-verify-then-
+replace with the read-back audit in Step 3. The subset + naming contract were
+already settled with the user in Step 1, so no separate architect dispatch is
+needed here. Route per `.throughline/references/agent-routing.md`. If
+your host has no subagent dispatch, script the SVG-to-component pass inline,
+sequentially, with the user in the loop. Either way, follow
 `.throughline/references/figma-scripting.md`.
 
 ## Step 3 — Normalize: page, naming, sizing, variants
