@@ -93,8 +93,23 @@ of the primitive→semantic token seam:
    slot the atoms.
 
 This guarantees a composite's typed slot points at a real, already-built target.
-Build bottom-up; checkpoint after each component (sequential — this is Figma
-authoring, no subagents).
+Build bottom-up in dependency order.
+
+**Execution model — sequential subagents with model routing.** If your host
+supports subagent dispatch, plan the whole set once with one **architect**
+dispatch (deep tier) — it reads existing Figma state and emits a
+transcription-grade spec in stable identifiers — then build **each component**
+with one **figma-executor** dispatch (fast→balanced), strictly sequentially:
+preflight `figma_get_status` and never run two Figma-touching subagents at once
+(the single bridge is concurrency-1). Each executor builds into a `WIP:` frame
+and finalizes by build-verify-then-replace (see
+`${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md`); gate each finished
+component with a **reviewer** visual pass. Route per
+`${CLAUDE_PLUGIN_ROOT}/references/agent-routing.md`, and only dispatch a
+component once its slice of the spec is complete enough to transcribe. **Keep the
+human checkpoint between components** — subagents run continuously within a
+component, but you pause for the human between them. If your host has no subagent
+dispatch, build and verify each component inline, sequentially, as before.
 
 ## Step 3 — Build each component, bound to tokens/styles
 
