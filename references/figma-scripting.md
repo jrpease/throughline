@@ -276,3 +276,25 @@ const totalBindings = Object.values(tally).reduce((a, b) => a + b, 0);
 - **This is the number `design-system-audit` records** as
   `audit.figmaInventory.bindings`, and the before/after gate the `token-builder`
   brownfield branch runs around every rename.
+
+## Subagent authoring: named working frame + finalize protocol
+
+Figma writes are not git-committable, so a dead executor must never leave a
+corrupted live component. Any subagent authoring a component (`figma-executor`)
+uses **build-verify-then-replace**:
+
+1. **Always build into a distinct working frame** named `WIP: <ComponentName>` —
+   never edit the live component in place.
+2. **Screenshot-verify the working frame green before touching anything real** —
+   the structural self-verify loop (create → `figma_capture_screenshot` →
+   analyze → iterate, max ~3): nodes landed, no collapsed (~10px) auto-layout,
+   full variant grid present, token/style bindings resolve on read-back.
+3. **Only then finalize:** remove/replace any existing same-named component, and
+   rename the working frame's component set to the real `<ComponentName>`.
+4. **On failure / `BLOCKED`:** leave the `WIP:` frame intact and named; the
+   existing real component is **never touched**. A resumed run finds the `WIP:`
+   frame by name and either continues or rebuilds it. A failure therefore leaves
+   an obvious, named, resumable artifact — not a half-built live component.
+
+Concurrency-1 still applies: the whole Figma surface serializes through the one
+bridge, so only one subagent runs this protocol at a time.
