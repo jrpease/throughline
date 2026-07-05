@@ -66,5 +66,5 @@ unchanged. If still blocked at `deep`, escalate to the human.
 
 Code-gen roles are parallel-safe. Figma work is **not**: the figma-console
 bridge is a single live connection with global selection/current-page state, so
-the entire Figma surface is concurrency-1 (Phase 2). Route Figma work through
+the entire Figma surface is concurrency-1. Route Figma work through
 sequential subagents — model routing yes, parallelism never.
