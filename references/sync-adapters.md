@@ -139,3 +139,8 @@ each platform's output is independent and verifiable, which makes it a good fit
 for **parallel subagent generation** — one subagent per adapter, each producing
 and validating its platform's files, reviewed before the combined result is
 landed in a PR. See the token-sync skill for the execution model.
+
+Token-adapter generation parallelizes because each adapter writes independent
+files. Figma authoring does **not**: the single figma-console bridge is
+concurrency-1, so Figma work uses sequential subagents — model routing yes,
+parallel never (see `${CLAUDE_PLUGIN_ROOT}/references/agent-routing.md`).
