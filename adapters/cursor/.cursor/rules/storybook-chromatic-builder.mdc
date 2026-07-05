@@ -71,13 +71,19 @@ Match the deterministic naming so `Button` (Figma) ↔ `Button` (code).
 
 ## Step 3 — Generate stories (subagent-driven, parallel)
 
-Story generation is independent and verifiable per component, so use the
-**subagent-driven model** (code-gen skills parallelize; this is the opposite of
-the sequential Figma-authoring skills): dispatch one subagent per component to
-write its stories — a story per meaningful variant, controls wired to props,
-slot props demonstrated. Each subagent verifies its work (the story builds and
-renders). Two-stage review (does it match the component spec; is it quality
-code) before combining.
+Story generation is independent and verifiable per component, so it
+parallelizes — one worker per component, unlike the concurrency-1 Figma lane.
+
+**Execution model — parallel subagents with model routing.** If your host
+supports subagent dispatch, dispatch **one `code-executor` per component** (fast
+tier) to write its stories — a story per meaningful variant, controls wired to
+props, slot props demonstrated — each verifying its own work (the story builds
+and renders); then a **`reviewer`** (balanced) two-stage pass (does it match the
+component spec; is it quality code) before combining. Route per
+`.throughline/references/agent-routing.md`, and only dispatch a
+component once its story spec is complete enough to transcribe. If your host has
+no subagent dispatch, generate and verify each component's stories inline
+instead.
 
 **Controls must actually drive the component (args-through render).** A `render`
 that ignores its args silently breaks the Controls panel — the toggle writes to
