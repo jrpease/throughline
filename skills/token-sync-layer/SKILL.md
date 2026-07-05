@@ -144,13 +144,18 @@ register the platform, transform group, format, and `outputReferences`
 flattens). Web adapters emit `:root`/`.dark` (or `[data-theme]`); the shadcn
 adapter also emits a Tailwind preset.
 
-**Execution model — subagent-driven for multiple platforms.** When more than one
-platform is targeted, generating each platform's output is independent and
-verifiable, so dispatch **one subagent per adapter**: each produces its
+**Execution model — subagent dispatch with model routing.** Generating each
+platform's output is independent and verifiable. If your host supports subagent
+dispatch, dispatch **one `code-executor` per adapter** — each produces its
 platform's files and verifies them (the config builds, the expected files
-appear, references resolve correctly for web / flatten for native). Review each
-before combining. For a single platform, run inline. (See the selective-
-subagent decision: code-gen skills parallelize; Figma-authoring skills don't.)
+appear, references resolve for web / flatten for native) — then a **`reviewer`**
+to check each before combining. Choose each subagent's model from its role tier
+per `${CLAUDE_PLUGIN_ROOT}/references/agent-routing.md` (`code-executor` → fast,
+`reviewer` → balanced), and only dispatch once each adapter's spec is complete
+enough to transcribe. If your host has no subagent dispatch, generate and verify
+each adapter inline instead. For a single platform, run inline either way. This
+is a code-gen stage, so these subagents may run in parallel — unlike Figma
+authoring, which is always sequential.
 
 ## Step 4 — Build and place outputs
 
