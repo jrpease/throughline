@@ -51,6 +51,22 @@ and why large `WRAP` grids time out. For a simple verification read, prefer the
 dedicated `figma_get_variables` tool (it handles dynamic-page correctly and
 resolves aliases with `resolveAliases: true`) over a hand-written script.
 
+**Execution model — sequential architect → figma-executor with model routing.**
+If your host supports subagent dispatch, plan the token architecture once with
+one **architect** dispatch (deep tier) — it reads existing Figma state and emits
+a transcription-grade spec in stable identifiers (collection/variable *names*,
+never nodeIds) — then build the variables with **figma-executor** dispatches
+(balanced tier), strictly sequentially: preflight `figma_get_status` and never
+run two Figma-touching subagents at once (the single bridge is concurrency-1).
+Each executor finalizes by build-verify-then-replace with a programmatic
+read-back (`figma_get_variables`, not a screenshot); gate the result with a
+**reviewer** pass. **Keep the human checkpoint between tiers** (the PAUSE in
+Steps 2–4) — subagents run continuously within a tier, but you pause for the
+human between them. Route per
+`.throughline/references/agent-routing.md`; never parallelize Figma
+work. If your host has no subagent dispatch, build and verify each tier inline,
+sequentially, as the steps below describe.
+
 ## Step 1 — Brainstorm the structure (before building anything)
 
 Run the protocol in `.throughline/references/brainstorm-before-build.md`. **First establish
