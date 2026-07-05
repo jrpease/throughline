@@ -38,6 +38,37 @@ This is the bridge-side application of the read-discipline principle (B4) in
 `${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md`: don't assert "another
 instance is active" without confirming it's actually live.
 
+## Preflight: confirm the *active* file is your target (writes hit the active file)
+
+A connected bridge is **not** the same as the *right* file. `figma_execute` (and
+every write) targets whichever file is currently **active** in Figma Desktop — it
+takes no `fileUrl`/`fileKey` argument. So a green `figma_get_status` only proves a
+bridge exists; the active file can silently drift to a different open file between
+your preflight and your write (a user tabbing to another file, a `figma_navigate`
+from an earlier step, a plugin reload). Writing then lands in the wrong file —
+best case it errors with "collection/node not found"; worse case it mutates the
+wrong document.
+
+**So the preflight must assert the active file's *identity*, not just connection:**
+
+1. **Know your target `fileKey`** before writing (the one your architect read, or
+   the one the workflow is scoped to).
+2. **Read the active file and compare.** `figma_get_status` reports
+   `currentFileKey` / `currentFileName`; `figma_list_open_files` shows every
+   connected file and which is active. Confirm the active `fileKey` equals your
+   target before the first write **and** re-confirm after any step that could have
+   switched it.
+3. **If it drifted, navigate — don't just retry.** `figma_navigate` to the target
+   file URL, then re-read status to confirm the switch took, then write. A bare
+   re-run without navigating will hit the wrong file again.
+
+This is the file-level analogue of the live-instance discipline above: the
+instance preflight guards against *two* live bridges; this guards against the *one*
+live bridge pointing at the *wrong file*. (Observed live: a status probe reported
+the intended file connected, but by write time the active file had drifted to a
+different open document, and the build failed with "collection not found" until a
+`figma_navigate` corrected it.)
+
 ## Read discipline: never report "empty" without a verified read (B1/B2)
 
 Before reporting that a file has no variables, no text styles, or no effect styles,
