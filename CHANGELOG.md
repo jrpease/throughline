@@ -6,6 +6,44 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-07-05
+
+### Added
+- **Subagent-driven model-tier routing — "plan deep, build cheap."** Skills now
+  split work by cognition: an `architect` plans a stage on the strongest tier and
+  emits a transcription-grade spec in stable identifiers, cheap executors carry it
+  out, and a `reviewer` gates the result. A new `references/agent-routing.md`
+  defines a portable `fast < balanced < deep` tier ladder (recommended mapping
+  Haiku → Sonnet → Opus) with an installer-overridable resolution table — **no
+  concrete model name is hardcoded anywhere**, so the routing travels to any
+  install, and a missing tier collapses to the nearest lower one. Four
+  Claude-native role agents (`architect`, `figma-executor`, `code-executor`,
+  `reviewer`), each `model: inherit`.
+- **Bridge-locked, verify-then-replace Figma authoring.** `figma-executor`
+  resolves names → nodeIds at run time, builds into a named `WIP:` frame, and
+  finalizes only after a **programmatic read-back** (`COMPONENT_SET`/variable
+  existence + count + bound-variable spot-check — a screenshot is not proof). The
+  entire Figma surface is concurrency-1 through the single Console bridge.
+- **CI guards for the routing model.** `ci/validate-skills.mjs` now asserts every
+  `agents/*.md` frontmatter is `model: inherit` (fails on a hardcoded model name)
+  and that `agent-routing.md` names all three tiers.
+
+### Changed
+- **Routing rolled across every subagent-driven skill.** `token-sync-layer`
+  (per-adapter → `code-executor` fast + `reviewer`), `component-builder` and
+  `icon-system-builder` (Figma authoring → sequential `architect` →
+  `figma-executor`), `storybook-chromatic-builder` (per-component story-gen →
+  `code-executor` fast + `reviewer`), and `token-builder` / `token-sheet-builder`
+  (reframed from "no subagents" to sequential architect → figma-executor).
+  `component-pipeline` keeps its human gates *between* stages while subagents run
+  continuously *within* one. On hosts without subagent dispatch, every site
+  degrades cleanly to inline single-model execution.
+- **Figma preflight now asserts active-file identity.** Because `figma_execute`
+  targets whichever file is active in Figma Desktop, a connected bridge is not
+  enough — `references/figma-scripting.md` now requires confirming the active
+  `fileKey` matches the target (and re-confirming after any step that could switch
+  it) before writing.
+
 ## [0.12.1] - 2026-07-03
 
 ### Fixed
