@@ -47,6 +47,15 @@ test('token-sync-layer dispatch degrades to inline for codex', () => {
   assert.doesNotMatch(prompt.content, /CLAUDE_PLUGIN_ROOT/);
 });
 
+test('component-builder Figma dispatch degrades to inline for codex', () => {
+  const prompt = result.codex.find((f) => /component-builder/.test(f.path));
+  assert.ok(prompt, 'expected a codex component-builder prompt');
+  const norm = prompt.content.replace(/\s+/g, ' ');
+  assert.match(norm, /build and verify each component inline, sequentially, as before/);
+  assert.match(prompt.content, /\.throughline\/references\/agent-routing\.md/);
+  assert.doesNotMatch(prompt.content, /CLAUDE_PLUGIN_ROOT/);
+});
+
 test('diffTargets flags an orphan file on disk', () => {
   // A result that expects NOTHING under a target whose real dir has files
   // → every real file becomes an orphan. Use the real OUT_ROOT read-only.
