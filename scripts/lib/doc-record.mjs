@@ -5,6 +5,9 @@ import { createHash } from 'node:crypto';
 
 // Blocks that get PROJECTED to surfaces. `provenance` is authoring metadata and
 // is intentionally excluded from the fingerprint.
+// MAINTENANCE: keep this in sync with the record schema — any NEW projected field
+// (see references/component-doc-schema.md) must be added here, or it will be
+// silently excluded from the fingerprint and its drift will go undetected.
 const PROJECTED_KEYS = [
   'name', 'summary', 'description', 'whenToUse', 'whenNotToUse',
   'variants', 'states', 'dos', 'donts', 'accessibility', 'tokensUsed',
