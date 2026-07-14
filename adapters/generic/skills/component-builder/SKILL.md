@@ -227,6 +227,66 @@ Two rules for every slot:
 Record each component's slots, variant matrix, and token bindings in the
 component spec (for Code Connect when available, else the repo component spec).
 
+## Step 4.5 — Author the documentation record (and project it)
+
+Every component gets a canonical documentation record — the source of truth for
+its usage docs — written to the working folder next to `design-system.json`
+(**folder-resident from day one**, exactly like the manifest; no repo required).
+Read `.throughline/references/component-doc-schema.md` for the exact JSON
+schema, the fingerprint algorithm, and the projection contract.
+
+**Run the generation pipeline (each layer only fills what it legitimately knows;
+stamp `provenance` per block):**
+
+0. **Ingest existing docs — brownfield only, runs first.** If docs already exist
+   for this component (code JSDoc/MDX/README, or a populated Figma component
+   `description`), read them and seed the record marked `provenance: imported`.
+   **Never silently overwrite existing human-written docs** — this is the
+   read-before-you-assert rule. Skip on greenfield.
+1. **Infer from the built artifact.** From the component you just built — its
+   variants, states, slots, and bound tokens — author `description`, `variants`,
+   `states`, and `tokensUsed` (`tokensUsed` comes from the real variable bindings,
+   not a guess). Provenance `ai-inferred`.
+2. **Enrich from the archetype knowledge base.** Match the component to the nearest
+   archetype in `.throughline/references/component-doc-archetypes.md` and
+   seed `dos`, `donts`, `accessibility`, `whenToUse`, `whenNotToUse`. Provenance
+   `best-practice` (or `w3c-apg` for the accessibility block).
+3. **Specialize to `project.uiFramework`.** Align variant-meaning wording and the
+   accessibility idiom to the target framework (the same field you read for variant
+   vocabulary). Provenance `framework`.
+4. **Interview for the non-inferable.** Ask the user for brand/product-specific
+   do's & don'ts and intent. Provenance `user`. **Show the whole drafted record and
+   get explicit approval before writing anything** — layers 1–4 only fill blocks the
+   ingest step did not, and an `imported`/`user` block is never overwritten.
+
+**Write the record and project it:**
+
+- Write `design-system/docs/components/<Name>.doc.json` (JSON; required fields
+  `name`, `summary`, `description`).
+- **Figma component description.** Set the component's native `description` field
+  (via `figma_set_description`) to a compact markdown rendering — summary,
+  when-to-use/not, do's/don'ts, and the a11y summary — and append a fingerprint
+  marker line `<!-- tl:doc <fp> -->` (this is the surface Dev Mode and Code Connect
+  read).
+- **Doc card body.** Extend the existing doc card (name/short-desc/status/date, per
+  `.throughline/references/figma-component-standards.md`) with a usage body:
+  when-to-use, do's/don'ts, an a11y line, and a variant/state legend — all
+  token-bound (no hardcoded hex/px). Add a metadata text node named
+  `Doc Fingerprint` holding `<fp>`.
+- Compute `<fp>` as the canonical fingerprint defined in the schema reference
+  (sha256 of the projected record without `provenance`, first 16 hex chars).
+
+**Update the manifest (fields this skill owns):** set
+`components.meta[<Name>].doc` to `{ path, fingerprint: <fp>, surfaces: {
+figmaDescription: { src: <fp>, render: <hash of the description text> }, docCard: {
+src: <fp>, render: <hash of the card body content> } } }`. The code surfaces
+(`storybookMdx`) are added later by `storybook-chromatic-builder`.
+
+Run the standard doc-card visual-validation + post-build audit
+(`.throughline/references/figma-component-standards.md`) after enriching
+the card. `docs:check` runs at the code stage; at folder stage the record + Figma
+surfaces are the fallback.
+
 ## Step 5 — Naming as contract
 
 Name components deterministically so Figma↔code mapping is automatic: `Button` ↔
@@ -284,4 +344,7 @@ Offer next steps: build the code counterparts and stories
   internal architecture) **detaches every instance** that referenced its variants (the
   Card's footer buttons, etc.). Record which components consume which, warn before an
   architectural rebuild, and re-instance the affected consumers afterward.
+- Never overwrite an existing component `description` or imported doc content
+  without reading it first and marking it `provenance: imported` — brownfield docs
+  are seeds, not blank slates.
 
