@@ -20,6 +20,7 @@ ThroughLine builds a design system end to end. Load the matching prompt for the 
 ## ThroughLine commands
 
 - `design-system-status` — Show a plain-language summary of the current design system state — what's set up, what's not, and sensible next steps — read from design-system.json. → load `prompts/design-system-status.md`.
+- `document-component` — Author, refresh, or reconcile the usage documentation for one existing component — draft its canonical doc record from four sources, project it to Figma, the doc card, and code, and resolve any drift via a reviewable per-item choice. → load `prompts/document-component.md`.
 - `new-component` — Build a single new component end to end — in Figma, then sync any new tokens, then build its code component and stories — with a confirmation between each stage. → load `prompts/new-component.md`.
 - `start` — Start building your design system — the deterministic entry point. → load `prompts/start.md`.
 - `sync-figma-tokens` — Re-run the Figma-to-code token sync — extract current Figma variables, rebuild code outputs via Style Dictionary, and open a PR with the changes for review. → load `prompts/sync-figma-tokens.md`.
