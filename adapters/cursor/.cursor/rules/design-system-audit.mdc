@@ -60,6 +60,23 @@ counts:
 repo with no Tailwind simply scores `0` there. Detect what the repo actually uses (is
 there a `tailwind.config`? SCSS? CSS-in-JS?) and explain the counts in those terms.
 
+## Step 1.5 — Size the documentation surface
+
+Inventory existing documentation the same way the code surface is sized — from
+**verified reads, never assumptions**. Per component (or per code component when no
+Figma component exists yet), record whether usage docs already exist and where:
+
+- **Code:** JSDoc/TSDoc on the component, an `.mdx` doc page, a per-component
+  README.
+- **Figma:** a populated component `description` field.
+
+Write the totals to `audit.docSurface` in the manifest, e.g. `{ "documented": 12,
+"undocumented": 34, "sources": { "codeJsdoc": 8, "mdx": 4, "figmaDescription": 6,
+"readme": 3 } }`. This right-sizes the documentation retrofit (how much exists to
+adopt vs. author from scratch) so `retrofit-planner`'s `docs` phase can be planned
+against real numbers. See `.throughline/references/component-doc-schema.md`
+for what a full record contains.
+
 ## Step 2 — Inventory the Figma file (verified per-class reads)
 
 Variables, text styles, and effect/paint styles are **different surfaces** — read each
@@ -107,6 +124,9 @@ Set `tokens.intakeMode: "retrofit"` (this skill establishes the brownfield path 
 owns this transition). Append `design-system-audit` to `completedSkills`.
 
 Then recommend the next step:
+- Report the documentation debt from `audit.docSurface` (documented vs.
+  undocumented) and note that the retrofit's `docs` phase will adopt existing docs
+  before authoring the gaps.
 - If the user wants the guided, gated end-to-end retrofit → **`retrofit-planner`**
   (the orchestrator; recommended for multi-session retrofits).
 - If they only want the crosswalk backbone next → **`token-crosswalk-builder`** (it
