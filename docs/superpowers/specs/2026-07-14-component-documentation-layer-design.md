@@ -2,8 +2,9 @@
 
 **Date:** 2026-07-14
 **Status:** Approved (design), pending implementation plan
-**Scope:** v1 — **components only**. Token documentation is an explicit v2 follow-on
-reusing the same machinery (see *Phasing*).
+**Scope:** v1 — **components only**, covering **both greenfield and brownfield
+(retrofit)** paths. Token documentation is an explicit v2 follow-on reusing the same
+machinery (see *Phasing*).
 
 ## Problem
 
@@ -45,6 +46,10 @@ deterministic**, not just prose on a canvas.
    exists, and gracefully lights up code surfaces once the repo is scaffolded.
 5. A **drift/sync mechanism** so surfaces never silently disagree with the canonical
    source.
+6. **Works on existing systems (retrofit):** ingest documentation that already exists
+   (code JSDoc/MDX/READMEs, Figma descriptions) as the seed rather than overwriting
+   it, size the doc debt, and adopt-then-reconcile — mirroring the plugin's
+   read-before-you-assert brownfield discipline.
 
 ## Non-goals (v1)
 
@@ -150,6 +155,13 @@ Runs at component-build time (in `component-builder`) and on demand (via
 `/document-component`). Each layer only fills what it legitimately knows; every
 block is stamped with `provenance`.
 
+0. **Ingest existing documentation (brownfield only, runs first).** Before anything
+   is drafted, read whatever docs already exist for the component — code JSDoc, MDX,
+   Storybook pages, per-component READMEs, and the Figma component `description`
+   field — and pull them into the canonical record marked `provenance: imported`.
+   This is the read-before-you-assert rule: existing human-written docs become the
+   seed, never something the AI silently overwrites. Skipped on greenfield (nothing
+   to ingest).
 1. **Infer from the built Figma artifact.** Read the real component — variants,
    slots, states, and bound tokens — to author `description`, `variants`, `states`,
    and `tokensUsed`. Always accurate to what was actually built.
@@ -163,6 +175,36 @@ block is stamped with `provenance`.
 4. **Interview the user** for the non-inferable — brand/product-specific do's &
    don'ts, product intent, voice. **The user approves/edits every block before it is
    written** to any surface.
+
+On brownfield, layers 1–4 only fill blocks the ingest step (0) did **not** already
+populate; imported content is preserved and shown to the user, who can keep, edit,
+or supersede it — never a blind overwrite.
+
+## Retrofit / brownfield lane
+
+The plugin treats retrofit as first-class, so the doc layer does too. Nothing in the
+core model changes — the canonical file, provenance, and reconciliation are *built*
+for reconciliation — but three behaviors are added for existing systems:
+
+1. **Ingest existing docs (source 0 above).** Harvest code JSDoc/MDX/READMEs and
+   Figma descriptions into the canonical record as `provenance: imported` before any
+   drafting. Read-before-assert; never clobber existing human docs.
+2. **Size the doc debt in the audit.** `design-system-audit` gains a documentation
+   pass that inventories, per component, whether docs already exist and where (code
+   vs. Figma vs. none) — the same right-sizing it already does for the code and Figma
+   surfaces. Recorded in the manifest `audit` block (see *Manifest changes*), so the
+   retrofit is planned against real numbers, not guesses.
+3. **Adopt-first, then reconcile.** On a brownfield system the surfaces already hold
+   content, so the **first** pass is an *adoption* — claim existing content into the
+   canonical file and stamp fingerprints — not a blind re-render that would wipe good
+   docs. After adoption, ongoing drift is handled by the normal per-item reviewable
+   `docs:check` flow.
+
+This lane is **entered through the retrofit flow**: `design-system-audit` sizes it,
+and `retrofit-planner` runs doc adoption as a **gated, confirm-between-steps** phase
+consistent with its existing seven-phase sequence (exact phase placement is an
+implementation-plan detail). The `/document-component` command is the manual
+equivalent for adopting/refreshing one component at a time.
 
 ## Projection mapping
 
@@ -212,6 +254,11 @@ case there is nothing to merge. Out-of-band edits are handled by fingerprinting.
   drifted item the user chooses **re-render** (canonical wins) or **pull-back** (fold
   the surface edit into the canonical record), landed as a **PR** — matching
   ThroughLine's existing PR-gated ethos. No automatic bidirectional merge.
+- **First run on a brownfield system is an adoption, not a re-render.** Because the
+  surfaces already hold content, the initial pass claims existing content into the
+  canonical file (`provenance: imported`) and stamps fingerprints, rather than
+  treating every surface as "edited drift" and offering to overwrite it. Ongoing runs
+  use the normal drift flow above.
 
 ## Skills, references, and manifest changes
 
@@ -232,6 +279,15 @@ generate MDX autodocs + JSDoc from the record and install the `docs:check` gate.
 
 **`repository-builder`** — adopts the folder-resident doc store into git when the
 stage advances (no relocation; the path is already `design-system/docs/`).
+
+**`design-system-audit`** (brownfield front door) — gains a **documentation-sizing
+pass**: inventory per component whether docs already exist and where (code vs. Figma
+vs. none), recorded in the manifest `audit` block. Right-sizes the doc retrofit the
+same way the audit already sizes the code and Figma surfaces.
+
+**`retrofit-planner`** — runs **doc adoption** as a gated, confirm-between-steps
+phase (ingest existing → adopt into canonical → fill gaps → reconcile), consistent
+with its existing seven-phase sequence.
 
 **New command `/document-component`** — author or refresh docs for existing
 components and run the reconciliation flow (drift report → per-item re-render or
@@ -261,6 +317,13 @@ pull-back → PR).
 }
 ```
 
+Also extend the existing **`audit`** block (owned by `design-system-audit`) with a
+`docSurface` sizing of the doc debt — per-component presence/location of existing
+docs — e.g. `{ "documented": 12, "undocumented": 34, "sources": { "codeJsdoc": 8,
+"mdx": 4, "figmaDescription": 6, "readme": 3 } }`. Counts come from verified reads,
+never assumptions, matching the audit's existing `codeSurface` / `figmaInventory`
+discipline.
+
 Follows the manifest rules (`references/manifest-schema.md`): forward-migrate on
 version mismatch, only write owned fields, no content blobs, no secrets.
 
@@ -281,7 +344,9 @@ version mismatch, only write owned fields, no content blobs, no secrets.
 
 ## Phasing
 
-- **v1 (this spec):** everything above, **components only**.
+- **v1 (this spec):** everything above, **components only**, covering **both
+  greenfield and brownfield** (the retrofit lane: ingest existing docs, audit
+  doc-debt sizing, adopt-first reconciliation).
 - **v2 (follow-on):** token documentation reusing the same machinery — variable
   `description` fields via `figma_set_description`, Foundations-page enrichment in
   `token-sheet-builder`, and token records in the same canonical store.
@@ -298,3 +363,7 @@ version mismatch, only write owned fields, no content blobs, no secrets.
 4. Regenerating a changed component re-infers AI-provenanced blocks and preserves
    user-authored blocks (verified via `provenance`).
 5. The manifest migrates a schemaVersion-4 file forward to 5 without data loss.
+6. **Retrofit:** on a system with pre-existing docs, ingest imports them into the
+   canonical record as `provenance: imported`, the audit reports accurate doc-debt
+   counts, the first pass adopts rather than overwrites, and no existing
+   human-written doc is lost.
