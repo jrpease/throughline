@@ -4,7 +4,8 @@ alwaysApply: false
 ---
 # Retrofit planner (orchestrator)
 
-Sequences a brownfield retrofit through the safe 8-phase order, gating each phase on a
+Sequences a brownfield retrofit through the safe seven-phase order (with `docs` inserted
+as a gated Phase 6.5), gating each phase on a
 human confirmation. Like `component-pipeline`, this skill holds **zero domain logic of
 its own** — it is a sequencer that invokes the real skills and the phase work, and only
 updates the manifest fields it owns (`retrofit.*`, `completedSkills`). All the
