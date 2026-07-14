@@ -123,6 +123,9 @@ The manifest stores pointers + per-surface fingerprints, never content:
 - **canonical-changed** — the `.doc.json` fingerprint ≠ `doc.fingerprint`.
 - **stale** — `surface.src` ≠ current canonical fingerprint.
 - **edited** — a re-readable surface's current content hash ≠ `surface.render`.
+- **missing-surface** — a repo surface that declares a `file` which is now gone.
+  Failing, and distinct from `edit-unverified`: the surface *was* re-readable and
+  its rendered output has been deleted, not merely unreadable this run.
 - **edit-unverified** — a surface the CLI can't read (Figma); checked live by the
   Figma-connected skill instead.
 

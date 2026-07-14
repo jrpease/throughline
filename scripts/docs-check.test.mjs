@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { classifySurface, checkAll } from './docs-check.mjs';
@@ -31,6 +31,13 @@ test('classifySurface: edit-unverified when surface unreadable', () => {
   assert.deepEqual(
     classifySurface({ currentCanonical: 'a', surface: { src: 'a', render: 'r' }, currentRenderHash: null }),
     ['edit-unverified'],
+  );
+});
+
+test('classifySurface: missing-surface when a declared repo file is gone', () => {
+  assert.deepEqual(
+    classifySurface({ currentCanonical: 'a', surface: { src: 'a', render: 'r' }, currentRenderHash: null, fileMissing: true }),
+    ['missing-surface'],
   );
 });
 
@@ -89,4 +96,15 @@ test('checkAll: flags edited when the MDX file is hand-modified', () => {
   writeFileSync(join(root, 'packages', 'ui', 'src', 'Button', 'Button.mdx'), '# Hand edited\n');
   const results = checkAll(manifest, root);
   assert.ok(results.some((r) => r.surface === 'storybookMdx' && r.flags.includes('edited')));
+});
+
+test('checkAll: flags missing-surface (failing) when a rendered repo file is deleted', () => {
+  const { root, manifest } = fixture();
+  rmSync(join(root, 'packages', 'ui', 'src', 'Button', 'Button.mdx'));
+  const results = checkAll(manifest, root);
+  const mdx = results.find((r) => r.surface === 'storybookMdx');
+  assert.ok(mdx, 'storybookMdx surface should be reported');
+  assert.ok(mdx.flags.includes('missing-surface'), `expected missing-surface, got ${mdx.flags.join(',')}`);
+  // Must NOT be silently downgraded to the passing edit-unverified class.
+  assert.ok(!mdx.flags.includes('edit-unverified'));
 });

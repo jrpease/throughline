@@ -15,7 +15,9 @@ to [Semantic Versioning](https://semver.org).
   Figma component `description` field, the enriched doc card, Storybook
   autodocs/MDX + JSDoc, and an AI digest (`index.json` + `llms.txt`). A `docs:check`
   gate fingerprints every surface and reports drift for per-item reviewable
-  reconciliation. New `docs:digest`/`docs:check` scripts, `component-doc-schema.md`
+  reconciliation — including a failing `missing-surface` class when a rendered
+  code surface is deleted (distinct from an unreadable Figma surface). New
+  `docs:digest`/`docs:check` scripts, `component-doc-schema.md`
   + `component-doc-archetypes.md` references, a `/document-component` command, and
   manifest schemaVersion 5 (`components.meta[name].doc`, `audit.docSurface`, `docs`
   retrofit phase). Covers greenfield and brownfield (adopt-first, never clobbers

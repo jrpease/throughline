@@ -2,9 +2,11 @@
 // record and its rendered surfaces against the fingerprints recorded in
 // design-system.json, and reports drift. Zero dependencies.
 //
-// Drift classes: canonical-changed | stale | edited | edit-unverified
+// Drift classes: canonical-changed | stale | edited | missing-surface | edit-unverified
 // (edit-unverified = a surface the CLI cannot read, e.g. Figma — informational;
-//  it is checked live by the Figma-connected skill instead.)
+//  it is checked live by the Figma-connected skill instead.
+//  missing-surface = a repo surface that declares a file which is now gone — failing;
+//  distinct from edit-unverified, which has no file to read in the first place.)
 //
 // Usage: node docs-check.mjs [--root <dir>]   (default root: cwd)
 import { readFileSync, existsSync } from 'node:fs';
@@ -16,10 +18,12 @@ import { loadRecord, canonicalFingerprint, fingerprint } from './lib/doc-record.
 // Surfaces whose rendered content the CLI can re-read from the repo.
 const REPO_SURFACES = new Set(['storybookMdx']);
 
-export function classifySurface({ currentCanonical, surface, currentRenderHash }) {
+export function classifySurface({ currentCanonical, surface, currentRenderHash, fileMissing = false }) {
   const flags = [];
   if (surface.src !== currentCanonical) flags.push('stale');
-  if (currentRenderHash === null) {
+  if (fileMissing) {
+    flags.push('missing-surface');
+  } else if (currentRenderHash === null) {
     flags.push('edit-unverified');
   } else if (surface.render !== currentRenderHash) {
     flags.push('edited');
@@ -44,13 +48,16 @@ export function checkComponent({ name, meta, root }) {
 
   for (const [surfaceName, surface] of Object.entries(doc.surfaces || {})) {
     let currentRenderHash = null;
+    let fileMissing = false;
     if (REPO_SURFACES.has(surfaceName) && surface.file) {
       const filePath = join(root, surface.file);
       if (existsSync(filePath)) {
         currentRenderHash = fingerprint(readFileSync(filePath, 'utf8'));
+      } else {
+        fileMissing = true;
       }
     }
-    const flags = classifySurface({ currentCanonical, surface, currentRenderHash });
+    const flags = classifySurface({ currentCanonical, surface, currentRenderHash, fileMissing });
     if (flags.length) out.push({ name, surface: surfaceName, flags });
   }
   return out;
@@ -65,7 +72,7 @@ export function checkAll(manifest, root) {
   return out;
 }
 
-const FAILING = new Set(['canonical-changed', 'stale', 'edited', 'missing-record']);
+const FAILING = new Set(['canonical-changed', 'stale', 'edited', 'missing-record', 'missing-surface']);
 
 function main() {
   const { values } = parseArgs({ options: { root: { type: 'string', default: '.' } } });
