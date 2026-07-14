@@ -209,7 +209,7 @@ Run: `node ci/validate-skills.mjs`
 Expected: PASS — `✓ … manifest doc OK` (this validator does not inspect the new file, but must stay green).
 
 Run: `node -e "const fs=require('fs');const s=fs.readFileSync('references/component-doc-schema.md','utf8');const m=[...s.matchAll(/\x60\x60\x60json\n([\s\S]*?)\n\x60\x60\x60/g)];m.forEach((b,i)=>JSON.parse(b[1]));console.log('all',m.length,'json blocks parse')"`
-Expected: `all 3 json blocks parse`
+Expected: `all 2 json blocks parse` (the manifest-pointer example is wrapped in outer braces so it parses standalone)
 
 - [ ] **Step 3: Commit**
 
@@ -693,6 +693,7 @@ export function buildIndex(records) {
     components: records.map((r) => ({
       name: r.name,
       summary: r.summary ?? '',
+      description: r.description ?? '',
       whenToUse: r.whenToUse ?? [],
       whenNotToUse: r.whenNotToUse ?? [],
       variants: r.variants ?? {},
