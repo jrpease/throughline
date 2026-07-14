@@ -12,6 +12,8 @@ tested here; copied verbatim by `token-crosswalk-builder` into the user's
 | `guard-token-removal.mjs` | Grep `.ts/.tsx` (minus generated + tests) for about-to-be-deleted symbols; blocks cleanup until zero references remain. | run during the cleanup phase |
 | `lib/crosswalk.mjs` | Shared loader + structural validation for `crosswalk.json` (used by the validator and reverse-index). | copied alongside |
 | `crosswalk.schema.json` | The finalized JSON Schema for `crosswalk.json` (contract + editor support). | copied beside `crosswalk.json` |
+| `build-docs-digest.mjs` | Aggregate every `design-system/docs/components/*.doc.json` into `design-system/docs/index.json` + `llms.txt` for AI/human consumers. | `docs:digest` |
+| `docs-check.mjs` | Drift gate — verifies each component's doc surfaces still match its canonical record (via `lib/doc-record.mjs` fingerprints). Exits 1 on drift. | `docs:check` |
 
 The crosswalk contract is documented in
 `${CLAUDE_PLUGIN_ROOT}/references/crosswalk-schema.md`.
@@ -76,3 +78,12 @@ rewriting `${CLAUDE_PLUGIN_ROOT}` → `.throughline`:
     npx @radicool/throughline init --target=cursor|codex|generic
 
 See `scripts/install.mjs` (pure core + CLI + `install.test.mjs`).
+
+## Documentation scripts
+
+`docs:digest` and `docs:check` operate on the folder-resident documentation store
+at `design-system/docs/`. Both share `lib/doc-record.mjs` (record loading +
+fingerprinting). `docs:check` re-reads repo surfaces (Storybook MDX); Figma
+surfaces are marked `edit-unverified` and are checked live by the Figma-connected
+skills. See `${CLAUDE_PLUGIN_ROOT}/references/component-doc-schema.md` for the
+record schema and fingerprint contract.

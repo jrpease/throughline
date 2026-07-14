@@ -51,7 +51,7 @@ Most teams aren't starting from a blank file — they have a mature codebase wit
 
 1. **Audit before anything changes.** `design-system-audit` sizes both sides of your system — it greps your codebase to measure the real color surface and inventories your Figma file with verified, per-class reads — then tells you how big the migration actually is and how semantic your system already is.
 2. **A crosswalk that guarantees nothing shifts.** `token-crosswalk-builder` maps every new token to its old Figma variable and old code value, then installs a `tokens:validate` gate that fails unless every resolved new value matches the old one (N/N). A zero-reference guard blocks removing an old token while any code still references it.
-3. **A gated, reversible migration.** `retrofit-planner` walks the safe seven-phase sequence — audit → refine variables in place → rebind → sync → capture a visual baseline → retrofit the code → remove the old tokens — pausing for your confirmation between every phase, with an optional decision journal recording each call.
+3. **A gated, reversible migration.** `retrofit-planner` walks the safe seven-phase sequence — audit → refine variables in place → rebind → sync → capture a visual baseline → retrofit the code → adopt existing docs → remove the old tokens — pausing for your confirmation between every phase, with an optional decision journal recording each call.
 
 The payoff: your live product looks identical at every step, and you can prove it with a Chromatic baseline captured before the first change.
 

@@ -31,6 +31,16 @@ system). Wire it to consume `packages/tokens` output so stories render with the
 real design tokens (import the generated CSS/theme). Checkpoint: confirm
 Storybook runs and shows the token-themed canvas.
 
+Install the documentation scripts alongside the token scripts (copy from the
+plugin's `scripts/` — `build-docs-digest.mjs`, `docs-check.mjs`, and
+`lib/doc-record.mjs` — into the repo and register npm scripts):
+
+- `"docs:digest": "node scripts/build-docs-digest.mjs"`
+- `"docs:check": "node scripts/docs-check.mjs"`
+
+These are the documentation analog of `tokens:validate`; see
+`.throughline/scripts/README.md`.
+
 **pnpm build-script allowlist (first-run gotcha).** On pnpm workspaces, the
 `@storybook/react-vite` install pulls `esbuild`, whose postinstall is blocked by
 pnpm's default `onlyBuiltDependencies` policy — Storybook then fails to start with a
@@ -174,6 +184,32 @@ mode shows the real code. It's plan-gated (Figma Organization/Enterprise).
   run after the user publishes. This does **not** block the code side: implement
   each slot prop from the recorded slot contract regardless of the Figma dropdown.
 
+## Step 5.5 — Render documentation to code
+
+For each component that has a canonical record
+(`design-system/docs/components/<Name>.doc.json`), render the code-side surfaces
+from it (read `.throughline/references/component-doc-schema.md` for the
+projection contract):
+
+- **Storybook autodocs (MDX).** Generate `<Name>.mdx` next to the component (e.g.
+  `packages/ui/src/<Name>/<Name>.mdx`) rendering summary, description,
+  when-to-use/not, do's/don'ts, accessibility, and a variant/state table. Put the
+  record's fingerprint in MDX frontmatter as `docFingerprint: <fp>`.
+- **JSDoc.** Add a doc comment to the code component from `summary` + `description`
+  and per-prop descriptions from `variants`/`states` meanings, so `argTypes`
+  descriptions surface in the Storybook controls table.
+- **AI digest.** Run `docs:digest` to (re)generate `design-system/docs/index.json`
+  + `design-system/docs/llms.txt` from all records.
+
+**Update the manifest:** add the `storybookMdx` surface to
+`components.meta[<Name>].doc.surfaces` as `{ src: <fp>, render: <hash of the MDX
+file>, file: "<repo-relative MDX path>" }`.
+
+**Wire the gate.** Ensure `docs:check` is part of the repo's verification (a CI
+step and/or a Turbo task). It compares every surface against its record and exits
+non-zero on drift; Figma surfaces report `edit-unverified` (checked live in a Figma
+session). Run `docs:check` once here and confirm it passes before handing off.
+
 ## Step 6 — Finalize component status (Figma write-back)
 
 A component built and storied here is now **done** — but its Figma doc card was
@@ -197,6 +233,9 @@ the `figma_execute` scripting gotchas — `getNodeByIdAsync` and an explicit
 
 - Set `components.meta[name].status` = `"stable"` and refresh
   `components.meta[name].updatedAt` to today.
+- When promoting status (e.g. draft → stable), also set `status` + `updatedAt` in
+  the component's `.doc.json`, recompute its fingerprint, re-run `docs:digest`, and
+  re-render the affected surfaces so `docs:check` stays green.
 - If Figma is connected (per `figma.mechanism`), open the component's doc card and
   update the `Status Label` text to `stable`, re-bind the `Status` chip fill to
   the **success** semantic color variable (mode-aware, not a hardcoded hex), and

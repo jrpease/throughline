@@ -1,6 +1,7 @@
 # Retrofit planner (orchestrator)
 
-Sequences a brownfield retrofit through the safe 7-phase order, gating each phase on a
+Sequences a brownfield retrofit through the safe seven-phase order (with `docs` inserted
+as a gated Phase 6.5), gating each phase on a
 human confirmation. Like `component-pipeline`, this skill holds **zero domain logic of
 its own** — it is a sequencer that invokes the real skills and the phase work, and only
 updates the manifest fields it owns (`retrofit.*`, `completedSkills`). All the
@@ -101,6 +102,25 @@ transition, so nothing breaks mid-migration. Use the crosswalk reverse index
 triad as you go — `check-types`, `build-storybook` + Chromatic, **and run the actual app**
 + spot-check 5–7 routes (the build alone is blind to story-unreachable SCSS). **Gate:**
 confirm the triad passes before continuing.
+
+### Phase 6.5 — `docs` (adopt existing documentation, then fill gaps)
+
+Set `retrofit.phase = "docs"`. Bring the documentation layer onto the system's
+components **adopt-first**, so no existing human-written doc is lost:
+
+1. **Adopt.** For each component, run the doc-authoring ingest (Step 4.5 of
+   `component-builder`): read existing code JSDoc/MDX/README and Figma
+   `description`, seed the canonical `.doc.json` marked `provenance: imported`, and
+   stamp fingerprints. This first pass **claims** existing content — it is not a
+   re-render and must not overwrite it.
+2. **Fill gaps.** Run the remaining generation layers (infer → enrich → specialize
+   → interview) only for blocks the adoption did not populate; the user approves.
+3. **Project + gate.** Render the code surfaces (Step 5.5 of
+   `storybook-chromatic-builder`), run `docs:digest`, and run `docs:check` — it
+   should pass (surfaces just rendered) with Figma surfaces `edit-unverified`.
+
+Confirm with the user before writing, consistent with every other phase. On a large
+system, size the batch from `audit.docSurface` and adopt in reviewable chunks.
 
 ### Phase 7 — `cleanup`
 

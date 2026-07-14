@@ -11,11 +11,11 @@ what changed. Gating decisions are made by reading this file: if a prerequisite
 field is unset, the skill **offers** to run the prerequisite skill rather than
 bailing or running silently.
 
-## Schema (schemaVersion 4)
+## Schema (schemaVersion 5)
 
 ```json
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "user": {
     "codingLevel": "new"
   },
@@ -87,7 +87,8 @@ bailing or running silently.
     "ranAt": null,
     "codeSurface": null,
     "figmaInventory": null,
-    "percentSemantic": null
+    "percentSemantic": null,
+    "docSurface": null
   },
   "tokenCrosswalk": {
     "path": null,
@@ -249,6 +250,17 @@ bailing or running silently.
   the manifest and the artboard never disagree. Re-running a component refreshes
   its `updatedAt`. Keep `built` (names) as the source of truth for "exists";
   `meta` is supplementary doc metadata.
+- `meta[name].doc` — documentation pointer + per-surface fingerprints for the
+  component (v1: components only). **Pointers and hashes, never content** — the
+  content lives in `design-system/docs/components/<name>.doc.json`. Shape:
+  `{ path, fingerprint, surfaces: { <surfaceName>: { src, render, file? } } }`,
+  where `fingerprint` is the canonical fingerprint at last render, `src` is the
+  canonical fingerprint a surface was rendered from (detects stale), `render` is a
+  hash of the surface's rendered content (detects edits, for re-readable surfaces),
+  and `file` is the repo-relative path of a code surface. Written by
+  `component-builder` (Figma + card surfaces) and `storybook-chromatic-builder`
+  (code surfaces); read by the `docs:check` gate. See
+  `${CLAUDE_PLUGIN_ROOT}/references/component-doc-schema.md`.
 - `instanceSwapUpgradePending` — array of component names whose icon/component
   slots were built with the **toggle + manual-swap fallback** because the
   library wasn't published yet, so the typed `INSTANCE_SWAP` dropdown is still
@@ -292,6 +304,11 @@ system so the retrofit can be right-sized.
   semantic. The single number that decides rename+cleanup vs. rewrite — see
   `${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md` (safe sequence, `audit`
   phase) for how it's used.
+- `docSurface` — object sizing the documentation debt for a brownfield retrofit,
+  from verified per-component reads: e.g. `{ "documented": 12, "undocumented": 34,
+  "sources": { "codeJsdoc": 8, "mdx": 4, "figmaDescription": 6, "readme": 3 } }`.
+  `null` until the audit's documentation-sizing pass runs. Counts come from real
+  reads, never assumptions (same discipline as `codeSurface` / `figmaInventory`).
 
 ### `tokenCrosswalk`
 Populated by the `token-crosswalk-builder` skill. Points at the backbone artifact
@@ -307,8 +324,9 @@ that maps new token ↔ old Figma token ↔ code identifier.
 Populated by the `retrofit-planner` orchestrator. Tracks where a multi-phase
 retrofit stands so a later session can resume.
 - `phase` — one of `"audit"`, `"refine"`, `"rebind"`, `"sync"`, `"baseline"`,
-  `"code"`, `"cleanup"`, `"done"`, or `null` (no retrofit in progress). Phases run
-  in that order; see the safe sequence in
+  `"code"`, `"docs"`, `"cleanup"`, `"done"`, or `null` (no retrofit in progress).
+  Phases run in that order; the `docs` phase adopts existing documentation (see
+  `retrofit-planner`). See the safe sequence in
   `${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md`.
 - `startedAt` / `completedAt` — ISO timestamps bounding the retrofit.
 - `journalScaffolded` — whether the `docs/design-system/` decision journal has been
@@ -339,3 +357,7 @@ retrofit stands so a later session can resume.
 6. **`workspace.origin` is immutable after intake.** Written once by
    `figma-environment-setup` Step 0 and must not be overwritten by any downstream
    skill. Skills read it to adapt behavior — they do not modify it.
+
+**v4 → v5 migration:** add `audit.docSurface` (default `null`) and the `docs`
+retrofit phase; `components.meta[name].doc` is added lazily per component as docs
+are authored. Bump `schemaVersion` to `5`. No existing field changes.

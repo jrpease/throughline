@@ -110,6 +110,20 @@ in it" — they already have a working local repo.
 On success, set `workspace.stage` and `repo.stage` to `github` and record
 `repo.remote`. Append `repository-builder` to `completedSkills`.
 
+### Adopt the documentation store
+
+The folder-resident documentation store at `design-system/docs/` (canonical
+`*.doc.json` records plus the generated `index.json` + `llms.txt`) already exists
+from the Figma phase. Bring it under version control as-is — **do not relocate it**
+(the path is stable across folder→repo, and every manifest `doc.path` points at it).
+Ensure it is committed (not git-ignored).
+
+Wire the documentation drift gate into the repo's verification so it runs in CI
+alongside `tokens:validate`: add a `docs:check` step (the `docs-check.mjs` script is
+installed by `storybook-chromatic-builder`; if code hasn't been set up yet, note
+that the gate comes online with the Storybook step). `docs:check` exits non-zero on
+drift; Figma surfaces report `edit-unverified` and are checked in a Figma session.
+
 ## Secrets: the part most people have never done
 
 This is where users with low coding experience get stuck — many have never made

@@ -6,6 +6,23 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Added
+- **Component documentation layer ("ThroughLine Docs").** Every component gets a
+  structured, AI-first canonical doc record (`design-system/docs/components/<Name>.doc.json`)
+  authored from four sources (ingest existing → infer from the built artifact →
+  enrich from a best-practice archetype knowledge base → specialize to the target
+  framework → user interview, with per-block `provenance`). It is projected to the
+  Figma component `description` field, the enriched doc card, Storybook
+  autodocs/MDX + JSDoc, and an AI digest (`index.json` + `llms.txt`). A `docs:check`
+  gate fingerprints every surface and reports drift for per-item reviewable
+  reconciliation — including a failing `missing-surface` class when a rendered
+  code surface is deleted (distinct from an unreadable Figma surface). New
+  `docs:digest`/`docs:check` scripts, `component-doc-schema.md`
+  + `component-doc-archetypes.md` references, a `/document-component` command, and
+  manifest schemaVersion 5 (`components.meta[name].doc`, `audit.docSurface`, `docs`
+  retrofit phase). Covers greenfield and brownfield (adopt-first, never clobbers
+  existing docs).
+
 ## [0.13.0] - 2026-07-05
 
 ### Added
