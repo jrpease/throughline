@@ -18,6 +18,7 @@ export function buildIndex(records) {
     components: records.map((r) => ({
       name: r.name,
       summary: r.summary ?? '',
+      description: r.description ?? '',
       whenToUse: r.whenToUse ?? [],
       whenNotToUse: r.whenNotToUse ?? [],
       variants: r.variants ?? {},

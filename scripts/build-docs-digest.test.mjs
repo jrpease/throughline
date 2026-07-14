@@ -22,6 +22,8 @@ test('buildIndex maps every record with defaulted fields', () => {
   assert.deepEqual(input.dos, []);
   assert.deepEqual(input.tokensUsed, []);
   assert.equal(input.status, 'draft');
+  const button = index.components.find((c) => c.name === 'Button');
+  assert.equal(button.description, 'A control…');
 });
 
 test('buildLlmsTxt includes each component name and its rules', () => {
