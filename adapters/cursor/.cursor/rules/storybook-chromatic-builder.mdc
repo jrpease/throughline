@@ -163,6 +163,43 @@ Configure Chromatic to snapshot everything (do **not** set `onlyChanged`), and
 verify a token-only PR re-snapshots all stories — they should flip orange against
 the green baseline.
 
+### Usage & cost guardrails
+
+The full-snapshot default above is the right call for catching regressions, and it
+is also the **maximum-usage** choice: every story, every run. Chromatic bills per
+snapshot, so name this cost shape to the user when you set Chromatic up, and put the
+guardrails in *before* the first big token PR, not after the bill.
+
+What Chromatic actually offers (re-verify the live numbers at
+`chromatic.com/pricing` — they drift):
+
+- **Free plan (~5,000 snapshots/month):** testing **auto-pauses** when the ceiling
+  is hit. No surprise bill, but visual-regression coverage silently *stops* until
+  the monthly reset or an upgrade. For a full-suite design system that ceiling
+  arrives fast — treat a *paused* build as a red flag, not a passing one.
+- **Paid plans: no hard spending cap.** Overage snapshots auto-bill at month-end.
+  The only native guardrail is **usage alerts** — an email when consumption crosses
+  a threshold you set (e.g. 90%).
+
+The math, so the user sizes the plan honestly: **snapshots ≈ stories × modes ×
+builds.** One `/sync-figma-tokens` PR re-snapshots the *entire* suite × every mode
+in a single build — e.g. 40 components × 2 modes = 80 snapshots per build, and a
+handful of token PRs plus daily `main` builds clears a free tier in a week.
+
+So the guardrails, all of them user-controlled (Chromatic will not cap you):
+
+1. **Set usage alerts** at ~80% on a paid plan so the bill cannot sneak up. On the
+   free plan, make sure the user knows testing *pauses* at the ceiling.
+2. **Scope the CI trigger.** Run Chromatic on **pull requests and `main` only** —
+   never on every branch push — path-filter out docs-only changes, and keep it to
+   one Chromatic build per commit (no duplicate runs).
+3. **Size the plan to the math** before the first token PR. A large story count is
+   also the *only* reason to revisit TurboSnap (see above), and even then treat
+   every token change as a full run.
+
+Do not silently pick a plan or leave the trigger wide open. Name the tradeoff and
+let the user choose with the numbers in front of them.
+
 ## Step 5 — Code Connect (plan-gated, skip gracefully)
 
 Code Connect ties Figma components to their code counterparts so Figma's dev
@@ -300,6 +337,9 @@ that may not exist.
 - Never rely on TurboSnap (`onlyChanged: true`) for a token-driven design system
   — its incremental model keeps missing global token changes. Default to full
   snapshots (every story, every run); revisit only at large story counts.
+- Never leave Chromatic's cost shape unspoken or the CI trigger wide open — there
+  is no hard spend cap on paid plans, so set usage alerts, run it on PRs + `main`
+  only, and size the plan to stories × modes × builds before the first token PR.
 - Never use the sequential model for story-gen — parallelize via subagents.
 - Never capture the Chromatic baseline *after* a code retrofit — baseline before, so
   intended drift-fixes are distinguishable from regressions.
