@@ -23,6 +23,12 @@ Ask which component to document (e.g. "Button"), then:
    into the record) — and land the result as a reviewable change. On a brownfield
    component's first pass, adopt existing content (`provenance: imported`) rather
    than overwriting it.
+4. **Close the flow.** Hand back in the four-beat guide voice from
+   `${CLAUDE_PLUGIN_ROOT}/references/guide-voice.md`: the outcome, what you set
+   aside and why, one recommended next step, and at most one light alternative.
+   Read existing state to name what is actually outstanding rather than guessing —
+   a component at `status: "draft"` with no code surface in `meta[name].doc.surfaces`
+   means the code side is deferred. Do not close with a grid of co-equal options.
 
 See `${CLAUDE_PLUGIN_ROOT}/references/component-doc-schema.md` for the record schema,
 fingerprint contract, and projection mapping. If a component was never built in
