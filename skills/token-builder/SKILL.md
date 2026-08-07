@@ -1,6 +1,6 @@
 ---
 name: token-builder
-description: "Build a two-tier (primitive + semantic) design token system as Figma variables — color ramps, spacing, type scale, radius, shadows — with light/dark or brand modes. IMPORTANT: this uses ONE COLLECTION PER CATEGORY PER TIER, never one giant Primitives collection + one giant Semantic collection. Each category (color, spacing, type, radius, border) gets its own primitive collection and its own semantic collection so that mode axes (Light/Dark, Desktop/Mobile) belong only to the categories that need them. Use this when the user wants to create design tokens, design variables, a color system, a type scale, a spacing system, or 'build my tokens' in Figma. Also trigger when the user mentions primitives and semantic tokens, variable collections, design system foundations, or modes/themes in Figma."
+description: "Build a two-tier (primitive + semantic) design token system as Figma variables — color ramps, spacing, type scale, radius, shadows — with light/dark or brand modes, using one collection per category per tier. Use this when the user wants to create design tokens, design variables, a color system, a type scale, a spacing system, or 'build my tokens' in Figma. Also trigger when the user mentions primitives and semantic tokens, variable collections, design system foundations, or modes/themes in Figma."
 ---
 
 # Token builder
