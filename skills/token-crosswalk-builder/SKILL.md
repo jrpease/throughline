@@ -1,6 +1,6 @@
 ---
 name: token-crosswalk-builder
-description: Build the brownfield token crosswalk — a persistent three-way map between each new token, the old Figma variable, and the old code identifier(s) — as crosswalk.json, then install the vetted validator/reverse-index scripts into the monorepo and wire the tokens:validate CI gate. Use this when retrofitting a design system onto a mature codebase, when the user wants to map old tokens to new ones, build a crosswalk, set up tokens:validate, or generate a reverse index for SCSS/Tailwind swaps. Also trigger when retrofit-planner reaches the crosswalk stage, or after design-system-audit has sized the retrofit. Make sure to use this whenever someone needs the machine-readable backbone that drives a brownfield code retrofit and its validation gate.
+description: Build the brownfield token crosswalk — a persistent three-way map between each new token, the old Figma variable, and the old code identifier(s) — then wire the tokens:validate CI gate. Use this when retrofitting a design system onto a mature codebase, when the user wants to map old tokens to new ones, build a crosswalk, set up tokens:validate, or generate a reverse index for SCSS/Tailwind swaps. Also trigger when retrofit-planner reaches the crosswalk stage, or after design-system-audit has sized the retrofit.
 ---
 
 # Token crosswalk builder

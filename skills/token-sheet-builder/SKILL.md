@@ -1,6 +1,6 @@
 ---
 name: token-sheet-builder
-description: Build a beautiful, on-brand "Foundations" page in Figma that visually documents every variable collection and style — color ramps with swatches, the type scale, spacing, radius, shadows/elevations — with swatches live-bound to the actual variables where Figma allows. Use this when the user wants a visual stylesheet, a token reference page, a Foundations page, to document or showcase their design system, or to "see all my tokens" laid out. Also trigger after token-builder completes, when the user wants a visual artifact of their tokens. Make sure to use this when someone wants their tokens presented visually rather than just existing as variables.
+description: Build an on-brand "Foundations" page in Figma that visually documents every variable collection and style — color ramps with swatches, the type scale, spacing, radius, shadows/elevations. Use this when the user wants a visual stylesheet, a token reference page, a Foundations page, to document or showcase their design system, or to "see all my tokens" laid out. Also trigger after token-builder completes, when the user wants a visual artifact of their tokens.
 ---
 
 # Token sheet builder

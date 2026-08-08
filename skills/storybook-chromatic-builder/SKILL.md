@@ -1,6 +1,6 @@
 ---
 name: storybook-chromatic-builder
-description: Stand up Storybook in the monorepo, build code components matching the Figma design system (consuming the synced tokens and implementing the captured slot contracts), generate stories for every component, set up Chromatic for visual regression testing, and wire Code Connect when the user's Figma plan supports it. Use this when the user wants to set up Storybook, build component stories, add visual regression testing, set up Chromatic, connect Figma components to code, or build the code side of their design system. Also trigger after components and token sync exist, when moving the component library into code. Make sure to use this whenever someone wants their Figma components realized as documented, tested code.
+description: Stand up Storybook in the monorepo, build code components matching the Figma design system, generate stories for every component, set up Chromatic for visual regression testing, and wire Code Connect when the user's Figma plan supports it. Use this when the user wants to set up Storybook, build component stories, add visual regression testing, set up Chromatic, connect Figma components to code, or build the code side of their design system. Also trigger after components and token sync exist, when moving the component library into code.
 ---
 
 # Storybook + Chromatic builder

@@ -1,6 +1,6 @@
 ---
 name: repository-builder
-description: Graduate the local design-system folder into a real monorepo — a pnpm + Turborepo workspace with packages for tokens and UI components and room for apps — and walk the user from a plain folder to local git to a GitHub remote with PRs and CI. Use this when the user wants to set up a repo, create a GitHub repository, add version control, turn their folder into a real project, or prepare to sync tokens to code. Also trigger when the user mentions monorepo, Turborepo, pnpm workspace, GitHub, version control, or when the token-sync or Storybook skills report that a repo isn't set up yet. Make sure to use this skill when someone is moving from the Figma/design phase into the code phase, even if they just say "I want to turn this into code" — it's the bridge between the two halves.
+description: Graduate the local design-system folder into a real monorepo — a pnpm + Turborepo workspace with packages for tokens and UI components — and walk the user from a plain folder to local git to a GitHub remote with PRs and CI. Use this when the user wants to set up a repo, create a GitHub repository, add version control, turn their folder into a real project, or say "I want to turn this into code". Also trigger when the user mentions monorepo, Turborepo, pnpm workspace, GitHub, version control, or when the token-sync or Storybook skills report that a repo isn't set up yet.
 ---
 
 # Repository builder

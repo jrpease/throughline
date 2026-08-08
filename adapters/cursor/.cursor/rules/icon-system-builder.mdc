@@ -1,5 +1,5 @@
 ---
-description: "Build an icon system in Figma — a dedicated \"Icons\" page populated with the user's chosen icon library (Lucide, Material, or custom SVGs) as well-named, scalable components — using the fastest, most-automated mechanism per library (for Lucide, batch-fetching the curated subset's official SVGs from the source repo and componentizing them hands-off; for Material, the official community file or importer plugin) rather than hand-generating icons or making the user copy components by hand. Use this when the user wants to set up icons, add an icon library, import Lucide or Material icons, create icon components, or build an icon set in Figma. Also trigger when the user mentions iconography, an icon page, or needs icons for their components. Make sure to use this whenever someone needs a managed set of icon components in their Figma design system."
+description: "Build an icon system in Figma — a dedicated \"Icons\" page of well-named, scalable icon components from Lucide, Tabler, Phosphor, Material, or custom SVGs. Use this when the user wants to set up icons, add an icon library, import Lucide or Material icons, create icon components, or build an icon set in Figma. Also trigger when the user mentions iconography, an icon page, or needs icons for their components."
 alwaysApply: false
 ---
 # Icon system builder

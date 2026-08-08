@@ -1,6 +1,6 @@
 ---
 name: component-pipeline
-description: Take a single new component from Figma to fully-built-and-storied code, end to end — build it in Figma, sync any new tokens it introduced, then build its code component and stories. This is an orchestrator that sequences the component-builder, token-sync-layer, and storybook-chromatic-builder skills with a human confirmation between each stage. Use this when the user wants to add a new component to an existing design system, ship a component end-to-end, or run the full new-component flow. Also trigger on "/new-component" or when someone says they want one component built all the way through to code. Make sure to use this when the design system foundations already exist and the user wants to add one more component through the whole pipeline.
+description: Take a single new component from Figma to fully-built-and-storied code, end to end — build it in Figma, sync any new tokens it introduced, then build its code component and stories. Orchestrates component-builder, token-sync-layer, and storybook-chromatic-builder with a human confirmation between each stage. Use this when the user wants to add a new component to an existing design system, ship a component end-to-end, or run the full new-component flow. Also trigger on "/new-component" or when someone wants one component built all the way through to code.
 ---
 
 # Component pipeline (orchestrator)

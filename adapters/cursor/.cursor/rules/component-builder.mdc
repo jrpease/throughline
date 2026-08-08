@@ -1,5 +1,5 @@
 ---
-description: "Build a foundational set of Figma components — buttons, inputs, cards, badges, chips, modals, and more — as properly structured components with variant matrices (types, sizes, states) and icon/component/content slots, bound to the design system's tokens and styles. Use this when the user wants to create components, build a component library, make buttons/inputs/cards/etc. in Figma, or set up the foundational UI kit. Also trigger after tokens and icons exist, when the user is ready to build actual UI components. Make sure to use this whenever someone wants real, variant-rich components in their Figma design system, not just tokens."
+description: "Build Figma components — buttons, inputs, cards, badges, chips, modals, and more — with variant matrices (types, sizes, states) and icon/component/content slots bound to the design system's tokens and styles. Use this when the user wants to create components, build a component library, make buttons/inputs/cards/etc. in Figma, or set up the foundational UI kit. Also trigger after tokens and icons exist, when the user is ready to build actual UI components."
 alwaysApply: false
 ---
 # Component builder
