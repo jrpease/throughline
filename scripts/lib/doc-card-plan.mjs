@@ -21,3 +21,67 @@ export function columnUnit(bodyFontSize) {
 export function cardColumns(specimenWidth, unit) {
   return Math.max(3, Math.ceil(specimenWidth / unit));
 }
+
+function listBlock(eyebrow, items) {
+  if (!Array.isArray(items) || items.length === 0) return null;
+  return { type: 'list', name: `Block: ${eyebrow}`, eyebrow, items };
+}
+
+function definitionBlock(eyebrow, meanings) {
+  const terms = Object.keys(meanings || {}).map((k) => ({ term: k, meaning: meanings[k] }));
+  if (terms.length === 0) return null;
+  return { type: 'definition', name: `Block: ${eyebrow}`, eyebrow, terms };
+}
+
+// The whole layout decision, as data. Rows keep canonical numbering (an absent
+// row's number is skipped, never renumbered) so node names stay stable across
+// sparse records. bodyTextStyle: only .fontSize is read — passing a full Figma
+// TextStyle object is fine.
+export function planDocCard(record, specimenWidth, bodyTextStyle) {
+  const unit = columnUnit(bodyTextStyle.fontSize);
+  const columns = cardColumns(specimenWidth, unit);
+
+  const row1 = [];
+  if (typeof record.description === 'string' && record.description.trim() !== '') {
+    row1.push({ type: 'prose', name: 'Block: Overview', eyebrow: 'Overview', text: record.description });
+  }
+  const whenTo = listBlock('When to use', record.whenToUse);
+  if (whenTo) row1.push(whenTo);
+  const whenNot = listBlock('When not to use', record.whenNotToUse);
+  if (whenNot) row1.push(whenNot);
+
+  const row2 = [];
+  if (Array.isArray(record.dos) && record.dos.length) {
+    row2.push({ type: 'list-tone', name: 'Block: Do', eyebrow: '✓ Do', tone: 'positive', items: record.dos });
+  }
+  if (Array.isArray(record.donts) && record.donts.length) {
+    row2.push({ type: 'list-tone', name: "Block: Don't", eyebrow: "✕ Don't", tone: 'negative', items: record.donts });
+  }
+
+  const row3 = [];
+  for (const axis of Object.keys(record.variants || {})) {
+    const block = definitionBlock(`What each ${axis} means`, record.variants[axis]);
+    if (block) row3.push(block);
+  }
+  const stateBlock = definitionBlock('What each state means', record.states);
+  if (stateBlock) row3.push(stateBlock);
+  const a11y = record.accessibility || {};
+  // role is not rendered on the card — it lives in the description field / MDX.
+  const a11yBlock = listBlock('Accessibility', [...(a11y.keyboard || []), ...(a11y.notes || [])]);
+  if (a11yBlock) row3.push(a11yBlock);
+
+  const rows = [
+    { name: 'Usage Row 1', blocks: row1 },
+    { name: 'Usage Row 2', blocks: row2 },
+    { name: 'Usage Row 3', blocks: row3 },
+  ].filter((r) => r.blocks.length > 0);
+
+  return {
+    rendererVersion: DOC_CARD_RENDERER_VERSION,
+    columnUnit: unit,
+    columns,
+    cardWidth: columns * unit,
+    termColumn: Math.round(unit * 0.3),
+    rows,
+  };
+}
