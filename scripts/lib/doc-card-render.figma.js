@@ -47,6 +47,12 @@ async function renderDocCard({ card, record, vars, bodyTextStyle }) {
     throw new Error('renderDocCard: bodyTextStyle is required — find the "Body/Default" text style via getLocalTextStylesAsync');
   }
 
+  // Three-band cards are VERTICAL auto-layout frames. Appending into anything
+  // else preserves absolute position and mis-places the band — throw instead.
+  if (card.layoutMode !== 'VERTICAL') {
+    throw new Error('renderDocCard: the doc card must be a VERTICAL auto-layout frame (three-band card); got layoutMode=' + card.layoutMode);
+  }
+
   // Fonts, up front — before any text node exists. Eyebrow chrome is Bold of
   // the body family; fall back to the body style's own font if no Bold exists.
   const bodyFont = bodyTextStyle.fontName;
@@ -99,12 +105,20 @@ async function renderDocCard({ card, record, vars, bodyTextStyle }) {
     t.layoutSizingHorizontal = 'FILL';
   };
 
+  // Resolved px of the spacing tokens (mode-aware, resolved against the card).
+  // The planner's cardWidth is the CONTENT-GRID width (columns × columnUnit);
+  // the frame's outer width adds the band padding and the inter-block gutters
+  // so the planned column count actually fits on one line.
+  const padPx = vars.spacePadding.resolveForConsumer(card).value;
+  const blockGapPx = vars.spaceBlockGap.resolveForConsumer(card).value;
+  const usageWidth = plan.cardWidth + 2 * padPx + (plan.columns - 1) * blockGapPx;
+
   const usage = figma.createFrame();
   usage.name = 'Usage';
   usage.layoutMode = 'VERTICAL';
   usage.fills = [];
   card.appendChild(usage);
-  usage.resize(plan.cardWidth, usage.height);
+  usage.resize(usageWidth, usage.height);
   usage.counterAxisSizingMode = 'FIXED';  // VERTICAL frame: counter = width
   usage.primaryAxisSizingMode = 'AUTO';   // height hugs — re-asserted after resize()
   usage.setBoundVariable('paddingLeft', vars.spacePadding);
@@ -113,11 +127,13 @@ async function renderDocCard({ card, record, vars, bodyTextStyle }) {
   usage.setBoundVariable('paddingBottom', vars.spacePadding);
   usage.setBoundVariable('itemSpacing', vars.spaceRowGap);
 
-  // If the card is narrower than the computed width and not hugging, widen it —
-  // this touches only the card's own size, never its children.
-  if (card.width < plan.cardWidth && !(card.layoutMode === 'VERTICAL' && card.counterAxisSizingMode === 'AUTO')) {
-    card.resize(plan.cardWidth, card.height);
-    if (card.layoutMode === 'VERTICAL') card.primaryAxisSizingMode = 'AUTO';
+  // Widen the card to fit (its own padding included). Card is VERTICAL (guarded
+  // above): counter axis = width, so a hugging card needs no resize; a fixed
+  // card is widened and its height sizing re-asserted after resize().
+  const cardOuter = usageWidth + card.paddingLeft + card.paddingRight;
+  if (card.counterAxisSizingMode !== 'AUTO' && card.width < cardOuter) {
+    card.resize(cardOuter, card.height);
+    card.primaryAxisSizingMode = 'AUTO';
   }
 
   const blocksCreated = [];

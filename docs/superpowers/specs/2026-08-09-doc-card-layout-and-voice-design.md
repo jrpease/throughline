@@ -128,6 +128,14 @@ A wider matrix buys more columns rather than longer lines; a narrow specimen
 one modular rhythm instead of being raggedly sized. `specimenWidth` is measured
 in Figma at run time and passed to the planner as an input.
 
+The planner's `cardWidth` is the **content-grid** width. At render time the
+builder derives the `Usage` frame's outer width as
+`cardWidth + 2·padding + (columns − 1)·blockGap`, reading the resolved px of
+the bound spacing tokens via `resolveForConsumer`, and widens the card
+(its own padding included) when it is fixed-width and narrower. Without this,
+padding and gutters eat the content box and the last column always wraps. The
+card itself must be a VERTICAL auto-layout frame — the builder throws otherwise.
+
 ### Four block types — a closed set
 
 | Type | Renders | Used for |
