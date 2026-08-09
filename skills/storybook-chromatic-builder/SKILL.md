@@ -33,8 +33,9 @@ real design tokens (import the generated CSS/theme). Checkpoint: confirm
 Storybook runs and shows the token-themed canvas.
 
 Install the documentation scripts alongside the token scripts (copy from the
-plugin's `scripts/` — `build-docs-digest.mjs`, `docs-check.mjs`, and
-`lib/doc-record.mjs` — into the repo and register npm scripts):
+plugin's `scripts/` — `build-docs-digest.mjs`, `docs-check.mjs`,
+`lib/doc-record.mjs`, and `lib/doc-card-plan.mjs` — into the repo and register
+npm scripts):
 
 - `"docs:digest": "node scripts/build-docs-digest.mjs"`
 - `"docs:check": "node scripts/docs-check.mjs"`

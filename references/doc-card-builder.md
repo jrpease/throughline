@@ -280,8 +280,8 @@ async function renderDocCard({ card, record, vars, bodyTextStyle }) {
       divider.name = 'Row Divider';
       divider.fills = [boundPaint(vars.border)];
       usage.appendChild(divider);
-      divider.layoutSizingHorizontal = 'FILL';
       divider.resize(divider.width, 1);
+      divider.layoutSizingHorizontal = 'FILL';
     }
     first = false;
 

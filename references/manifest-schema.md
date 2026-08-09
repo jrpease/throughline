@@ -259,7 +259,7 @@ bailing or running silently.
   hash of the surface's rendered content (detects edits, for re-readable surfaces),
   `renderer` (docCard only) is the layout version of the builder that last
   rendered the card (`DOC_CARD_RENDERER_VERSION`); missing/lower is reported by
-  `docs:check` as the informational `layout-upgrade-available`, never as drift.
+  `docs:check` as the informational `layout-upgrade-available`, never as drift,
   and `file` is the repo-relative path of a code surface. Written by
   `component-builder` (Figma + card surfaces) and `storybook-chromatic-builder`
   (code surfaces); read by the `docs:check` gate. See
