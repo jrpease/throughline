@@ -105,7 +105,7 @@ The manifest stores pointers + per-surface fingerprints, never content:
     "fingerprint": "<canonical fingerprint at last render>",
     "surfaces": {
       "figmaDescription": { "src": "<fp>", "render": "<hash of description text>" },
-      "docCard":          { "src": "<fp>", "render": "<hash of card content>" },
+      "docCard":          { "src": "<fp>", "render": "<hash of card content>", "renderer": "2" },
       "storybookMdx":     { "src": "<fp>", "render": "<hash of mdx file>", "file": "packages/ui/src/Button/Button.mdx" }
     }
   }
@@ -116,6 +116,11 @@ The manifest stores pointers + per-surface fingerprints, never content:
 - `render` — a hash of the surface's rendered content at render time (detects
   **edited**, for surfaces the tooling can re-read).
 - `file` — repo-relative path for code surfaces so `docs:check` can re-read them.
+- `renderer` — (docCard only) the layout version of the builder that last
+  rendered the card: `DOC_CARD_RENDERER_VERSION` in `scripts/lib/doc-card-plan.mjs`,
+  currently `"2"`. Additive and optional — absence means the card predates the
+  versioned builder. Stamped from the builder's returned summary, never by
+  re-reading the card.
 
 ## Drift + reconciliation contract
 
@@ -123,6 +128,11 @@ The manifest stores pointers + per-surface fingerprints, never content:
 - **canonical-changed** — the `.doc.json` fingerprint ≠ `doc.fingerprint`.
 - **stale** — `surface.src` ≠ current canonical fingerprint.
 - **edited** — a re-readable surface's current content hash ≠ `surface.render`.
+- **layout-upgrade-available** — informational, never failing, docCard only:
+  `surfaces.docCard.renderer` is missing or lower than the current
+  `DOC_CARD_RENDERER_VERSION`. The card's content is not in drift — its layout
+  predates the current builder. Re-render on next touch (no unprompted Figma
+  writes; untouched brownfield cards must not generate a standing warning wall).
 - **missing-surface** — a repo surface that declares a `file` which is now gone.
   Failing, and distinct from `edit-unverified`: the surface *was* re-readable and
   its rendered output has been deleted, not merely unreadable this run.

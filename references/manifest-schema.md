@@ -253,10 +253,13 @@ bailing or running silently.
 - `meta[name].doc` — documentation pointer + per-surface fingerprints for the
   component (v1: components only). **Pointers and hashes, never content** — the
   content lives in `design-system/docs/components/<name>.doc.json`. Shape:
-  `{ path, fingerprint, surfaces: { <surfaceName>: { src, render, file? } } }`,
+  `{ path, fingerprint, surfaces: { <surfaceName>: { src, render, file?, renderer? } } }`,
   where `fingerprint` is the canonical fingerprint at last render, `src` is the
   canonical fingerprint a surface was rendered from (detects stale), `render` is a
   hash of the surface's rendered content (detects edits, for re-readable surfaces),
+  `renderer` (docCard only) is the layout version of the builder that last
+  rendered the card (`DOC_CARD_RENDERER_VERSION`); missing/lower is reported by
+  `docs:check` as the informational `layout-upgrade-available`, never as drift.
   and `file` is the repo-relative path of a code surface. Written by
   `component-builder` (Figma + card surfaces) and `storybook-chromatic-builder`
   (code surfaces); read by the `docs:check` gate. See
