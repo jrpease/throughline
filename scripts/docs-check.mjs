@@ -3,10 +3,13 @@
 // design-system.json, and reports drift. Zero dependencies.
 //
 // Drift classes: canonical-changed | stale | edited | missing-surface | edit-unverified
+//                | layout-upgrade-available
 // (edit-unverified = a surface the CLI cannot read, e.g. Figma — informational;
 //  it is checked live by the Figma-connected skill instead.
 //  missing-surface = a repo surface that declares a file which is now gone — failing;
-//  distinct from edit-unverified, which has no file to read in the first place.)
+//  distinct from edit-unverified, which has no file to read in the first place.
+//  layout-upgrade-available = informational, docCard only: the card's layout
+//  predates DOC_CARD_RENDERER_VERSION — re-render on next touch, never a failure.)
 //
 // Usage: node docs-check.mjs [--root <dir>]   (default root: cwd)
 import { readFileSync, existsSync } from 'node:fs';
@@ -14,11 +17,12 @@ import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
 import { loadRecord, canonicalFingerprint, fingerprint } from './lib/doc-record.mjs';
+import { DOC_CARD_RENDERER_VERSION } from './lib/doc-card-plan.mjs';
 
 // Surfaces whose rendered content the CLI can re-read from the repo.
 const REPO_SURFACES = new Set(['storybookMdx']);
 
-export function classifySurface({ currentCanonical, surface, currentRenderHash, fileMissing = false }) {
+export function classifySurface({ currentCanonical, surface, currentRenderHash, fileMissing = false, expectedRenderer = null }) {
   const flags = [];
   if (surface.src !== currentCanonical) flags.push('stale');
   if (fileMissing) {
@@ -27,6 +31,10 @@ export function classifySurface({ currentCanonical, surface, currentRenderHash, 
     flags.push('edit-unverified');
   } else if (surface.render !== currentRenderHash) {
     flags.push('edited');
+  }
+  if (expectedRenderer !== null
+      && (!surface.renderer || Number(surface.renderer) < Number(expectedRenderer))) {
+    flags.push('layout-upgrade-available');
   }
   return flags;
 }
@@ -57,7 +65,10 @@ export function checkComponent({ name, meta, root }) {
         fileMissing = true;
       }
     }
-    const flags = classifySurface({ currentCanonical, surface, currentRenderHash, fileMissing });
+    const flags = classifySurface({
+      currentCanonical, surface, currentRenderHash, fileMissing,
+      expectedRenderer: surfaceName === 'docCard' ? DOC_CARD_RENDERER_VERSION : null,
+    });
     if (flags.length) out.push({ name, surface: surfaceName, flags });
   }
   return out;
@@ -89,7 +100,10 @@ function main() {
   const info = results.filter((r) => !r.flags.some((f) => FAILING.has(f)));
 
   for (const r of drift) console.error(`  ✗ ${r.name} · ${r.surface}: ${r.flags.join(', ')}`);
-  for (const r of info) console.log(`  ~ ${r.name} · ${r.surface}: ${r.flags.join(', ')} (check in a Figma session)`);
+  for (const r of info) {
+    const note = r.flags.includes('edit-unverified') ? ' (check in a Figma session)' : '';
+    console.log(`  ~ ${r.name} · ${r.surface}: ${r.flags.join(', ')}${note}`);
+  }
 
   if (drift.length) {
     console.error(`✗ docs:check — ${drift.length} drifted surface(s); reconcile with /document-component`);

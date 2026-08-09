@@ -108,3 +108,54 @@ test('checkAll: flags missing-surface (failing) when a rendered repo file is del
   // Must NOT be silently downgraded to the passing edit-unverified class.
   assert.ok(!mdx.flags.includes('edit-unverified'));
 });
+
+test('classifySurface: layout-upgrade-available when docCard renderer is missing', () => {
+  assert.deepEqual(
+    classifySurface({ currentCanonical: 'a', surface: { src: 'a', render: 'r' }, currentRenderHash: 'r', expectedRenderer: '2' }),
+    ['layout-upgrade-available'],
+  );
+});
+
+test('classifySurface: layout-upgrade-available when renderer is lower; silent when equal or higher', () => {
+  const base = { currentCanonical: 'a', currentRenderHash: 'r' };
+  assert.deepEqual(
+    classifySurface({ ...base, surface: { src: 'a', render: 'r', renderer: '1' }, expectedRenderer: '2' }),
+    ['layout-upgrade-available'],
+  );
+  assert.deepEqual(
+    classifySurface({ ...base, surface: { src: 'a', render: 'r', renderer: '2' }, expectedRenderer: '2' }),
+    [],
+  );
+  assert.deepEqual(
+    classifySurface({ ...base, surface: { src: 'a', render: 'r', renderer: '3' }, expectedRenderer: '2' }),
+    [],
+  );
+});
+
+test('classifySurface: no renderer check when expectedRenderer is null (non-docCard surfaces)', () => {
+  assert.deepEqual(
+    classifySurface({ currentCanonical: 'a', surface: { src: 'a', render: 'r' }, currentRenderHash: 'r' }),
+    [],
+  );
+});
+
+test('checkAll: an old-layout docCard is informational, never in the failing set', () => {
+  const { root, manifest, fp } = fixture();
+  manifest.components.meta.Button.doc.surfaces.docCard = { src: fp, render: 'whatever' };
+  const results = checkAll(manifest, root);
+  const docCard = results.find((r) => r.surface === 'docCard');
+  assert.ok(docCard, 'docCard surface should be reported');
+  assert.ok(docCard.flags.includes('layout-upgrade-available'));
+  // Every docCard flag must be informational — none from the failing set.
+  const failing = new Set(['canonical-changed', 'stale', 'edited', 'missing-record', 'missing-surface']);
+  assert.ok(docCard.flags.every((f) => !failing.has(f)), `unexpected failing flag in ${docCard.flags.join(',')}`);
+});
+
+test('checkAll: a stamped docCard (renderer "2") reports no layout upgrade', () => {
+  const { root, manifest, fp } = fixture();
+  manifest.components.meta.Button.doc.surfaces.docCard = { src: fp, render: 'whatever', renderer: '2' };
+  const results = checkAll(manifest, root);
+  const docCard = results.find((r) => r.surface === 'docCard');
+  // Still edit-unverified (the CLI can't read Figma), but no layout flag.
+  assert.ok(!docCard || !docCard.flags.includes('layout-upgrade-available'));
+});
