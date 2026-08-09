@@ -15,14 +15,19 @@ Ask which component to document (e.g. "Button"), then:
    interview. The user approves the drafted record; `imported`/`user` blocks are
    never overwritten.
 2. **Project it.** Write `design-system/docs/components/<Name>.doc.json`, set the
-   Figma component `description`, enrich the doc card, and (if the repo/code side
-   exists) render MDX/JSDoc and run `docs:digest` per the
-   `storybook-chromatic-builder` render step.
+   Figma component `description`, rebuild the doc card's `Usage` band with the
+   canonical builder (`${CLAUDE_PLUGIN_ROOT}/references/doc-card-builder.md` —
+   verify its returned summary and stamp `surfaces.docCard.{src,render,renderer}`
+   from it), and (if the repo/code side exists) render MDX/JSDoc and run
+   `docs:digest` per the `storybook-chromatic-builder` render step.
 3. **Reconcile drift.** Run `docs:check`. For each drifted surface, offer a per-item
    choice — **re-render** (canonical wins) or **pull-back** (fold the surface edit
    into the record) — and land the result as a reviewable change. On a brownfield
    component's first pass, adopt existing content (`provenance: imported`) rather
    than overwriting it.
+   `docs:check` may also report `layout-upgrade-available` (informational, never
+   failing): the card's layout predates the current builder. Offer to re-render
+   the `Usage` band now — rebuild happens on this touch, never unprompted.
 4. **Close the flow.** Hand back in the four-beat guide voice from
    `${CLAUDE_PLUGIN_ROOT}/references/guide-voice.md`: the outcome, what you set
    aside and why, one recommended next step, and at most one light alternative.

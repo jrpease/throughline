@@ -4,6 +4,19 @@ All notable changes to ThroughLine are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Added
+- **Deterministic doc-card builder (layout phase).** The doc card's `Usage` band
+  is now rendered by a canonical, generated `figma_execute` snippet
+  (`references/doc-card-builder.md`) built from a pure, unit-tested layout
+  planner (`scripts/lib/doc-card-plan.mjs`) — a column-unit grid (three
+  wrapping rows, four closed block types) whose width grows with the variant
+  matrix instead of stretching text. Cards stamp a `renderer` version into the
+  manifest; `docs:check` reports old-layout cards as the informational
+  `layout-upgrade-available`, never as drift. CI gates the generated snippet
+  with `build-doc-card-builder.mjs --check`.
+
 ## [0.14.0] - 2026-07-14
 
 ### Added
