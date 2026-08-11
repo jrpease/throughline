@@ -37,7 +37,7 @@ const STOPWORDS = new Set([
   'under', 'up', 'down', 'out', 'about',
 ]);
 
-const words = (s) => String(s).toLowerCase().match(/[a-z0-9''-]+/g) || [];
+const words = (s) => String(s).toLowerCase().match(/[a-z0-9'’-]+/g) || [];
 // Naive plural/verb-s stemming: enough to match "Triggers" to "trigger".
 const stem = (w) => (w.length > 3 && w.endsWith('s') ? w.slice(0, -1) : w);
 
@@ -113,7 +113,7 @@ export function lintRecord(record) {
       if (!/\.$/.test(String(entry).trim())) {
         warn(path, 'terminal-stop', 'end the entry with a full stop');
       }
-      if (key === 'donts' && !/^(don['']?t|do not|never|avoid)\b/i.test(String(entry).trim())) {
+      if (key === 'donts' && !/^(don['’]?t|do not|never|avoid)\b/i.test(String(entry).trim())) {
         warn(path, 'dont-shape', "open with Don't / Never / Avoid and name the alternative");
       }
     });

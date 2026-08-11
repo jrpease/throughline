@@ -85,7 +85,7 @@ test('spec after-example guidance passes clean', () => {
   const ws = lintRecord({
     name: 'X', summary: 'Short.',
     description: 'A clickable control that starts an action: saving a form, confirming a choice, opening a dialog.',
-    donts: ["Don't use a button to navigate. Use a Link."],
+    donts: ["Don’t use a button to navigate. Use a Link."],
   });
   assert.equal(rules(ws).filter((r) => ['guidance-length', 'terminal-stop', 'dont-shape'].includes(r)).length, 0);
 });
@@ -98,7 +98,7 @@ test('treatment lead flagged in first 4 words of a meaning; later mention passes
       primary: 'Highest-emphasis, solid brand fill — the one primary action in a view.',
       secondary: 'A supporting action, rendered with a subtle border treatment.',
     } },
-    states: { disabled: "Can't be clicked or tabbed to." },
+    states: { disabled: "Can’t be clicked or tabbed to." },
   });
   const hits = byRule(ws, 'treatment-lead');
   assert.equal(hits.length, 1);
@@ -141,4 +141,14 @@ test('a record following the standard produces zero warnings', () => {
 test('missing optional blocks lint without crashing', () => {
   const ws = lintRecord({ name: 'X', summary: 'Short.', description: 'A clickable control that starts an action: saving a form, confirming a choice, opening a dialog.' });
   assert.equal(rules(ws).length, 0);
+});
+
+test('curly-apostrophe contractions tokenize and pass dont-shape', () => {
+  const ws = lintRecord({
+    name: 'X', summary: 'Short.',
+    description: 'A clickable control that starts an action: saving a form, confirming a choice, opening a dialog.',
+    donts: ["Don’t use a button to navigate. Use a Link."],
+    states: { disabled: "Can’t be clicked or tabbed to." },
+  });
+  assert.deepEqual(ws, []);
 });
