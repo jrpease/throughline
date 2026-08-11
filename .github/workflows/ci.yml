@@ -21,3 +21,5 @@ jobs:
         run: node ci/validate-skills.mjs
       - name: Check adapters are up to date
         run: node scripts/adapters/generate.mjs --check
+      - name: Check doc-card builder is up to date
+        run: node scripts/build-doc-card-builder.mjs --check

@@ -4,6 +4,33 @@ All notable changes to ThroughLine are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres
 to [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Added
+- **Deterministic doc-card builder (layout phase).** The doc card's `Usage` band
+  is now rendered by a canonical, generated `figma_execute` snippet
+  (`references/doc-card-builder.md`) built from a pure, unit-tested layout
+  planner (`scripts/lib/doc-card-plan.mjs`) — a column-unit grid (three
+  wrapping rows, four closed block types) whose width grows with the variant
+  matrix instead of stretching text. Cards stamp a `renderer` version into the
+  manifest; `docs:check` reports old-layout cards as the informational
+  `layout-upgrade-available`, never as drift. CI gates the generated snippet
+  with `build-doc-card-builder.mjs --check`.
+
+### Fixed
+- **Doc-card post-dogfood fixes.** Column count is now capped by content, not
+  just specimen width (`cardColumns` clamps to the max blocks in any row), so
+  a wide specimen with sparse Usage content no longer mints dead columns;
+  `DOC_CARD_RENDERER_VERSION` bumps to `"3"` and old-layout cards re-flag
+  `layout-upgrade-available`. The builder now refuses to render a card that
+  already carries a foreign `Usage — *` band (documents more than one
+  component) instead of silently accumulating one. The `Usage` frame sets
+  `clipsContent = false`. The specimen lookup is the card's `COMPONENT_SET`
+  only — the never-executed named-`"Specimen"`-band path is removed.
+  `/document-component`'s drift-reconcile step now checks that the repo's
+  copied doc scripts are current before trusting `docs:check`, and offers to
+  refresh them from the plugin when they've fallen behind.
+
 ## [0.14.0] - 2026-07-14
 
 ### Added

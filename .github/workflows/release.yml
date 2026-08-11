@@ -39,6 +39,8 @@ jobs:
         run: node ci/validate-skills.mjs
       - name: Check adapters are up to date
         run: node scripts/adapters/generate.mjs --check
+      - name: Check doc-card builder is up to date
+        run: node scripts/build-doc-card-builder.mjs --check
       - name: Extract release notes
         run: node ci/extract-changelog.mjs "${GITHUB_REF_NAME#v}" > "$RUNNER_TEMP/notes.md"
       - name: Update npm (trusted publishing needs npm >= 11.5)

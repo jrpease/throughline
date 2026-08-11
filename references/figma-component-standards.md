@@ -281,9 +281,24 @@ frames. Applies to `component-builder`, `icon-system-builder`, and
 
 ### Every component sits on its own documentation card
 
-Wrap each generated component in a "doc card" — a frame that holds the component
-plus a small header. Never leave components floating on bare canvas. The card
-shows:
+Wrap each generated component in a "doc card" — a **vertical, three-band
+auto-layout frame**: a **header** band, a **specimen** band (holding the
+component set — the builder's specimen contract is the card's `COMPONENT_SET`,
+not a band name), and a **`Usage`** band holding the documentation body. Never
+leave components floating on bare canvas.
+
+**The `Usage` band is never hand-built.** It is rendered by the canonical
+builder snippet in `${CLAUDE_PLUGIN_ROOT}/references/doc-card-builder.md`
+(generated — that file carries the full call contract: the record/fingerprint
+slots, the nine required semantic variables, the `Body/Default` text style, and
+the returned summary you verify and stamp the manifest from). The builder
+computes the card's width from the specimen and the body type — a column-unit
+grid whose text fills its block, not the card — and rebuilds only the `Usage`
+frame, leaving header and specimen untouched. The header's short-description
+text node is clamped to one column unit wide (`summary.columnUnit` from the
+builder's return), so it never stretches across a wide matrix.
+
+The header shows:
 
 - **Component name** (the deterministic name, matching code).
 - **Short description** (what it is / when to use it).
@@ -410,6 +425,10 @@ The doc card is a **vertical, top-to-bottom auto-layout** frame
 overlapping text is almost always absolutely-positioned or mis-sized nodes, and
 proper auto layout eliminates it.
 
+The `Usage` band's internal layout (rows, wrapping, block widths) is entirely
+the builder's job — these auto-layout rules apply to the header band and any
+hand-built chrome, not to nodes inside `Usage`.
+
 ### Arrange cards in a parent container (fixes overlapping artboards)
 
 Never drop cards onto blank canvas at coordinates that can collide. Place all doc
@@ -486,6 +505,11 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
 3. **Variables bound** — every fill, stroke, text color, corner radius,
    `itemSpacing`, and padding resolves to a **bound variable** (`boundVariables`
    present), not a raw hex/px. No hardcoded values anywhere in the doc-card chrome.
+   **Two documented exceptions inside the `Usage` band** (layout chrome, not
+   design values, both produced by the builder): the computed column-unit width
+   on blocks, and the derived eyebrow type (size/case/tracking/weight). All
+   other `Usage` properties — padding, gaps, text colors, dividers — must still
+   resolve to bound variables.
    **Check container and component-set background fills specifically** — a paint bind
    that didn't stick renders the placeholder color instead (a pure-black placeholder
    reads as accidental dark mode), so read back `fills[0].boundVariables.color` on
@@ -522,9 +546,17 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
    be retrofitted to the current recipe (see "State handling").
 10. **Visual** — the screenshot (from the validation loop) shows no overlaps,
    misalignment, lopsided hug/fill sizing, or clipped strokes/focus rings.
+11. **Usage band rendered by the builder** — the card's `Usage` frame was
+   created by `renderDocCard`
+   (`${CLAUDE_PLUGIN_ROOT}/references/doc-card-builder.md`) in this session, and
+   the returned summary matches the record: `rowsRendered` and `blocksCreated`
+   line up with the record's populated blocks, `cardWidth` is a whole multiple
+   of `columnUnit` (minimum 3), and the frame contains the deterministic names
+   (`Usage`, `Usage Row 1..3`, `Block: …`, `Doc Fingerprint`). Verify from the
+   summary, not a screenshot. A hand-assembled usage body is a fail.
 
 If any item fails, **fix and re-audit** — don't hand off a partial pass. Iterate
-with the same ~3-pass budget as the visual loop. Only when all ten pass is the
+with the same ~3-pass budget as the visual loop. Only when all eleven pass is the
 build done.
 
 ## Naming

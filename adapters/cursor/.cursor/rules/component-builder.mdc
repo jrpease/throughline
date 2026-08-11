@@ -272,19 +272,24 @@ stamp `provenance` per block):**
   when-to-use/not, do's/don'ts, and the a11y summary — and append a fingerprint
   marker line `<!-- tl:doc <fp> -->` (this is the surface Dev Mode and Code Connect
   read).
-- **Doc card body.** Extend the existing doc card (name/short-desc/status/date, per
-  `.throughline/references/figma-component-standards.md`) with a usage body:
-  when-to-use, do's/don'ts, an a11y line, and a variant/state legend — all
-  token-bound (no hardcoded hex/px). Add a metadata text node named
-  `Doc Fingerprint` holding `<fp>`.
+- **Doc card body.** Render the card's `Usage` band with the canonical builder
+  snippet in `.throughline/references/doc-card-builder.md` (via
+  `figma_execute` with an explicit `timeout`, one card per call): fill the
+  RECORD/CANONICAL_FP slots, resolve the nine required semantic variables and
+  the `Body/Default` text style per that file's call contract, run it, and
+  verify the returned summary (`rowsRendered`, `blocksCreated`, `cardWidth`) —
+  not a screenshot. The builder creates the `Doc Fingerprint` node itself and
+  is the only thing that may build the usage body — never hand-assemble it.
 - Compute `<fp>` as the canonical fingerprint defined in the schema reference
   (sha256 of the projected record without `provenance`, first 16 hex chars).
 
 **Update the manifest (fields this skill owns):** set
 `components.meta[<Name>].doc` to `{ path, fingerprint: <fp>, surfaces: {
 figmaDescription: { src: <fp>, render: <hash of the description text> }, docCard: {
-src: <fp>, render: <hash of the card body content> } } }`. The code surfaces
-(`storybookMdx`) are added later by `storybook-chromatic-builder`.
+src: <fp>, render: <summary.renderHash>, renderer: <summary.rendererVersion> } } }`
+— the docCard entry is stamped from the builder's returned summary, never by
+re-reading the card. The code surfaces (`storybookMdx`) are added later by
+`storybook-chromatic-builder`.
 
 Run the standard doc-card visual-validation + post-build audit
 (`.throughline/references/figma-component-standards.md`) after enriching
