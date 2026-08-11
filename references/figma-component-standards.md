@@ -282,9 +282,10 @@ frames. Applies to `component-builder`, `icon-system-builder`, and
 ### Every component sits on its own documentation card
 
 Wrap each generated component in a "doc card" — a **vertical, three-band
-auto-layout frame**: a **header** band, a **specimen** band (a frame named
-`Specimen` holding the component set), and a **`Usage`** band holding the
-documentation body. Never leave components floating on bare canvas.
+auto-layout frame**: a **header** band, a **specimen** band (holding the
+component set — the builder's specimen contract is the card's `COMPONENT_SET`,
+not a band name), and a **`Usage`** band holding the documentation body. Never
+leave components floating on bare canvas.
 
 **The `Usage` band is never hand-built.** It is rendered by the canonical
 builder snippet in `${CLAUDE_PLUGIN_ROOT}/references/doc-card-builder.md`
