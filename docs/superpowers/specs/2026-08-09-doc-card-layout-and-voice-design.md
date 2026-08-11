@@ -87,7 +87,10 @@ Three stacked bands, top to bottom:
 1. **Header** — name, `summary` as a lede, status chip, last-updated. Unchanged
    from today's card except the lede is clamped to one column unit.
 2. **Specimen** — the ComponentSet under a "Variants & states" eyebrow label.
-   Structurally unchanged.
+   Structurally unchanged. **Amendment (post-dogfood):** the specimen contract
+   the builder measures against is the card's `COMPONENT_SET` node — not a
+   band named "Specimen". No real card has ever used a named-band lookup, so
+   that path never executed; it has been removed rather than left as dead code.
 3. **Usage** — new. The documentation body, built from the rules below.
 
 ### The column unit
@@ -128,6 +131,21 @@ A wider matrix buys more columns rather than longer lines; a narrow specimen
 one modular rhythm instead of being raggedly sized. `specimenWidth` is measured
 in Figma at run time and passed to the planner as an input.
 
+**Amendment (post-dogfood): columns are also capped by content.** The formula
+above under-specified `columns` — deriving it from specimen width alone let a
+wide specimen with sparse Usage content mint dead columns (Input's real card:
+5 columns of mostly-empty grid). The full clamp, computed after rows are built:
+
+```
+columns = clamp(maxBlocksPerRow, 3, ceil(specimenWidth / columnUnit))
+cardWidth = columns × columnUnit
+```
+
+where `maxBlocksPerRow` is the largest number of blocks in any of the card's
+(non-empty) rows. The grid never exceeds what the content can fill, and never
+drops below the 3-unit floor. This changes rendered layout, so
+`DOC_CARD_RENDERER_VERSION` bumps to `"3"` (see *Renderer version stamp*).
+
 The planner's `cardWidth` is the **content-grid** width. At render time the
 builder derives the `Usage` frame's outer width as
 `cardWidth + 2·padding + (columns − 1)·blockGap`, reading the resolved px of
@@ -135,6 +153,13 @@ the bound spacing tokens via `resolveForConsumer`, and widens the card
 (its own padding included) when it is fixed-width and narrower. Without this,
 padding and gutters eat the content box and the last column always wraps. The
 card itself must be a VERTICAL auto-layout frame — the builder throws otherwise.
+
+**Amendment (post-dogfood): the `Usage` frame sets `clipsContent = false`.**
+Figma defaults every new frame to `clipsContent = true`; a layout frame with
+clipping on silently crops content that grows past its planned bounds. Audit
+item 6 in `references/figma-component-standards.md` already requires this for
+layout frames — the builder now asserts it explicitly rather than relying on
+the ambient default staying safe.
 
 ### Four block types — a closed set
 
@@ -172,10 +197,11 @@ separates rows.
 **`renderDocCard({ card, record, vars, bodyTextStyle })`** — one canonical
 function, run verbatim inside `figma_execute`. The generated snippet inlines
 **both** `planDocCard` and the renderer; `renderDocCard` measures
-`specimenWidth` itself from the named specimen frame inside `card`, calls the
+`specimenWidth` itself from the card's `COMPONENT_SET` node (the specimen
+contract — see the amendment under *Specimen*, above), calls the
 inlined `planDocCard(record, specimenWidth, bodyTextStyle) → plan` (the plan
 contains `columnUnit`), then renders the plan. **`columnUnit` is never a caller
-input.** Five contractual behaviors:
+input.** Six contractual behaviors:
 
 1. **Idempotent, and scoped.** Finds the frame named `Usage` inside the card,
    removes it, rebuilds it. **Header and specimen are never touched.** This
@@ -183,11 +209,18 @@ input.** Five contractual behaviors:
    recreating a component set detaches every downstream instance
    (`skills/component-builder/SKILL.md:347-351`), so the rebuild never crosses
    into the specimen band.
-2. **Fonts loaded up front.** Every font style is `loadFontAsync`'d before the
+2. **One component per card (amendment, post-dogfood).** Before the idempotency
+   guard runs, the builder checks for a foreign band — any child named
+   `Usage — *` that isn't the card's own `Usage` frame. A band like
+   "Usage — Select Menu Item" means the card documents more than one
+   component; rendering here would append a band the builder doesn't own and
+   silently accumulate. The builder throws instead, naming the offending band,
+   and asks for the card to be split so each component owns its own card.
+3. **Fonts loaded up front.** Every font style is `loadFontAsync`'d before the
    first text node exists, and callers pass an explicit `timeout` — the default
    ~5s budget is already documented as too short for multi-card font-loading
    writes (`references/figma-component-standards.md:349-350`).
-3. **Binds or throws — with one chrome carve-out.** The caller resolves variable
+4. **Binds or throws — with one chrome carve-out.** The caller resolves variable
    IDs via `figma_get_variables` and passes them as `vars`; the builder uses
    `setBoundVariable` throughout. **Colors and semantic content type styles
    (body text, definition terms) bind-or-throw**: a missing variable or style
@@ -198,11 +231,13 @@ input.** Five contractual behaviors:
    `Body/Default` — `fontSize × 0.65` rounded (minimum 8), weight Bold,
    uppercase, letter-spacing +8%. These constants live in the renderer template
    and are locked by the `--check` like everything else generated. Chrome
-   derivation is documented alongside the column-unit exception.
-4. **Deterministic node names**: `Usage`, `Usage Row 1..3`, `Block: Overview`,
+   derivation is documented alongside the column-unit exception. The `Usage`
+   frame itself sets `clipsContent = false` (amendment, post-dogfood — see the
+   *Card width* section, above).
+5. **Deterministic node names**: `Usage`, `Usage Row 1..3`, `Block: Overview`,
    `Block: Do`, `Block: Don't`, `Doc Fingerprint`, etc. — same discipline as the
    existing `Status` / `Status Label` / `Last Updated` contract.
-5. **Returns a structured summary**: blocks created, rows rendered, computed
+6. **Returns a structured summary**: blocks created, rows rendered, computed
    card width, the canonical fingerprint, and the **rendered-content hash**. The
    executor verifies against this return value instead of squinting at a
    screenshot, and **the skill stamps the manifest from the return value** —
@@ -237,10 +272,10 @@ Content fingerprints cannot drive layout migration: a card built with the old
 layout from an unchanged record has a matching fingerprint and would look clean
 forever. So:
 
-- The builder stamps **`renderer: "2"`** into the manifest's
+- The builder stamps **`renderer: "3"`** into the manifest's
   `surfaces.docCard` entry (additive optional field; documented in
   `references/component-doc-schema.md`; no schemaVersion bump — absence simply
-  means "built before v2").
+  means "built before the current version").
 - The current version has **one source of truth**: an exported constant
   `DOC_CARD_RENDERER_VERSION` in `scripts/lib/doc-card-plan.mjs`.
   `docs-check.mjs` imports it; the build script embeds it into the generated
@@ -251,6 +286,12 @@ forever. So:
   `edited` / `missing-record` / `missing-surface`, `scripts/docs-check.mjs:75`).
   Untouched brownfield cards do not generate a standing warning wall; warning
   fatigue is how real drift gets ignored. Migration still happens on next touch.
+
+**Amendment (post-dogfood): version bumped `"2"` → `"3"`.** The column-count
+formula changed (see the amendment under *Card width*, above) — this alters
+rendered layout for existing cards, so cards stamped `renderer: "2"` correctly
+re-flag `layout-upgrade-available` and pick up the new column math on next
+touch.
 
 ## The writing standard
 
@@ -364,6 +405,19 @@ as `layout-upgrade-available` (informational), not as drift.
 record model working correctly, which means a voice sweep genuinely cannot fix
 hand-written copy that reads badly. The lint warns on those blocks and the user
 decides per item; a conscious choice, never a silent overwrite.
+
+**Amendment (post-dogfood): a freshness gate in `/document-component`.**
+`storybook-chromatic-builder` copies the doc scripts (`build-docs-digest.mjs`,
+`docs-check.mjs`, `lib/doc-record.mjs`, `lib/doc-card-plan.mjs`) into a repo
+**once**, at setup — nothing refreshed them afterward, so a repo whose copy
+predates a plugin update ran `docs:check` against stale rules and reported a
+meaningless "no drift" (this cost a real dogfooder real time). Before trusting
+`docs:check`, `/document-component`'s drift-reconcile step now compares the
+repo's `DOC_CARD_RENDERER_VERSION` against the plugin's; if the repo file is
+missing or behind, it says so and offers to refresh the copied scripts from
+the plugin before re-running the check. The one-time copy in
+`storybook-chromatic-builder` remains setup, not a forever-fork — freshness is
+enforced downstream, on every documentation pass.
 
 ## Files
 

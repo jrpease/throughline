@@ -17,7 +17,19 @@ to [Semantic Versioning](https://semver.org).
   `layout-upgrade-available`, never as drift. CI gates the generated snippet
   with `build-doc-card-builder.mjs --check`.
 
-## [0.14.0] - 2026-07-14
+### Fixed
+- **Doc-card post-dogfood fixes.** Column count is now capped by content, not
+  just specimen width (`cardColumns` clamps to the max blocks in any row), so
+  a wide specimen with sparse Usage content no longer mints dead columns;
+  `DOC_CARD_RENDERER_VERSION` bumps to `"3"` and old-layout cards re-flag
+  `layout-upgrade-available`. The builder now refuses to render a card that
+  already carries a foreign `Usage — *` band (documents more than one
+  component) instead of silently accumulating one. The `Usage` frame sets
+  `clipsContent = false`. The specimen lookup is the card's `COMPONENT_SET`
+  only — the never-executed named-`"Specimen"`-band path is removed.
+  `/document-component`'s drift-reconcile step now checks that the repo's
+  copied doc scripts are current before trusting `docs:check`, and offers to
+  refresh them from the plugin when they've fallen behind.
 
 ### Added
 - **Component documentation layer ("ThroughLine Docs").** Every component gets a

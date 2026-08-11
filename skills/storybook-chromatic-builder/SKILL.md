@@ -41,7 +41,9 @@ npm scripts):
 - `"docs:check": "node scripts/docs-check.mjs"`
 
 These are the documentation analog of `tokens:validate`; see
-`${CLAUDE_PLUGIN_ROOT}/scripts/README.md`.
+`${CLAUDE_PLUGIN_ROOT}/scripts/README.md`. This copy is setup, not a forever-fork:
+`/document-component` re-checks these files' freshness on every run and refreshes
+them from the plugin when it has moved on.
 
 **pnpm build-script allowlist (first-run gotcha).** On pnpm workspaces, the
 `@storybook/react-vite` install pulls `esbuild`, whose postinstall is blocked by

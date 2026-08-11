@@ -20,11 +20,20 @@ Ask which component to document (e.g. "Button"), then:
    verify its returned summary and stamp `surfaces.docCard.{src,render,renderer}`
    from it), and (if the repo/code side exists) render MDX/JSDoc and run
    `docs:digest` per the `storybook-chromatic-builder` render step.
-3. **Reconcile drift.** Run `docs:check`. For each drifted surface, offer a per-item
-   choice — **re-render** (canonical wins) or **pull-back** (fold the surface edit
-   into the record) — and land the result as a reviewable change. On a brownfield
-   component's first pass, adopt existing content (`provenance: imported`) rather
-   than overwriting it.
+3. **Reconcile drift.** Before trusting `docs:check`, confirm the repo's copy of
+   the doc scripts is current: compare `DOC_CARD_RENDERER_VERSION` in the repo's
+   `scripts/lib/doc-card-plan.mjs` against the same constant in
+   `${CLAUDE_PLUGIN_ROOT}/scripts/lib/doc-card-plan.mjs`. If the repo file is
+   missing, or its version is lower, `docs:check` is reading stale rules and its
+   "no drift" is meaningless — say so plainly, and offer to refresh the repo's
+   doc scripts from the plugin copy (`build-docs-digest.mjs`, `docs-check.mjs`,
+   `lib/doc-record.mjs`, `lib/doc-card-plan.mjs` — the same files
+   `storybook-chromatic-builder` installed at setup), then re-run `docs:check`
+   with the refreshed scripts. Then run `docs:check`. For each drifted surface,
+   offer a per-item choice — **re-render** (canonical wins) or **pull-back**
+   (fold the surface edit into the record) — and land the result as a reviewable
+   change. On a brownfield component's first pass, adopt existing content
+   (`provenance: imported`) rather than overwriting it.
    `docs:check` may also report `layout-upgrade-available` (informational, never
    failing): the card's layout predates the current builder. Offer to re-render
    the `Usage` band now — rebuild happens on this touch, never unprompted.
