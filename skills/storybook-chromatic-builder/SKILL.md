@@ -34,11 +34,12 @@ Storybook runs and shows the token-themed canvas.
 
 Install the documentation scripts alongside the token scripts (copy from the
 plugin's `scripts/` — `build-docs-digest.mjs`, `docs-check.mjs`,
-`lib/doc-record.mjs`, and `lib/doc-card-plan.mjs` — into the repo and register
-npm scripts):
+`lib/doc-record.mjs`, `lib/doc-card-plan.mjs`, and `docs-lint.mjs` — into the
+repo and register npm scripts):
 
 - `"docs:digest": "node scripts/build-docs-digest.mjs"`
 - `"docs:check": "node scripts/docs-check.mjs"`
+- `"docs:lint": "node scripts/docs-lint.mjs"`
 
 These are the documentation analog of `tokens:validate`; see
 `${CLAUDE_PLUGIN_ROOT}/scripts/README.md`. This copy is setup, not a forever-fork:

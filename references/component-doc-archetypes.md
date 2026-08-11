@@ -12,14 +12,16 @@ These are **seeds, not gospel** — the user's approval and the actual built
 component override them. Sources: W3C ARIA Authoring Practices Guide (roles +
 keyboard), Material 3, Shopify Polaris (content/usage), IBM Carbon (usage).
 
+Seeds are clause-style shorthand; the authoring pipeline expands them into full sentences per references/doc-writing-standard.md before they enter a record.
+
 ## Button
 
 - **whenToUse:** trigger an action or event (submit, confirm, open a dialog).
-- **whenNotToUse:** navigation between pages/URLs — use a Link.
+- **whenNotToUse:** navigation between pages/URLs (use a Link).
 - **dos:** lead the label with a verb; keep one primary (highest-emphasis) button
   per view; keep labels short (≤ ~3 words).
-- **donts:** don't use a button for navigation; don't stack multiple primary
-  buttons; don't disable without telling the user why.
+- **donts:** don't use a button for navigation (use a Link); don't stack multiple
+  primary buttons (keep one per view); don't disable without telling the user why.
 - **accessibility (w3c-apg):** role `button`; Enter and Space activate; an
   icon-only button needs an `aria-label`; disabled buttons are not focusable.
 
@@ -30,8 +32,8 @@ keyboard), Material 3, Shopify Polaris (content/usage), IBM Carbon (usage).
   text (use Textarea).
 - **dos:** always pair with a visible label; show format hints as helper text;
   reserve space for error text to avoid layout shift.
-- **donts:** don't use placeholder text as the only label; don't validate on every
-  keystroke before first blur.
+- **donts:** don't use placeholder text as the only label (pair with a visible
+  label); don't validate on every keystroke before first blur.
 - **accessibility (w3c-apg):** every input has a programmatically associated
   `<label>`; error state sets `aria-invalid` and links the message via
   `aria-describedby`.
@@ -42,8 +44,8 @@ keyboard), Material 3, Shopify Polaris (content/usage), IBM Carbon (usage).
 - **whenNotToUse:** a single either/or action that takes effect immediately with no
   save (prefer a toggle) vs. a form choice (prefer radio/checkbox).
 - **dos:** label the control, not just the group; make the label clickable.
-- **donts:** don't use a radio group for multi-select; don't use a toggle for
-  choices that only apply after a separate Save.
+- **donts:** don't use a radio group for multi-select (use checkboxes); don't use
+  a toggle for choices needing a separate Save (use radio/checkbox).
 - **accessibility (w3c-apg):** roles `checkbox` / `radio` / `switch`; Space
   toggles; radio groups navigate with arrow keys; state exposed via
   `aria-checked`.
@@ -51,7 +53,8 @@ keyboard), Material 3, Shopify Polaris (content/usage), IBM Carbon (usage).
 ## Card
 
 - **whenToUse:** group related content and actions about a single subject.
-- **whenNotToUse:** primary page layout scaffolding; a bare list of text.
+- **whenNotToUse:** primary page layout scaffolding (use a layout/grid component); a
+  bare list of text (use a List).
 - **dos:** make the primary action obvious; keep one main call-to-action per card.
 - **donts:** don't nest cards more than one level; don't make the whole card AND an
   inner button separately clickable in conflicting ways.
@@ -71,10 +74,11 @@ keyboard), Material 3, Shopify Polaris (content/usage), IBM Carbon (usage).
 ## Badge / chip / tag
 
 - **whenToUse:** short status, count, or category label (badge); a removable/
-  selectable token (chip).
+  selectable item (chip).
 - **whenNotToUse:** interactive primary actions (use a Button).
-- **dos:** keep text to a word or two; bind color to a semantic tone token.
-- **donts:** don't rely on color alone to convey status — include text/icon.
+- **dos:** keep text to a word or two; match badge color to its semantic meaning
+  (success, warning, error).
+- **donts:** don't rely on color alone to convey status (include text or an icon).
 - **accessibility:** a removable chip's remove control needs an accessible name
   (e.g. "Remove <label>"); status conveyed with text, not color only (WCAG 1.4.1).
 

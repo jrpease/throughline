@@ -241,7 +241,9 @@ Read `${CLAUDE_PLUGIN_ROOT}/references/component-doc-schema.md` for the exact JS
 schema, the fingerprint algorithm, and the projection contract.
 
 **Run the generation pipeline (each layer only fills what it legitimately knows;
-stamp `provenance` per block):**
+stamp `provenance` per block):** all authored prose follows
+`${CLAUDE_PLUGIN_ROOT}/references/doc-writing-standard.md` — its plain
+reference register, not this skill's guide voice.
 
 0. **Ingest existing docs — brownfield only, runs first.** If docs already exist
    for this component (code JSDoc/MDX/README, or a populated Figma component
@@ -260,9 +262,15 @@ stamp `provenance` per block):**
    accessibility idiom to the target framework (the same field you read for variant
    vocabulary). Provenance `framework`.
 4. **Interview for the non-inferable.** Ask the user for brand/product-specific
-   do's & don'ts and intent. Provenance `user`. **Show the whole drafted record and
-   get explicit approval before writing anything** — layers 1–4 only fill blocks the
-   ingest step did not, and an `imported`/`user` block is never overwritten.
+   do's & don'ts and intent. Provenance `user`. Write the draft to
+   `design-system/docs/components/<Name>.doc.json`, run
+   `node ${CLAUDE_PLUGIN_ROOT}/scripts/docs-lint.mjs design-system/docs/components/<Name>.doc.json`,
+   and fix the warnings it raises — for `imported`/`user` blocks, surface the
+   warning to the user and let them decide per item, never silently rewrite.
+   **Show the whole drafted record and get explicit approval before
+   projecting it anywhere** (Figma description, doc card, manifest) — layers
+   1–4 only fill blocks the ingest step did not, and an `imported`/`user`
+   block is never overwritten.
 
 **Write the record and project it:**
 
