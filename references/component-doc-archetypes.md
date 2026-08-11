@@ -12,6 +12,8 @@ These are **seeds, not gospel** — the user's approval and the actual built
 component override them. Sources: W3C ARIA Authoring Practices Guide (roles +
 keyboard), Material 3, Shopify Polaris (content/usage), IBM Carbon (usage).
 
+Seeds are clause-style shorthand; the authoring pipeline expands them into full sentences per references/doc-writing-standard.md before they enter a record.
+
 ## Button
 
 - **whenToUse:** trigger an action or event (submit, confirm, open a dialog).
@@ -72,7 +74,7 @@ keyboard), Material 3, Shopify Polaris (content/usage), IBM Carbon (usage).
 ## Badge / chip / tag
 
 - **whenToUse:** short status, count, or category label (badge); a removable/
-  selectable token (chip).
+  selectable item (chip).
 - **whenNotToUse:** interactive primary actions (use a Button).
 - **dos:** keep text to a word or two; match badge color to its semantic meaning
   (success, warning, error).

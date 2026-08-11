@@ -11,7 +11,7 @@ to [Semantic Versioning](https://semver.org).
   the plain reference register for all doc-record prose — per-block rules for
   `description`, `whenToUse`/`whenNotToUse`, `variants`/`states`,
   `dos`/`donts`, and `accessibility.notes`, plus the banned machinery
-  vocabulary (tokens, bindings, fingerprints, provenance, projections,
+  vocabulary (tokens, variables, bindings, fingerprints, provenance, projections,
   surfaces). `scripts/docs-lint.mjs` checks the mechanically reliable subset
   of the standard — warnings only, always exits 0 on a parseable record — and
   installs as `docs:lint` alongside `docs:digest`/`docs:check`. The
