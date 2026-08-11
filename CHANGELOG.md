@@ -7,6 +7,21 @@ to [Semantic Versioning](https://semver.org).
 ## [Unreleased]
 
 ### Added
+- **Doc-writing standard and lint.** `references/doc-writing-standard.md` sets
+  the plain reference register for all doc-record prose — per-block rules for
+  `description`, `whenToUse`/`whenNotToUse`, `variants`/`states`,
+  `dos`/`donts`, and `accessibility.notes`, plus the banned machinery
+  vocabulary (tokens, bindings, fingerprints, provenance, projections,
+  surfaces). `scripts/docs-lint.mjs` checks the mechanically reliable subset
+  of the standard — warnings only, always exits 0 on a parseable record — and
+  installs as `docs:lint` alongside `docs:digest`/`docs:check`. The
+  `component-doc-archetypes.md` seed content was brought into compliance with
+  the standard. The `component-builder` authoring pipeline and
+  `/document-component` now run the lint after the record is written and
+  before the user-approval gate, fixing what it can and surfacing warnings on
+  `imported`/`user`-provenance blocks for the user to decide per item rather
+  than rewriting them silently.
+
 - **Deterministic doc-card builder (layout phase).** The doc card's `Usage` band
   is now rendered by a canonical, generated `figma_execute` snippet
   (`references/doc-card-builder.md`) built from a pure, unit-tested layout

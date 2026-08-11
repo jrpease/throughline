@@ -12,8 +12,13 @@ Ask which component to document (e.g. "Button"), then:
    the `component-builder` skill's *Author the documentation record* step —
    ingest any existing docs first (brownfield), then infer → enrich (from
    `${CLAUDE_PLUGIN_ROOT}/references/component-doc-archetypes.md`) → specialize →
-   interview. The user approves the drafted record; `imported`/`user` blocks are
-   never overwritten.
+   interview. Authored prose follows
+   `${CLAUDE_PLUGIN_ROOT}/references/doc-writing-standard.md`. Once the record is
+   written, run `node ${CLAUDE_PLUGIN_ROOT}/scripts/docs-lint.mjs
+   design-system/docs/components/<Name>.doc.json` and fix its warnings — for
+   `imported`/`user` blocks, surface the warning and let the user decide per
+   item — before the user approves the drafted record; `imported`/`user`
+   blocks are never overwritten.
 2. **Project it.** Write `design-system/docs/components/<Name>.doc.json`, set the
    Figma component `description`, rebuild the doc card's `Usage` band with the
    canonical builder (`${CLAUDE_PLUGIN_ROOT}/references/doc-card-builder.md` —
@@ -27,8 +32,8 @@ Ask which component to document (e.g. "Button"), then:
    missing, or its version is lower, `docs:check` is reading stale rules and its
    "no drift" is meaningless — say so plainly, and offer to refresh the repo's
    doc scripts from the plugin copy (`build-docs-digest.mjs`, `docs-check.mjs`,
-   `lib/doc-record.mjs`, `lib/doc-card-plan.mjs` — the same files
-   `storybook-chromatic-builder` installed at setup). Run `docs:check` (with the
+   `lib/doc-record.mjs`, `lib/doc-card-plan.mjs`, `docs-lint.mjs` — the same
+   files `storybook-chromatic-builder` installed at setup). Run `docs:check` (with the
    refreshed scripts, if any). For each drifted surface, offer a per-item
    choice — **re-render** (canonical wins) or **pull-back**
    (fold the surface edit into the record) — and land the result as a reviewable
