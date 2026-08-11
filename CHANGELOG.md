@@ -31,6 +31,8 @@ to [Semantic Versioning](https://semver.org).
   copied doc scripts are current before trusting `docs:check`, and offers to
   refresh them from the plugin when they've fallen behind.
 
+## [0.14.0] - 2026-07-14
+
 ### Added
 - **Component documentation layer ("ThroughLine Docs").** Every component gets a
   structured, AI-first canonical doc record (`design-system/docs/components/<Name>.doc.json`)

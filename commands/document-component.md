@@ -28,9 +28,9 @@ Ask which component to document (e.g. "Button"), then:
    "no drift" is meaningless — say so plainly, and offer to refresh the repo's
    doc scripts from the plugin copy (`build-docs-digest.mjs`, `docs-check.mjs`,
    `lib/doc-record.mjs`, `lib/doc-card-plan.mjs` — the same files
-   `storybook-chromatic-builder` installed at setup), then re-run `docs:check`
-   with the refreshed scripts. Then run `docs:check`. For each drifted surface,
-   offer a per-item choice — **re-render** (canonical wins) or **pull-back**
+   `storybook-chromatic-builder` installed at setup). Run `docs:check` (with the
+   refreshed scripts, if any). For each drifted surface, offer a per-item
+   choice — **re-render** (canonical wins) or **pull-back**
    (fold the surface edit into the record) — and land the result as a reviewable
    change. On a brownfield component's first pass, adopt existing content
    (`provenance: imported`) rather than overwriting it.

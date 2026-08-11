@@ -209,9 +209,11 @@ input.** Six contractual behaviors:
    recreating a component set detaches every downstream instance
    (`skills/component-builder/SKILL.md:347-351`), so the rebuild never crosses
    into the specimen band.
-2. **One component per card (amendment, post-dogfood).** Before the idempotency
-   guard runs, the builder checks for a foreign band — any child named
-   `Usage — *` that isn't the card's own `Usage` frame. A band like
+2. **One component per card (amendment, post-dogfood).** Before the specimen
+   lookup and the idempotency guard run, the builder checks for a foreign
+   band — any direct child whose name starts with `Usage` but isn't exactly
+   `Usage` (deliberately broad: any unexpected Usage-prefixed band fails
+   loudly, not just the "Usage — Component Name" shape). A band like
    "Usage — Select Menu Item" means the card documents more than one
    component; rendering here would append a band the builder doesn't own and
    silently accumulate. The builder throws instead, naming the offending band,
@@ -501,7 +503,7 @@ shippable.
    "Non-interactive and not focusable") are prose-standard catches, verified at
    the user-approval gate — the same reasoning as the verb-presence exemption.
 5. `docs:check` reports an old-layout card as `layout-upgrade-available`
-   without failing, and a re-rendered card stamps `renderer: "2"`.
+   without failing, and a re-rendered card stamps `renderer: "3"`.
 6. **Dogfood on `throughline-sample`:** re-documenting Button, Input, and Card
    rebuilds their cards in the new layout and voice, the renderer stamp flips
    to `"2"`, `docs:check` goes quiet, and the specimen's downstream instances

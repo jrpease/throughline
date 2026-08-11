@@ -20,6 +20,7 @@ test('cardColumns: clamp(maxBlocksPerRow, 3, ceil(specimenWidth / unit)) — con
   assert.equal(cardColumns(2010, 480, 3), 3);  // Input's dogfood case: was 5 (dead columns) — content caps it at 3
   assert.equal(cardColumns(1440, 480, 4), 3);  // Button's case: specimen ceiling still binds; 4th block wraps
   assert.equal(cardColumns(200, 480, 1), 3);   // narrow specimen, sparse content: 3-unit floor
+  assert.equal(cardColumns(0, 480, 2), 3);     // degenerate specimen width still floors at 3
   assert.equal(cardColumns(2010, 480, 0), 3);  // degenerate content count still floors at 3
 });
 
