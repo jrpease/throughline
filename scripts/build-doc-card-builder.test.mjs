@@ -12,7 +12,7 @@ const realRenderer = () => readFileSync(join(HERE, 'lib', 'doc-card-render.figma
 test('build: inlines the planner with export keywords stripped, no module syntax survives', () => {
   const md = buildDocCardBuilder({ plannerSource: realPlanner(), rendererSource: realRenderer() });
   assert.match(md, /function planDocCard\(/);
-  assert.match(md, /const DOC_CARD_RENDERER_VERSION = '2'/);
+  assert.match(md, /const DOC_CARD_RENDERER_VERSION = '3'/);
   assert.match(md, /async function renderDocCard\(/);
   const snippet = md.slice(md.indexOf('```js'), md.lastIndexOf('```'));
   assert.ok(!/^\s*(import|export)\b/m.test(snippet), 'snippet must contain no import/export lines');

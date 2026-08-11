@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DOC_CARD_RENDERER_VERSION, columnUnit, cardColumns, planDocCard } from './doc-card-plan.mjs';
 
-test('DOC_CARD_RENDERER_VERSION is the string "2"', () => {
-  assert.equal(DOC_CARD_RENDERER_VERSION, '2');
+test('DOC_CARD_RENDERER_VERSION is the string "3"', () => {
+  assert.equal(DOC_CARD_RENDERER_VERSION, '3');
 });
 
 test('columnUnit: clamp(round(fontSize × 30), 280, 480)', () => {
@@ -14,11 +14,13 @@ test('columnUnit: clamp(round(fontSize × 30), 280, 480)', () => {
   assert.equal(columnUnit(13.5), 405); // rounds: 13.5 × 30 = 405
 });
 
-test('cardColumns: max(3, ceil(specimenWidth / unit)) — width rounds UP to whole units', () => {
-  assert.equal(cardColumns(1500, 420), 4); // ceil(3.57) = 4
-  assert.equal(cardColumns(1260, 420), 3); // exact multiple stays 3
-  assert.equal(cardColumns(200, 480), 3);  // narrow specimen: 3-unit floor
-  assert.equal(cardColumns(0, 480), 3);    // degenerate specimen still floors at 3
+test('cardColumns: clamp(maxBlocksPerRow, 3, ceil(specimenWidth / unit)) — content-capped, width-ceilinged, 3-unit floored', () => {
+  assert.equal(cardColumns(1500, 420, 10), 4); // ceil(3.57) = 4, uncapped by content
+  assert.equal(cardColumns(1260, 420, 10), 3); // exact multiple stays 3
+  assert.equal(cardColumns(2010, 480, 3), 3);  // Input's dogfood case: was 5 (dead columns) — content caps it at 3
+  assert.equal(cardColumns(1440, 480, 4), 3);  // Button's case: specimen ceiling still binds; 4th block wraps
+  assert.equal(cardColumns(200, 480, 1), 3);   // narrow specimen, sparse content: 3-unit floor
+  assert.equal(cardColumns(2010, 480, 0), 3);  // degenerate content count still floors at 3
 });
 
 const FULL_RECORD = {
@@ -43,7 +45,7 @@ const FULL_RECORD = {
 
 test('planDocCard: full record → three rows with the canonical block layout', () => {
   const plan = planDocCard(FULL_RECORD, 1500, { fontSize: 14 });
-  assert.equal(plan.rendererVersion, '2');
+  assert.equal(plan.rendererVersion, '3');
   assert.equal(plan.columnUnit, 420);
   assert.equal(plan.columns, 4);          // ceil(1500 / 420)
   assert.equal(plan.cardWidth, 1680);     // 4 × 420
@@ -101,6 +103,26 @@ test('planDocCard: row names keep canonical numbers when an earlier row is absen
   // No description/whenToUse (row 1 empty), no dos/donts (row 2 empty) — the
   // states row is still named Usage Row 3, never renumbered.
   assert.deepEqual(plan.rows.map((r) => r.name), ['Usage Row 3']);
+});
+
+test('planDocCard: columns are capped by content, not just specimen width — a wide specimen with sparse rows does not mint dead columns', () => {
+  // Row 1 has 3 blocks (the widest row); row 2 has 2; row 3 has 1 — max is 3.
+  // A 2010px specimen would ceil to 5 columns on width alone; content caps it.
+  const plan = planDocCard(
+    {
+      name: 'Input',
+      summary: 's',
+      description: 'A single-line field for entering text.',
+      whenToUse: ['Collecting a short piece of free text.'],
+      whenNotToUse: ['Choosing from a fixed set. Use a Select instead.'],
+      dos: ['Label every input.'],
+      donts: ["Don't rely on placeholder text as the only label."],
+      states: { focused: 'The input has keyboard focus.' },
+    },
+    2010, { fontSize: 16 },
+  );
+  assert.equal(plan.columns, 3);
+  assert.equal(plan.cardWidth, 1440);
 });
 
 test('planDocCard: empty arrays and empty objects are skipped like absent fields', () => {
