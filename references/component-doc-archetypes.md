@@ -19,7 +19,7 @@ keyboard), Material 3, Shopify Polaris (content/usage), IBM Carbon (usage).
 - **dos:** lead the label with a verb; keep one primary (highest-emphasis) button
   per view; keep labels short (≤ ~3 words).
 - **donts:** don't use a button for navigation (use a Link); don't stack multiple
-  primary buttons; don't disable without telling the user why.
+  primary buttons (keep one per view); don't disable without telling the user why.
 - **accessibility (w3c-apg):** role `button`; Enter and Space activate; an
   icon-only button needs an `aria-label`; disabled buttons are not focusable.
 
@@ -43,7 +43,7 @@ keyboard), Material 3, Shopify Polaris (content/usage), IBM Carbon (usage).
   save (prefer a toggle) vs. a form choice (prefer radio/checkbox).
 - **dos:** label the control, not just the group; make the label clickable.
 - **donts:** don't use a radio group for multi-select (use checkboxes); don't use
-  a toggle for choices that only apply after a separate Save.
+  a toggle for choices needing a separate Save (use radio/checkbox).
 - **accessibility (w3c-apg):** roles `checkbox` / `radio` / `switch`; Space
   toggles; radio groups navigate with arrow keys; state exposed via
   `aria-checked`.
