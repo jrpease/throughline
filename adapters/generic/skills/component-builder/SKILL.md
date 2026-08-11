@@ -262,9 +262,10 @@ reference register, not this skill's guide voice.
    `node .throughline/scripts/docs-lint.mjs design-system/docs/components/<Name>.doc.json`,
    and fix the warnings it raises — for `imported`/`user` blocks, surface the
    warning to the user and let them decide per item, never silently rewrite.
-   **Show the whole drafted record and get explicit approval** — layers 1–4
-   only fill blocks the ingest step did not, and an `imported`/`user` block is
-   never overwritten.
+   **Show the whole drafted record and get explicit approval before
+   projecting it anywhere** (Figma description, doc card, manifest) — layers
+   1–4 only fill blocks the ingest step did not, and an `imported`/`user`
+   block is never overwritten.
 
 **Write the record and project it:**
 

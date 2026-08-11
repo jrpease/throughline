@@ -13,8 +13,9 @@ Ask which component to document (e.g. "Button"), then:
    written, run `node .throughline/scripts/docs-lint.mjs
    design-system/docs/components/<Name>.doc.json` and fix its warnings — for
    `imported`/`user` blocks, surface the warning and let the user decide per
-   item — before the user approves the drafted record; `imported`/`user`
-   blocks are never overwritten.
+   item. The user approves the drafted record before anything is projected
+   (Figma description, doc card, manifest); `imported`/`user` blocks are
+   never overwritten.
 2. **Project it.** Write `design-system/docs/components/<Name>.doc.json`, set the
    Figma component `description`, rebuild the doc card's `Usage` band with the
    canonical builder (`.throughline/references/doc-card-builder.md` —
