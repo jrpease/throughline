@@ -80,15 +80,12 @@ What the reader must do, not what the framework emits.
 
 ## Vocabulary
 
-Real names of things stay — `aria-label`, `role`, `Enter`, `Space` are what a
-reader would search for.
-
-Banned from user-facing prose: the system's own machinery vocabulary —
-*token(s)*, *variable(s)*, *binding(s)*, *fingerprint(s)*, *provenance*,
-*projection(s)*, *surface(s)* (machinery sense).
-
-`tokensUsed` keeps its token names — it is a structured field, machine-useful,
-never rendered as prose.
+Technical terms that are the real names of things stay — `aria-label`, `role`,
+`Enter`, `Space` are what a reader would search for. What is banned from
+user-facing prose is the system's own machinery vocabulary: tokens,
+variables, bindings, fingerprints, provenance, projections, surfaces (in the
+machinery sense). `tokensUsed` keeps its token names — it is a structured
+field, machine-useful, and never rendered as prose.
 
 ## Global rules
 
