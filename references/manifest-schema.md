@@ -11,11 +11,11 @@ what changed. Gating decisions are made by reading this file: if a prerequisite
 field is unset, the skill **offers** to run the prerequisite skill rather than
 bailing or running silently.
 
-## Schema (schemaVersion 5)
+## Schema (schemaVersion 6)
 
 ```json
 {
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "user": {
     "codingLevel": "new"
   },
@@ -198,21 +198,8 @@ bailing or running silently.
   (see `${CLAUDE_PLUGIN_ROOT}/references/doc-card-builder.md`). Exists because
   the roles are project-agnostic but the variable names are not — an
   unrecorded mapping drifts between renders (different roles resolved to
-  different variables each time) and leaves cards visually inconsistent.
-  Example:
-  ```json
-  "docCardVariables": {
-    "textDefault": "color/text/primary",
-    "textMuted": "color/text/secondary",
-    "tonePositive": "color/success/default",
-    "toneNegative": "color/danger/default",
-    "border": "color/border/default",
-    "spacePadding": "space/inset/lg",
-    "spaceRowGap": "space/gap/xl",
-    "spaceBlockGap": "space/gap/lg",
-    "spaceItemGap": "space/gap/sm"
-  }
-  ```
+  different variables each time) and leaves cards visually inconsistent. E.g.
+  `{ "textDefault": "color/text/primary", "textMuted": "color/text/secondary", "tonePositive": "color/success/default", "toneNegative": "color/danger/default", "border": "color/border/default", "spacePadding": "space/inset/lg", "spaceRowGap": "space/gap/xl", "spaceBlockGap": "space/gap/lg", "spaceItemGap": "space/gap/sm" }`.
 
 ### `tokens`
 - `intakeMode` — how the user started: `"generative"` (seed expanded by AI),
@@ -388,3 +375,7 @@ retrofit stands so a later session can resume.
 **v4 → v5 migration:** add `audit.docSurface` (default `null`) and the `docs`
 retrofit phase; `components.meta[name].doc` is added lazily per component as docs
 are authored. Bump `schemaVersion` to `5`. No existing field changes.
+
+**v5 → v6 migration:** add `figma.docCardVariables` (default `null`), populated
+on the first doc-card render. Bump `schemaVersion` to `6`. No existing field
+changes.
