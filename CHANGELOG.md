@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-08-12
+
 ### Added
 - **Doc-writing standard and lint.** `references/doc-writing-standard.md` sets
   the plain reference register for all doc-record prose — per-block rules for
