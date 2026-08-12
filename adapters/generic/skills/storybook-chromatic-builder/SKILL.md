@@ -27,14 +27,11 @@ system). Wire it to consume `packages/tokens` output so stories render with the
 real design tokens (import the generated CSS/theme). Checkpoint: confirm
 Storybook runs and shows the token-themed canvas.
 
-Install the documentation scripts alongside the token scripts (copy from the
-plugin's `scripts/` — `build-docs-digest.mjs`, `docs-check.mjs`,
-`lib/doc-record.mjs`, `lib/doc-card-plan.mjs`, and `docs-lint.mjs` — into the
-repo and register npm scripts):
-
-- `"docs:digest": "node scripts/build-docs-digest.mjs"`
-- `"docs:check": "node scripts/docs-check.mjs"`
-- `"docs:lint": "node scripts/docs-lint.mjs"`
+Install the documentation scripts alongside the token scripts: copy the five
+files and register the three npm scripts listed under **Documentation scripts —
+install as a set** in `.throughline/scripts/README.md`. That table is
+the single source of truth for what a consuming repo gets; do not restate the
+list here.
 
 These are the documentation analog of `tokens:validate`; see
 `.throughline/scripts/README.md`. This copy is setup, not a forever-fork:
@@ -275,8 +272,10 @@ the `figma_execute` scripting gotchas — `getNodeByIdAsync` and an explicit
   re-render the affected surfaces so `docs:check` stays green.
 - If Figma is connected (per `figma.mechanism`), open the component's doc card and
   update the `Status Label` text to `stable`, re-bind the `Status` chip fill to
-  the **success** semantic color variable (mode-aware, not a hardcoded hex), and
-  set `Last Updated` to today's date — then screenshot to confirm the chip
+  the **success** semantic color variable (mode-aware, not a hardcoded hex), then
+  re-run the canonical doc-card builder against the same card to refresh the
+  header date from the `record.updatedAt` already set above (it locates the date
+  node under either header shape) — then screenshot to confirm the chip
   recolored and the date changed.
 - If Figma isn't connected, still update the manifest and tell the user the card
   will reconcile next Figma session (or offer to reconnect and fix it now).

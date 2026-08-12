@@ -8,7 +8,7 @@
 
 // Single source of truth for the doc-card layout version. Imported by
 // docs-check.mjs and embedded (via inlining) into the generated builder snippet.
-export const DOC_CARD_RENDERER_VERSION = '3';
+export const DOC_CARD_RENDERER_VERSION = '4';
 
 // columnUnit = clamp(round(bodyFontSize × 30), 280, 480) px.
 // 30 ≈ 60ch × ~0.5em average glyph width for UI text faces. Layout chrome, not
@@ -17,11 +17,13 @@ export function columnUnit(bodyFontSize) {
   return Math.min(480, Math.max(280, Math.round(bodyFontSize * 30)));
 }
 
-// columns = clamp(max blocks in any row, 3, ceil(specimenWidth / unit)) —
-// the grid never exceeds what the content can fill (a wide specimen must not
-// mint dead columns), and never drops below the 3-unit floor.
-export function cardColumns(specimenWidth, unit, maxBlocksPerRow) {
-  return Math.max(3, Math.min(Math.ceil(specimenWidth / unit), maxBlocksPerRow));
+// columns = max(max blocks in any row, 3). Content alone decides: the grid
+// never mints a column no row can fill, and never drops below the 3-unit floor.
+// The specimen is deliberately NOT an input — the render widens the card, the
+// card's hug propagates into FILL siblings including the specimen, so any
+// specimen measurement is a value this render mutates and the next one reads.
+export function cardColumns(maxBlocksPerRow) {
+  return Math.max(3, maxBlocksPerRow);
 }
 
 function listBlock(eyebrow, items) {
@@ -39,7 +41,7 @@ function definitionBlock(eyebrow, meanings) {
 // row's number is skipped, never renumbered) so node names stay stable across
 // sparse records. bodyTextStyle: only .fontSize is read — passing a full Figma
 // TextStyle object is fine.
-export function planDocCard(record, specimenWidth, bodyTextStyle) {
+export function planDocCard(record, bodyTextStyle) {
   const unit = columnUnit(bodyTextStyle.fontSize);
 
   const row1 = [];
@@ -78,7 +80,7 @@ export function planDocCard(record, specimenWidth, bodyTextStyle) {
   ].filter((r) => r.blocks.length > 0);
 
   const maxBlocksPerRow = rows.reduce((m, r) => Math.max(m, r.blocks.length), 0);
-  const columns = cardColumns(specimenWidth, unit, maxBlocksPerRow);
+  const columns = cardColumns(maxBlocksPerRow);
 
   return {
     rendererVersion: DOC_CARD_RENDERER_VERSION,
@@ -86,6 +88,14 @@ export function planDocCard(record, specimenWidth, bodyTextStyle) {
     columns,
     cardWidth: columns * unit,
     termColumn: Math.round(unit * 0.3),
+    // The header band's record-derived content. Carried in the plan (not read
+    // straight off the record by the renderer) so renderHash describes every
+    // string the builder writes onto the card, header included. Always strings:
+    // an undefined would drop the key from JSON.stringify and move the hash.
+    header: {
+      summary: typeof record.summary === 'string' ? record.summary : '',
+      updatedAt: typeof record.updatedAt === 'string' ? record.updatedAt : '',
+    },
     rows,
   };
 }

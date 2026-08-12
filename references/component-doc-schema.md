@@ -58,9 +58,17 @@ deterministically. JSON is equally machine-legible for AI consumers.
 - **Lifecycle:** `status` (`draft`|`beta`|`stable`|`deprecated`), `updatedAt` (ISO date).
 - **`provenance`** — per-block author source, one of `imported`, `ai-inferred`,
   `best-practice`, `w3c-apg`, `framework`, `user`, or a `+`-joined combination
-  (e.g. `best-practice+user`). Regeneration re-infers `ai-inferred`/`framework`
-  blocks and **never overwrites** a block whose provenance includes `user` or
-  `imported`.
+  (e.g. `best-practice+user`). Regeneration **re-infers** a block whose
+  provenance includes `ai-inferred`, `framework`, `best-practice`, or `w3c-apg`,
+  and **never overwrites** one whose provenance includes `user` or `imported`.
+  Every value is assigned to exactly one of those two tiers: generated content is
+  re-inferred, human input (`user`) and pre-existing external content
+  (`imported`) are protected. Protection takes precedence: a combination that
+  contains both — `best-practice+user`, say — is protected. A block is
+  re-inferred only when it carries no `user` or `imported` marker at all. A
+  protected block may still be rewritten when the user approves the rewrite at
+  the record-approval gate; the result is stamped `imported+user`, which is
+  protected from then on and never re-proposed.
 
 Deferred to a later version (do not emit in v1): `anatomy`, `content` (writing
 guidelines), `examples`.
@@ -84,7 +92,7 @@ Figma-connected skill computing the identical hash over the description content.
 |---|---|---|---|---|
 | summary, description | ✔ | ✔ | ✔ | ✔ |
 | whenToUse / whenNotToUse | ✔ | ✔ | ✔ | ✔ |
-| variants, states (meanings) | ✔ compact | ✔ legend | ✔ argTypes | ✔ |
+| variants, states (meanings) | — | ✔ legend | ✔ argTypes | ✔ |
 | dos / donts | ✔ | ✔ | ✔ | ✔ |
 | accessibility | ✔ | ✔ | ✔ | ✔ |
 | tokensUsed | — | — | ✔ | ✔ |
@@ -105,7 +113,7 @@ The manifest stores pointers + per-surface fingerprints, never content:
     "fingerprint": "<canonical fingerprint at last render>",
     "surfaces": {
       "figmaDescription": { "src": "<fp>", "render": "<hash of description text>" },
-      "docCard":          { "src": "<fp>", "render": "<hash of card content>", "renderer": "3" },
+      "docCard":          { "src": "<fp>", "render": "<hash of card content>", "renderer": "4" },
       "storybookMdx":     { "src": "<fp>", "render": "<hash of mdx file>", "file": "packages/ui/src/Button/Button.mdx" }
     }
   }
@@ -118,7 +126,7 @@ The manifest stores pointers + per-surface fingerprints, never content:
 - `file` — repo-relative path for code surfaces so `docs:check` can re-read them.
 - `renderer` — (docCard only) the layout version of the builder that last
   rendered the card: `DOC_CARD_RENDERER_VERSION` in `scripts/lib/doc-card-plan.mjs`,
-  currently `"3"`. Additive and optional — absence means the card predates the
+  currently `"4"`. Additive and optional — absence means the card predates the
   versioned builder. Stamped from the builder's returned summary, never by
   re-reading the card.
 

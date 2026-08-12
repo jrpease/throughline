@@ -7,20 +7,60 @@
 
 The canonical `figma_execute` snippet that renders a component doc card's
 `Usage` band from its `.doc.json` record. Every card is identical by
-construction — never hand-build the usage body. The snippet rebuilds ONLY the
-frame named `Usage`; the header and specimen bands are never touched.
+construction — never hand-build the usage body. The builder owns the `Usage`
+band and the header's record-derived content (its short description and date);
+it reads the specimen and never writes it. The status chip keeps its own owner
+— the finalize write-back in `references/figma-component-standards.md`.
 
 ## How to call it
 
 1. Load the record and compute its canonical fingerprint in Node
    (`canonicalFingerprint` in `scripts/lib/doc-record.mjs`).
-2. Resolve the nine required semantic variables via `figma_get_variables`,
-   then in the script fetch each as a Variable object with
-   `figma.variables.getVariableByIdAsync(id)`:
-   `textDefault`, `textMuted` (text colors), `tonePositive`, `toneNegative`
-   (Do/Don't eyebrow colors — success/danger roles), `border` (row dividers),
-   `spacePadding`, `spaceRowGap`, `spaceBlockGap`, `spaceItemGap` (spacing
-   roles: band padding, row gap, block gutter, within-block gap).
+2. Read `figma.docCardVariables` from `design-system.json`.
+   - If present, resolve each of the nine roles to a Variable object **by
+     the recorded name** — do not re-derive, do not substitute a similar
+     name. Look each name up via `figma_get_variables`, then in the script
+     fetch it as a Variable object with
+     `figma.variables.getVariableByIdAsync(id)`. If a recorded name no
+     longer resolves to exactly one variable in the file, **throw** rather
+     than guess — the token was renamed or removed, and silently picking a
+     neighbour is how cards drift apart.
+   - If the field is absent (a project's first doc-card render, or any
+     render after the field is cleared), do not resolve fresh by judgement
+     yet — first check whether a doc card already exists in the file. If
+     one does, recover all nine roles from it by resolving each bound
+     variable id back to its name (`figma.variables.getVariableByIdAsync(id)`):
+     - `spacePadding` ← the `Usage` frame's `paddingLeft`.
+     - `spaceRowGap` ← the `Usage` frame's `itemSpacing`.
+     - `spaceBlockGap` ← a `Usage Row *` frame's `itemSpacing`.
+     - `spaceItemGap` ← a `Block: *` frame's `itemSpacing` (blocks are the
+       children of a `Usage Row *`).
+     - `border` ← a `Row Divider` frame's
+       `fills[0].boundVariables.color`.
+     - `tonePositive` ← the first TEXT child of the `Block: Do` frame's
+       `fills[0].boundVariables.color`.
+     - `toneNegative` ← the first TEXT child of the `Block: Don't` frame,
+       same property.
+     - `textMuted` ← the first TEXT child of any block other than
+       `Block: Do` / `Block: Don't`, same property (tone blocks colour
+       their eyebrow differently, so exclude them here).
+     - `textDefault` ← the second child of that same block when it is a
+       TEXT node — `Block: Overview` is reliable; definition blocks nest
+       frames there instead, so skip those. Same property.
+     A single-row card has no `Row Divider` (no `border`); a card without
+     `Block: Do` / `Block: Don't` yields no `tonePositive` / `toneNegative`.
+     Read another rendered card for the roles that specific card can't
+     yield, or fall back to judgement for just those. Only when no
+     rendered card exists at all does the caller choose every role by
+     judgement — establishing the project's rhythm, not guessing at one.
+   Either way, resolve the nine roles once, **write the mapping back to
+   `design-system.json`** as `figma.docCardVariables`, then render. Every
+   later render reads it.
+   The nine roles: `textDefault`, `textMuted` (text colors), `tonePositive`,
+   `toneNegative` (Do/Don't eyebrow colors — success/danger roles), `border`
+   (row dividers), `spacePadding`, `spaceRowGap`, `spaceBlockGap`,
+   `spaceItemGap` (spacing roles: band padding, row gap, block gutter,
+   within-block gap).
 3. Find the body text style: `(await figma.getLocalTextStylesAsync())
    .find((s) => s.name === 'Body/Default')`. Missing variables or style =
    the builder throws (bind-or-throw — the gap is in the token set; fix it
@@ -56,7 +96,7 @@ const summary = await renderDocCard({ card, record: RECORD, vars, bodyTextStyle 
 
 // Single source of truth for the doc-card layout version. Imported by
 // docs-check.mjs and embedded (via inlining) into the generated builder snippet.
-const DOC_CARD_RENDERER_VERSION = '3';
+const DOC_CARD_RENDERER_VERSION = '4';
 
 // columnUnit = clamp(round(bodyFontSize × 30), 280, 480) px.
 // 30 ≈ 60ch × ~0.5em average glyph width for UI text faces. Layout chrome, not
@@ -65,11 +105,13 @@ function columnUnit(bodyFontSize) {
   return Math.min(480, Math.max(280, Math.round(bodyFontSize * 30)));
 }
 
-// columns = clamp(max blocks in any row, 3, ceil(specimenWidth / unit)) —
-// the grid never exceeds what the content can fill (a wide specimen must not
-// mint dead columns), and never drops below the 3-unit floor.
-function cardColumns(specimenWidth, unit, maxBlocksPerRow) {
-  return Math.max(3, Math.min(Math.ceil(specimenWidth / unit), maxBlocksPerRow));
+// columns = max(max blocks in any row, 3). Content alone decides: the grid
+// never mints a column no row can fill, and never drops below the 3-unit floor.
+// The specimen is deliberately NOT an input — the render widens the card, the
+// card's hug propagates into FILL siblings including the specimen, so any
+// specimen measurement is a value this render mutates and the next one reads.
+function cardColumns(maxBlocksPerRow) {
+  return Math.max(3, maxBlocksPerRow);
 }
 
 function listBlock(eyebrow, items) {
@@ -87,7 +129,7 @@ function definitionBlock(eyebrow, meanings) {
 // row's number is skipped, never renumbered) so node names stay stable across
 // sparse records. bodyTextStyle: only .fontSize is read — passing a full Figma
 // TextStyle object is fine.
-function planDocCard(record, specimenWidth, bodyTextStyle) {
+function planDocCard(record, bodyTextStyle) {
   const unit = columnUnit(bodyTextStyle.fontSize);
 
   const row1 = [];
@@ -126,7 +168,7 @@ function planDocCard(record, specimenWidth, bodyTextStyle) {
   ].filter((r) => r.blocks.length > 0);
 
   const maxBlocksPerRow = rows.reduce((m, r) => Math.max(m, r.blocks.length), 0);
-  const columns = cardColumns(specimenWidth, unit, maxBlocksPerRow);
+  const columns = cardColumns(maxBlocksPerRow);
 
   return {
     rendererVersion: DOC_CARD_RENDERER_VERSION,
@@ -134,6 +176,14 @@ function planDocCard(record, specimenWidth, bodyTextStyle) {
     columns,
     cardWidth: columns * unit,
     termColumn: Math.round(unit * 0.3),
+    // The header band's record-derived content. Carried in the plan (not read
+    // straight off the record by the renderer) so renderHash describes every
+    // string the builder writes onto the card, header included. Always strings:
+    // an undefined would drop the key from JSON.stringify and move the hash.
+    header: {
+      summary: typeof record.summary === 'string' ? record.summary : '',
+      updatedAt: typeof record.updatedAt === 'string' ? record.updatedAt : '',
+    },
     rows,
   };
 }
@@ -211,22 +261,108 @@ async function renderDocCard({ card, record, vars, bodyTextStyle }) {
       + '" — one component per doc card; split this card so each component owns its own card before re-rendering');
   }
 
-  // Measure the specimen: the card's COMPONENT_SET is the specimen contract —
-  // its width drives the column calculation. (No named "Specimen" band lookup:
-  // no real card has ever used one, so that path never executed.)
+  // Structural contract only: the card must contain a COMPONENT_SET. It is
+  // deliberately NOT measured — the render widens the card, the card's hug
+  // propagates into FILL siblings including the specimen, so any specimen
+  // measurement is a value this render mutates and the next one reads. (No
+  // named "Specimen" band lookup: no real card has ever used one, so that
+  // path never executed.)
   const specimen = card.findOne((n) => n.type === 'COMPONENT_SET');
   if (!specimen) {
     throw new Error('renderDocCard: no COMPONENT_SET found inside the card — the specimen band must contain the component set');
   }
 
-  const plan = planDocCard(record, specimen.width, { fontSize: bodyTextStyle.fontSize });
+  // The header band's record-derived content is written further below (after
+  // the Usage band rebuild), but its shape is validated here — before ANY
+  // mutation — so a shape mismatch throws with the card untouched. The
+  // builder owns this content: the status write-back only fires on a status
+  // change, so a re-voiced component that is already `stable` would otherwise
+  // keep its original blurb and date forever. The status chip itself is NOT
+  // touched — the finalize write-back still owns it.
+  //
+  // The header band's own name is unreliable (`Header` on Button, `Frame` on
+  // the other 12 cards measured), so it is located structurally instead — the
+  // card's child FRAME that is neither the `Usage` band nor the specimen nor
+  // an ancestor of it.
+  const headerBand = card.children.find((n) =>
+    n.type === 'FRAME'
+    && n.name !== 'Usage'
+    && n.id !== specimen.id
+    && !n.findOne((d) => d.id === specimen.id));
+  if (!headerBand) {
+    throw new Error('renderDocCard: no header band found — expected a child frame holding the component name, description, status chip and date');
+  }
+
+  // Two accepted header shapes (figma-component-standards.md "The header"):
+  // legacy cards carry a `Status Pill` descendant plus a label/value date
+  // frame; to-spec cards (built by /new-component per the written standard)
+  // carry `Status`/`Status Label` plus a `Last Updated` TEXT node. Neither is
+  // going away, so both are located structurally rather than by fixed
+  // child-index, resolving to the same three anchors below.
+  const titleRow = headerBand.children[0];
+  const hasStatusAnchor = !!(titleRow && titleRow.type === 'FRAME'
+    && titleRow.findOne((d) => d.name === 'Status Pill' || d.name === 'Status'));
+
+  // Date anchor. To-spec: a direct TEXT child of the header band named
+  // `Last Updated` — that node IS the value. Legacy: a FRAME child whose
+  // first child is TEXT reading exactly "Last updated"; the value is that
+  // frame's other TEXT child, found by elimination against the label rather
+  // than assumed by index.
+  let dateValue = headerBand.children.find((n) => n.type === 'TEXT' && n.name === 'Last Updated');
+  if (!dateValue) {
+    const legacyDateFrame = headerBand.children.find((n) =>
+      n.type === 'FRAME' && n.children[0] && n.children[0].type === 'TEXT'
+      && n.children[0].characters === 'Last updated');
+    if (legacyDateFrame) {
+      const dateLabel = legacyDateFrame.children[0];
+      dateValue = legacyDateFrame.children.find((n) => n !== dateLabel && n.type === 'TEXT');
+    }
+  }
+
+  // Description anchor: the header band's own bare description TEXT node — a
+  // direct TEXT child that is neither the title row nor the resolved date
+  // node. Not assumed by fixed index: the to-spec shape's child count can
+  // differ from the legacy 3-child shape.
+  //
+  // A node already named `Header Description` (a prior run's rename) is
+  // unambiguous by construction, so it wins outright. Failing that the
+  // candidates must resolve to EXACTLY ONE: picking the first of several
+  // would, on a header that also exposes its component-name TEXT as a direct
+  // child, overwrite that name with the summary and then rename it — wrong,
+  // destructive, and self-perpetuating on every later run. A visible date
+  // LABEL sibling (the "Last updated" caption, distinct from the value node
+  // resolved above) is excluded rather than counted, so the to-spec shape
+  // that carries one is still accepted instead of being falsely rejected.
+  const named = headerBand.children.find((n) => n.type === 'TEXT' && n.name === 'Header Description');
+  const descCandidates = headerBand.children.filter((n) =>
+    n !== titleRow && n.type === 'TEXT' && n !== dateValue
+    && n.name !== 'Last Updated' && n.characters !== 'Last updated');
+  const headerDescCandidate = named || (descCandidates.length === 1 ? descCandidates[0] : null);
+  const descAmbiguous = !named && descCandidates.length > 1;
+
+  const missingAnchors = [];
+  if (!hasStatusAnchor) missingAnchors.push('status (title row must contain a descendant named "Status Pill" or "Status")');
+  if (!headerDescCandidate) {
+    missingAnchors.push(descAmbiguous
+      ? 'description (found ' + descCandidates.length + ' candidate TEXT children, cannot tell which is the description — name the right one "Header Description" by hand and re-run)'
+      : 'description (a bare TEXT child distinct from the title row and the date node)');
+  }
+  if (!dateValue) missingAnchors.push('date (either a "Last Updated" TEXT child, or a FRAME child whose first TEXT child reads "Last updated")');
+  if (missingAnchors.length) {
+    throw new Error('renderDocCard: header band does not match either accepted shape — missing anchor(s): '
+      + missingAnchors.join('; ')
+      + ' — refusing to guess which node to write; see "The header" in figma-component-standards.md for the two accepted shapes');
+  }
+
+  const plan = planDocCard(record, { fontSize: bodyTextStyle.fontSize });
 
   // Eyebrow chrome (derived, not bound — layout chrome like the column unit):
   // fontSize × 0.65 rounded, min 8; Bold; uppercase; letter-spacing +8%.
   const eyebrowSize = Math.max(8, Math.round(bodyTextStyle.fontSize * 0.65));
 
-  // Idempotent + scoped: rebuild ONLY the Usage frame. Header and specimen are
-  // never touched — recreating a component set detaches downstream instances.
+  // Idempotent + scoped: rebuild ONLY the Usage frame. The specimen is never touched
+  // — recreating a component set detaches downstream instances. (The header's
+  // record-derived content is written separately, below.)
   const existing = card.findChild((n) => n.name === 'Usage');
   if (existing) existing.remove();
 
@@ -370,6 +506,47 @@ async function renderDocCard({ card, record, vars, bodyTextStyle }) {
   fp.visible = false;
   usage.appendChild(fp);
 
+  // The header band's record-derived content — its shape (status, description,
+  // and date anchors) was already validated above, before the Usage band
+  // rebuild.
+
+  // Load a text node's own fonts before writing, and never touch its style:
+  // the header's type is card chrome, not part of this projection. A
+  // zero-length node can't have mixed fonts (getRangeAllFontNames(0, 1) would
+  // exceed the text and throw), so it takes its own path via .fontName.
+  const writeChars = async (node, chars) => {
+    const len = node.characters.length;
+    if (len === 0) {
+      await figma.loadFontAsync(node.fontName);
+    } else {
+      for (const f of node.getRangeAllFontNames(0, len)) await figma.loadFontAsync(f);
+    }
+    node.characters = chars;
+  };
+
+  // Self-migrating: the anchor resolved above already preferred a node named
+  // `Header Description` over a positional match, so renaming here makes
+  // every later run deterministic by name rather than by position.
+  const headerDesc = headerDescCandidate;
+  if (headerDesc.name !== 'Header Description') headerDesc.name = 'Header Description';
+  // record.summary is schema-required but the renderer never calls
+  // validateRecord() itself — an unvalidated record's default ('') must not
+  // silently blank a live card's description.
+  if (plan.header.summary) await writeChars(headerDesc, plan.header.summary);
+  // Re-assert the one-column clamp (figma-component-standards.md): the header
+  // description never stretches across a wide matrix. Layout, not content —
+  // re-applied on every render regardless of whether the text changed.
+  headerDesc.textAutoResize = 'HEIGHT';
+  headerDesc.resize(plan.columnUnit, headerDesc.height);
+  headerDesc.layoutSizingHorizontal = 'FIXED';
+
+  // Single source for the header date: record.updatedAt (via plan.header —
+  // see figma-component-standards.md "Last updated"). `dateValue` was
+  // resolved above, before the Usage rebuild, under either header shape.
+  if (dateValue && plan.header.updatedAt) {
+    await writeChars(dateValue, plan.header.updatedAt);
+  }
+
   return {
     rendererVersion: DOC_CARD_RENDERER_VERSION,
     columnUnit: plan.columnUnit,
@@ -377,6 +554,7 @@ async function renderDocCard({ card, record, vars, bodyTextStyle }) {
     cardWidth: plan.cardWidth,
     rowsRendered: plan.rows.length,
     blocksCreated,
+    headerWritten: true,
     fingerprint: CANONICAL_FP,
     renderHash: fnv1a(JSON.stringify(plan)),
   };

@@ -18,9 +18,10 @@ to [Semantic Versioning](https://semver.org).
   `component-doc-archetypes.md` seed content was brought into compliance with
   the standard. The `component-builder` authoring pipeline and
   `/document-component` now run the lint after the record is written and
-  before the user-approval gate, fixing what it can and surfacing warnings on
-  `imported`/`user`-provenance blocks for the user to decide per item rather
-  than rewriting them silently.
+  before the user-approval gate, fixing what it can and carrying any
+  `imported`/`user`-provenance warning as a proposed before/after rewrite into
+  the single record-approval gate; a block the user clears there is stamped
+  `imported+user` so a later run neither re-asks about it nor rewrites it.
 
 - **Deterministic doc-card builder (layout phase).** The doc card's `Usage` band
   is now rendered by a canonical, generated `figma_execute` snippet
@@ -32,11 +33,23 @@ to [Semantic Versioning](https://semver.org).
   `layout-upgrade-available`, never as drift. CI gates the generated snippet
   with `build-doc-card-builder.mjs --check`.
 
+### Changed
+- **Provenance protection is now tier-based.** Every `provenance` value on a
+  doc-record block is assigned to exactly one of two tiers: generated
+  (`ai-inferred`, `framework`, `best-practice`, `w3c-apg`) is re-inferred on
+  regeneration; human input (`user`) and pre-existing external content
+  (`imported`) are protected from being silently overwritten. On a
+  `+`-joined combination, protection wins — `best-practice+user` is
+  protected. A protected block can still be rewritten when the user approves
+  the rewrite at the record-approval gate, and the result is stamped
+  `imported+user`, staying protected from then on.
+
 ### Fixed
-- **Doc-card post-dogfood fixes.** Column count is now capped by content, not
-  just specimen width (`cardColumns` clamps to the max blocks in any row), so
-  a wide specimen with sparse Usage content no longer mints dead columns;
-  `DOC_CARD_RENDERER_VERSION` bumps to `"3"` and old-layout cards re-flag
+- **Doc-card post-dogfood fixes.** Column count is now decided by content
+  alone — `cardColumns` takes no specimen input at all, so a wide specimen
+  with sparse Usage content no longer mints dead columns, and the render can
+  no longer feed its own next run a measurement it moved;
+  `DOC_CARD_RENDERER_VERSION` bumps to `'4'` and old-layout cards re-flag
   `layout-upgrade-available`. The builder now refuses to render a card that
   already carries a foreign `Usage — *` band (documents more than one
   component) instead of silently accumulating one. The `Usage` frame sets
@@ -45,6 +58,18 @@ to [Semantic Versioning](https://semver.org).
   `/document-component`'s drift-reconcile step now checks that the repo's
   copied doc scripts are current before trusting `docs:check`, and offers to
   refresh them from the plugin when they've fallen behind.
+- **Doc-card header now accepts both documented header shapes.** The header
+  guard previously required legacy nodes (`Status Pill`, and a "Last updated"
+  label/value frame) and rejected a card built exactly to the written
+  standard (`Status`/`Status Label`, a `Last Updated` text node) — throwing
+  after the `Usage` band had already been rebuilt, with an error that pointed
+  at the description rather than the real mismatch. The guard now accepts
+  either shape, runs before any mutation so a shape mismatch leaves the card
+  untouched, and names which anchor (status, description, or date) it
+  couldn't find. The header date now has a single source, the doc record's
+  `updatedAt` field — the status-promotion write-back no longer hand-stamps a
+  second date onto a guessed node; it refreshes the record and re-renders the
+  card instead.
 
 ## [0.14.0] - 2026-07-14
 

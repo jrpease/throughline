@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DOC_CARD_RENDERER_VERSION, columnUnit, cardColumns, planDocCard } from './doc-card-plan.mjs';
 
-test('DOC_CARD_RENDERER_VERSION is the string "3"', () => {
-  assert.equal(DOC_CARD_RENDERER_VERSION, '3');
+test('DOC_CARD_RENDERER_VERSION is the string "4"', () => {
+  assert.equal(DOC_CARD_RENDERER_VERSION, '4');
 });
 
 test('columnUnit: clamp(round(fontSize × 30), 280, 480)', () => {
@@ -14,14 +14,20 @@ test('columnUnit: clamp(round(fontSize × 30), 280, 480)', () => {
   assert.equal(columnUnit(13.5), 405); // rounds: 13.5 × 30 = 405
 });
 
-test('cardColumns: clamp(maxBlocksPerRow, 3, ceil(specimenWidth / unit)) — content-capped, width-ceilinged, 3-unit floored', () => {
-  assert.equal(cardColumns(1500, 420, 10), 4); // ceil(3.57) = 4, uncapped by content
-  assert.equal(cardColumns(1260, 420, 10), 3); // exact multiple stays 3
-  assert.equal(cardColumns(2010, 480, 3), 3);  // Input's dogfood case: was 5 (dead columns) — content caps it at 3
-  assert.equal(cardColumns(1440, 480, 4), 3);  // Button's case: specimen ceiling still binds; 4th block wraps
-  assert.equal(cardColumns(200, 480, 1), 3);   // narrow specimen, sparse content: 3-unit floor
-  assert.equal(cardColumns(0, 480, 2), 3);     // degenerate specimen width still floors at 3
-  assert.equal(cardColumns(2010, 480, 0), 3);  // degenerate content count still floors at 3
+test('cardColumns: content decides, with a floor of 3', () => {
+  assert.equal(cardColumns(1), 3);   // sparse record still gets the 3-unit floor
+  assert.equal(cardColumns(3), 3);
+  assert.equal(cardColumns(4), 4);   // Button: two variant axes + states + a11y
+  assert.equal(cardColumns(6), 6);
+});
+
+test('planDocCard derives columns from content alone', () => {
+  const plan = planDocCard(
+    { name: 'Input', description: 'x', whenToUse: ['a'], whenNotToUse: ['b'] },
+    { fontSize: 16 },
+  );
+  assert.equal(plan.columns, 3);
+  assert.equal(plan.cardWidth, 3 * plan.columnUnit);
 });
 
 const FULL_RECORD = {
@@ -45,10 +51,10 @@ const FULL_RECORD = {
 };
 
 test('planDocCard: full record → three rows with the canonical block layout', () => {
-  const plan = planDocCard(FULL_RECORD, 1500, { fontSize: 14 });
-  assert.equal(plan.rendererVersion, '3');
+  const plan = planDocCard(FULL_RECORD, { fontSize: 14 });
+  assert.equal(plan.rendererVersion, '4');
   assert.equal(plan.columnUnit, 420);
-  assert.equal(plan.columns, 4);          // ceil(1500 / 420)
+  assert.equal(plan.columns, 4);          // Usage Row 3 has 4 blocks: the widest row
   assert.equal(plan.cardWidth, 1680);     // 4 × 420
   assert.equal(plan.termColumn, 126);     // round(420 × 0.3)
   assert.deepEqual(plan.rows.map((r) => r.name), ['Usage Row 1', 'Usage Row 2', 'Usage Row 3']);
@@ -65,7 +71,7 @@ test('planDocCard: full record → three rows with the canonical block layout', 
 });
 
 test('planDocCard: definition terms preserve key order; accessibility = keyboard then notes, role dropped', () => {
-  const plan = planDocCard(FULL_RECORD, 1500, { fontSize: 14 });
+  const plan = planDocCard(FULL_RECORD, { fontSize: 14 });
   const variantBlock = plan.rows[2].blocks[0];
   assert.equal(variantBlock.type, 'definition');
   assert.deepEqual(variantBlock.terms, [
@@ -81,13 +87,13 @@ test('planDocCard: definition terms preserve key order; accessibility = keyboard
 });
 
 test('planDocCard: tone blocks carry the glyph eyebrows, plain deterministic names', () => {
-  const plan = planDocCard(FULL_RECORD, 1500, { fontSize: 14 });
+  const plan = planDocCard(FULL_RECORD, { fontSize: 14 });
   assert.deepEqual(plan.rows[1].blocks.map((b) => b.eyebrow), ['✓ Do', "✕ Don't"]);
 });
 
 test('planDocCard: sparse record → only Usage Row 1 with Overview; empty rows collapse', () => {
   const plan = planDocCard(
-    { name: 'Badge', summary: 's', description: 'A small label.' }, 200, { fontSize: 16 },
+    { name: 'Badge', summary: 's', description: 'A small label.' }, { fontSize: 16 },
   );
   assert.equal(plan.columnUnit, 480);
   assert.equal(plan.columns, 3);         // 3-unit floor
@@ -99,16 +105,15 @@ test('planDocCard: sparse record → only Usage Row 1 with Overview; empty rows 
 test('planDocCard: row names keep canonical numbers when an earlier row is absent', () => {
   const plan = planDocCard(
     { name: 'X', summary: 's', description: '', states: { hover: 'Pointer over it.' } },
-    200, { fontSize: 16 },
+    { fontSize: 16 },
   );
   // No description/whenToUse (row 1 empty), no dos/donts (row 2 empty) — the
   // states row is still named Usage Row 3, never renumbered.
   assert.deepEqual(plan.rows.map((r) => r.name), ['Usage Row 3']);
 });
 
-test('planDocCard: columns are capped by content, not just specimen width — a wide specimen with sparse rows does not mint dead columns', () => {
+test('planDocCard: columns come from the widest row alone, no specimen measurement involved', () => {
   // Row 1 has 3 blocks (the widest row); row 2 has 2; row 3 has 1 — max is 3.
-  // A 2010px specimen would ceil to 5 columns on width alone; content caps it.
   const plan = planDocCard(
     {
       name: 'Input',
@@ -120,7 +125,7 @@ test('planDocCard: columns are capped by content, not just specimen width — a 
       donts: ["Don't rely on placeholder text as the only label."],
       states: { focused: 'The input has keyboard focus.' },
     },
-    2010, { fontSize: 16 },
+    { fontSize: 16 },
   );
   assert.equal(plan.columns, 3);
   assert.equal(plan.cardWidth, 1440);
@@ -129,8 +134,22 @@ test('planDocCard: columns are capped by content, not just specimen width — a 
 test('planDocCard: empty arrays and empty objects are skipped like absent fields', () => {
   const plan = planDocCard(
     { name: 'X', summary: 's', description: 'd', whenToUse: [], variants: {}, dos: [] },
-    200, { fontSize: 16 },
+    { fontSize: 16 },
   );
   assert.deepEqual(plan.rows.map((r) => r.name), ['Usage Row 1']);
   assert.deepEqual(plan.rows[0].blocks.map((b) => b.name), ['Block: Overview']);
+});
+
+test('plan carries the header fields the builder writes', () => {
+  const plan = planDocCard(
+    { name: 'Button', summary: 'Starts an action.', updatedAt: '2026-08-12', description: 'x' },
+    { fontSize: 16 },
+  );
+  assert.deepEqual(plan.header, { summary: 'Starts an action.', updatedAt: '2026-08-12' });
+});
+
+test('plan header is always strings, so the render hash stays stable', () => {
+  const plan = planDocCard({ name: 'Button', description: 'x' }, { fontSize: 16 });
+  assert.deepEqual(plan.header, { summary: '', updatedAt: '' });
+  assert.doesNotThrow(() => JSON.stringify(plan));
 });

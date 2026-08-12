@@ -73,6 +73,10 @@ export function lintRecord(record) {
       warn(path, 'machinery-vocabulary',
         `"${banned}" is the system's machinery vocabulary — describe the thing and how to use it, never how it was made`);
     }
+    if (/`[^`]+`/.test(String(text))) {
+      warn(path, 'no-inline-code',
+        'inline-code backticks render as literal characters on the doc card and are stripped from the Figma description — write the term as plain text');
+    }
     for (const sentence of String(text).split(/[.!?]+/)) {
       const n = words(sentence).length;
       if (n > 35) warn(path, 'run-on-sentence', `sentence has ${n} words (max 35)`);

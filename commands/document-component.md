@@ -13,13 +13,18 @@ Ask which component to document (e.g. "Button"), then:
    ingest any existing docs first (brownfield), then infer → enrich (from
    `${CLAUDE_PLUGIN_ROOT}/references/component-doc-archetypes.md`) → specialize →
    interview. Authored prose follows
-   `${CLAUDE_PLUGIN_ROOT}/references/doc-writing-standard.md`. Once the record is
+   `${CLAUDE_PLUGIN_ROOT}/references/doc-writing-standard.md`. Set `updatedAt` to
+   today's date (ISO, `YYYY-MM-DD`) whenever the record is written or rewritten —
+   it is a projected field and the doc card's header renders it. Once the record is
    written, run `node ${CLAUDE_PLUGIN_ROOT}/scripts/docs-lint.mjs
-   design-system/docs/components/<Name>.doc.json` and fix its warnings — for
-   `imported`/`user` blocks, surface the warning and let the user decide per
-   item. The user approves the drafted record before anything is projected
-   (Figma description, doc card, manifest); `imported`/`user` blocks are
-   never overwritten.
+   design-system/docs/components/<Name>.doc.json` and fix its warnings. Do not
+   raise a separate confirmation for a warning on an `imported`/`user` block:
+   draft the rewrite and carry it into the approval gate below, shown as
+   before/after and labelled with the block's provenance, so one approval covers
+   the whole record. The user approves the drafted record before anything is
+   projected (Figma description, doc card, manifest). Blocks the user did not
+   clear keep their existing text; blocks the user did clear are stamped
+   `imported+user` so a later run neither re-asks nor rewrites them.
 2. **Project it.** Write `design-system/docs/components/<Name>.doc.json`, set the
    Figma component `description`, rebuild the doc card's `Usage` band with the
    canonical builder (`${CLAUDE_PLUGIN_ROOT}/references/doc-card-builder.md` —
@@ -32,9 +37,10 @@ Ask which component to document (e.g. "Button"), then:
    `${CLAUDE_PLUGIN_ROOT}/scripts/lib/doc-card-plan.mjs`. If the repo file is
    missing, or its version is lower, `docs:check` is reading stale rules and its
    "no drift" is meaningless — say so plainly, and offer to refresh the repo's
-   doc scripts from the plugin copy (`build-docs-digest.mjs`, `docs-check.mjs`,
-   `lib/doc-record.mjs`, `lib/doc-card-plan.mjs`, `docs-lint.mjs` — the same
-   files `storybook-chromatic-builder` installed at setup). Run `docs:check` (with the
+   doc scripts from the plugin copy. Refresh the whole set and re-check the npm
+   registrations, both per **Documentation scripts — install as a set** in
+   `${CLAUDE_PLUGIN_ROOT}/scripts/README.md` — a refreshed file whose script was
+   never registered is the same failure in a new place. Run `docs:check` (with the
    refreshed scripts, if any). For each drifted surface, offer a per-item
    choice — **re-render** (canonical wins) or **pull-back**
    (fold the surface edit into the record) — and land the result as a reviewable

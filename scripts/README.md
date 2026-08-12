@@ -15,8 +15,28 @@ tested here; copied verbatim by `token-crosswalk-builder` into the user's
 | `build-docs-digest.mjs` | Aggregate every `design-system/docs/components/*.doc.json` into `design-system/docs/index.json` + `llms.txt` for AI/human consumers. | `docs:digest` |
 | `docs-check.mjs` | Drift gate — verifies each component's doc surfaces still match its canonical record (via `lib/doc-record.mjs` fingerprints). Exits 1 on drift. | `docs:check` |
 | `docs-lint.mjs` | Copy lint for .doc.json records — warnings only, always exits 0 on a parseable record; the mechanical subset of `references/doc-writing-standard.md`. | `docs:lint` |
+| `lib/doc-record.mjs` | Canonical record load + `canonicalFingerprint` (sha256 over the record minus `provenance`). The fingerprint every surface is stamped with. | copied alongside docs-check.mjs |
+| `lib/doc-card-render.figma.js` | Figma renderer template for the doc card's `Usage` band and header. Inlined into `references/doc-card-builder.md`; never executed as a module. | plugin-internal (not installed) |
 | `lib/doc-card-plan.mjs` | Pure layout planner for the doc card's `Usage` band + `DOC_CARD_RENDERER_VERSION` (single source of the layout version). Inlined into `references/doc-card-builder.md`; imported by `docs-check.mjs`. | copied alongside docs-check.mjs; also inlined into the generated builder |
 | `build-doc-card-builder.mjs` | Generate `references/doc-card-builder.md` from the planner + the Figma renderer template (`lib/doc-card-render.figma.js`). `--check` gates CI. | plugin-internal (not installed) |
+
+**Documentation scripts — install as a set.** Copying these files without
+registering them leaves a repo with a script on disk and no entry point, which
+is how a stale `docs:check` went unnoticed for a full release. Both
+`storybook-chromatic-builder` (first-time setup) and `/document-component`
+(freshness refresh) install the same five files and register the same three
+scripts:
+
+| File | npm script |
+| --- | --- |
+| `build-docs-digest.mjs` | `"docs:digest": "node scripts/build-docs-digest.mjs"` |
+| `docs-check.mjs` | `"docs:check": "node scripts/docs-check.mjs"` |
+| `docs-lint.mjs` | `"docs:lint": "node scripts/docs-lint.mjs"` |
+| `lib/doc-record.mjs` | — (imported by the above) |
+| `lib/doc-card-plan.mjs` | — (imported by the above) |
+
+A refresh that adds a file must also add its npm script; check `package.json`
+for all three every time, not just the file that changed.
 
 The crosswalk contract is documented in
 `${CLAUDE_PLUGIN_ROOT}/references/crosswalk-schema.md`.

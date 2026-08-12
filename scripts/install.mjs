@@ -99,6 +99,18 @@ function stagePayload(srcRoot, destRoot, skip) {
   return written;
 }
 
+// Scripts that never run from a consuming repo: the installer itself, the
+// doc-card builder generator, and the renderer template it inlines (the
+// renderer reaches Figma pre-inlined inside references/doc-card-builder.md).
+const PLUGIN_INTERNAL = new Set([
+  'install.mjs',
+  'build-doc-card-builder.mjs',
+  'lib/doc-card-render.figma.js',
+]);
+
+export const skipScript = (relPosix) =>
+  relPosix.startsWith('adapters/') || relPosix.endsWith('.test.mjs') || PLUGIN_INTERNAL.has(relPosix);
+
 export function install({ target, dir, pkgRoot = PKG_ROOT }) {
   if (!TARGETS.includes(target)) {
     throw new Error(`unknown target "${target}"; expected one of: ${TARGETS.join(', ')}`);
@@ -124,7 +136,7 @@ export function install({ target, dir, pkgRoot = PKG_ROOT }) {
   }
   const payload = [
     ...stagePayload(join(pkgRoot, 'references'), join(dir, BASE, 'references')),
-    ...stagePayload(join(pkgRoot, 'scripts'), join(dir, BASE, 'scripts'), (r) => r.startsWith('adapters/') || r.endsWith('.test.mjs') || r === 'install.mjs'),
+    ...stagePayload(join(pkgRoot, 'scripts'), join(dir, BASE, 'scripts'), skipScript),
   ];
   return { target, dir, written, payload };
 }

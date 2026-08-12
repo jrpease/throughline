@@ -265,22 +265,53 @@ reference register, not this skill's guide voice.
    do's & don'ts and intent. Provenance `user`. Write the draft to
    `design-system/docs/components/<Name>.doc.json`, run
    `node ${CLAUDE_PLUGIN_ROOT}/scripts/docs-lint.mjs design-system/docs/components/<Name>.doc.json`,
-   and fix the warnings it raises — for `imported`/`user` blocks, surface the
-   warning to the user and let them decide per item, never silently rewrite.
-   **Show the whole drafted record and get explicit approval before
-   projecting it anywhere** (Figma description, doc card, manifest) — layers
-   1–4 only fill blocks the ingest step did not, and an `imported`/`user`
-   block is never overwritten.
+   and fix the warnings it raises. Do not raise a separate confirmation for
+   a warning on an `imported`/`user` block: draft the rewrite and carry it
+   into the approval gate below, shown as before/after and labelled with the
+   block's provenance. **Show the whole drafted record and get explicit
+   approval before projecting it anywhere** (Figma description, doc card,
+   manifest) — one approval covers the whole record. Blocks the user did not
+   clear keep their existing text; blocks the user did clear are stamped
+   `imported+user` so a later run neither re-asks nor rewrites them.
 
 **Write the record and project it:**
 
 - Write `design-system/docs/components/<Name>.doc.json` (JSON; required fields
   `name`, `summary`, `description`).
 - **Figma component description.** Set the component's native `description` field
-  (via `figma_set_description`) to a compact markdown rendering — summary,
-  when-to-use/not, do's/don'ts, and the a11y summary — and append a fingerprint
-  marker line `<!-- tl:doc <fp> -->` (this is the surface Dev Mode and Code Connect
-  read).
+  (via `figma_set_description`) from this exact template — this is the surface
+  Dev Mode and Code Connect read, and it must be reproducible byte-for-byte by
+  any agent from the same record:
+
+  ```
+  <summary>
+
+  **When to use**
+  - <whenToUse[n]>
+
+  **When not to use**
+  - <whenNotToUse[n]>
+
+  **Do**
+  - <dos[n]>
+
+  **Don't**
+  - <donts[n]>
+
+  **Accessibility**
+  - <accessibility.keyboard[n]>
+  - <accessibility.notes[n]>
+
+  <!-- tl:doc <fp> -->
+  ```
+
+  Rules: every line is a record string **verbatim** — no re-wording, no added
+  connectives, no sentences that appear nowhere in the record. A block whose
+  source array is empty is omitted along with its bold label. The **Accessibility**
+  label is omitted only when both `accessibility.keyboard` and `accessibility.notes`
+  are empty; when one is empty its bullets are simply absent and the label stays.
+  Sections are separated by exactly one blank line, and the fingerprint marker is
+  always last.
 - **Doc card body.** Render the card's `Usage` band with the canonical builder
   snippet in `${CLAUDE_PLUGIN_ROOT}/references/doc-card-builder.md` (via
   `figma_execute` with an explicit `timeout`, one card per call): fill the

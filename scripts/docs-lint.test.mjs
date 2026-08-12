@@ -120,7 +120,7 @@ test('a record following the standard produces zero warnings', () => {
   const ws = lintRecord({
     name: 'Button',
     summary: 'Triggers an action or event.',
-    description: 'A clickable control that starts an action: saving a form, confirming a choice, opening a dialog. Its six emphasis levels signal how important an action is.',
+    description: 'A clickable control that starts an action: saving a form, confirming a choice, opening a dialog. Its emphasis levels signal how important an action is.',
     whenToUse: ['Something happens on the current page — save, confirm, open a dialog'],
     whenNotToUse: ['Navigating to another page. Use a Link.'],
     variants: { type: { primary: 'The one main action in a view.' } },
@@ -130,7 +130,7 @@ test('a record following the standard produces zero warnings', () => {
     accessibility: {
       role: 'button',
       keyboard: ['Enter or Space activates the button.'],
-      notes: ['An icon-only button needs an `aria-label` so screen readers can announce it.'],
+      notes: ['An icon-only button needs an aria-label so screen readers can announce it.'],
     },
     tokensUsed: ['color.bg.primary'],
     status: 'stable',
@@ -151,4 +151,28 @@ test('curly-apostrophe contractions tokenize and pass dont-shape', () => {
     states: { disabled: "Can’t be clicked or tabbed to." },
   });
   assert.deepEqual(ws, []);
+});
+
+test('no-inline-code flags backticked terms in prose', () => {
+  const ws = lintRecord({
+    name: 'Input',
+    accessibility: {
+      notes: [
+        'Set `aria-invalid` and link the message with `aria-describedby`.',
+        'Give every field a label that points at it.',
+      ],
+    },
+  });
+  const hits = byRule(ws, 'no-inline-code');
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0].path, 'accessibility.notes[0]');
+});
+
+test('no-inline-code ignores a lone backtick and plain prose', () => {
+  const ws = lintRecord({
+    name: 'Input',
+    summary: 'Collects a short typed value.',
+    accessibility: { notes: ['Use the ` character sparingly.'] },
+  });
+  assert.equal(byRule(ws, 'no-inline-code').length, 0);
 });
