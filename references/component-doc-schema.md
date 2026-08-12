@@ -58,9 +58,14 @@ deterministically. JSON is equally machine-legible for AI consumers.
 - **Lifecycle:** `status` (`draft`|`beta`|`stable`|`deprecated`), `updatedAt` (ISO date).
 - **`provenance`** — per-block author source, one of `imported`, `ai-inferred`,
   `best-practice`, `w3c-apg`, `framework`, `user`, or a `+`-joined combination
-  (e.g. `best-practice+user`). Regeneration re-infers `ai-inferred`/`framework`
-  blocks and **never overwrites** a block whose provenance includes `user` or
-  `imported`.
+  (e.g. `best-practice+user`). Regeneration **re-infers** a block whose
+  provenance includes `ai-inferred`, `framework`, `best-practice`, or `w3c-apg`,
+  and **never overwrites** one whose provenance includes `user` or `imported`.
+  Every value is assigned to exactly one of those two tiers: generated content is
+  re-inferred, human input (`user`) and pre-existing external content
+  (`imported`) are protected. A protected block may still be rewritten when the
+  user approves the rewrite at the record-approval gate; the result is stamped
+  `imported+user`, which is protected from then on and never re-proposed.
 
 Deferred to a later version (do not emit in v1): `anatomy`, `content` (writing
 guidelines), `examples`.
