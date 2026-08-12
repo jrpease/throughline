@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mergeAgentsBlock, mergeMcpJson } from './install.mjs';
+import { mergeAgentsBlock, mergeMcpJson, skipScript } from './install.mjs';
 
 const START = '<!-- throughline:start -->';
 const END = '<!-- throughline:end -->';
@@ -151,6 +151,24 @@ test('CLI init installs into --dir and prints a summary', () => {
 
 test('CLI exits non-zero on a bad target', () => {
   assert.throws(() => execFileSync('node', [INSTALL, 'init', '--target=nope'], { stdio: 'pipe' }));
+});
+
+test('skipScript excludes plugin-internal scripts, adapters and tests', () => {
+  assert.ok(skipScript('install.mjs'), 'the installer itself');
+  assert.ok(skipScript('build-doc-card-builder.mjs'), 'generator, never run downstream');
+  assert.ok(skipScript('lib/doc-card-render.figma.js'), 'read only by the generator');
+  assert.ok(skipScript('docs-check.test.mjs'), 'tests stay in the plugin');
+  assert.ok(skipScript('adapters/generate.mjs'), 'adapters have their own target');
+});
+
+test('skipScript keeps every script a consuming repo runs', () => {
+  for (const keep of [
+    'build-docs-digest.mjs', 'docs-check.mjs', 'docs-lint.mjs',
+    'lib/doc-record.mjs', 'lib/doc-card-plan.mjs',
+    'validate-crosswalk.mjs', 'lib/crosswalk.mjs',
+  ]) {
+    assert.ok(!skipScript(keep), `${keep} must be installed`);
+  }
 });
 
 import { symlinkSync } from 'node:fs';

@@ -27,14 +27,11 @@ system). Wire it to consume `packages/tokens` output so stories render with the
 real design tokens (import the generated CSS/theme). Checkpoint: confirm
 Storybook runs and shows the token-themed canvas.
 
-Install the documentation scripts alongside the token scripts (copy from the
-plugin's `scripts/` — `build-docs-digest.mjs`, `docs-check.mjs`,
-`lib/doc-record.mjs`, `lib/doc-card-plan.mjs`, and `docs-lint.mjs` — into the
-repo and register npm scripts):
-
-- `"docs:digest": "node scripts/build-docs-digest.mjs"`
-- `"docs:check": "node scripts/docs-check.mjs"`
-- `"docs:lint": "node scripts/docs-lint.mjs"`
+Install the documentation scripts alongside the token scripts: copy the five
+files and register the three npm scripts listed under **Documentation scripts —
+install as a set** in `.throughline/scripts/README.md`. That table is
+the single source of truth for what a consuming repo gets; do not restate the
+list here.
 
 These are the documentation analog of `tokens:validate`; see
 `.throughline/scripts/README.md`. This copy is setup, not a forever-fork:

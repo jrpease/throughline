@@ -35,9 +35,10 @@ Ask which component to document (e.g. "Button"), then:
    `${CLAUDE_PLUGIN_ROOT}/scripts/lib/doc-card-plan.mjs`. If the repo file is
    missing, or its version is lower, `docs:check` is reading stale rules and its
    "no drift" is meaningless — say so plainly, and offer to refresh the repo's
-   doc scripts from the plugin copy (`build-docs-digest.mjs`, `docs-check.mjs`,
-   `lib/doc-record.mjs`, `lib/doc-card-plan.mjs`, `docs-lint.mjs` — the same
-   files `storybook-chromatic-builder` installed at setup). Run `docs:check` (with the
+   doc scripts from the plugin copy. Refresh the whole set and re-check the npm
+   registrations, both per **Documentation scripts — install as a set** in
+   `${CLAUDE_PLUGIN_ROOT}/scripts/README.md` — a refreshed file whose script was
+   never registered is the same failure in a new place. Run `docs:check` (with the
    refreshed scripts, if any). For each drifted surface, offer a per-item
    choice — **re-render** (canonical wins) or **pull-back**
    (fold the surface edit into the record) — and land the result as a reviewable
