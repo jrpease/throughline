@@ -279,10 +279,41 @@ reference register, not this skill's guide voice.
 - Write `design-system/docs/components/<Name>.doc.json` (JSON; required fields
   `name`, `summary`, `description`).
 - **Figma component description.** Set the component's native `description` field
-  (via `figma_set_description`) to a compact markdown rendering — summary,
-  when-to-use/not, do's/don'ts, and the a11y summary — and append a fingerprint
-  marker line `<!-- tl:doc <fp> -->` (this is the surface Dev Mode and Code Connect
-  read).
+  (via `figma_set_description`) from this exact template — this is the surface
+  Dev Mode and Code Connect read, and it must be reproducible byte-for-byte by
+  any agent from the same record:
+
+  ````
+  <summary>
+
+  **When to use**
+  - <whenToUse[n]>
+
+  **When not to use**
+  - <whenNotToUse[n]>
+
+  **Do**
+  - <dos[n]>
+
+  **Don't**
+  - <donts[n]>
+
+  **Accessibility**
+  - <accessibility.keyboard[n]>
+  - <accessibility.notes[n]>
+
+  <!-- tl:doc <fp> -->
+  ````
+
+  Rules: every line is a record string **verbatim** — no re-wording, no added
+  connectives, no sentences that appear nowhere in the record. A block whose
+  source array is empty is omitted along with its bold label. Sections are
+  separated by exactly one blank line, and the fingerprint marker is always
+  last. Under **Don't**, strip each entry's leading `Don't ` / `Never ` /
+  `Avoid ` and re-capitalize the first letter, so the output reads
+  `- Use a button to navigate. Use a Link.` rather than
+  `- Don't use a button to navigate. Use a Link.` under a heading already
+  reading "Don't".
 - **Doc card body.** Render the card's `Usage` band with the canonical builder
   snippet in `${CLAUDE_PLUGIN_ROOT}/references/doc-card-builder.md` (via
   `figma_execute` with an explicit `timeout`, one card per call): fill the
