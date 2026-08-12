@@ -9,7 +9,9 @@ Ask which component to document (e.g. "Button"), then:
    ingest any existing docs first (brownfield), then infer → enrich (from
    `.throughline/references/component-doc-archetypes.md`) → specialize →
    interview. Authored prose follows
-   `.throughline/references/doc-writing-standard.md`. Once the record is
+   `.throughline/references/doc-writing-standard.md`. Set `updatedAt` to
+   today's date (ISO, `YYYY-MM-DD`) whenever the record is written or rewritten —
+   it is a projected field and the doc card's header renders it. Once the record is
    written, run `node .throughline/scripts/docs-lint.mjs
    design-system/docs/components/<Name>.doc.json` and fix its warnings. Do not
    raise a separate confirmation for a warning on an `imported`/`user` block:

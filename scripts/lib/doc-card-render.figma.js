@@ -272,21 +272,34 @@ async function renderDocCard({ card, record, vars, bodyTextStyle }) {
   }
 
   // Load a text node's own fonts before writing, and never touch its style:
-  // the header's type is card chrome, not part of this projection.
+  // the header's type is card chrome, not part of this projection. A
+  // zero-length node can't have mixed fonts (getRangeAllFontNames(0, 1) would
+  // exceed the text and throw), so it takes its own path via .fontName.
   const writeChars = async (node, chars) => {
-    const len = Math.max(1, node.characters.length);
-    for (const f of node.getRangeAllFontNames(0, len)) await figma.loadFontAsync(f);
+    const len = node.characters.length;
+    if (len === 0) {
+      await figma.loadFontAsync(node.fontName);
+    } else {
+      for (const f of node.getRangeAllFontNames(0, len)) await figma.loadFontAsync(f);
+    }
     node.characters = chars;
   };
 
   // Self-migrating: prefer a node already named `Header Description` (a prior
-  // run's rename); otherwise trust `children[1]` — validated above — and
-  // rename it so every later run is deterministic by name, not position.
-  let headerDesc = headerBand.findChild((n) => n.name === 'Header Description') || descCandidate;
+  // run's rename) — type-checked, since `titleRow`/`dateFrame` are FRAMEs
+  // that could be manually misnamed and would otherwise match first by child
+  // order and blow up in writeChars mid-render — otherwise trust
+  // `children[1]`, validated above, and rename it so every later run is
+  // deterministic by name, not position.
+  let headerDesc = headerBand.findChild((n) => n.type === 'TEXT' && n.name === 'Header Description') || descCandidate;
   if (headerDesc.name !== 'Header Description') headerDesc.name = 'Header Description';
-  await writeChars(headerDesc, plan.header.summary);
+  // record.summary is schema-required but the renderer never calls
+  // validateRecord() itself — an unvalidated record's default ('') must not
+  // silently blank a live card's description.
+  if (plan.header.summary) await writeChars(headerDesc, plan.header.summary);
   // Re-assert the one-column clamp (figma-component-standards.md): the header
-  // description never stretches across a wide matrix.
+  // description never stretches across a wide matrix. Layout, not content —
+  // re-applied on every render regardless of whether the text changed.
   headerDesc.textAutoResize = 'HEIGHT';
   headerDesc.resize(plan.columnUnit, headerDesc.height);
   headerDesc.layoutSizingHorizontal = 'FIXED';

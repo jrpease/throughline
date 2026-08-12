@@ -13,7 +13,9 @@ Ask which component to document (e.g. "Button"), then:
    ingest any existing docs first (brownfield), then infer → enrich (from
    `${CLAUDE_PLUGIN_ROOT}/references/component-doc-archetypes.md`) → specialize →
    interview. Authored prose follows
-   `${CLAUDE_PLUGIN_ROOT}/references/doc-writing-standard.md`. Once the record is
+   `${CLAUDE_PLUGIN_ROOT}/references/doc-writing-standard.md`. Set `updatedAt` to
+   today's date (ISO, `YYYY-MM-DD`) whenever the record is written or rewritten —
+   it is a projected field and the doc card's header renders it. Once the record is
    written, run `node ${CLAUDE_PLUGIN_ROOT}/scripts/docs-lint.mjs
    design-system/docs/components/<Name>.doc.json` and fix its warnings. Do not
    raise a separate confirmation for a warning on an `imported`/`user` block:
