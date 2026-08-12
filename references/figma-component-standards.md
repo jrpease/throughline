@@ -292,11 +292,13 @@ builder snippet in `${CLAUDE_PLUGIN_ROOT}/references/doc-card-builder.md`
 (generated — that file carries the full call contract: the record/fingerprint
 slots, the nine required semantic variables, the `Body/Default` text style, and
 the returned summary you verify and stamp the manifest from). The builder
-computes the card's width from the specimen and the body type — a column-unit
-grid whose text fills its block, not the card — and rebuilds only the `Usage`
-frame, leaving header and specimen untouched. The header's short-description
-text node is clamped to one column unit wide (`summary.columnUnit` from the
-builder's return), so it never stretches across a wide matrix.
+computes the card's width from the body type — a column-unit grid whose text
+fills its block, not the card. The column count comes from the record's
+content — the widest row's block count, with a floor of three — and rebuilds
+only the `Usage` frame, leaving header and specimen untouched. The header's
+short-description text node is clamped to one column unit wide
+(`summary.columnUnit` from the builder's return), so it never stretches
+across a wide matrix.
 
 The header shows:
 

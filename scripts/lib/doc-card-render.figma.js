@@ -71,15 +71,18 @@ async function renderDocCard({ card, record, vars, bodyTextStyle }) {
       + '" — one component per doc card; split this card so each component owns its own card before re-rendering');
   }
 
-  // Measure the specimen: the card's COMPONENT_SET is the specimen contract —
-  // its width drives the column calculation. (No named "Specimen" band lookup:
-  // no real card has ever used one, so that path never executed.)
+  // Structural contract only: the card must contain a COMPONENT_SET. It is
+  // deliberately NOT measured — the render widens the card, the card's hug
+  // propagates into FILL siblings including the specimen, so any specimen
+  // measurement is a value this render mutates and the next one reads. (No
+  // named "Specimen" band lookup: no real card has ever used one, so that
+  // path never executed.)
   const specimen = card.findOne((n) => n.type === 'COMPONENT_SET');
   if (!specimen) {
     throw new Error('renderDocCard: no COMPONENT_SET found inside the card — the specimen band must contain the component set');
   }
 
-  const plan = planDocCard(record, specimen.width, { fontSize: bodyTextStyle.fontSize });
+  const plan = planDocCard(record, { fontSize: bodyTextStyle.fontSize });
 
   // Eyebrow chrome (derived, not bound — layout chrome like the column unit):
   // fontSize × 0.65 rounded, min 8; Bold; uppercase; letter-spacing +8%.
