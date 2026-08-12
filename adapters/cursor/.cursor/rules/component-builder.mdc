@@ -264,12 +264,14 @@ reference register, not this skill's guide voice.
    do's & don'ts and intent. Provenance `user`. Write the draft to
    `design-system/docs/components/<Name>.doc.json`, run
    `node .throughline/scripts/docs-lint.mjs design-system/docs/components/<Name>.doc.json`,
-   and fix the warnings it raises — for `imported`/`user` blocks, surface the
-   warning to the user and let them decide per item, never silently rewrite.
-   **Show the whole drafted record and get explicit approval before
-   projecting it anywhere** (Figma description, doc card, manifest) — layers
-   1–4 only fill blocks the ingest step did not, and an `imported`/`user`
-   block is never overwritten.
+   and fix the warnings it raises. Do not raise a separate confirmation for
+   a warning on an `imported`/`user` block: draft the rewrite and carry it
+   into the approval gate below, shown as before/after and labelled with the
+   block's provenance. **Show the whole drafted record and get explicit
+   approval before projecting it anywhere** (Figma description, doc card,
+   manifest) — one approval covers the whole record. Blocks the user did not
+   clear keep their existing text; blocks the user did clear are stamped
+   `imported+user` so a later run neither re-asks nor rewrites them.
 
 **Write the record and project it:**
 
