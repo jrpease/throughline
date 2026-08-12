@@ -37,7 +37,7 @@ them), never token binding, never a slot inventory.
 > to the system's semantic tokens."
 >
 > **After:** "A clickable control that starts an action: saving a form,
-> confirming a choice, opening a dialog. Its six emphasis levels signal how
+> confirming a choice, opening a dialog. Its emphasis levels signal how
 > important an action is."
 
 ### `whenToUse` / `whenNotToUse`
@@ -76,7 +76,7 @@ What the reader must do, not what the framework emits.
 > **Cut:** "Renders a native `<button>`, so `role=\"button\"` is implicit."
 >
 > **Before:** "An icon-only button needs an aria-label" → **After:** "An
-> icon-only button needs an `aria-label` so screen readers can announce it."
+> icon-only button needs an aria-label so screen readers can announce it."
 
 ## Vocabulary
 
@@ -86,6 +86,13 @@ user-facing prose is the system's own machinery vocabulary: tokens,
 variables, bindings, fingerprints, provenance, projections, surfaces (in the
 machinery sense). `tokensUsed` keeps its token names — it is a structured
 field, machine-useful, and never rendered as prose.
+
+**No inline-code markup.** Write `aria-label`, `Enter`, `role` as plain words.
+One record string is projected to three surfaces that render backticks three
+different ways — MDX styles them, Figma's plain-text `description` strips them,
+and the doc card shows the literal character — so the record carries no
+presentation markup at all. Where formatting is wanted, the projection template
+supplies it: the Storybook MDX wraps variant and state keys in backticks itself.
 
 ## Global rules
 
@@ -110,6 +117,7 @@ Checks the mechanically reliable subset of this standard. Zero-dependency,
 | `terminal-stop` | a `dos` / `donts` entry not ending with a full stop | — |
 | `treatment-lead` | a variant/state meaning opening with a visual-treatment word ({fill, filled, solid, stroke, border, bordered, outline, shadow, opacity, elevation}) | first 4 words |
 | `empty-meaning` | a variant or state meaning that's too short to say anything | < 3 words |
+| `no-inline-code` | backticks in user-facing prose (the card renders them literally; Figma strips them from `description`) | — |
 
 **Output contract:** always exits 0; one warning per line as
 `<file>: <block-path>: <rule>: <message>`; `--json` emits
