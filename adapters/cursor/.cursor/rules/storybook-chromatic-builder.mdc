@@ -276,8 +276,10 @@ the `figma_execute` scripting gotchas — `getNodeByIdAsync` and an explicit
   re-render the affected surfaces so `docs:check` stays green.
 - If Figma is connected (per `figma.mechanism`), open the component's doc card and
   update the `Status Label` text to `stable`, re-bind the `Status` chip fill to
-  the **success** semantic color variable (mode-aware, not a hardcoded hex), and
-  set `Last Updated` to today's date — then screenshot to confirm the chip
+  the **success** semantic color variable (mode-aware, not a hardcoded hex), then
+  re-run the canonical doc-card builder against the same card to refresh the
+  header date from the `record.updatedAt` already set above (it locates the date
+  node under either header shape) — then screenshot to confirm the chip
   recolored and the date changed.
 - If Figma isn't connected, still update the manifest and tell the user the card
   will reconcile next Figma session (or offer to reconnect and fix it now).

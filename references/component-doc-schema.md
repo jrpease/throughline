@@ -113,7 +113,7 @@ The manifest stores pointers + per-surface fingerprints, never content:
     "fingerprint": "<canonical fingerprint at last render>",
     "surfaces": {
       "figmaDescription": { "src": "<fp>", "render": "<hash of description text>" },
-      "docCard":          { "src": "<fp>", "render": "<hash of card content>", "renderer": "3" },
+      "docCard":          { "src": "<fp>", "render": "<hash of card content>", "renderer": "4" },
       "storybookMdx":     { "src": "<fp>", "render": "<hash of mdx file>", "file": "packages/ui/src/Button/Button.mdx" }
     }
   }
@@ -126,7 +126,7 @@ The manifest stores pointers + per-surface fingerprints, never content:
 - `file` — repo-relative path for code surfaces so `docs:check` can re-read them.
 - `renderer` — (docCard only) the layout version of the builder that last
   rendered the card: `DOC_CARD_RENDERER_VERSION` in `scripts/lib/doc-card-plan.mjs`,
-  currently `"3"`. Additive and optional — absence means the card predates the
+  currently `"4"`. Additive and optional — absence means the card predates the
   versioned builder. Stamped from the builder's returned summary, never by
   re-reading the card.
 

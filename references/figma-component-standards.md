@@ -312,9 +312,11 @@ The header shows:
   `components.meta[name].status`. **Name the chip frame `Status` and its label
   text node `Status Label`** so the finalize write-back (below) can find and
   update them later — a chip with no deterministic name can't be promoted.
-- **Last updated** — a date, from `components.meta[name].updatedAt`, refreshed
-  whenever the component is rebuilt. **Name this text node `Last Updated`** for
-  the same reason.
+- **Last updated** — a date, from the doc record's `updatedAt` field
+  (`record.updatedAt` — the single source for the header date; not
+  `components.meta[name].updatedAt`, which is separate manifest bookkeeping),
+  refreshed whenever the component is rebuilt. **Name this text node
+  `Last Updated`** for the same reason.
 
 **Always separate the header from the component area with a division element.** The
 header block (name, description, status, date) and the component/variant area below
@@ -360,8 +362,11 @@ re-describing it:
    Figma: flip the status chips amber → green and set Last Updated to today.
    Confirm?"* One confirmation covers the whole batch; don't ask per card.
 1. Set `components.meta[name].status` to the new status (`stable` on finalize) and
-   `components.meta[name].updatedAt` to today (ISO date). The manifest is the
-   source of truth.
+   `components.meta[name].updatedAt` to today (ISO date) — this is manifest
+   bookkeeping, separate from the header date. Also set `updatedAt` to today in
+   the component's `.doc.json` record: `record.updatedAt` is the single source
+   the doc card's header renders its date from, so this is the write that
+   actually moves the date the user sees.
 2. If Figma is connected (use `figma.mechanism`), locate the component's doc card
    by its deterministic name (script the write-back per
    `${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md` — `getNodeByIdAsync`, and
@@ -370,14 +375,20 @@ re-describing it:
    - set the `Status Label` text to the new status (e.g. `stable`);
    - re-bind the `Status` chip fill to the matching semantic color variable
      (`stable` → success, `draft`/`beta` → warning, `deprecated` → neutral/danger)
-     — re-bind the variable, don't hardcode a hex, so it stays mode-aware;
-   - set the `Last Updated` text to today's date.
-   Then run the visual-validation loop (screenshot → confirm the chip recolored
-   and the date changed → re-screenshot).
+     — re-bind the variable, don't hardcode a hex, so it stays mode-aware.
+   Then re-run the canonical doc-card builder
+   (`${CLAUDE_PLUGIN_ROOT}/references/doc-card-builder.md`) against the same card
+   to refresh the header date from the `record.updatedAt` just set in step 1 — the
+   builder locates the date node under either header shape (legacy label/value
+   frame, or the to-spec `Last Updated` text node) and writes it there, so this
+   step never hand-stamps today's date onto a guessed node. Then run the
+   visual-validation loop (screenshot → confirm the chip recolored and the date
+   changed → re-screenshot).
 3. If Figma is **not** connected, still do step 1, and tell the user the card will
-   reconcile to the manifest the next time a Figma session runs (the doc card
-   always renders from `components.meta[name]`). Offer to reconnect and update it
-   now if they want it reflected immediately.
+   reconcile the next time a Figma session runs — its status chip renders from
+   `components.meta[name].status` and its header date from `record.updatedAt`,
+   both already updated by step 1. Offer to reconnect and update it now if they
+   want it reflected immediately.
 
 **Icons are the one exception:** the whole icon set lives on a *single* doc card
 holding the icon grid — one card for all icons, not one card per icon.

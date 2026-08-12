@@ -82,6 +82,70 @@ async function renderDocCard({ card, record, vars, bodyTextStyle }) {
     throw new Error('renderDocCard: no COMPONENT_SET found inside the card — the specimen band must contain the component set');
   }
 
+  // The header band's record-derived content is written further below (after
+  // the Usage band rebuild), but its shape is validated here — before ANY
+  // mutation — so a shape mismatch throws with the card untouched. The
+  // builder owns this content: the status write-back only fires on a status
+  // change, so a re-voiced component that is already `stable` would otherwise
+  // keep its original blurb and date forever. The status chip itself is NOT
+  // touched — the finalize write-back still owns it.
+  //
+  // The header band's own name is unreliable (`Header` on Button, `Frame` on
+  // the other 12 cards measured), so it is located structurally instead — the
+  // card's child FRAME that is neither the `Usage` band nor the specimen nor
+  // an ancestor of it.
+  const headerBand = card.children.find((n) =>
+    n.type === 'FRAME'
+    && n.name !== 'Usage'
+    && n.id !== specimen.id
+    && !n.findOne((d) => d.id === specimen.id));
+  if (!headerBand) {
+    throw new Error('renderDocCard: no header band found — expected a child frame holding the component name, description, status chip and date');
+  }
+
+  // Two accepted header shapes (figma-component-standards.md "The header"):
+  // legacy cards carry a `Status Pill` descendant plus a label/value date
+  // frame; to-spec cards (built by /new-component per the written standard)
+  // carry `Status`/`Status Label` plus a `Last Updated` TEXT node. Neither is
+  // going away, so both are located structurally rather than by fixed
+  // child-index, resolving to the same three anchors below.
+  const titleRow = headerBand.children[0];
+  const hasStatusAnchor = !!(titleRow && titleRow.type === 'FRAME'
+    && titleRow.findOne((d) => d.name === 'Status Pill' || d.name === 'Status'));
+
+  // Date anchor. To-spec: a direct TEXT child of the header band named
+  // `Last Updated` — that node IS the value. Legacy: a FRAME child whose
+  // first child is TEXT reading exactly "Last updated"; the value is that
+  // frame's other TEXT child, found by elimination against the label rather
+  // than assumed by index.
+  let dateValue = headerBand.children.find((n) => n.type === 'TEXT' && n.name === 'Last Updated');
+  if (!dateValue) {
+    const legacyDateFrame = headerBand.children.find((n) =>
+      n.type === 'FRAME' && n.children[0] && n.children[0].type === 'TEXT'
+      && n.children[0].characters === 'Last updated');
+    if (legacyDateFrame) {
+      const dateLabel = legacyDateFrame.children[0];
+      dateValue = legacyDateFrame.children.find((n) => n !== dateLabel && n.type === 'TEXT');
+    }
+  }
+
+  // Description anchor: the header band's own bare description TEXT node — a
+  // direct TEXT child that is neither the title row nor the resolved date
+  // node. Not assumed by fixed index: the to-spec shape's child count can
+  // differ from the legacy 3-child shape.
+  const headerDescCandidate = headerBand.children.find((n) =>
+    n !== titleRow && n.type === 'TEXT' && n !== dateValue);
+
+  const missingAnchors = [];
+  if (!hasStatusAnchor) missingAnchors.push('status (title row must contain a descendant named "Status Pill" or "Status")');
+  if (!headerDescCandidate) missingAnchors.push('description (a bare TEXT child distinct from the title row and the date node)');
+  if (!dateValue) missingAnchors.push('date (either a "Last Updated" TEXT child, or a FRAME child whose first TEXT child reads "Last updated")');
+  if (missingAnchors.length) {
+    throw new Error('renderDocCard: header band does not match either accepted shape — missing anchor(s): '
+      + missingAnchors.join('; ')
+      + ' — refusing to guess which node to write; see "The header" in figma-component-standards.md for the two accepted shapes');
+  }
+
   const plan = planDocCard(record, { fontSize: bodyTextStyle.fontSize });
 
   // Eyebrow chrome (derived, not bound — layout chrome like the column unit):
@@ -234,42 +298,9 @@ async function renderDocCard({ card, record, vars, bodyTextStyle }) {
   fp.visible = false;
   usage.appendChild(fp);
 
-  // The header band's record-derived content. The builder owns this: the status
-  // write-back only fires on a status change, so a re-voiced component that is
-  // already `stable` would otherwise keep its original blurb and date forever.
-  // The status chip is NOT touched — the finalize write-back still owns it.
-  //
-  // Measured against the live file (13/13 doc cards; see
-  // .superpowers/sdd/2026-08-12-doc-card-dogfood-fixes/task-5-report.md): the
-  // header band's own name is unreliable (`Header` on Button, `Frame` on the
-  // other 12), so it is located structurally instead — the card's child FRAME
-  // that is neither the `Usage` band nor the specimen nor an ancestor of it.
-  const headerBand = card.children.find((n) =>
-    n.type === 'FRAME'
-    && n.name !== 'Usage'
-    && n.id !== specimen.id
-    && !n.findOne((d) => d.id === specimen.id));
-  if (!headerBand) {
-    throw new Error('renderDocCard: no header band found — expected a child frame holding the component name, description, status chip and date');
-  }
-
-  // Every header band has exactly 3 direct children in fixed order: [0] the
-  // title-row FRAME (has a `Status Pill` descendant), [1] the bare
-  // description TEXT — the target, with no deliberate name of its own — and
-  // [2] a FRAME whose first child is TEXT reading exactly "Last updated".
-  // There is NO node named `Last Updated` anywhere in the file. Assert both
-  // anchors before trusting either target: a mis-identified node would
-  // overwrite the component's name.
-  const [titleRow, descCandidate, dateFrame] = headerBand.children;
-  const hasStatusPill = !!(titleRow && titleRow.type === 'FRAME' && titleRow.findOne((d) => d.name === 'Status Pill'));
-  const dateLabel = dateFrame && dateFrame.type === 'FRAME' ? dateFrame.children[0] : null;
-  const shapeOk = headerBand.children.length === 3
-    && hasStatusPill
-    && descCandidate && descCandidate.type === 'TEXT'
-    && dateLabel && dateLabel.type === 'TEXT' && dateLabel.characters === 'Last updated';
-  if (!shapeOk) {
-    throw new Error('renderDocCard: header band does not match the expected shape (a title row with a Status Pill descendant, a bare description text, and a "Last updated" frame) — refusing to guess which node to write; name the description node "Header Description" by hand and re-run if the header has genuinely changed shape');
-  }
+  // The header band's record-derived content — its shape (status, description,
+  // and date anchors) was already validated above, before the Usage band
+  // rebuild.
 
   // Load a text node's own fonts before writing, and never touch its style:
   // the header's type is card chrome, not part of this projection. A
@@ -286,12 +317,12 @@ async function renderDocCard({ card, record, vars, bodyTextStyle }) {
   };
 
   // Self-migrating: prefer a node already named `Header Description` (a prior
-  // run's rename) — type-checked, since `titleRow`/`dateFrame` are FRAMEs
-  // that could be manually misnamed and would otherwise match first by child
-  // order and blow up in writeChars mid-render — otherwise trust
-  // `children[1]`, validated above, and rename it so every later run is
-  // deterministic by name, not position.
-  let headerDesc = headerBand.findChild((n) => n.type === 'TEXT' && n.name === 'Header Description') || descCandidate;
+  // run's rename) — type-checked, since `titleRow` is a FRAME that could be
+  // manually misnamed and would otherwise match first and blow up in
+  // writeChars mid-render — otherwise trust the description anchor resolved
+  // above, and rename it so every later run is deterministic by name, not
+  // position.
+  let headerDesc = headerBand.findChild((n) => n.type === 'TEXT' && n.name === 'Header Description') || headerDescCandidate;
   if (headerDesc.name !== 'Header Description') headerDesc.name = 'Header Description';
   // record.summary is schema-required but the renderer never calls
   // validateRecord() itself — an unvalidated record's default ('') must not
@@ -304,10 +335,9 @@ async function renderDocCard({ card, record, vars, bodyTextStyle }) {
   headerDesc.resize(plan.columnUnit, headerDesc.height);
   headerDesc.layoutSizingHorizontal = 'FIXED';
 
-  // The date value is `dateFrame`'s other child, found by elimination against
-  // the label rather than assumed by index — only the label's identity (not
-  // its position) was measured as invariant.
-  const dateValue = dateFrame.children.find((n) => n !== dateLabel && n.type === 'TEXT');
+  // Single source for the header date: record.updatedAt (via plan.header —
+  // see figma-component-standards.md "Last updated"). `dateValue` was
+  // resolved above, before the Usage rebuild, under either header shape.
   if (dateValue && plan.header.updatedAt) {
     await writeChars(dateValue, plan.header.updatedAt);
   }
