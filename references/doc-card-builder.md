@@ -7,8 +7,10 @@
 
 The canonical `figma_execute` snippet that renders a component doc card's
 `Usage` band from its `.doc.json` record. Every card is identical by
-construction — never hand-build the usage body. The snippet rebuilds ONLY the
-frame named `Usage`; the header and specimen bands are never touched.
+construction — never hand-build the usage body. The builder owns the `Usage`
+band and the header's record-derived content (its short description and date);
+it reads the specimen and never writes it. The status chip keeps its own owner
+— the finalize write-back in `references/figma-component-standards.md`.
 
 ## How to call it
 
@@ -56,7 +58,7 @@ const summary = await renderDocCard({ card, record: RECORD, vars, bodyTextStyle 
 
 // Single source of truth for the doc-card layout version. Imported by
 // docs-check.mjs and embedded (via inlining) into the generated builder snippet.
-const DOC_CARD_RENDERER_VERSION = '3';
+const DOC_CARD_RENDERER_VERSION = '4';
 
 // columnUnit = clamp(round(bodyFontSize × 30), 280, 480) px.
 // 30 ≈ 60ch × ~0.5em average glyph width for UI text faces. Layout chrome, not
@@ -238,8 +240,9 @@ async function renderDocCard({ card, record, vars, bodyTextStyle }) {
   // fontSize × 0.65 rounded, min 8; Bold; uppercase; letter-spacing +8%.
   const eyebrowSize = Math.max(8, Math.round(bodyTextStyle.fontSize * 0.65));
 
-  // Idempotent + scoped: rebuild ONLY the Usage frame. Header and specimen are
-  // never touched — recreating a component set detaches downstream instances.
+  // Idempotent + scoped: rebuild ONLY the Usage frame. The specimen is never touched
+  // — recreating a component set detaches downstream instances. (The header's
+  // record-derived content is written separately, below.)
   const existing = card.findChild((n) => n.name === 'Usage');
   if (existing) existing.remove();
 
@@ -383,6 +386,71 @@ async function renderDocCard({ card, record, vars, bodyTextStyle }) {
   fp.visible = false;
   usage.appendChild(fp);
 
+  // The header band's record-derived content. The builder owns this: the status
+  // write-back only fires on a status change, so a re-voiced component that is
+  // already `stable` would otherwise keep its original blurb and date forever.
+  // The status chip is NOT touched — the finalize write-back still owns it.
+  //
+  // Measured against the live file (13/13 doc cards; see
+  // .superpowers/sdd/2026-08-12-doc-card-dogfood-fixes/task-5-report.md): the
+  // header band's own name is unreliable (`Header` on Button, `Frame` on the
+  // other 12), so it is located structurally instead — the card's child FRAME
+  // that is neither the `Usage` band nor the specimen nor an ancestor of it.
+  const headerBand = card.children.find((n) =>
+    n.type === 'FRAME'
+    && n.name !== 'Usage'
+    && n.id !== specimen.id
+    && !n.findOne((d) => d.id === specimen.id));
+  if (!headerBand) {
+    throw new Error('renderDocCard: no header band found — expected a child frame holding the component name, description, status chip and date');
+  }
+
+  // Every header band has exactly 3 direct children in fixed order: [0] the
+  // title-row FRAME (has a `Status Pill` descendant), [1] the bare
+  // description TEXT — the target, with no deliberate name of its own — and
+  // [2] a FRAME whose first child is TEXT reading exactly "Last updated".
+  // There is NO node named `Last Updated` anywhere in the file. Assert both
+  // anchors before trusting either target: a mis-identified node would
+  // overwrite the component's name.
+  const [titleRow, descCandidate, dateFrame] = headerBand.children;
+  const hasStatusPill = !!(titleRow && titleRow.type === 'FRAME' && titleRow.findOne((d) => d.name === 'Status Pill'));
+  const dateLabel = dateFrame && dateFrame.type === 'FRAME' ? dateFrame.children[0] : null;
+  const shapeOk = headerBand.children.length === 3
+    && hasStatusPill
+    && descCandidate && descCandidate.type === 'TEXT'
+    && dateLabel && dateLabel.type === 'TEXT' && dateLabel.characters === 'Last updated';
+  if (!shapeOk) {
+    throw new Error('renderDocCard: header band does not match the expected shape (a title row with a Status Pill descendant, a bare description text, and a "Last updated" frame) — refusing to guess which node to write; name the description node "Header Description" by hand and re-run if the header has genuinely changed shape');
+  }
+
+  // Load a text node's own fonts before writing, and never touch its style:
+  // the header's type is card chrome, not part of this projection.
+  const writeChars = async (node, chars) => {
+    const len = Math.max(1, node.characters.length);
+    for (const f of node.getRangeAllFontNames(0, len)) await figma.loadFontAsync(f);
+    node.characters = chars;
+  };
+
+  // Self-migrating: prefer a node already named `Header Description` (a prior
+  // run's rename); otherwise trust `children[1]` — validated above — and
+  // rename it so every later run is deterministic by name, not position.
+  let headerDesc = headerBand.findChild((n) => n.name === 'Header Description') || descCandidate;
+  if (headerDesc.name !== 'Header Description') headerDesc.name = 'Header Description';
+  await writeChars(headerDesc, plan.header.summary);
+  // Re-assert the one-column clamp (figma-component-standards.md): the header
+  // description never stretches across a wide matrix.
+  headerDesc.textAutoResize = 'HEIGHT';
+  headerDesc.resize(plan.columnUnit, headerDesc.height);
+  headerDesc.layoutSizingHorizontal = 'FIXED';
+
+  // The date value is `dateFrame`'s other child, found by elimination against
+  // the label rather than assumed by index — only the label's identity (not
+  // its position) was measured as invariant.
+  const dateValue = dateFrame.children.find((n) => n !== dateLabel && n.type === 'TEXT');
+  if (dateValue && plan.header.updatedAt) {
+    await writeChars(dateValue, plan.header.updatedAt);
+  }
+
   return {
     rendererVersion: DOC_CARD_RENDERER_VERSION,
     columnUnit: plan.columnUnit,
@@ -390,6 +458,7 @@ async function renderDocCard({ card, record, vars, bodyTextStyle }) {
     cardWidth: plan.cardWidth,
     rowsRendered: plan.rows.length,
     blocksCreated,
+    headerWritten: true,
     fingerprint: CANONICAL_FP,
     renderHash: fnv1a(JSON.stringify(plan)),
   };

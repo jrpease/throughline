@@ -8,7 +8,7 @@
 
 // Single source of truth for the doc-card layout version. Imported by
 // docs-check.mjs and embedded (via inlining) into the generated builder snippet.
-export const DOC_CARD_RENDERER_VERSION = '3';
+export const DOC_CARD_RENDERER_VERSION = '4';
 
 // columnUnit = clamp(round(bodyFontSize × 30), 280, 480) px.
 // 30 ≈ 60ch × ~0.5em average glyph width for UI text faces. Layout chrome, not

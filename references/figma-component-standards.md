@@ -294,8 +294,10 @@ slots, the nine required semantic variables, the `Body/Default` text style, and
 the returned summary you verify and stamp the manifest from). The builder
 computes the card's width from the body type — a column-unit grid whose text
 fills its block, not the card. The column count comes from the record's
-content — the widest row's block count, with a floor of three — and rebuilds
-only the `Usage` frame, leaving header and specimen untouched. The header's
+content — the widest row's block count, with a floor of three. It rebuilds
+the `Usage` frame and rewrites the header's short description and date from
+the record; it reads the specimen and never writes it, and the status chip
+keeps its own owner (the finalize write-back below). The header's
 short-description text node is clamped to one column unit wide
 (`summary.columnUnit` from the builder's return), so it never stretches
 across a wide matrix.

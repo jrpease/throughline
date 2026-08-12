@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { classifySurface, checkAll } from './docs-check.mjs';
 import { canonicalFingerprint, fingerprint } from './lib/doc-record.mjs';
+import { DOC_CARD_RENDERER_VERSION } from './lib/doc-card-plan.mjs';
 
 test('classifySurface: in sync returns no flags', () => {
   assert.deepEqual(
@@ -151,9 +152,9 @@ test('checkAll: an old-layout docCard is informational, never in the failing set
   assert.ok(docCard.flags.every((f) => !failing.has(f)), `unexpected failing flag in ${docCard.flags.join(',')}`);
 });
 
-test('checkAll: a stamped docCard (renderer "3") reports no layout upgrade', () => {
+test('checkAll: a docCard stamped at the current renderer reports no layout upgrade', () => {
   const { root, manifest, fp } = fixture();
-  manifest.components.meta.Button.doc.surfaces.docCard = { src: fp, render: 'whatever', renderer: '3' };
+  manifest.components.meta.Button.doc.surfaces.docCard = { src: fp, render: 'whatever', renderer: DOC_CARD_RENDERER_VERSION };
   const results = checkAll(manifest, root);
   const docCard = results.find((r) => r.surface === 'docCard');
   // Still edit-unverified (the CLI can't read Figma), but no layout flag.

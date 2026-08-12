@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DOC_CARD_RENDERER_VERSION, columnUnit, cardColumns, planDocCard } from './doc-card-plan.mjs';
 
-test('DOC_CARD_RENDERER_VERSION is the string "3"', () => {
-  assert.equal(DOC_CARD_RENDERER_VERSION, '3');
+test('DOC_CARD_RENDERER_VERSION is the string "4"', () => {
+  assert.equal(DOC_CARD_RENDERER_VERSION, '4');
 });
 
 test('columnUnit: clamp(round(fontSize × 30), 280, 480)', () => {
@@ -52,7 +52,7 @@ const FULL_RECORD = {
 
 test('planDocCard: full record → three rows with the canonical block layout', () => {
   const plan = planDocCard(FULL_RECORD, { fontSize: 14 });
-  assert.equal(plan.rendererVersion, '3');
+  assert.equal(plan.rendererVersion, '4');
   assert.equal(plan.columnUnit, 420);
   assert.equal(plan.columns, 4);          // Usage Row 3 has 4 blocks: the widest row
   assert.equal(plan.cardWidth, 1680);     // 4 × 420
