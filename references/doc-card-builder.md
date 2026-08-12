@@ -136,6 +136,14 @@ function planDocCard(record, bodyTextStyle) {
     columns,
     cardWidth: columns * unit,
     termColumn: Math.round(unit * 0.3),
+    // The header band's record-derived content. Carried in the plan (not read
+    // straight off the record by the renderer) so renderHash describes every
+    // string the builder writes onto the card, header included. Always strings:
+    // an undefined would drop the key from JSON.stringify and move the hash.
+    header: {
+      summary: typeof record.summary === 'string' ? record.summary : '',
+      updatedAt: typeof record.updatedAt === 'string' ? record.updatedAt : '',
+    },
     rows,
   };
 }

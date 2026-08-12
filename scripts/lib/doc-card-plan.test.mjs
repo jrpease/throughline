@@ -139,3 +139,17 @@ test('planDocCard: empty arrays and empty objects are skipped like absent fields
   assert.deepEqual(plan.rows.map((r) => r.name), ['Usage Row 1']);
   assert.deepEqual(plan.rows[0].blocks.map((b) => b.name), ['Block: Overview']);
 });
+
+test('plan carries the header fields the builder writes', () => {
+  const plan = planDocCard(
+    { name: 'Button', summary: 'Starts an action.', updatedAt: '2026-08-12', description: 'x' },
+    { fontSize: 16 },
+  );
+  assert.deepEqual(plan.header, { summary: 'Starts an action.', updatedAt: '2026-08-12' });
+});
+
+test('plan header is always strings, so the render hash stays stable', () => {
+  const plan = planDocCard({ name: 'Button', description: 'x' }, { fontSize: 16 });
+  assert.deepEqual(plan.header, { summary: '', updatedAt: '' });
+  assert.doesNotThrow(() => JSON.stringify(plan));
+});
