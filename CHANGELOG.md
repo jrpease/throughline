@@ -45,9 +45,10 @@ to [Semantic Versioning](https://semver.org).
   `imported+user`, staying protected from then on.
 
 ### Fixed
-- **Doc-card post-dogfood fixes.** Column count is now capped by content, not
-  just specimen width — `cardColumns` takes no specimen input at all, so
-  a wide specimen with sparse Usage content no longer mints dead columns;
+- **Doc-card post-dogfood fixes.** Column count is now decided by content
+  alone — `cardColumns` takes no specimen input at all, so a wide specimen
+  with sparse Usage content no longer mints dead columns, and the render can
+  no longer feed its own next run a measurement it moved;
   `DOC_CARD_RENDERER_VERSION` bumps to `'4'` and old-layout cards re-flag
   `layout-upgrade-available`. The builder now refuses to render a card that
   already carries a foreign `Usage — *` band (documents more than one

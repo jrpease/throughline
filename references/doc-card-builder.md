@@ -323,12 +323,30 @@ async function renderDocCard({ card, record, vars, bodyTextStyle }) {
   // direct TEXT child that is neither the title row nor the resolved date
   // node. Not assumed by fixed index: the to-spec shape's child count can
   // differ from the legacy 3-child shape.
-  const headerDescCandidate = headerBand.children.find((n) =>
-    n !== titleRow && n.type === 'TEXT' && n !== dateValue);
+  //
+  // A node already named `Header Description` (a prior run's rename) is
+  // unambiguous by construction, so it wins outright. Failing that the
+  // candidates must resolve to EXACTLY ONE: picking the first of several
+  // would, on a header that also exposes its component-name TEXT as a direct
+  // child, overwrite that name with the summary and then rename it — wrong,
+  // destructive, and self-perpetuating on every later run. A visible date
+  // LABEL sibling (the "Last updated" caption, distinct from the value node
+  // resolved above) is excluded rather than counted, so the to-spec shape
+  // that carries one is still accepted instead of being falsely rejected.
+  const named = headerBand.children.find((n) => n.type === 'TEXT' && n.name === 'Header Description');
+  const descCandidates = headerBand.children.filter((n) =>
+    n !== titleRow && n.type === 'TEXT' && n !== dateValue
+    && n.name !== 'Last Updated' && n.characters !== 'Last updated');
+  const headerDescCandidate = named || (descCandidates.length === 1 ? descCandidates[0] : null);
+  const descAmbiguous = !named && descCandidates.length > 1;
 
   const missingAnchors = [];
   if (!hasStatusAnchor) missingAnchors.push('status (title row must contain a descendant named "Status Pill" or "Status")');
-  if (!headerDescCandidate) missingAnchors.push('description (a bare TEXT child distinct from the title row and the date node)');
+  if (!headerDescCandidate) {
+    missingAnchors.push(descAmbiguous
+      ? 'description (found ' + descCandidates.length + ' candidate TEXT children, cannot tell which is the description — name the right one "Header Description" by hand and re-run)'
+      : 'description (a bare TEXT child distinct from the title row and the date node)');
+  }
   if (!dateValue) missingAnchors.push('date (either a "Last Updated" TEXT child, or a FRAME child whose first TEXT child reads "Last updated")');
   if (missingAnchors.length) {
     throw new Error('renderDocCard: header band does not match either accepted shape — missing anchor(s): '
@@ -506,13 +524,10 @@ async function renderDocCard({ card, record, vars, bodyTextStyle }) {
     node.characters = chars;
   };
 
-  // Self-migrating: prefer a node already named `Header Description` (a prior
-  // run's rename) — type-checked, since `titleRow` is a FRAME that could be
-  // manually misnamed and would otherwise match first and blow up in
-  // writeChars mid-render — otherwise trust the description anchor resolved
-  // above, and rename it so every later run is deterministic by name, not
-  // position.
-  let headerDesc = headerBand.findChild((n) => n.type === 'TEXT' && n.name === 'Header Description') || headerDescCandidate;
+  // Self-migrating: the anchor resolved above already preferred a node named
+  // `Header Description` over a positional match, so renaming here makes
+  // every later run deterministic by name rather than by position.
+  const headerDesc = headerDescCandidate;
   if (headerDesc.name !== 'Header Description') headerDesc.name = 'Header Description';
   // record.summary is schema-required but the renderer never calls
   // validateRecord() itself — an unvalidated record's default ('') must not
