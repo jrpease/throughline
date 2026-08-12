@@ -63,9 +63,12 @@ deterministically. JSON is equally machine-legible for AI consumers.
   and **never overwrites** one whose provenance includes `user` or `imported`.
   Every value is assigned to exactly one of those two tiers: generated content is
   re-inferred, human input (`user`) and pre-existing external content
-  (`imported`) are protected. A protected block may still be rewritten when the
-  user approves the rewrite at the record-approval gate; the result is stamped
-  `imported+user`, which is protected from then on and never re-proposed.
+  (`imported`) are protected. Protection takes precedence: a combination that
+  contains both — `best-practice+user`, say — is protected. A block is
+  re-inferred only when it carries no `user` or `imported` marker at all. A
+  protected block may still be rewritten when the user approves the rewrite at
+  the record-approval gate; the result is stamped `imported+user`, which is
+  protected from then on and never re-proposed.
 
 Deferred to a later version (do not emit in v1): `anatomy`, `content` (writing
 guidelines), `examples`.
