@@ -28,16 +28,34 @@ it reads the specimen and never writes it. The status chip keeps its own owner
    - If the field is absent (a project's first doc-card render, or any
      render after the field is cleared), do not resolve fresh by judgement
      yet — first check whether a doc card already exists in the file. If
-     one does, adopt its established rhythm: read its `Usage` band's
-     `paddingLeft` and `itemSpacing`, and a `Usage Row`'s `itemSpacing` and
-     `counterAxisSpacing`, and resolve each bound variable id back to its
-     name with `figma.variables.getVariableByIdAsync(id)` to recover
-     `spacePadding`, `spaceRowGap`, `spaceBlockGap`, and `spaceItemGap`
-     respectively. Only when no rendered card exists in the file does the
-     caller choose by judgement — and in that case it is establishing the
-     project's rhythm, not guessing at one. Either way, resolve the nine
-     roles once, **write the mapping back to `design-system.json`** as
-     `figma.docCardVariables`, then render. Every later render reads it.
+     one does, recover all nine roles from it by resolving each bound
+     variable id back to its name (`figma.variables.getVariableByIdAsync(id)`):
+     - `spacePadding` ← the `Usage` frame's `paddingLeft`.
+     - `spaceRowGap` ← the `Usage` frame's `itemSpacing`.
+     - `spaceBlockGap` ← a `Usage Row *` frame's `itemSpacing`.
+     - `spaceItemGap` ← a `Block: *` frame's `itemSpacing` (blocks are the
+       children of a `Usage Row *`).
+     - `border` ← a `Row Divider` frame's
+       `fills[0].boundVariables.color`.
+     - `tonePositive` ← the first TEXT child of the `Block: Do` frame's
+       `fills[0].boundVariables.color`.
+     - `toneNegative` ← the first TEXT child of the `Block: Don't` frame,
+       same property.
+     - `textMuted` ← the first TEXT child of any block other than
+       `Block: Do` / `Block: Don't`, same property (tone blocks colour
+       their eyebrow differently, so exclude them here).
+     - `textDefault` ← the second child of that same block when it is a
+       TEXT node — `Block: Overview` is reliable; definition blocks nest
+       frames there instead, so skip those. Same property.
+     A single-row card has no `Row Divider` (no `border`); a card without
+     `Block: Do` / `Block: Don't` yields no `tonePositive` / `toneNegative`.
+     Read another rendered card for the roles that specific card can't
+     yield, or fall back to judgement for just those. Only when no
+     rendered card exists at all does the caller choose every role by
+     judgement — establishing the project's rhythm, not guessing at one.
+   Either way, resolve the nine roles once, **write the mapping back to
+   `design-system.json`** as `figma.docCardVariables`, then render. Every
+   later render reads it.
    The nine roles: `textDefault`, `textMuted` (text colors), `tonePositive`,
    `toneNegative` (Do/Don't eyebrow colors — success/danger roles), `border`
    (row dividers), `spacePadding`, `spaceRowGap`, `spaceBlockGap`,
