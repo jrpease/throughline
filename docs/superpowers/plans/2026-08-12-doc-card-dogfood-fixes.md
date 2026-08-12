@@ -589,21 +589,47 @@ git commit -m "docs(plan): record doc-card reconnaissance findings"
 
 ## Findings from Task 5 (recon)
 
-**Run date:** _(not yet run)_
+**Run date:** 2026-08-12, against `OCiZiGpsJ4ncPD8r205BjC` ("Throughline Plugin Test"), confirmed live via `figma_get_status(probe: true)`.
 
-**Q1 — Is intrinsic specimen width stable across both regimes?**
-_(not yet answered — record per-card `layoutMode`, `childHSizings`, and whether
-any set has `layoutMode !== 'NONE'` with `FILL` children. If every set is either
-`layoutMode: 'NONE'` or has no `FILL` children, the answer is YES.)_
+**Scope correction:** the file has 13 doc-card frames, not 14 — the "14" is the component-*set* count. `Select Menu — Documentation` hosts two sets (`Select Menu` and `Select Menu Item`) inside its `Preview` band. All 14 sets and all 13 header bands were read.
 
-**Decision:** _(YES → Task 6 Branch A. NO → Task 6 Branch B.)_
+**Q1 — Is intrinsic specimen width stable across both regimes? NO.**
+
+| Set | layoutMode | child hSizing | Independent? |
+|---|---|---|---|
+| **Button (108v)** | **GRID** | **FILL** | **NO** |
+| Input | NONE | FIXED | yes |
+| Textarea | NONE | FIXED | yes |
+| Select | NONE | FIXED | yes |
+| Select Menu | HORIZONTAL | FIXED | yes |
+| Select Menu Item | VERTICAL | FIXED | yes |
+| Checkbox | NONE | FIXED | yes |
+| Radio | NONE | FIXED | yes |
+| Spinner | HORIZONTAL | HUG | yes |
+| Tooltip | VERTICAL | HUG | yes |
+| Avatar | HORIZONTAL | FIXED | yes |
+| Switch | NONE | FIXED | yes |
+| Card | HORIZONTAL | FIXED | yes |
+| Badge | HORIZONTAL | HUG | yes |
+
+12 of 14 sets pass (`layoutMode: 'NONE'`, or auto-layout with no `FILL` child) — including all the small sets named in the brief as suspects (Card, Badge, Spinner, Avatar all use HUG/FIXED, not FILL). The failure is **Button**, the large-matrix case, and it fails on both counts at once: `references/figma-component-standards.md:103-114` mandates `layoutMode: "NONE"` with explicit grid coordinates for large matrices and explicitly says not to rely on `GRID` mode — but Button is actually built as `layoutMode: "GRID"` with every child `layoutSizingHorizontal: "FILL"`. That is exactly the coupling the bounding-box fix is meant to escape: Button's children resize with their grid tracks, so their bbox tracks the card's width the same way a FILL auto-layout row would. Button was not built to the documented standard, and the bbox fix does not route around that regardless.
+
+**Decision: NO → Task 6 Branch B.** The bounding-box measurement is not safe as a universal replacement for `specimen.width`; it must special-case (or the Button set must be rebuilt to `layoutMode: 'NONE'` first, which is out of scope here).
 
 **Q2 — What positional rule identifies the header description node?**
-_(not yet answered — record the header band's name per card, and the shape of
-its direct TEXT children. The rule must hold for all 14 cards.)_
 
-**Header band name(s):** _(not yet recorded)_
-**Rule:** _(not yet recorded)_
+**Header band name(s):** `Header` on Button only; `Frame` on the other 12 cards (Input, Textarea, Select, Select Menu, Checkbox, Radio, Spinner, Tooltip, Avatar, Switch, Card, Badge).
+
+All 13 header bands share one exact 3-child shape, in fixed order:
+1. A title-row FRAME (`TitleRow` on Button, `Frame` elsewhere) whose children are the component-name TEXT plus a `Status Pill` FRAME.
+2. A single TEXT node — the target. It carries no deliberate name; Figma has auto-named it from its own current text content, which is precisely why it can't be matched by name.
+3. A FRAME whose first child is a TEXT node with `characters === "Last updated"`, second child the date value.
+
+This holds identically for all 13 cards, including the one outlier (`Select Menu`, where node 2's `hSizing` is `HUG` instead of `FILL` because its description is short) — sizing differs, position and shape don't.
+
+**Rule:** read `header.children`; assert `length === 3`; assert `children[0].type === 'FRAME'` and it has a descendant named `Status Pill`; assert `children[2].type === 'FRAME'` and `children[2].children[0].type === 'TEXT'` with `characters === 'Last updated'`. If both anchors hold, the target is `children[1]`; assert `children[1].type === 'TEXT'` too. Throw (don't fall back to a guess) if any assertion fails — that signals a card whose header doesn't match the shape, and it must be skipped rather than overwritten.
+
+Full per-card JSON (bands, specimens, header trees) is in `.superpowers/sdd/2026-08-12-doc-card-dogfood-fixes/task-5-report.md`.
 
 ---
 
