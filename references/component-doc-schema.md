@@ -92,7 +92,7 @@ Figma-connected skill computing the identical hash over the description content.
 |---|---|---|---|---|
 | summary, description | ✔ | ✔ | ✔ | ✔ |
 | whenToUse / whenNotToUse | ✔ | ✔ | ✔ | ✔ |
-| variants, states (meanings) | ✔ compact | ✔ legend | ✔ argTypes | ✔ |
+| variants, states (meanings) | — | ✔ legend | ✔ argTypes | ✔ |
 | dos / donts | ✔ | ✔ | ✔ | ✔ |
 | accessibility | ✔ | ✔ | ✔ | ✔ |
 | tokensUsed | — | — | ✔ | ✔ |
