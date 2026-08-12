@@ -405,8 +405,10 @@ as `layout-upgrade-available` (informational), not as drift.
 
 `imported` / `user` provenance blocks are **never rewritten** — that is the
 record model working correctly, which means a voice sweep genuinely cannot fix
-hand-written copy that reads badly. The lint warns on those blocks and the user
-decides per item; a conscious choice, never a silent overwrite.
+hand-written copy that reads badly. The lint warns on those blocks; the proposed
+rewrite is carried into the record-approval gate, shown as before/after and
+labelled with provenance — one approval covers the whole record, never a silent
+overwrite.
 
 **Amendment (post-dogfood): a freshness gate in `/document-component`.**
 `storybook-chromatic-builder` copies the doc scripts (`build-docs-digest.mjs`,
@@ -483,7 +485,8 @@ shippable.
    structurally; the writing standard caps entry length and the lint surfaces
    bloat.
 3. **Bad hand-written copy survives** (see *Migration*) — by design; lint
-   warns, user decides per item.
+   warns, proposed rewrite is carried into the approval gate with provenance
+   labeling.
 4. **The dogfood is the acceptance test** (below); until it runs, the builder's
    Figma-side behavior is validated only by the planner's unit tests.
 

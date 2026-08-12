@@ -139,4 +139,6 @@ approval step.
 The lint shapes the draft before approval — it does not nag afterward.
 
 `imported` / `user` provenance blocks are never silently rewritten. The lint
-still warns on them; the user decides per item.
+still warns on them; the proposed rewrite is carried into the single
+record-approval gate (shown as before/after, labelled with provenance).
+Blocks the user clears are stamped `imported+user`.
