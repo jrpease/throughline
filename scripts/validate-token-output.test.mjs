@@ -200,6 +200,81 @@ test('unit-fidelity handles rem-authored tokens emitting ×16 correctly (guards 
   assert.equal(r.ok, true);
 });
 
+// A documented token ($description) emits an inline trailing comment under
+// ios-swift/enum.swift. A commented value must still be checked, not counted
+// as verified while never actually being compared.
+test('extractDeclarations strips a trailing // comment from the value', () => {
+  const [d] = extractDeclarations('public static let textSm = CGFloat(224.00) // Small body text', 'ios-swift');
+  assert.equal(d.value, 'CGFloat(224.00)');
+});
+
+test('extractDeclarations strips a trailing /** ... */ comment from the value', () => {
+  const [d] = extractDeclarations('public static let textSm = CGFloat(224.00) /** Small body text */', 'ios-swift');
+  assert.equal(d.value, 'CGFloat(224.00)');
+});
+
+test('extractDeclarations does not damage a value that legitimately contains // with no preceding whitespace', () => {
+  const [d] = extractDeclarations('static let urlToken = "https://example.com"', 'ios-swift');
+  assert.equal(d.value, '"https://example.com"');
+});
+
+test('a trailing // comment does not defeat unit-fidelity', () => {
+  const r = validate({ sources: SRC, output: 'static let textSm = CGFloat(224.00) // Small body text', platform: 'ios-swift' });
+  assert.ok(r.failures.some((f) => f.rule === 'unit-fidelity'));
+  assert.equal(r.ok, false);
+});
+
+test('a trailing /** ... */ comment does not defeat unit-fidelity', () => {
+  const r = validate({ sources: SRC, output: 'static let textSm = CGFloat(224.00) /** Small body text */', platform: 'ios-swift' });
+  assert.ok(r.failures.some((f) => f.rule === 'unit-fidelity'));
+  assert.equal(r.ok, false);
+});
+
+const COLOR_SRC = [{ file: 'c.json', dtcg: { color: { bg: { canvas: { $value: '#ffffff', $type: 'color' } } } } }];
+
+test('a colour token does not trigger unverifiable-dimension', () => {
+  const r = validate({ sources: COLOR_SRC, output: 'static let colorBgCanvas = UIColor(red: 1, green: 1, blue: 1, alpha: 1)', platform: 'ios-swift' });
+  assert.ok(!r.failures.some((f) => f.rule === 'unverifiable-dimension'));
+});
+
+test('an unreadable dimension emission produces unverifiable-dimension rather than counting as matched-and-checked', () => {
+  const r = validate({ sources: SRC, output: 'static let textSm = someUnknownWrapper(14)', platform: 'ios-swift' });
+  assert.ok(r.failures.some((f) => f.rule === 'unverifiable-dimension'));
+  assert.equal(r.ok, false);
+});
+
+// The match-rate denominator only sees lines DECL could parse. Unparsed
+// declaration-shaped lines and unemitted source tokens must be surfaced.
+const UNPARSED_OUT = `
+public enum Tokens {
+    internal static let textSm = CGFloat(14.00)
+    internal static let textMd = CGFloat(16.00)
+    internal static let textLg = CGFloat(18.00)
+}
+`;
+
+test('several unparsed declaration-shaped lines report a non-zero unparsedLines count', () => {
+  const r = validate({ sources: SRC, output: UNPARSED_OUT, platform: 'ios-swift' });
+  assert.equal(r.total, 0);
+  assert.equal(r.unparsedLines, 3);
+});
+
+const MANY_SRC = [{ file: 't2.json', dtcg: {
+  text: { sm: { $value: '14px' }, md: { $value: '16px' }, lg: { $value: '18px' } },
+} }];
+
+test('source tokens absent from the output report a non-zero unemittedTokens count', () => {
+  const r = validate({ sources: MANY_SRC, output: 'static let textSm = CGFloat(14.00)', platform: 'ios-swift' });
+  assert.equal(r.unemittedTokens, 2);
+});
+
+test('a clean matched run reports neither unparsedLines nor unemittedTokens', () => {
+  const out = 'static let textSm = CGFloat(14.00)\nstatic let leadingTight = CGFloat(1.1)';
+  const r = validate({ sources: SRC, output: out, platform: 'ios-swift' });
+  assert.equal(r.unparsedLines, 0);
+  assert.equal(r.unemittedTokens, 0);
+});
+
 import { formatReport } from './validate-token-output.mjs';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
@@ -216,6 +291,32 @@ test('formatReport states the match rate and every failure', () => {
   assert.match(lines, /unit-fidelity/);
   assert.match(lines, /textSm/);
   assert.match(lines, /224/);
+});
+
+test('formatReport renders an unverifiable-dimension failure', () => {
+  const lines = formatReport({
+    total: 1, matched: 1, matchRate: 1, minMatch: 0.5, collisions: [],
+    failures: [{ rule: 'unverifiable-dimension', symbol: 'textSm', token: 'text.sm', source: '14px', emitted: 'someUnknownWrapper(14)' }],
+    ok: false,
+  }).join('\n');
+  assert.match(lines, /unverifiable-dimension/);
+  assert.match(lines, /textSm/);
+});
+
+test('formatReport prints unparsedLines and unemittedTokens only when non-zero', () => {
+  const zero = formatReport({
+    total: 1, matched: 1, matchRate: 1, minMatch: 0.5, collisions: [], failures: [], ok: true,
+    unparsedLines: 0, unemittedTokens: 0,
+  }).join('\n');
+  assert.doesNotMatch(zero, /unparsed line/);
+  assert.doesNotMatch(zero, /had no matching emitted symbol/);
+
+  const nonzero = formatReport({
+    total: 1, matched: 1, matchRate: 1, minMatch: 0.5, collisions: [], failures: [], ok: true,
+    unparsedLines: 2, unemittedTokens: 3,
+  }).join('\n');
+  assert.match(nonzero, /2 unparsed line/);
+  assert.match(nonzero, /3 source token\(s\) had no matching emitted symbol/);
 });
 
 function runCli(args) {

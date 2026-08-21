@@ -49,13 +49,19 @@ const DECL = {
   'android-kotlin': /^\s*val\s+([A-Za-z_]\w*)\s*=\s*(.+?)\s*$/,
 };
 
+// Style Dictionary's ios-swift/enum.swift format emits an inline trailing
+// comment for any token carrying a $description ("... /** Small body text */").
+// Strip a TRAILING comment only — a value that legitimately contains "//"
+// inside a string literal must survive untouched.
+const TRAILING_COMMENT = /\s+(\/\*\*?[\s\S]*\*\/|\/\/.*)$/;
+
 export function extractDeclarations(text, platform) {
   const re = DECL[platform];
   if (!re) throw new Error(`unknown platform "${platform}"`);
   const out = [];
   for (const line of text.split('\n')) {
     const m = line.match(re);
-    if (m) out.push({ symbol: m[1], value: m[2] });
+    if (m) out.push({ symbol: m[1], value: m[2].replace(TRAILING_COMMENT, '').trim() });
   }
   return out;
 }
@@ -131,6 +137,31 @@ export function findModeCollisions(sources) {
 const FOREIGN = /(?:color-mix|calc|var)\s*\(/;
 const BARE_UNIT = /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em|%)$/;
 
+// Lines that are obviously not a would-be token declaration: braces-only,
+// comments, imports/package/annotations, or the container declarations
+// (enum/object/class) themselves. Anything else that DECL failed to match is
+// a genuine unparsed line, not noise — conservatively under-count rather than
+// over-count (a false "unparsed" is noise the brief warns against).
+const STRUCTURAL_PREFIX = /^(\/\/|\/\*|\*|import\b|package\b|@)/;
+const STRUCTURAL_CONTAINS = /\b(enum|object|class)\s/;
+
+// Non-blank output lines DECL could not parse and that aren't structural —
+// the denominator's blind spot. Made visible, not enforced (Decision 6 only
+// covers zero matches).
+function countUnparsedLines(text, declRe) {
+  let count = 0;
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (declRe.test(line)) continue;
+    if (/^[{}]+$/.test(trimmed)) continue;
+    if (STRUCTURAL_PREFIX.test(trimmed)) continue;
+    if (STRUCTURAL_CONTAINS.test(trimmed)) continue;
+    count += 1;
+  }
+  return count;
+}
+
 export function validate({ sources, output, platform, minMatch = 0.5 }) {
   const collisions = findModeCollisions(sources);
 
@@ -162,7 +193,10 @@ export function validate({ sources, output, platform, minMatch = 0.5 }) {
     const expected = expectedMagnitude(source);
     if (expected.skip) continue;
     const actual = magnitudeOf(value);
-    if (actual === null) continue;
+    if (actual === null) {
+      failures.push({ rule: 'unverifiable-dimension', symbol, token: path, source, emitted: value });
+      continue;
+    }
     if (Math.abs(actual - expected.magnitude) > 0.001) {
       failures.push({ rule: 'unit-fidelity', symbol, token: path, source, emitted: value, expected: expected.magnitude, actual });
     }
@@ -170,7 +204,13 @@ export function validate({ sources, output, platform, minMatch = 0.5 }) {
 
   const matchRate = decls.length ? matched / decls.length : 0;
   const ok = failures.length === 0 && collisions.length === 0 && matched > 0 && matchRate >= minMatch;
-  return { total: decls.length, matched, matchRate, failures, collisions, minMatch, ok };
+
+  const unparsedLines = countUnparsedLines(output, DECL[platform]);
+  const emittedKeys = new Set(decls.map((d) => normalizeKey(d.symbol)));
+  let unemittedTokens = 0;
+  for (const key of byKey.keys()) if (!emittedKeys.has(key)) unemittedTokens += 1;
+
+  return { total: decls.length, matched, matchRate, failures, collisions, minMatch, ok, unparsedLines, unemittedTokens };
 }
 
 export function formatReport(r) {
@@ -186,15 +226,25 @@ export function formatReport(r) {
   if (r.failures.length) {
     lines.push(`\n${r.failures.length} rule failure(s):`);
     for (const f of r.failures) {
-      lines.push(f.rule === 'unit-fidelity'
-        ? `  - [${f.rule}] ${f.symbol}: source ${f.source} expects ${f.expected}, emitted ${f.emitted} (${f.actual})`
-        : `  - [${f.rule}] ${f.symbol}: ${f.emitted}`);
+      lines.push(
+        f.rule === 'unit-fidelity'
+          ? `  - [${f.rule}] ${f.symbol}: source ${f.source} expects ${f.expected}, emitted ${f.emitted} (${f.actual})`
+          : f.rule === 'unverifiable-dimension'
+            ? `  - [${f.rule}] ${f.symbol}: source ${f.source} has a dimension magnitude but emitted ${f.emitted} could not be read — the token was never actually compared`
+            : `  - [${f.rule}] ${f.symbol}: ${f.emitted}`,
+      );
     }
   }
   if (r.matched === 0) {
-    lines.push(`\nNo emitted symbol matched any source token — the adapter's naming convention does not line up, so nothing was actually verified.`);
+    lines.push(`\nNo emitted symbol matched any source token — the adapter's naming convention does not line up, so nothing was actually verified. A likely cause is a declaration form the DECL pattern does not match (e.g. a different accessControl such as "internal static let ...").`);
   } else if (r.matchRate < r.minMatch) {
     lines.push(`\nMatch rate ${pct}% is below the ${(r.minMatch * 100).toFixed(0)}% floor — most output went unchecked.`);
+  }
+  if (r.unparsedLines) {
+    lines.push(`\n${r.unparsedLines} unparsed line(s) — declaration-shaped lines the extractor could not read; they count in neither the numerator nor the denominator above.`);
+  }
+  if (r.unemittedTokens) {
+    lines.push(`\n${r.unemittedTokens} source token(s) had no matching emitted symbol.`);
   }
   return lines;
 }
@@ -221,12 +271,14 @@ function main() {
     process.exit(2);
   }
 
-  let sources;
-  try {
-    sources = values.source.map((file) => ({ file, dtcg: JSON.parse(readFileSync(file, 'utf8')) }));
-  } catch (e) {
-    console.error(`error reading or parsing ${e.path || 'source file'}: ${e.message}`);
-    process.exit(2);
+  const sources = [];
+  for (const file of values.source) {
+    try {
+      sources.push({ file, dtcg: JSON.parse(readFileSync(file, 'utf8')) });
+    } catch (e) {
+      console.error(`error reading or parsing ${file}: ${e.message}`);
+      process.exit(2);
+    }
   }
 
   let output;
