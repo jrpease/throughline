@@ -156,6 +156,7 @@ test('CLI exits non-zero on a bad target', () => {
 test('skipScript excludes plugin-internal scripts, adapters and tests', () => {
   assert.ok(skipScript('install.mjs'), 'the installer itself');
   assert.ok(skipScript('build-doc-card-builder.mjs'), 'generator, never run downstream');
+  assert.ok(skipScript('build-native-adapter-config.mjs'), 'generator, never run downstream');
   assert.ok(skipScript('lib/doc-card-render.figma.js'), 'read only by the generator');
   assert.ok(skipScript('docs-check.test.mjs'), 'tests stay in the plugin');
   assert.ok(skipScript('adapters/generate.mjs'), 'adapters have their own target');

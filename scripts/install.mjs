@@ -99,12 +99,13 @@ function stagePayload(srcRoot, destRoot, skip) {
   return written;
 }
 
-// Scripts that never run from a consuming repo: the installer itself, the
-// doc-card builder generator, and the renderer template it inlines (the
+// Scripts that never run from a consuming repo: the installer itself, the two
+// reference-doc generators, and the renderer template one of them inlines (the
 // renderer reaches Figma pre-inlined inside references/doc-card-builder.md).
 const PLUGIN_INTERNAL = new Set([
   'install.mjs',
   'build-doc-card-builder.mjs',
+  'build-native-adapter-config.mjs',
   'lib/doc-card-render.figma.js',
 ]);
 
