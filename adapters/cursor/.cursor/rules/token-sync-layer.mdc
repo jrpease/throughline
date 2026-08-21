@@ -45,11 +45,11 @@ fails, offer `figma-environment-setup`.
 Ask which platform(s) the user is building for. Read
 `.throughline/references/sync-adapters.md` for the two-tier adapter model.
 
-- **Curated (Tier 1):** `shadcn`, `tailwind`, `mui`, `vanilla-css`, `ios-swift`.
+- **Curated (Tier 1):** `shadcn`, `tailwind`, `mui`, `vanilla-css`.
   Vetted presets — high confidence.
 - **Generated (Tier 2):** any other framework (Ant Design, Chakra, HeroUI,
-  Android/Kotlin, Flutter, etc.). The skill generates an adapter and verifies it
-  against a real component before trusting it.
+  iOS/Swift, Android/Kotlin, Flutter, etc.). The skill generates an adapter and
+  verifies it against a real component before trusting it.
 
 **Always tell the user which tier they're on.** If they name a curated one, say
 it'll be solid. If they name anything else, be honest: "That's not one I have a
