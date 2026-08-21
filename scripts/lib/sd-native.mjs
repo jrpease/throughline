@@ -8,8 +8,10 @@
 //
 // references/native-adapter-config.md is GENERATED from this file by
 // scripts/build-native-adapter-config.mjs. Edit the code here, then regenerate.
+// @doc-section imports
 import { readFileSync } from 'node:fs';
 import { flattenDtcg, resolveValue, findModeCollisions } from './dtcg.mjs';
+// @doc-section-end imports
 
 // @doc-section unit-aware
 // Read the magnitude from the AUTHORED value's own unit.
@@ -186,6 +188,12 @@ export function nativePlatform({ platform, buildPath, className = 'Tokens', pack
   const fileOptions = platform === 'android-kotlin' ? { className, packageName } : { className };
   return {
     transforms: [...preset.transforms],
+    // Carried here, not left to the caller: authored() reads the ORIGINAL
+    // $value, so without this preprocessor every aliased dimension still holds
+    // an unresolved {spacing.space.4}, no size transform fires, and the build
+    // emits bare px literals. preprocess is idempotent, so a project that also
+    // declares it at top level is harmless.
+    preprocessors: ['dtcg/resolve-dual-node'],
     buildPath,
     options: { outputReferences: false },
     files: [
@@ -211,11 +219,28 @@ export function nativePlatform({ platform, buildPath, className = 'Tokens', pack
 // deleting a call whose return value is consumed.
 //
 //   source: nativeSources(sourcesForThisMode)
+//
+// An unexpanded glob is the failure that actually lands here, and a raw ENOENT
+// on the literal string "tokens/*.json" reads as a crash rather than a
+// diagnosis. Name the path and what was expected.
+const EXPECTED = 'nativeSources takes explicit file paths for ONE mode — never a glob, never a directory.';
+
+function readTokenFile(file) {
+  let raw;
+  try {
+    raw = readFileSync(file, 'utf8');
+  } catch (err) {
+    throw new Error(`cannot read token source "${file}": ${err.message}\n${EXPECTED}`);
+  }
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`token source "${file}" is not valid JSON: ${err.message}\n${EXPECTED}`);
+  }
+}
+
 export function nativeSources(paths) {
-  const parsed = paths.map((file) => ({
-    file,
-    dtcg: JSON.parse(readFileSync(file, 'utf8')),
-  }));
+  const parsed = paths.map((file) => ({ file, dtcg: readTokenFile(file) }));
   const collisions = findModeCollisions(parsed);
   if (collisions.length === 0) return paths;
 

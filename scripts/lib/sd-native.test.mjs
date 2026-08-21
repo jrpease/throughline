@@ -188,6 +188,16 @@ test('nativePlatform throws when android-kotlin has no packageName', () => {
   );
 });
 
+test('nativePlatform carries the dual-node preprocessor on every platform', () => {
+  for (const [platform, extra] of [
+    ['ios-swift', {}],
+    ['android-kotlin', { packageName: 'com.example' }],
+  ]) {
+    const p = nativePlatform({ platform, buildPath: 'o/', ...extra });
+    assert.deepEqual(p.preprocessors, ['dtcg/resolve-dual-node'], platform);
+  }
+});
+
 test('nativePlatform throws on an unknown platform', () => {
   assert.throws(() => nativePlatform({ platform: 'flutter', buildPath: 'o/' }), /unknown native platform/);
 });
@@ -211,6 +221,26 @@ test('nativeSources throws naming the colliding path and both files', () => {
     assert.match(err.message, /color\.bg/);
     assert.match(err.message, /light\.json/);
     assert.match(err.message, /dark\.json/);
+    return true;
+  });
+});
+
+test('nativeSources names the path and the expectation on a missing file', () => {
+  const missing = join(mkdtempSync(join(tmpdir(), 'sdnative-')), 'tokens/*.json');
+  assert.throws(() => nativeSources([missing]), (err) => {
+    assert.match(err.message, /cannot read token source/);
+    assert.match(err.message, /tokens\/\*\.json/);
+    assert.match(err.message, /never a glob/);
+    return true;
+  });
+});
+
+test('nativeSources names the file when its JSON does not parse', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sdnative-'));
+  const bad = join(dir, 'broken.json');
+  writeFileSync(bad, '{ "color": ');
+  assert.throws(() => nativeSources([bad]), (err) => {
+    assert.match(err.message, /broken\.json" is not valid JSON/);
     return true;
   });
 });
