@@ -60,6 +60,16 @@ consumer's repo, and is verified end to end against a real source (196 emitted
 symbols matched, zero rule failures, on both light and dark builds). The badge
 is back on that basis.
 
+**What the badge does not cover: the generated file does not compile as-is.**
+15 emitted symbols per file are not valid Swift or Kotlin — 14 `fontFamily`
+values and one `linear-gradient(...)`, all emitted unquoted, because
+`content/swift/literal` and `asset/swift/literal` apply only to
+`$type: content`/`asset`. That is stock Style Dictionary behaviour rather than
+anything this configuration does, and `tokens:validate-output` does not flag it:
+its `no-foreign-syntax` rule matches only `color-mix|calc|var`, and it has no
+rule for language validity. Quote or drop those symbols before the file reaches
+a compiler.
+
 `android-kotlin` uses the same module and stays Tier 2: its remaining unknowns
 are on the consumption side — Compose `dp`/`sp` behaviour against a real Compose
 app, resource-qualifier conventions, package layout — which building tokens does
@@ -124,8 +134,10 @@ emit as references to primitive vars rather than flattened literals.
 - **Native adapters** (`ios-swift`, and generated native targets like
   Android/Kotlin): `outputReferences: false` — references resolve to literal
   values at build time, because the target language has no runtime var
-  indirection. Modes map to the platform's native mechanism (asset catalog
-  variants, resource qualifiers).
+  indirection. Modes map to **one build per mode, one output directory per
+  mode** — each build passing only that mode's sources, through `nativeSources`.
+  Asset-catalog variants and resource qualifiers are *not* implemented: nothing
+  here emits an `.xcassets` catalog or a `values-night/` resource tree.
 
 ## What the stock configuration gets wrong
 
@@ -134,10 +146,14 @@ transform group mishandles every one of them silently — emitting output that
 compiles and is wrong, which is why `tokens:validate-output` exists.
 
 **None of these are Style Dictionary limitations.** All four are fixed by
-roughly 80 lines of preprocessor and transform code, given in
-`${CLAUDE_PLUGIN_ROOT}/references/native-adapter-config.md`, which has been
-verified to emit 196/196 correct symbols from a real 322-token source. Configure
-a native adapter from that file rather than from a stock `transformGroup`.
+roughly 80 lines of preprocessor and transform code, which ships as a tested
+module at `${CLAUDE_PLUGIN_ROOT}/scripts/lib/sd-native.mjs` and is documented in
+`${CLAUDE_PLUGIN_ROOT}/references/native-adapter-config.md`. Against a real
+322-token source it emitted 196 symbols that all map to a source token, 107 of
+them with their numeric magnitude additionally verified, with zero rule failures
+— colour and string values are matched by name only and are checked by no rule.
+**Import that module** rather than configuring a native adapter from a stock
+`transformGroup` or transcribing the reference doc.
 
 - **CSS expressions in a value** — `color-mix(in srgb, {color.brand.500} 12%,
   transparent)` is a runtime CSS construct. Style Dictionary does no colour

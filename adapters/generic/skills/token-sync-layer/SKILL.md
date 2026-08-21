@@ -209,11 +209,12 @@ validator imports it too, so copying any of them without the others breaks at
 import. Then register the gate so it stays live on every future sync:
 
 ```json
-"tokens:validate-output": "node scripts/validate-token-output.mjs"
+"tokens:validate-output": "node scripts/validate-token-output.mjs --min-match 1"
 ```
 
 Invoke it once per native output file, passing the same `--source` list that
-file's build used.
+file's build used. `--min-match 1` is what makes it a gate: the flag defaults to
+`0.5`, so without it a 60% match rate exits `0`.
 
 ## Step 4.5 — Icon code sync (install check + custom SVGR)
 
