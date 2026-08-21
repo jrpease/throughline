@@ -68,7 +68,7 @@ once per mode. Nothing enforces it.
 platform-config factory:
 
 ```js
-registerNativeTransforms(StyleDictionary);           // preprocessor + 3 transforms
+registerNativeTransforms(StyleDictionary);           // preprocessor + 4 transforms
 nativeSources(paths);                                // → same paths, guarded ⟨rev⟩
 nativePlatform({ platform, buildPath, ...opts });    // → plain config object
 ```
@@ -280,6 +280,68 @@ exercised.
 So the signature is `nativePlatform({ platform, buildPath, className,
 packageName })`, with `packageName` required for `android-kotlin` and ignored
 for `ios-swift`.
+
+### 9. The transform list is stock-minus-the-broken-one, not hand-picked ⟨rev⟩
+
+Reading the stock groups out of `style-dictionary@4.4.0` turned up three
+defects in the transform list `references/native-adapter-config.md` currently
+documents. The module fixes all three, and the doc inherits the fix by being
+generated from it (Decision 5).
+
+Stock, verified by enumerating `SD.hooks.transformGroups`:
+
+```
+ios-swift: attribute/cti  name/camel  color/UIColorSwift
+           content/swift/literal  asset/swift/literal  size/swift/remToCGFloat
+compose:   attribute/cti  name/camel  color/composeColor
+           size/compose/em  size/compose/remToSp  size/compose/remToDp
+```
+
+**Defect 1 — Compose needs two dimension transforms, not one.**
+`size/compose/remToSp` filters `$type === 'fontSize'` and emits `.sp`;
+`size/compose/remToDp` filters `$type === 'dimension'` and emits `.dp`. The
+documented config collapses both into one `.dp` transform, which would render
+every font size in `dp`. On Android that silently ignores the user's font-scale
+accessibility setting — a wrong-but-compiling output of exactly the kind this
+whole area exists to prevent. The module registers
+`size/unit-aware/compose-dp` and `size/unit-aware/compose-sp` with the stock
+filters and the unit-aware magnitude.
+
+**Defect 2 — the Swift transform's filter is too narrow.**
+`size/swift/remToCGFloat` filters `isDimension(token) || isFontSize(token)`.
+The documented replacement filters `$type === 'dimension'` only, so a
+`fontSize`-typed token falls through untransformed and emits a bare `14px`.
+`no-bare-units` would catch it, but the config should not produce it. The
+module matches the stock filter.
+
+*Why 196/196 passed anyway:* DTCG types font sizes as `dimension`;
+`fontSize` is a legacy Style Dictionary type the zygarden source does not use.
+The defect is real and was simply not exercised.
+
+**Defect 3 — two non-size Swift transforms were dropped.**
+`content/swift/literal` and `asset/swift/literal` quote `content`- and
+`asset`-typed values. The documented list omits both, so such a token emits as
+an unquoted Swift literal, which does not compile. Restored.
+
+**The rule this establishes:** the module derives each platform's list from the
+stock group by replacing only the rem-assuming size transforms and inserting
+`value/color-mix-to-hex8` ahead of the colour transform. Everything else stock
+does is kept. A hand-picked list silently drops whatever it forgets, which is
+how all three of these arose.
+
+Resulting lists:
+
+```
+ios-swift:      attribute/cti  name/camel  value/color-mix-to-hex8
+                color/UIColorSwift  content/swift/literal
+                asset/swift/literal  size/unit-aware/swift
+android-kotlin: attribute/cti  name/camel  value/color-mix-to-hex8
+                color/composeColor  size/unit-aware/compose-dp
+                size/unit-aware/compose-sp
+```
+
+`size/compose/em` is dropped rather than replaced: it converts `fontSize` to an
+`em` value, which the unit-aware `sp` transform supersedes.
 
 ## Files
 
