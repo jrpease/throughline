@@ -150,7 +150,6 @@ export function validate({ sources, output, platform, minMatch = 0.5 }) {
 
     const path = byKey.get(normalizeKey(symbol));
     if (!path) continue;
-    matched += 1;
 
     let source;
     try {
@@ -158,6 +157,8 @@ export function validate({ sources, output, platform, minMatch = 0.5 }) {
     } catch {
       continue;
     }
+    matched += 1;
+
     const expected = expectedMagnitude(source);
     if (expected.skip) continue;
     const actual = magnitudeOf(value);

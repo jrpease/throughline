@@ -183,3 +183,19 @@ test('a mode collision fails even when every declaration is correct', () => {
   assert.equal(r.collisions.length, 1);
   assert.equal(r.ok, false);
 });
+
+test('a dangling alias does not inflate matched count', () => {
+  const sources = [{ file: 't.json', dtcg: { a: { b: { $value: '{c.d}' } } } }];
+  const r = validate({ sources, output: 'static let aB = CGFloat(999.00)', platform: 'ios-swift' });
+  assert.equal(r.matched, 0);
+  assert.equal(r.ok, false);
+});
+
+test('unit-fidelity handles rem-authored tokens emitting ×16 correctly (guards against over-correction)', () => {
+  const sources = [{ file: 't.json', dtcg: {
+    spacing: { base: { $value: '1rem', $type: 'dimension' } },
+  } }];
+  const r = validate({ sources, output: 'static let spacingBase = CGFloat(16.00)', platform: 'ios-swift' });
+  assert.deepEqual(r.failures, []);
+  assert.equal(r.ok, true);
+});
