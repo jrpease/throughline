@@ -8,7 +8,8 @@
 //
 // references/native-adapter-config.md is GENERATED from this file by
 // scripts/build-native-adapter-config.mjs. Edit the code here, then regenerate.
-import { flattenDtcg, resolveValue } from './dtcg.mjs';
+import { readFileSync } from 'node:fs';
+import { flattenDtcg, resolveValue, findModeCollisions } from './dtcg.mjs';
 
 // @doc-section unit-aware
 // Read the magnitude from the AUTHORED value's own unit.
@@ -118,3 +119,168 @@ export function preprocess(dict) {
   return hoistDualNodes(resolveInPlace(structuredClone(dict), flattenDtcg(dict)));
 }
 // @doc-section-end preprocess
+
+// @doc-section platform
+// Build each platform's transform list from Style Dictionary's STOCK group,
+// replacing only the rem-assuming size transforms and inserting the color-mix
+// computation ahead of the colour transform. A hand-picked list silently drops
+// whatever it forgets; three real defects arose that way, including Compose
+// font sizes rendered in dp instead of sp.
+//
+// Stock, from SD 4.4.0:
+//   ios-swift: attribute/cti name/camel color/UIColorSwift
+//              content/swift/literal asset/swift/literal size/swift/remToCGFloat
+//   compose:   attribute/cti name/camel color/composeColor
+//              size/compose/em size/compose/remToSp size/compose/remToDp
+const PLATFORMS = {
+  'ios-swift': {
+    transforms: [
+      'attribute/cti',
+      'name/camel',
+      'value/color-mix-to-hex8',
+      'color/UIColorSwift',
+      'content/swift/literal',
+      'asset/swift/literal',
+      'size/unit-aware/swift',
+    ],
+    destination: 'Tokens.swift',
+    format: 'ios-swift/enum.swift',
+  },
+  'android-kotlin': {
+    transforms: [
+      'attribute/cti',
+      'name/camel',
+      'value/color-mix-to-hex8',
+      'color/composeColor',
+      'size/unit-aware/compose-dp',
+      'size/unit-aware/compose-sp',
+    ],
+    destination: 'Tokens.kt',
+    format: 'compose/object',
+  },
+};
+
+// % and em are container- or parent-relative, so there is no build-time native
+// magnitude. Filter on the AUTHORED value, not on $type — a "100%" token may be
+// typed string rather than dimension.
+const WEB_ONLY_UNIT = /^-?[\d.]+(%|em)$/;
+
+export function nativeFilter(token) {
+  return !WEB_ONLY_UNIT.test(String(token.original?.$value ?? token.$value).trim());
+}
+
+export function nativePlatform({ platform, buildPath, className = 'Tokens', packageName }) {
+  const preset = PLATFORMS[platform];
+  if (!preset) {
+    throw new Error(
+      `unknown native platform "${platform}" (expected ${Object.keys(PLATFORMS).join(' or ')})`,
+    );
+  }
+  if (platform === 'android-kotlin' && !packageName) {
+    throw new Error(
+      'android-kotlin requires a packageName: the compose/object template emits ' +
+        '`package ${packageName ?? ""}`, so omitting it produces a bare "package " ' +
+        'line, which is not valid Kotlin',
+    );
+  }
+  const fileOptions = platform === 'android-kotlin' ? { className, packageName } : { className };
+  return {
+    transforms: [...preset.transforms],
+    buildPath,
+    options: { outputReferences: false },
+    files: [
+      {
+        destination: preset.destination,
+        format: preset.format,
+        options: fileOptions,
+        filter: nativeFilter,
+      },
+    ],
+  };
+}
+// @doc-section-end platform
+
+// @doc-section sources
+// Guard the source list for ONE mode, and return it so it can only be used
+// through this call.
+//
+// Style Dictionary deduplicates by dot-path, so a build whose sources contain
+// both a light and a dark definition of the same token keeps whichever file
+// sorts last and drops the other mode with no diagnostic. Wrapping the value
+// the build already needs makes the check unskippable: omitting it means
+// deleting a call whose return value is consumed.
+//
+//   source: nativeSources(sourcesForThisMode)
+export function nativeSources(paths) {
+  const parsed = paths.map((file) => ({
+    file,
+    dtcg: JSON.parse(readFileSync(file, 'utf8')),
+  }));
+  const collisions = findModeCollisions(parsed);
+  if (collisions.length === 0) return paths;
+
+  const shown = collisions
+    .slice(0, 5)
+    .map((c) => `  ${c.path}: ${c.defs.map((d) => d.file).join(' vs ')}`)
+    .join('\n');
+  const more = collisions.length > 5 ? `\n  ...and ${collisions.length - 5} more` : '';
+  throw new Error(
+    `${collisions.length} token path(s) are defined differently across this build's sources.\n` +
+      'Style Dictionary keeps whichever file sorts last, silently dropping a whole mode.\n' +
+      'Build once per mode, passing an explicit source list for that mode only.\n' +
+      `${shown}${more}`,
+  );
+}
+// @doc-section-end sources
+
+// @doc-section register
+// Register everything with a Style Dictionary instance. SD is a parameter, not
+// an import, so this module stays zero-dependency and installable.
+const authored = (token) => magnitude(token.original?.$value ?? token.$value);
+const isDimension = (token) => token.$type === 'dimension';
+const isFontSize = (token) => token.$type === 'fontSize';
+const hasMagnitude = (token) => authored(token) !== null;
+
+export function registerNativeTransforms(StyleDictionary) {
+  StyleDictionary.registerPreprocessor({
+    name: 'dtcg/resolve-dual-node',
+    preprocessor: preprocess,
+  });
+
+  StyleDictionary.registerTransform({
+    name: 'value/color-mix-to-hex8',
+    type: 'value',
+    transitive: true,
+    filter: (token) => colorMixToHex8(token.$value) !== null,
+    transform: (token) => colorMixToHex8(token.$value),
+  });
+
+  // Stock size/swift/remToCGFloat filters dimension OR fontSize; match it.
+  StyleDictionary.registerTransform({
+    name: 'size/unit-aware/swift',
+    type: 'value',
+    transitive: true,
+    filter: (token) => (isDimension(token) || isFontSize(token)) && hasMagnitude(token),
+    transform: (token) => `CGFloat(${authored(token).toFixed(2)})`,
+  });
+
+  // Compose distinguishes dp from sp by $type, and sp is what respects the
+  // user's font-scale accessibility setting. One .dp transform for both would
+  // silently defeat that.
+  StyleDictionary.registerTransform({
+    name: 'size/unit-aware/compose-dp',
+    type: 'value',
+    transitive: true,
+    filter: (token) => isDimension(token) && hasMagnitude(token),
+    transform: (token) => `${authored(token).toFixed(2)}.dp`,
+  });
+
+  StyleDictionary.registerTransform({
+    name: 'size/unit-aware/compose-sp',
+    type: 'value',
+    transitive: true,
+    filter: (token) => isFontSize(token) && hasMagnitude(token),
+    transform: (token) => `${authored(token).toFixed(2)}.sp`,
+  });
+}
+// @doc-section-end register
