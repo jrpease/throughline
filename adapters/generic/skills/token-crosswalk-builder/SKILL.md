@@ -65,6 +65,8 @@ Copy these from `.throughline/scripts/` into the user's repo **verbatim**
 (they are zero-dependency and version with the user's repo so their CI can run them):
 
 - `lib/crosswalk.mjs` → `packages/tokens/scripts/lib/crosswalk.mjs`
+- `lib/dtcg.mjs` → `packages/tokens/scripts/lib/dtcg.mjs` (required by
+  `validate-crosswalk.mjs` — copying the validator without it breaks the gate at import)
 - `validate-crosswalk.mjs` → `packages/tokens/scripts/validate-crosswalk.mjs`
 - `build-reverse-index.mjs` → `packages/tokens/scripts/build-reverse-index.mjs`
 - `guard-token-removal.mjs` → `packages/tokens/scripts/guard-token-removal.mjs`

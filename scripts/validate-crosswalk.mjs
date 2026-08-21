@@ -7,36 +7,10 @@ import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
 import { loadCrosswalk, statusCounts } from './lib/crosswalk.mjs';
+import { flattenDtcg, resolveValue } from './lib/dtcg.mjs';
 
-const REF = /^\{([^}]+)\}$/;
-
-// Flatten nested DTCG groups into { "dot.path": rawValue }. Skips $-prefixed meta keys.
-export function flattenDtcg(obj, prefix = [], out = {}) {
-  for (const [key, val] of Object.entries(obj)) {
-    if (key.startsWith('$')) continue;
-    if (val && typeof val === 'object' && '$value' in val) {
-      out[[...prefix, key].join('.')] = val.$value;
-    } else if (val && typeof val === 'object') {
-      flattenDtcg(val, [...prefix, key], out);
-    }
-  }
-  return out;
-}
-
-// Follow {alias} chains to a leaf literal. Throws on missing or circular refs.
-export function resolveValue(name, flat, seen = new Set()) {
-  if (!(name in flat)) throw new Error(`token "${name}" not found in DTCG source`);
-  const val = flat[name];
-  if (typeof val === 'string') {
-    const m = val.match(REF);
-    if (m) {
-      if (seen.has(name)) throw new Error(`circular reference at "${name}"`);
-      seen.add(name);
-      return resolveValue(m[1], flat, seen);
-    }
-  }
-  return val;
-}
+// Re-exported so consumers (and the test file) keep one import surface.
+export { flattenDtcg, resolveValue };
 
 function norm(v) {
   return String(v).trim().toLowerCase();

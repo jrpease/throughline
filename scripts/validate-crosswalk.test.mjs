@@ -82,3 +82,26 @@ test('validate reports a token missing from the DTCG source', () => {
   assert.deepEqual(r.missing, ['color.ghost']);
   assert.equal(r.passed, 0);
 });
+
+// Regression: a dual-node DTCG token (`text.sm` carrying both a $value and a
+// `lineHeight` child) used to flatten to `text.sm` only, so a crosswalk row
+// pointing at the child was reported as "missing from the DTCG source" though
+// it exists. See scripts/lib/dtcg.mjs.
+test('validate resolves a crosswalk row pointing at a dual-node child', () => {
+  const dualNode = {
+    text: {
+      sm: {
+        $value: '14px',
+        $type: 'dimension',
+        lineHeight: { $value: '20px', $type: 'dimension' },
+      },
+    },
+  };
+  const crosswalk = { version: 1, tokens: [
+    { newToken: 'text.sm.lineHeight', newValue: '20px', tier: 'primitive', figmaOld: null, codeTokens: [], status: 'aligned', recommendedSemantic: null },
+    { newToken: 'text.sm', newValue: '14px', tier: 'primitive', figmaOld: null, codeTokens: [], status: 'aligned', recommendedSemantic: null },
+  ]};
+  const r = validate(crosswalk, dualNode);
+  assert.deepEqual(r.missing, []);
+  assert.equal(r.passed, 2);
+});

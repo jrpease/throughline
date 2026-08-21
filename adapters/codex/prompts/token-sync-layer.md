@@ -169,10 +169,12 @@ as **build artifacts** — regenerated every sync, never hand-edited. Wire
 `packages/tokens/package.json` to export them so the UI package, Storybook, and
 any future app consume them.
 
-**Install the output validator.** Copy
+**Install the output validator.** Copy **both** files —
 `.throughline/scripts/validate-token-output.mjs` into
-`packages/tokens/scripts/` and register it so it stays a live gate on every
-future sync rather than a one-time check:
+`packages/tokens/scripts/` and `.throughline/scripts/lib/dtcg.mjs` into
+`packages/tokens/scripts/lib/` (the validator imports it; copying one without the
+other breaks the gate at import). Then register it so it stays a live gate on
+every future sync rather than a one-time check:
 
 ```json
 "tokens:validate-output": "node scripts/validate-token-output.mjs"
