@@ -290,3 +290,83 @@ $ grep -n '\.sp\b' out/light/android/Tokens.kt | head -3
 7. **Only the default `className` was used** (`Tokens`), and only one
    `packageName`. The `nativePlatform` error paths (unknown platform, missing
    `packageName`) are unit-test-only.
+
+---
+
+## Addendum — 2026-08-21, re-run after the final fix wave
+
+**Why.** The fix wave moved `preprocessors: ['dtcg/resolve-dual-node']` into the
+object `nativePlatform` returns, and rewrote `nativeSources`' read/parse error
+path. Both change what Style Dictionary consumes, so the four-build evidence
+above was re-established rather than assumed. The original record is unchanged;
+this is what the re-run measured.
+
+**Harness.** Same scratch directory, same Style Dictionary `4.4.0`, same 15
+extracted zygarden token files, same `build.mjs`. The three installed module
+files (`scripts/lib/sd-native.mjs`, `scripts/lib/dtcg.mjs`,
+`scripts/validate-token-output.mjs`) were re-copied from the repo first, so the
+fixed code is what ran. `out/` was deleted before building.
+
+```
+$ node build.mjs
+built ios-swift / light
+built android-kotlin / light
+built ios-swift / dark
+built android-kotlin / dark
+exit=0
+```
+
+Validator invocations are the ones recorded above, with one change: this run
+passes **`--min-match 1`**, matching the gate the docs now describe.
+
+```
+===== ios-swift / light =====
+tokens:validate-output — 196/196 emitted symbols matched a source token (100%)
+
+18 source token(s) had no matching emitted symbol.
+exit=0
+===== ios-swift / dark =====
+tokens:validate-output — 196/196 emitted symbols matched a source token (100%)
+
+18 source token(s) had no matching emitted symbol.
+exit=0
+===== android-kotlin / light =====
+tokens:validate-output — 196/196 emitted symbols matched a source token (100%)
+
+18 source token(s) had no matching emitted symbol.
+exit=0
+===== android-kotlin / dark =====
+tokens:validate-output — 196/196 emitted symbols matched a source token (100%)
+
+18 source token(s) had no matching emitted symbol.
+exit=0
+```
+
+**No figure moved.** Re-running `measure.mjs` over the fresh outputs reproduces
+the matched/verified split exactly:
+
+```
+ios-swift / light: total=196 matched=196 value-verified=107 name-only=89  [color=74 fontFamily=14 gradient=1]
+android-kotlin / light: total=196 matched=196 value-verified=107 name-only=89  [color=74 fontFamily=14 gradient=1]
+ios-swift / dark: total=196 matched=196 value-verified=107 name-only=89  [color=74 fontFamily=14 gradient=1]
+android-kotlin / dark: total=196 matched=196 value-verified=107 name-only=89  [color=74 fontFamily=14 gradient=1]
+```
+
+Spot-checks also unchanged: `textSm = CGFloat(14.00)`, zero `color-mix` in the
+Swift output, zero `.sp` in the Kotlin output. Items 1, 3 and 6 under "What this
+run does NOT establish" still hold verbatim — the fix wave documents them, it
+does not fix them.
+
+### Extra check the original run did not make
+
+The platform-level `preprocessors` is only worth carrying if it does the work on
+its own. Building with the top-level `preprocessors` line **removed** from
+`build.mjs` produces output byte-identical to the run above:
+
+```
+$ node build-notop.mjs && diff -r out out-noTop
+IDENTICAL: platform-level preprocessors alone produce byte-identical output
+```
+
+So `nativePlatform`'s copy is sufficient, and a project that also declares it at
+top level pays nothing — `preprocess` is idempotent.
