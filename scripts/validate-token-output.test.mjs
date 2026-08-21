@@ -87,3 +87,99 @@ test('magnitudeOf returns null for non-dimension values', () => {
   assert.equal(magnitudeOf('Color(0xffffffff)'), null);
   assert.equal(magnitudeOf('24px'), null);
 });
+
+import { normalizeKey, expectedMagnitude, findModeCollisions, validate } from './validate-token-output.mjs';
+
+test('normalizeKey collapses camelCase, snake_case, kebab-case, and dot paths', () => {
+  assert.equal(normalizeKey('color.bg.canvas'), 'colorbgcanvas');
+  assert.equal(normalizeKey('colorBgCanvas'), 'colorbgcanvas');
+  assert.equal(normalizeKey('color_bg_canvas'), 'colorbgcanvas');
+  assert.equal(normalizeKey('color-bg-canvas'), 'colorbgcanvas');
+});
+
+test('expectedMagnitude applies the authored unit, never a fixed factor', () => {
+  assert.deepEqual(expectedMagnitude('14px'), { magnitude: 14 });
+  assert.deepEqual(expectedMagnitude('1rem'), { magnitude: 16 });
+  assert.deepEqual(expectedMagnitude('1.1'), { magnitude: 1.1 });
+});
+
+test('expectedMagnitude skips units with no native equivalent', () => {
+  assert.ok(expectedMagnitude('100%').skip);
+  assert.ok(expectedMagnitude('-0.03em').skip);
+  assert.ok(expectedMagnitude('#ffffff').skip);
+});
+
+test('findModeCollisions flags a path defined twice with different values', () => {
+  const sources = [
+    { file: 'mobile.json', dtcg: { spacing: { grid: { columns: { $value: '{spacing.space.1}' } } } } },
+    { file: 'desktop.json', dtcg: { spacing: { grid: { columns: { $value: '{spacing.space.3}' } } } } },
+  ];
+  const c = findModeCollisions(sources);
+  assert.equal(c.length, 1);
+  assert.equal(c[0].path, 'spacing.grid.columns');
+});
+
+test('findModeCollisions ignores a path repeated with the SAME value', () => {
+  const same = { spacing: { grid: { columns: { $value: '4px' } } } };
+  assert.deepEqual(findModeCollisions([{ file: 'a', dtcg: same }, { file: 'b', dtcg: same }]), []);
+});
+
+const SRC = [{ file: 't.json', dtcg: {
+  text: { sm: { $value: '14px', $type: 'dimension' } },
+  leading: { tight: { $value: '1.1', $type: 'dimension' } },
+} }];
+
+test('unit-fidelity catches the x16 scaling bug', () => {
+  const r = validate({ sources: SRC, output: 'static let textSm = CGFloat(224.00)', platform: 'ios-swift' });
+  assert.equal(r.failures.length, 1);
+  assert.equal(r.failures[0].rule, 'unit-fidelity');
+  assert.equal(r.ok, false);
+});
+
+test('unit-fidelity passes a correctly emitted px value', () => {
+  const r = validate({ sources: SRC, output: 'static let textSm = CGFloat(14.00)', platform: 'ios-swift' });
+  assert.deepEqual(r.failures, []);
+  assert.equal(r.ok, true);
+});
+
+test('unit-fidelity never scales a unitless ratio', () => {
+  const ok = validate({ sources: SRC, output: 'static let leadingTight = CGFloat(1.1)', platform: 'ios-swift' });
+  assert.deepEqual(ok.failures, []);
+  const bad = validate({ sources: SRC, output: 'static let leadingTight = CGFloat(17.6)', platform: 'ios-swift' });
+  assert.equal(bad.failures[0].rule, 'unit-fidelity');
+});
+
+test('no-foreign-syntax catches leaked color-mix', () => {
+  const out = 'static let textSm = color-mix(in srgb, UIColor(red: 1, green: 1, blue: 1, alpha: 1) 4%, transparent)';
+  const r = validate({ sources: SRC, output: out, platform: 'ios-swift' });
+  assert.ok(r.failures.some((f) => f.rule === 'no-foreign-syntax'));
+});
+
+test('no-bare-units catches unresolved aliases, including negative magnitudes', () => {
+  const r = validate({ sources: SRC, output: 'static let textSm = 24px', platform: 'ios-swift' });
+  assert.ok(r.failures.some((f) => f.rule === 'no-bare-units'));
+  const neg = validate({ sources: SRC, output: 'static let textSm = -0.03em', platform: 'ios-swift' });
+  assert.ok(neg.failures.some((f) => f.rule === 'no-bare-units'));
+});
+
+test('zero matches fails rather than passing vacuously', () => {
+  const r = validate({ sources: SRC, output: 'static let somethingElse = CGFloat(14.00)', platform: 'ios-swift' });
+  assert.equal(r.matched, 0);
+  assert.equal(r.ok, false);
+});
+
+test('a match rate below the floor fails', () => {
+  const out = ['static let textSm = CGFloat(14.00)', 'static let unknownA = CGFloat(1)', 'static let unknownB = CGFloat(2)'].join('\n');
+  assert.equal(validate({ sources: SRC, output: out, platform: 'ios-swift', minMatch: 0.5 }).ok, false);
+  assert.equal(validate({ sources: SRC, output: out, platform: 'ios-swift', minMatch: 0.3 }).ok, true);
+});
+
+test('a mode collision fails even when every declaration is correct', () => {
+  const sources = [
+    { file: 'mobile.json', dtcg: { text: { sm: { $value: '14px' } } } },
+    { file: 'desktop.json', dtcg: { text: { sm: { $value: '16px' } } } },
+  ];
+  const r = validate({ sources, output: 'static let textSm = CGFloat(16.00)', platform: 'ios-swift' });
+  assert.equal(r.collisions.length, 1);
+  assert.equal(r.ok, false);
+});

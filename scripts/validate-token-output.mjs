@@ -75,3 +75,99 @@ export function magnitudeOf(value) {
   }
   return null;
 }
+
+// Adapters name tokens differently (color.bg.canvas -> colorBgCanvas -> color_bg_canvas).
+// Lowercase and strip every non-alphanumeric so all conventions compare equal.
+export function normalizeKey(s) {
+  return String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+const UNIT = /^(-?(?:\d+(?:\.\d+)?|\.\d+))([a-z%]*)$/;
+
+// Expected native magnitude for an authored source value. iOS points and Android
+// dp both map 1:1 to CSS px by convention; rem is root-relative at a 16px root;
+// a unitless dimension is a ratio and is never scaled. % and em have no native
+// equivalent, so they are skipped here and caught by no-bare-units if emitted raw.
+export function expectedMagnitude(sourceValue) {
+  if (typeof sourceValue === 'number') return { magnitude: sourceValue };
+  if (typeof sourceValue !== 'string') return { skip: 'non-scalar' };
+  const m = sourceValue.trim().match(UNIT);
+  if (!m) return { skip: 'not-a-dimension' };
+  const n = Number(m[1]);
+  switch (m[2]) {
+    case 'px':
+    case '':
+      return { magnitude: n };
+    case 'rem':
+      return { magnitude: n * 16 };
+    case '%':
+    case 'em':
+      return { skip: 'not-expressible' };
+    default:
+      return { skip: 'not-a-dimension' };
+  }
+}
+
+// A token path defined in more than one source file with differing values means
+// the build's source list spans modes. Style Dictionary dedupes these silently,
+// dropping one whole mode — 864 such collisions produced a light-only build from
+// a dark-default system.
+export function findModeCollisions(sources) {
+  const seen = new Map();
+  for (const { file, dtcg } of sources) {
+    for (const [path, value] of Object.entries(flattenDtcg(dtcg))) {
+      if (!seen.has(path)) seen.set(path, []);
+      seen.get(path).push({ file, value });
+    }
+  }
+  const collisions = [];
+  for (const [path, defs] of seen) {
+    const distinct = new Set(defs.map((d) => JSON.stringify(d.value)));
+    if (defs.length > 1 && distinct.size > 1) collisions.push({ path, defs });
+  }
+  return collisions;
+}
+
+const FOREIGN = /(?:color-mix|calc|var)\s*\(/;
+const BARE_UNIT = /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em|%)$/;
+
+export function validate({ sources, output, platform, minMatch = 0.5 }) {
+  const collisions = findModeCollisions(sources);
+
+  const flat = {};
+  for (const { dtcg } of sources) Object.assign(flat, flattenDtcg(dtcg));
+
+  const byKey = new Map();
+  for (const path of Object.keys(flat)) byKey.set(normalizeKey(path), path);
+
+  const decls = extractDeclarations(output, platform);
+  const failures = [];
+  let matched = 0;
+
+  for (const { symbol, value } of decls) {
+    if (FOREIGN.test(value)) failures.push({ rule: 'no-foreign-syntax', symbol, emitted: value });
+    if (BARE_UNIT.test(value)) failures.push({ rule: 'no-bare-units', symbol, emitted: value });
+
+    const path = byKey.get(normalizeKey(symbol));
+    if (!path) continue;
+    matched += 1;
+
+    let source;
+    try {
+      source = resolveValue(path, flat);
+    } catch {
+      continue;
+    }
+    const expected = expectedMagnitude(source);
+    if (expected.skip) continue;
+    const actual = magnitudeOf(value);
+    if (actual === null) continue;
+    if (Math.abs(actual - expected.magnitude) > 0.001) {
+      failures.push({ rule: 'unit-fidelity', symbol, token: path, source, emitted: value, expected: expected.magnitude, actual });
+    }
+  }
+
+  const matchRate = decls.length ? matched / decls.length : 0;
+  const ok = failures.length === 0 && collisions.length === 0 && matched > 0 && matchRate >= minMatch;
+  return { total: decls.length, matched, matchRate, failures, collisions, minMatch, ok };
+}
