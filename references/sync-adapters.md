@@ -26,7 +26,7 @@ they're on** — this manages expectations honestly.
 
 ### Tier 1 — curated adapters (vetted presets)
 
-Five built-in adapters ship with framework-specific knowledge baked in. When the
+Four built-in adapters ship with framework-specific knowledge baked in. When the
 user names one of these, use the vetted preset — high confidence, no guessing.
 
 | Adapter | Values live in | Modes via | Sem→prim refs | Naming |
@@ -35,16 +35,23 @@ user names one of these, use the vetted preset — high confidence, no guessing.
 | `tailwind` | tailwind theme config | `dark:` variant / class strategy | preserved (via CSS vars) | `colors.background` |
 | `mui` | JS theme object | `createTheme` palettes | preserved (object refs) | `palette.primary.main` |
 | `vanilla-css` | one CSS file | `:root` + `[data-theme]` | preserved | `--color-bg-default` |
-| `ios-swift` | Swift enum / asset catalog | light/dark asset variants | flattened | `Color.backgroundPrimary` |
 
-These five were chosen for coverage of this plugin's web-first, design-led
+These four were chosen for coverage of this plugin's web-first, design-led
 audience: three React framework adapters (shadcn — the dominant new-project
 choice; standalone Tailwind — for the large Tailwind-without-shadcn population;
-MUI — the enterprise/Material standard), the universal `vanilla-css` escape
-hatch (plain CSS custom properties, no framework), and one native slot
-(`ios-swift`, the more standardized native pattern). Everything else —
-Ant Design, Chakra, HeroUI, Android/Kotlin, Flutter, React Native, etc. — is
-fully supported via Tier 2.
+MUI — the enterprise/Material standard), plus the universal `vanilla-css`
+escape hatch (plain CSS custom properties, no framework). Everything else —
+Ant Design, Chakra, HeroUI, iOS/Swift, Android/Kotlin, Flutter, React Native,
+etc. — is fully supported via Tier 2.
+
+**`ios-swift` was curated and is not any more.** Run against a real DTCG source
+it emitted every dimension at ×16 the authored value (valid, compiling Swift),
+leaked `color-mix()` expressions, and left dual-node aliases as bare `px`
+literals — the same failures as the generated `android-kotlin` adapter, in the
+same counts. The tier did not predict quality, so the badge came off. Native
+targets go through the Tier 2 protocol, and `tokens:validate-output` is what
+now decides whether an adapter can be trusted. Re-promotion is available to any
+adapter that passes it against a real source.
 
 `shadcn` vs `tailwind`: shadcn emits CSS vars *plus* the specific var names
 shadcn components expect; `tailwind` targets Tailwind used on its own, mapping
@@ -101,6 +108,34 @@ emit as references to primitive vars rather than flattened literals.
   values at build time, because the target language has no runtime var
   indirection. Modes map to the platform's native mechanism (asset catalog
   variants, resource qualifiers).
+
+## What adapters cannot express
+
+These are all legal in a real DTCG source and all silently unsupported. An
+adapter that meets one emits wrong output without failing, which is why
+`tokens:validate-output` exists.
+
+- **CSS expressions in a value** — `color-mix(in srgb, {color.brand.500} 12%,
+  transparent)` is a runtime CSS construct. Flattening it for native means
+  computing the blend; Style Dictionary does not do colour math, and resolves
+  only the inner reference, leaving the function wrapper in the output.
+- **Dual-node tokens** — a node carrying both a `$value` and children (`text.sm`
+  with `$value: "14px"` plus a `text.sm.lineHeight` child). Style Dictionary's
+  resolver will not traverse into one, so every alias to the child fails to
+  resolve and emits as a bare literal.
+- **`%` and `em` dimensions** — parent-relative or container-relative, so there
+  is no build-time native magnitude.
+- **A third mode axis** — this reference models theme (`.dark` /
+  `[data-theme]`) and brand (`[data-brand]`). A viewport axis carrying its own
+  spacing and type scales is common and has no mapping here; on native it is
+  size classes and resource qualifiers, resolved by a different mechanism
+  entirely.
+
+**Native dimension transforms must read the authored unit.** The stock
+`ios-swift` and `compose` transform groups assume `rem` input and multiply by
+16. Against a `px`-authored source that silently produces output at sixteen
+times scale which compiles and ships. Emit 1:1 for `px` and unitless ratios;
+×16 only for `rem`.
 
 ## Brownfield value transforms
 
