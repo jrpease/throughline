@@ -291,8 +291,8 @@ bailing or running silently.
 
 ### `sync`
 - `platforms` — array of adapter targets configured, e.g.
-  `["shadcn", "ios-swift"]`. Curated adapters map to vetted presets; any other
-  name is a generated (Tier 2) adapter.
+  `["shadcn", "android-kotlin"]`. Curated adapters map to vetted presets; any
+  other name is a generated (Tier 2) adapter.
 - `customAdapters` — names of validated generated adapters saved to
   `packages/tokens/adapters/` for reuse, so future syncs don't regenerate them.
 - `lastRun` — ISO timestamp the sync command last ran.
