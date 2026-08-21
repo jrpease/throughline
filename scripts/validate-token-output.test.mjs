@@ -199,3 +199,48 @@ test('unit-fidelity handles rem-authored tokens emitting ×16 correctly (guards 
   assert.deepEqual(r.failures, []);
   assert.equal(r.ok, true);
 });
+
+import { formatReport } from './validate-token-output.mjs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+test('formatReport states the match rate and every failure', () => {
+  const lines = formatReport({
+    total: 2, matched: 1, matchRate: 0.5, minMatch: 0.5, collisions: [],
+    failures: [{ rule: 'unit-fidelity', symbol: 'textSm', token: 'text.sm', source: '14px', emitted: 'CGFloat(224.00)', expected: 14, actual: 224 }],
+    ok: false,
+  }).join('\n');
+  assert.match(lines, /1\/2/);
+  assert.match(lines, /unit-fidelity/);
+  assert.match(lines, /textSm/);
+  assert.match(lines, /224/);
+});
+
+function runCli(args) {
+  try {
+    const stdout = execFileSync('node', ['scripts/validate-token-output.mjs', ...args], { encoding: 'utf8' });
+    return { code: 0, stdout };
+  } catch (e) {
+    return { code: e.status, stdout: `${e.stdout ?? ''}${e.stderr ?? ''}` };
+  }
+}
+
+test('CLI exits 2 when required arguments are missing', () => {
+  assert.equal(runCli([]).code, 2);
+});
+
+test('CLI exits 1 on a real failure and 0 on clean output', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'vto-'));
+  const src = join(dir, 'text.json');
+  writeFileSync(src, JSON.stringify({ text: { sm: { $value: '14px', $type: 'dimension' } } }));
+
+  const bad = join(dir, 'Bad.swift');
+  writeFileSync(bad, 'public static let textSm = CGFloat(224.00)\n');
+  assert.equal(runCli(['--source', src, '--output', bad, '--platform', 'ios-swift']).code, 1);
+
+  const good = join(dir, 'Good.swift');
+  writeFileSync(good, 'public static let textSm = CGFloat(14.00)\n');
+  assert.equal(runCli(['--source', src, '--output', good, '--platform', 'ios-swift']).code, 0);
+});

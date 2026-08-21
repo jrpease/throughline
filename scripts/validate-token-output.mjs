@@ -172,3 +172,61 @@ export function validate({ sources, output, platform, minMatch = 0.5 }) {
   const ok = failures.length === 0 && collisions.length === 0 && matched > 0 && matchRate >= minMatch;
   return { total: decls.length, matched, matchRate, failures, collisions, minMatch, ok };
 }
+
+export function formatReport(r) {
+  const lines = [];
+  const pct = (r.matchRate * 100).toFixed(0);
+  lines.push(`tokens:validate-output — ${r.matched}/${r.total} emitted symbols matched a source token (${pct}%)`);
+  if (r.collisions.length) {
+    lines.push(`\n${r.collisions.length} mode collision(s) — the source list spans modes:`);
+    for (const c of r.collisions) {
+      lines.push(`  - ${c.path}: ${c.defs.map((d) => `${d.file}=${JSON.stringify(d.value)}`).join(', ')}`);
+    }
+  }
+  if (r.failures.length) {
+    lines.push(`\n${r.failures.length} rule failure(s):`);
+    for (const f of r.failures) {
+      lines.push(f.rule === 'unit-fidelity'
+        ? `  - [${f.rule}] ${f.symbol}: source ${f.source} expects ${f.expected}, emitted ${f.emitted} (${f.actual})`
+        : `  - [${f.rule}] ${f.symbol}: ${f.emitted}`);
+    }
+  }
+  if (r.matched === 0) {
+    lines.push(`\nNo emitted symbol matched any source token — the adapter's naming convention does not line up, so nothing was actually verified.`);
+  } else if (r.matchRate < r.minMatch) {
+    lines.push(`\nMatch rate ${pct}% is below the ${(r.minMatch * 100).toFixed(0)}% floor — most output went unchecked.`);
+  }
+  return lines;
+}
+
+function main() {
+  const { values } = parseArgs({
+    options: {
+      source: { type: 'string', multiple: true },
+      output: { type: 'string' },
+      platform: { type: 'string' },
+      'min-match': { type: 'string' },
+    },
+  });
+  if (!values.source?.length || !values.output || !values.platform) {
+    console.error('usage: validate-token-output.mjs --source <a.json> [--source <b.json>...] --output <Tokens.swift|Tokens.kt> --platform <ios-swift|android-kotlin> [--min-match <ratio>]');
+    process.exit(2);
+  }
+  const sources = values.source.map((file) => ({ file, dtcg: JSON.parse(readFileSync(file, 'utf8')) }));
+  const output = readFileSync(values.output, 'utf8');
+  const minMatch = values['min-match'] === undefined ? 0.5 : Number(values['min-match']);
+
+  let r;
+  try {
+    r = validate({ sources, output, platform: values.platform, minMatch });
+  } catch (e) {
+    console.error(e.message);
+    process.exit(2);
+  }
+  for (const line of formatReport(r)) console.log(line);
+  if (!r.ok) process.exit(1);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}
