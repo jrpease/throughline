@@ -216,11 +216,11 @@ match rate clears the floor; exit `1` otherwise.
 
 ## Non-goals
 
-- **Replacing Style Dictionary.** The probe showed zygarden dropped it and
-  replaced it with a 121-line direct DTCG emitter that handles all the
-  fundamental failures. `references/sync-adapters.md:82` states that *every*
-  adapter, both tiers, is a Style Dictionary v4 config preset — so this is a
-  live architectural question. It is deliberately out of scope: the validator
+- **Replacing Style Dictionary.** ⟨superseded — see the Correction below.⟩ The
+  probe showed zygarden dropped it and replaced it with a 121-line direct DTCG
+  emitter. `references/sync-adapters.md:82` states that *every* adapter, both
+  tiers, is a Style Dictionary v4 config preset — so this looked like a live
+  architectural question. It is deliberately out of scope: the validator
   compares source tokens against emitted text and does not depend on how the
   output was produced, so it stays valuable under either answer, and shipping it
   first means the eventual decision is made against measured output rather than
@@ -297,3 +297,49 @@ invented ones — the expected failures and their counts are known exactly:
 - **The validator cannot catch a wrong-but-plausible value that matches its
   source.** It verifies fidelity to the source, not that the source is right.
   Visual regression on native remains unaddressed and unrelated.
+
+## Correction (2026-08-21, post-merge investigation)
+
+**This spec's premise about Style Dictionary was wrong, and the Non-goals
+section overstated the case for replacing it.** Recording the correction here
+rather than editing the argument away, because the reasoning that led to the
+mistake is worth keeping.
+
+**What the spec implied.** That zygarden dropped Style Dictionary because it
+could not handle their token shapes, and that this was "a working existence
+proof" for throughline potentially doing the same.
+
+**What actually happened.** Zygarden removed SD in `zygarden-brand-guide`,
+Phase 4c-B, **May 2026 — before throughline existed**, in their own bespoke
+figma-sync pipeline. The commit (`841cdf6`) says SD's SCSS and JS platforms
+"have no consumers in the repo, so remove them," and explicitly notes that "SD
+outputs can be reintroduced later with custom logic if a consumer needs them."
+It was a YAGNI cleanup of dead output, not a verdict on the tool. A second
+commit calls the dependency "unused."
+
+**What a follow-up spike proved.** Style Dictionary v4, configured with a
+dual-node-aware preprocessor, a `color-mix` transform, and unit-aware dimension
+transforms — about 80 lines — emits **196/196 correct symbols with zero rule
+failures** from the same 322-token source, on both light and dark builds. Every
+failure in this spec's Problem section is a configuration defect, not a tool
+limitation:
+
+| Problem-section finding | Actual cause |
+|---|---|
+| ×16 on every px dimension | stock `size/swift/remToCGFloat` assumes `rem` |
+| 11 leaked `color-mix()` | no transform registered for it |
+| 14 bare `px`/`%` literals | SD's resolver not traversing dual-node nodes |
+| 864 path collisions | naive whole-directory source list (already disproven by the spec's own Run B) |
+
+**What still stands.** Everything the validator does. The four failure classes
+are real, they were measured, and the stock configuration does emit all of them
+at exit `0` — which is precisely why a validator was the right thing to build
+first. Shipping it before deciding the architecture is what made the correction
+possible: the spike's config was proven by running `tokens:validate-output`
+against its output.
+
+**What changed as a result.** The working configuration is documented at
+`references/native-adapter-config.md`, and `references/sync-adapters.md`'s
+constraints section is reframed from "what adapters cannot express" to "what the
+stock configuration gets wrong." Replacing Style Dictionary is no longer an open
+question — the answer is no.

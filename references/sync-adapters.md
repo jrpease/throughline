@@ -48,7 +48,7 @@ etc. — is fully supported via Tier 2.
 it emitted px-authored dimensions at ×16 their authored value (valid, compiling Swift),
 leaked `color-mix()` expressions, and left dual-node aliases as bare `px`
 literals — the same failures as the generated `android-kotlin` adapter, in the
-same counts. The tier did not predict quality, so the badge came off. Native
+same counts. The tier did not predict quality, so the badge came off. The cause was the stock transform group, not the adapter concept: configured per `${CLAUDE_PLUGIN_ROOT}/references/native-adapter-config.md`, the same source validates 196/196. Re-promotion is available once a native preset ships that configuration by default. Native
 targets go through the Tier 2 protocol, and `tokens:validate-output` is what
 now decides whether an adapter can be trusted. Re-promotion is available to any
 adapter that passes it against a real source.
@@ -109,22 +109,32 @@ emit as references to primitive vars rather than flattened literals.
   indirection. Modes map to the platform's native mechanism (asset catalog
   variants, resource qualifiers).
 
-## What adapters cannot express
+## What the stock configuration gets wrong
 
-These are all legal in a real DTCG source and all silently unsupported. An
-adapter that meets one emits wrong output without failing, which is why
-`tokens:validate-output` exists.
+These are all legal in a real DTCG source, and a **stock** Style Dictionary
+transform group mishandles every one of them silently — emitting output that
+compiles and is wrong, which is why `tokens:validate-output` exists.
+
+**None of these are Style Dictionary limitations.** All four are fixed by
+roughly 80 lines of preprocessor and transform code, given in
+`${CLAUDE_PLUGIN_ROOT}/references/native-adapter-config.md`, which has been
+verified to emit 196/196 correct symbols from a real 322-token source. Configure
+a native adapter from that file rather than from a stock `transformGroup`.
 
 - **CSS expressions in a value** — `color-mix(in srgb, {color.brand.500} 12%,
-  transparent)` is a runtime CSS construct. Flattening it for native means
-  computing the blend; Style Dictionary does not do colour math, and resolves
-  only the inner reference, leaving the function wrapper in the output.
+  transparent)` is a runtime CSS construct. Style Dictionary does no colour
+  math, so it resolves only the inner reference and leaves the function wrapper
+  in the output. *Fix: a transform that computes the blend to a literal.*
 - **Dual-node tokens** — a node carrying both a `$value` and children (`text.sm`
   with `$value: "14px"` plus a `text.sm.lineHeight` child). Style Dictionary's
   resolver will not traverse into one, so every alias to the child fails to
-  resolve and emits as a bare literal.
+  resolve and emits as a bare literal; its collector also stops there, so the
+  child is never emitted at all. *Fix: a preprocessor that resolves aliases and
+  hoists the children.*
 - **`%` and `em` dimensions** — parent-relative or container-relative, so there
-  is no build-time native magnitude.
+  genuinely is no build-time native magnitude. This one is a real limit rather
+  than a configuration gap. *Handling: filter them out of native builds — on the
+  authored value, since a `100%` token may be typed `string`, not `dimension`.*
 - **A third mode axis** — this reference models theme (`.dark` /
   `[data-theme]`) and brand (`[data-brand]`). A viewport axis carrying its own
   spacing and type scales is common and has no mapping here; on native it is

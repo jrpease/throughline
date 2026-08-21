@@ -143,6 +143,14 @@ register the platform, transform group, format, and `outputReferences`
 flattens). Web adapters emit `:root`/`.dark` (or `[data-theme]`); the shadcn
 adapter also emits a Tailwind preset.
 
+**Native targets need the configuration in
+`.throughline/references/native-adapter-config.md`, not a stock
+transform group.** The stock `ios-swift` and `compose` groups emit every
+`px`-authored dimension at ×16 its value — valid, compiling, silently wrong —
+and mishandle `color-mix()` and dual-node DTCG the same way. That file gives the
+preprocessor and transforms that fix it, verified at 196/196 correct symbols
+against a real source.
+
 **Native targets build once per mode, and are validated.** A single build over
 the whole token directory silently drops a mode — Style Dictionary dedupes by
 dot-path, so a light and a dark definition of the same token collapse to
