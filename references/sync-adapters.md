@@ -45,7 +45,7 @@ Ant Design, Chakra, HeroUI, iOS/Swift, Android/Kotlin, Flutter, React Native,
 etc. — is fully supported via Tier 2.
 
 **`ios-swift` was curated and is not any more.** Run against a real DTCG source
-it emitted every dimension at ×16 the authored value (valid, compiling Swift),
+it emitted px-authored dimensions at ×16 their authored value (valid, compiling Swift),
 leaked `color-mix()` expressions, and left dual-node aliases as bare `px`
 literals — the same failures as the generated `android-kotlin` adapter, in the
 same counts. The tier did not predict quality, so the badge came off. Native
@@ -59,7 +59,7 @@ tokens into the Tailwind theme config. Related but distinct targets.
 
 ### Tier 2 — generated adapters (any other framework)
 
-When the user names a framework **not** in the curated five, the skill does NOT
+When the user names a framework **not** in the curated four, the skill does NOT
 refuse and does NOT pretend it's curated. It **generates an adapter** via a
 structured protocol:
 
