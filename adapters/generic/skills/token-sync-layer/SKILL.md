@@ -139,11 +139,21 @@ register the platform, transform group, format, and `outputReferences`
 flattens). Web adapters emit `:root`/`.dark` (or `[data-theme]`); the shadcn
 adapter also emits a Tailwind preset.
 
+**Native targets build once per mode, and are validated.** A single build over
+the whole token directory silently drops a mode — Style Dictionary dedupes by
+dot-path, so a light and a dark definition of the same token collapse to
+whichever file sorted last. Configure one build per mode combination with an
+explicit source file list, then run `tokens:validate-output` against each
+generated file with that same list. See
+`.throughline/references/sync-adapters.md`.
+
 **Execution model — subagent dispatch with model routing.** Generating each
 platform's output is independent and verifiable. If your host supports subagent
 dispatch, dispatch **one `code-executor` per adapter** — each produces its
-platform's files and verifies them (the config builds, the expected files
-appear, references resolve for web / flatten for native) — then a **`reviewer`**
+platform's files and verifies them (for web: the config builds, the expected
+files appear, references resolve; for native: `tokens:validate-output` passes —
+"the config builds" is not verification, it is the condition under which all
+four known native failure modes ship silently) — then a **`reviewer`**
 to check each before combining. Choose each subagent's model from its role tier
 per `.throughline/references/agent-routing.md` (`code-executor` → fast,
 `reviewer` → balanced), and only dispatch once each adapter's spec is complete
@@ -158,6 +168,18 @@ Run the Style Dictionary build. Outputs land in `packages/tokens/<platform>/`
 as **build artifacts** — regenerated every sync, never hand-edited. Wire
 `packages/tokens/package.json` to export them so the UI package, Storybook, and
 any future app consume them.
+
+**Install the output validator.** Copy
+`.throughline/scripts/validate-token-output.mjs` into
+`packages/tokens/scripts/` and register it so it stays a live gate on every
+future sync rather than a one-time check:
+
+```json
+"tokens:validate-output": "node scripts/validate-token-output.mjs"
+```
+
+Invoke it once per native output file, passing the same `--source` list that
+file's build used.
 
 ## Step 4.5 — Icon code sync (install check + custom SVGR)
 
