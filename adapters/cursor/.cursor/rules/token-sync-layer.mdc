@@ -45,10 +45,10 @@ fails, offer `figma-environment-setup`.
 Ask which platform(s) the user is building for. Read
 `.throughline/references/sync-adapters.md` for the two-tier adapter model.
 
-- **Curated (Tier 1):** `shadcn`, `tailwind`, `mui`, `vanilla-css`.
+- **Curated (Tier 1):** `shadcn`, `tailwind`, `mui`, `vanilla-css`, `ios-swift`.
   Vetted presets — high confidence.
 - **Generated (Tier 2):** any other framework (Ant Design, Chakra, HeroUI,
-  iOS/Swift, Android/Kotlin, Flutter, etc.). The skill generates an adapter and
+  Android/Kotlin, Flutter, etc.). The skill generates an adapter and
   verifies it against a real component before trusting it.
 
 **Always tell the user which tier they're on.** If they name a curated one, say
@@ -143,21 +143,43 @@ register the platform, transform group, format, and `outputReferences`
 flattens). Web adapters emit `:root`/`.dark` (or `[data-theme]`); the shadcn
 adapter also emits a Tailwind preset.
 
-**Native targets need the configuration in
-`.throughline/references/native-adapter-config.md`, not a stock
-transform group.** The stock `ios-swift` and `compose` groups emit every
-`px`-authored dimension at ×16 its value — valid, compiling, silently wrong —
-and mishandle `color-mix()` and dual-node DTCG the same way. That file gives the
-preprocessor and transforms that fix it, verified at 196/196 correct symbols
-against a real source.
+**Native targets import the shipped configuration; they do not transcribe it.**
+Copy `.throughline/scripts/lib/sd-native.mjs` into
+`packages/tokens/scripts/lib/` (see Step 4) and call it. The stock `ios-swift`
+and `compose` transform groups emit every `px`-authored dimension at ×16 its
+value — valid, compiling, silently wrong — and mishandle `color-mix()` and
+dual-node DTCG the same way. Never build a native platform from a stock
+`transformGroup`.
 
-**Native targets build once per mode, and are validated.** A single build over
-the whole token directory silently drops a mode — Style Dictionary dedupes by
-dot-path, so a light and a dark definition of the same token collapse to
-whichever file sorted last. Configure one build per mode combination with an
-explicit source file list, then run `tokens:validate-output` against each
-generated file with that same list. See
-`.throughline/references/sync-adapters.md`.
+```js
+import StyleDictionary from 'style-dictionary';
+import { registerNativeTransforms, nativePlatform, nativeSources }
+  from './scripts/lib/sd-native.mjs';
+
+registerNativeTransforms(StyleDictionary);
+
+for (const mode of MODES) {                     // e.g. ['light', 'dark']
+  const sd = new StyleDictionary({
+    source: nativeSources(sourcesFor(mode)),    // guards against a mode collapse
+    preprocessors: ['dtcg/resolve-dual-node'],
+    platforms: {
+      ios: nativePlatform({ platform: 'ios-swift', buildPath: `ios/${mode}/` }),
+      // android also requires packageName:
+      // android: nativePlatform({ platform: 'android-kotlin',
+      //   buildPath: `android/${mode}/`, packageName: 'com.example.tokens' }),
+    },
+  });
+  await sd.buildAllPlatforms();
+}
+```
+
+**One build per mode combination, and never a glob.** Style Dictionary dedupes
+by dot-path, so a single build over the whole token directory collapses light
+and dark into whichever file sorted last, silently dropping a mode. Passing each
+mode's sources through `nativeSources` turns that into a thrown error naming the
+colliding paths. Then run `tokens:validate-output` against each generated file
+with that same source list. See
+`.throughline/references/native-adapter-config.md`.
 
 **Execution model — subagent dispatch with model routing.** Generating each
 platform's output is independent and verifiable. If your host supports subagent
@@ -181,12 +203,14 @@ as **build artifacts** — regenerated every sync, never hand-edited. Wire
 `packages/tokens/package.json` to export them so the UI package, Storybook, and
 any future app consume them.
 
-**Install the output validator.** Copy **both** files —
+**Install the native token toolkit — all three files, as a set.** Copy
 `.throughline/scripts/validate-token-output.mjs` into
-`packages/tokens/scripts/` and `.throughline/scripts/lib/dtcg.mjs` into
-`packages/tokens/scripts/lib/` (the validator imports it; copying one without the
-other breaks the gate at import). Then register it so it stays a live gate on
-every future sync rather than a one-time check:
+`packages/tokens/scripts/`, and both
+`.throughline/scripts/lib/dtcg.mjs` and
+`.throughline/scripts/lib/sd-native.mjs` into
+`packages/tokens/scripts/lib/`. `sd-native.mjs` imports `dtcg.mjs` and the
+validator imports it too, so copying any of them without the others breaks at
+import. Then register the gate so it stays live on every future sync:
 
 ```json
 "tokens:validate-output": "node scripts/validate-token-output.mjs"
