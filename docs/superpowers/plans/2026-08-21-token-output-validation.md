@@ -263,7 +263,7 @@ export function magnitudeOf(value) {
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `node --test scripts/validate-token-output.test.mjs`
-Expected: PASS, 11 tests
+Expected: PASS, 10 tests
 
 - [ ] **Step 5: Commit**
 
@@ -496,7 +496,7 @@ export function validate({ sources, output, platform, minMatch = 0.5 }) {
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `node --test scripts/validate-token-output.test.mjs`
-Expected: PASS, 24 tests
+Expected: PASS, 23 tests
 
 - [ ] **Step 5: Commit**
 
@@ -640,7 +640,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 - [ ] **Step 4: Run the full suite**
 
 Run: `node --test && node ci/validate-plugin.mjs && node ci/validate-skills.mjs`
-Expected: all PASS, 28 tests in this file
+Expected: all PASS, 26 tests in this file
 
 - [ ] **Step 5: Commit**
 
