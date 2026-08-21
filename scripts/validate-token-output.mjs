@@ -40,3 +40,38 @@ export function resolveValue(name, flat, seen = new Set()) {
   }
   return val;
 }
+
+// Declaration patterns per platform. Coupled to the ios-swift/enum.swift and
+// compose/object output formats; a different format needs a different pattern,
+// which surfaces as a zero-match failure rather than a silent pass.
+const DECL = {
+  'ios-swift': /^\s*(?:public\s+)?static\s+let\s+([A-Za-z_]\w*)\s*=\s*(.+?)\s*$/,
+  'android-kotlin': /^\s*val\s+([A-Za-z_]\w*)\s*=\s*(.+?)\s*$/,
+};
+
+export function extractDeclarations(text, platform) {
+  const re = DECL[platform];
+  if (!re) throw new Error(`unknown platform "${platform}"`);
+  const out = [];
+  for (const line of text.split('\n')) {
+    const m = line.match(re);
+    if (m) out.push({ symbol: m[1], value: m[2] });
+  }
+  return out;
+}
+
+// Known dimension wrappers. Multi-argument constructors (colors) never match,
+// so they are exempt from unit-fidelity by construction.
+const MAGNITUDE = [
+  /^CGFloat\(\s*(-?(?:\d+(?:\.\d+)?|\.\d+))\s*\)$/,
+  /^(-?(?:\d+(?:\.\d+)?|\.\d+))\.(?:dp|sp)$/,
+  /^(-?(?:\d+(?:\.\d+)?|\.\d+))$/,
+];
+
+export function magnitudeOf(value) {
+  for (const re of MAGNITUDE) {
+    const m = value.match(re);
+    if (m) return Number(m[1]);
+  }
+  return null;
+}
