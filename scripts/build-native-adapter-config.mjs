@@ -43,8 +43,44 @@ export function sliceSections(source) {
   return sections;
 }
 
+// Every line of module source must live inside some @doc-section pair, so that
+// adding a piece to the module without documenting it breaks CI rather than
+// silently shipping a doc whose code does not run. Legitimately outside: blank
+// lines, `//` comment lines (the file's leading banner), and the markers
+// themselves. Anything else — any line with executable code on it — is a gap.
+export function assertCovered(source) {
+  const uncovered = [];
+  let open = false;
+  source.split('\n').forEach((line, i) => {
+    if (CLOSE.test(line)) {
+      open = false;
+      return;
+    }
+    if (OPEN.test(line)) {
+      open = true;
+      return;
+    }
+    if (open) return;
+    const trimmed = line.trim();
+    if (trimmed === '' || trimmed.startsWith('//')) return;
+    uncovered.push(`  ${i + 1}: ${line}`);
+  });
+  if (uncovered.length === 0) return;
+  throw new Error(
+    `${uncovered.length} line(s) of ${SOURCE} fall outside every @doc-section pair.\n` +
+      'Only blank lines and // comments may sit outside a section; code must be\n' +
+      'inside one, or the generated doc shows code that cannot run.\n' +
+      uncovered.join('\n'),
+  );
+}
+
 // Section id -> the prose that introduces it. Order here is the doc's order.
 const PROSE = [
+  ['imports', `## Imports
+
+\`node:fs\` plus the sibling \`lib/dtcg.mjs\` this plugin already installs —
+nothing else. Style Dictionary is passed in as a parameter, never imported,
+which is what keeps this module installable into a consumer's repo.`],
   ['unit-aware', `## 1. Read the authored unit
 
 **This replaces \`size/swift/remToCGFloat\` and the \`size/compose/*\` transforms,
@@ -71,9 +107,26 @@ Both are fixed before Style Dictionary sees the tree.`],
 
 Build the transform list from Style Dictionary's **stock group**, replacing only
 the rem-assuming size transforms. A hand-picked list silently drops whatever it
-forgets — three real defects arose exactly that way, including Compose font
-sizes rendered in \`dp\` instead of \`sp\`, which defeats the user's font-scale
-accessibility setting.`],
+forgets — three real defects arose exactly that way.
+
+**Two Android-only unit limitations remain, and are not fixed here.** Style
+Dictionary's Compose transforms select on \`$type\`, and DTCG's type set does not
+line up with what they expect:
+
+- **Font sizes emit as \`dp\`, not \`sp\`.** DTCG has no \`fontSize\` type — it types
+  font sizes as \`dimension\` — while \`size/unit-aware/compose-sp\` filters on
+  \`$type === "fontSize"\`. On spec-compliant input it never fires and every font
+  size falls through to \`dp\`, which does not respect the user's font-scale
+  accessibility setting. Measured on a real 322-token source: zero \`.sp\` in the
+  Kotlin output.
+- **A unitless ratio emits as \`dp\`.** \`leading.normal: "1.5"\`, typed
+  \`dimension\`, emits \`1.50.dp\`. The magnitude is faithful; the unit is
+  semantically wrong.
+
+Both are Android-only. \`size/unit-aware/swift\` filters \`dimension || fontSize\`,
+so iOS handles dimension-typed font sizes correctly, and \`CGFloat(1.50)\` carries
+no unit to be wrong about. \`tokens:validate-output\` passes in both cases: it
+checks magnitude, not unit.`],
   ['sources', `## 5. Guard the per-mode source list
 
 Style Dictionary deduplicates by dot-path, so one build over both a light and a
@@ -143,12 +196,18 @@ and treat it as a gate rather than a spot check:
 \`\`\`
 node scripts/validate-token-output.mjs \\
   --source tokens/color-primitives.json --source tokens/text-primitives.json \\
-  --output out/light/Tokens.swift --platform ios-swift
+  --output out/light/Tokens.swift --platform ios-swift --min-match 1
 \`\`\`
 
 A clean run reports 100% of emitted symbols matched with zero rule failures.
-Anything less means the configuration drifted — see
-\`\${CLAUDE_PLUGIN_ROOT}/scripts/README.md\`.
+Anything less means the configuration drifted — so **pass \`--min-match 1\`**.
+The flag's default is \`0.5\`, which is a floor against wholly unparseable output
+rather than the gate this doc describes; without it a 60% match rate exits \`0\`.
+See \`\${CLAUDE_PLUGIN_ROOT}/scripts/README.md\`.
+
+"Matched" means an emitted symbol's name resolved to a source token. Numeric
+magnitudes are additionally compared; colour and string values are matched by
+name only, and no rule checks that the output compiles.
 `;
 
 export function render(sections) {
@@ -165,7 +224,9 @@ export function render(sections) {
 
 function main() {
   const check = process.argv.includes('--check');
-  const rendered = render(sliceSections(readFileSync(SOURCE, 'utf8')));
+  const source = readFileSync(SOURCE, 'utf8');
+  assertCovered(source);
+  const rendered = render(sliceSections(source));
   if (!check) {
     writeFileSync(OUT, rendered);
     console.log(`wrote ${OUT}`);

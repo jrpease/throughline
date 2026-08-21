@@ -43,6 +43,17 @@ The sections below are the module's own source, inlined so the configuration
 stays reviewable. Pair this with `${CLAUDE_PLUGIN_ROOT}/references/sync-adapters.md`,
 which covers the adapter contract itself.
 
+## Imports
+
+`node:fs` plus the sibling `lib/dtcg.mjs` this plugin already installs —
+nothing else. Style Dictionary is passed in as a parameter, never imported,
+which is what keeps this module installable into a consumer's repo.
+
+```js
+import { readFileSync } from 'node:fs';
+import { flattenDtcg, resolveValue, findModeCollisions } from './dtcg.mjs';
+```
+
 ## 1. Read the authored unit
 
 **This replaces `size/swift/remToCGFloat` and the `size/compose/*` transforms,
@@ -181,9 +192,26 @@ export function preprocess(dict) {
 
 Build the transform list from Style Dictionary's **stock group**, replacing only
 the rem-assuming size transforms. A hand-picked list silently drops whatever it
-forgets — three real defects arose exactly that way, including Compose font
-sizes rendered in `dp` instead of `sp`, which defeats the user's font-scale
-accessibility setting.
+forgets — three real defects arose exactly that way.
+
+**Two Android-only unit limitations remain, and are not fixed here.** Style
+Dictionary's Compose transforms select on `$type`, and DTCG's type set does not
+line up with what they expect:
+
+- **Font sizes emit as `dp`, not `sp`.** DTCG has no `fontSize` type — it types
+  font sizes as `dimension` — while `size/unit-aware/compose-sp` filters on
+  `$type === "fontSize"`. On spec-compliant input it never fires and every font
+  size falls through to `dp`, which does not respect the user's font-scale
+  accessibility setting. Measured on a real 322-token source: zero `.sp` in the
+  Kotlin output.
+- **A unitless ratio emits as `dp`.** `leading.normal: "1.5"`, typed
+  `dimension`, emits `1.50.dp`. The magnitude is faithful; the unit is
+  semantically wrong.
+
+Both are Android-only. `size/unit-aware/swift` filters `dimension || fontSize`,
+so iOS handles dimension-typed font sizes correctly, and `CGFloat(1.50)` carries
+no unit to be wrong about. `tokens:validate-output` passes in both cases: it
+checks magnitude, not unit.
 
 ```js
 // Build each platform's transform list from Style Dictionary's STOCK group,
@@ -251,6 +279,12 @@ export function nativePlatform({ platform, buildPath, className = 'Tokens', pack
   const fileOptions = platform === 'android-kotlin' ? { className, packageName } : { className };
   return {
     transforms: [...preset.transforms],
+    // Carried here, not left to the caller: authored() reads the ORIGINAL
+    // $value, so without this preprocessor every aliased dimension still holds
+    // an unresolved {spacing.space.4}, no size transform fires, and the build
+    // emits bare px literals. preprocess is idempotent, so a project that also
+    // declares it at top level is harmless.
+    preprocessors: ['dtcg/resolve-dual-node'],
     buildPath,
     options: { outputReferences: false },
     files: [
@@ -284,11 +318,28 @@ forgetting it.
 // deleting a call whose return value is consumed.
 //
 //   source: nativeSources(sourcesForThisMode)
+//
+// An unexpanded glob is the failure that actually lands here, and a raw ENOENT
+// on the literal string "tokens/*.json" reads as a crash rather than a
+// diagnosis. Name the path and what was expected.
+const EXPECTED = 'nativeSources takes explicit file paths for ONE mode — never a glob, never a directory.';
+
+function readTokenFile(file) {
+  let raw;
+  try {
+    raw = readFileSync(file, 'utf8');
+  } catch (err) {
+    throw new Error(`cannot read token source "${file}": ${err.message}\n${EXPECTED}`);
+  }
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`token source "${file}" is not valid JSON: ${err.message}\n${EXPECTED}`);
+  }
+}
+
 export function nativeSources(paths) {
-  const parsed = paths.map((file) => ({
-    file,
-    dtcg: JSON.parse(readFileSync(file, 'utf8')),
-  }));
+  const parsed = paths.map((file) => ({ file, dtcg: readTokenFile(file) }));
   const collisions = findModeCollisions(parsed);
   if (collisions.length === 0) return paths;
 
@@ -373,9 +424,15 @@ and treat it as a gate rather than a spot check:
 ```
 node scripts/validate-token-output.mjs \
   --source tokens/color-primitives.json --source tokens/text-primitives.json \
-  --output out/light/Tokens.swift --platform ios-swift
+  --output out/light/Tokens.swift --platform ios-swift --min-match 1
 ```
 
 A clean run reports 100% of emitted symbols matched with zero rule failures.
-Anything less means the configuration drifted — see
-`${CLAUDE_PLUGIN_ROOT}/scripts/README.md`.
+Anything less means the configuration drifted — so **pass `--min-match 1`**.
+The flag's default is `0.5`, which is a floor against wholly unparseable output
+rather than the gate this doc describes; without it a 60% match rate exits `0`.
+See `${CLAUDE_PLUGIN_ROOT}/scripts/README.md`.
+
+"Matched" means an emitted symbol's name resolved to a source token. Numeric
+magnitudes are additionally compared; colour and string values are matched by
+name only, and no rule checks that the output compiles.
