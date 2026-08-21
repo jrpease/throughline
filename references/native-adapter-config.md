@@ -220,6 +220,15 @@ checks magnitude, not unit.
 // whatever it forgets; three real defects arose that way, including Compose
 // font sizes rendered in dp instead of sp.
 //
+// That last one is only half fixed, and the half that remains is load-bearing:
+// the sp transform below gates on $type === 'fontSize', but DTCG has no
+// fontSize type — it types font sizes as dimension — so on a spec-compliant
+// source the sp branch never fires and Android font sizes still emit as dp.
+// Android-only; size/unit-aware/swift filters dimension || fontSize and is
+// correct. Same class as a unitless ratio (leading.normal: "1.5") emitting as
+// 1.50.dp. Both are measured, not theoretical — see
+// docs/superpowers/notes/2026-08-21-native-config-e2e-results.md.
+//
 // Stock, from SD 4.4.0:
 //   ios-swift: attribute/cti name/camel color/UIColorSwift
 //              content/swift/literal asset/swift/literal size/swift/remToCGFloat

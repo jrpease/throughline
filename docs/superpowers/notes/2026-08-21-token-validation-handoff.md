@@ -28,8 +28,16 @@ Second: **the spec's original premise was wrong, and the correction matters.**
 It argued Style Dictionary could not handle real token shapes, citing zygarden's
 removal of it. That removal was a YAGNI cleanup of unused output in a different
 repo, months before throughline existed. A spike proved SD properly configured
-emits 196/196 correct symbols from the same source. Every failure was a
-configuration defect. Do not reopen "should we replace Style Dictionary" — it is
+emits 196 matched symbols from the same source. Every failure was a
+configuration defect.
+
+> **Correction (2026-08-21, from #35's verification run).** "196/196 correct
+> symbols" overstated what was measured, and the phrase has been removed above.
+> `matched` increments when an emitted symbol's name resolves to a source token;
+> the value is compared only when the source value has a numeric magnitude. Of
+> the 196, **107 had a magnitude verified**; colour and string values are matched
+> by name only and are checked by no rule. Do not repeat the original phrasing —
+> see `docs/superpowers/notes/2026-08-21-native-config-e2e-results.md`. Do not reopen "should we replace Style Dictionary" — it is
 answered, and the answer is no. The reasoning is appended to
 `docs/superpowers/specs/2026-08-21-token-output-validation-design.md`.
 
