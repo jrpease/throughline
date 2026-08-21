@@ -200,21 +200,53 @@ export function formatReport(r) {
 }
 
 function main() {
-  const { values } = parseArgs({
-    options: {
-      source: { type: 'string', multiple: true },
-      output: { type: 'string' },
-      platform: { type: 'string' },
-      'min-match': { type: 'string' },
-    },
-  });
+  let values;
+  try {
+    const parsed = parseArgs({
+      options: {
+        source: { type: 'string', multiple: true },
+        output: { type: 'string' },
+        platform: { type: 'string' },
+        'min-match': { type: 'string' },
+      },
+    });
+    values = parsed.values;
+  } catch (e) {
+    console.error(e.message);
+    process.exit(2);
+  }
+
   if (!values.source?.length || !values.output || !values.platform) {
     console.error('usage: validate-token-output.mjs --source <a.json> [--source <b.json>...] --output <Tokens.swift|Tokens.kt> --platform <ios-swift|android-kotlin> [--min-match <ratio>]');
     process.exit(2);
   }
-  const sources = values.source.map((file) => ({ file, dtcg: JSON.parse(readFileSync(file, 'utf8')) }));
-  const output = readFileSync(values.output, 'utf8');
-  const minMatch = values['min-match'] === undefined ? 0.5 : Number(values['min-match']);
+
+  let sources;
+  try {
+    sources = values.source.map((file) => ({ file, dtcg: JSON.parse(readFileSync(file, 'utf8')) }));
+  } catch (e) {
+    console.error(`error reading or parsing ${e.path || 'source file'}: ${e.message}`);
+    process.exit(2);
+  }
+
+  let output;
+  try {
+    output = readFileSync(values.output, 'utf8');
+  } catch (e) {
+    console.error(`error reading output file ${values.output}: ${e.message}`);
+    process.exit(2);
+  }
+
+  let minMatch;
+  try {
+    minMatch = values['min-match'] === undefined ? 0.5 : Number(values['min-match']);
+    if (!Number.isFinite(minMatch)) {
+      throw new Error(`--min-match must be a finite number, got "${values['min-match']}"`);
+    }
+  } catch (e) {
+    console.error(e.message);
+    process.exit(2);
+  }
 
   let r;
   try {

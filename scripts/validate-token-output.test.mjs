@@ -244,3 +244,19 @@ test('CLI exits 1 on a real failure and 0 on clean output', () => {
   writeFileSync(good, 'public static let textSm = CGFloat(14.00)\n');
   assert.equal(runCli(['--source', src, '--output', good, '--platform', 'ios-swift']).code, 0);
 });
+
+test('CLI exits 2 on an unreadable --source file', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'vto-'));
+  const good = join(dir, 'Good.swift');
+  writeFileSync(good, 'public static let textSm = CGFloat(14.00)\n');
+  assert.equal(runCli(['--source', '/nonexistent/file.json', '--output', good, '--platform', 'ios-swift']).code, 2);
+});
+
+test('CLI exits 2 on a non-numeric --min-match', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'vto-'));
+  const src = join(dir, 'text.json');
+  writeFileSync(src, JSON.stringify({ text: { sm: { $value: '14px', $type: 'dimension' } } }));
+  const good = join(dir, 'Good.swift');
+  writeFileSync(good, 'public static let textSm = CGFloat(14.00)\n');
+  assert.equal(runCli(['--source', src, '--output', good, '--platform', 'ios-swift', '--min-match', 'abc']).code, 2);
+});
