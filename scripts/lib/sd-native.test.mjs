@@ -403,6 +403,19 @@ test('hasNativeForm does not drop a rescued color-mix token', () => {
   assert.ok(hasNativeForm({ $value: 'UIColor(red: 0.1, green: 0.2, blue: 0.3, alpha: 0.5)' }, 'ios-swift'));
 });
 
+// calc(...) and var(...) are unrescued but valid identifiers, and an
+// unrescued color-mix(...) variant is a rescue this module's own transform
+// simply did not match. None of those are "no native form" — dropping them
+// here would make no-foreign-syntax in validate-token-output.mjs unreachable,
+// so hasNativeForm must keep them and let that gate fail loudly instead.
+test('hasNativeForm keeps an unrescued CSS construct instead of silently dropping it', () => {
+  assert.ok(hasNativeForm({ $value: 'calc(1rem + 2px)' }, 'ios-swift'));
+  assert.ok(hasNativeForm({ $value: 'var(--x)' }, 'ios-swift'));
+  assert.ok(hasNativeForm({ $value: 'color-mix(in srgb, #aaa 50%, #bbb)' }, 'ios-swift'));
+  // A gradient has no rescue and no name-diagnosed construct — still dropped.
+  assert.equal(hasNativeForm({ $value: 'linear-gradient(90deg, #fff 0%)' }, 'ios-swift'), false);
+});
+
 test('nativePlatform composes the authored-unit filter with the literal filter', () => {
   const p = nativePlatform({ platform: 'ios-swift', buildPath: 'out/' });
   const f = p.files[0].filter;

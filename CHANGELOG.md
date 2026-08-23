@@ -6,6 +6,21 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Fixed
+- **`no-foreign-syntax` reconciled with the native output filter.** An
+  unrescued `calc(...)`, `var(...)`, or `color-mix(...)` variant was
+  previously dropped from native output by `sd-native.mjs`'s filter before
+  `tokens:validate-output` ever saw it, so the gate exited `0` on a value it
+  exists to catch. The filter now keeps those named CSS constructs — they are
+  unimplemented rescues, not values with no native form — so
+  `no-foreign-syntax` now correctly fails a build that emits a bare,
+  unrescued `calc(...)`/`var(...)`/`color-mix(...)`, where it previously
+  passed. Conversely, `no-foreign-syntax` no longer fails a well-formed,
+  quoted `$type: string` value whose *text* happens to contain `calc(` or
+  `var(` (e.g. `"width: calc(100% - 2rem)"`) — a value the grammar accepts as
+  a literal is not foreign syntax, whatever text it contains, and this
+  previously false-failed a build that compiles.
+
 ## [0.15.0] — 2026-08-12
 
 ### Added

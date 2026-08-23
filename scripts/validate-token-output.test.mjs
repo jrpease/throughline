@@ -441,6 +441,31 @@ test('a unitless ratio emitted as .dp still passes — #52 is not masked', () =>
   assert.equal(r.ok, true);
 });
 
+// A quoted string this branch's own transform produced compiles fine, whatever
+// text it contains — a value the grammar accepts as a literal is not foreign
+// syntax.
+test('no-foreign-syntax does not fire on a quoted string containing "calc("', () => {
+  const r = validate({
+    sources: srcOf({ s: { hint: { $value: 'width: calc(100% - 2rem)', $type: 'string' } } }),
+    output: 'public static let sHint = "width: calc(100% - 2rem)"',
+    platform: 'ios-swift',
+    minMatch: 0,
+  });
+  assert.deepEqual(r.failures, []);
+  assert.equal(r.ok, true);
+});
+
+// Bare, unquoted calc(...) is not a valid literal, so it must still fire.
+test('no-foreign-syntax still fires on a bare, unquoted calc(...)', () => {
+  const r = validate({
+    sources: srcOf({ c: { a: { $value: '#fff', $type: 'color' } } }),
+    output: 'public static let ca = calc(1rem + 2px)',
+    platform: 'ios-swift',
+    minMatch: 0,
+  });
+  assert.deepEqual(rules(r), ['no-foreign-syntax']);
+});
+
 test('formatReport renders an invalid-literal failure with the stop position', () => {
   const lines = formatReport({
     total: 1, matched: 1, matchRate: 1, minMatch: 0.5, collisions: [], ok: false,

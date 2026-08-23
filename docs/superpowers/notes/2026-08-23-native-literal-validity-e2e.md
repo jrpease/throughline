@@ -253,6 +253,13 @@ literal syntax, not numeric magnitude.
    same 15-file zygarden source were exercised** — same scope limits as the
    2026-08-21 run (desktop viewport axis, alternate class/package names, and
    the Compose `sp` defect are out of scope here as there).
+6. **This source contains exactly one CSS-function-shaped invalid value** —
+   the gradient. This run says nothing about the silent-drop path for any
+   other such value (an unrescued `calc(...)`, `var(...)`, or `color-mix(...)`
+   variant): whether the filter correctly distinguishes "no native form at
+   all" from "an unimplemented rescue" was never exercised here. That is
+   precisely where the branch's final review found two defects — the filter
+   silently dropping values it should instead let fail loudly.
 
 ## Files
 

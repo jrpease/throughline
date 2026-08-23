@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
 import { flattenDtcg, resolveValue, findModeCollisions } from './lib/dtcg.mjs';
-import { parseLiteral, GRAMMAR } from './lib/native-literal.mjs';
+import { parseLiteral, isValidLiteral, GRAMMAR } from './lib/native-literal.mjs';
 
 // Re-exported so consumers (and the test file) keep one import surface.
 export { flattenDtcg, resolveValue, findModeCollisions };
@@ -86,6 +86,13 @@ export function expectedMagnitude(sourceValue) {
   }
 }
 
+// Unanchored: matches this text anywhere in the value, including inside a
+// quoted string. That is deliberate for the bare case — an unrescued
+// calc(...)/var(...)/color-mix(...) leaks CSS syntax wherever it sits — but it
+// means a well-formed quoted literal whose TEXT happens to contain "calc(" or
+// "var(" (e.g. a $type: string value describing CSS) would also match. The
+// isValidLiteral gate below is what tells those apart: a value the grammar
+// accepts as a literal is not foreign syntax, whatever text it contains.
 const FOREIGN = /(?:color-mix|calc|var)\s*\(/;
 const BARE_UNIT = /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em|%)$/;
 
@@ -131,7 +138,7 @@ export function validate({ sources, output, platform, minMatch = 0.5 }) {
     // The two specific rules diagnose better than "not a valid literal", so
     // they win; invalid-literal is the general net underneath them. Reporting
     // one symbol under all three would be noise.
-    const foreign = FOREIGN.test(value);
+    const foreign = FOREIGN.test(value) && !isValidLiteral(value, GRAMMAR[platform]);
     const bare = BARE_UNIT.test(value);
     if (foreign) failures.push({ rule: 'no-foreign-syntax', symbol, emitted: value });
     if (bare) failures.push({ rule: 'no-bare-units', symbol, emitted: value });

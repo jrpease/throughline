@@ -33,6 +33,15 @@ export const GRAMMAR = {
   },
 };
 
+// CSS constructs that validate-token-output.mjs diagnoses BY NAME.
+//
+// These are unimplemented rescues, not values with no native form: `calc` and
+// `var` are valid identifiers, and `color-mix` has a rescue in sd-native.mjs
+// that merely did not match this variant. So they must reach the output and
+// fail loudly under no-foreign-syntax, never be silently dropped by a filter.
+// Kept here, beside the grammar, so the build and the gate cannot drift apart.
+export const CSS_CONSTRUCT = /^(?:color-mix|calc|var)\s*\(/;
+
 export function parseLiteral(value, grammar = {}) {
   const s = String(value);
   const suffixes = grammar.suffixes ?? [];

@@ -11,7 +11,7 @@
 // @doc-section imports
 import { readFileSync } from 'node:fs';
 import { flattenDtcg, resolveValue, findModeCollisions } from './dtcg.mjs';
-import { isValidLiteral, GRAMMAR } from './native-literal.mjs';
+import { isValidLiteral, GRAMMAR, CSS_CONSTRUCT } from './native-literal.mjs';
 // @doc-section-end imports
 
 // @doc-section unit-aware
@@ -206,13 +206,21 @@ const CSS_FUNCTION = /^[A-Za-z][A-Za-z0-9-]*\(/;
 // ("0.5,0,1,1"), and, on Kotlin, content and asset, which have no stock
 // quoting transform there. Silently dropping those would hide a forgotten
 // $type behind a shorter output file instead of a build failure.
+//
+// A CSS_CONSTRUCT match is exempt from the drop even though it fails
+// isValidLiteral: calc(...) and var(...) are unrescued but valid identifiers,
+// and an unrescued color-mix(...) variant is a rescue this module's own
+// color-mix transform simply did not match — none of those are "no native
+// form", they are unimplemented rescues. Dropping them here would make
+// no-foreign-syntax in validate-token-output.mjs unreachable, so they are
+// kept and left to fail loudly there instead.
 export function hasNativeForm(token, platform) {
   const grammar = GRAMMAR[platform];
   if (!grammar) {
     throw new Error(`unknown native platform "${platform}" (expected ${Object.keys(GRAMMAR).join(' or ')})`);
   }
   const v = String(token.$value).trim();
-  return isValidLiteral(v, grammar) || !CSS_FUNCTION.test(v);
+  return isValidLiteral(v, grammar) || CSS_CONSTRUCT.test(v) || !CSS_FUNCTION.test(v);
 }
 
 export function nativePlatform({ platform, buildPath, className = 'Tokens', packageName }) {

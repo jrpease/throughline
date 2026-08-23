@@ -2,9 +2,17 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Amendment (final review, 2026-08-23):** Task 3 and the final review changed
+> two details this plan still describes as originally written: the filter
+> predicate shipped as `hasNativeForm`, not `emitsNativeLiteral`, and
+> `native-literal.mjs` has two consumers, not three — the quoting transforms in
+> `sd-native.mjs` do not themselves call into the grammar. Left uncorrected
+> below except where directly noted, so this document stays a record of what
+> was planned rather than a rewrite of what shipped.
+
 **Goal:** Stop the native token adapters emitting 15 symbols per file that are not valid Swift or Kotlin, and add a general gate that catches the next such case without anyone anticipating it.
 
-**Architecture:** One new zero-dependency module, `scripts/lib/native-literal.mjs`, holds a recursive-descent grammar for "is this a well-formed Swift/Kotlin literal." Three consumers use it: two quoting transforms in `sd-native.mjs` that fix the `fontFamily` case, a new `emitsNativeLiteral` filter predicate in the same file that drops values no transform could render natively (the gradient), and a new `invalid-literal` rule in `validate-token-output.mjs` that backstops both.
+**Architecture:** One new zero-dependency module, `scripts/lib/native-literal.mjs`, holds a recursive-descent grammar for "is this a well-formed Swift/Kotlin literal." Two consumers use it: a new `hasNativeForm` filter predicate in `sd-native.mjs` that drops values no transform could render natively (the gradient), and a new `invalid-literal` rule in `validate-token-output.mjs` that backstops it. (As originally planned, this sentence also credited it to `sd-native.mjs`'s quoting transforms and named the predicate `emitsNativeLiteral`; see the amendment above.)
 
 **Tech Stack:** Node ≥20, ES modules, `node:test` + `node:assert/strict`. Zero runtime dependencies. Style Dictionary 4.4.0 is a *parameter* passed into `sd-native.mjs`, never an import.
 
@@ -166,7 +174,7 @@ Create `scripts/lib/native-literal.mjs`:
 // without naming any of them, which is the point: the next unanticipated case
 // is caught by the same rule.
 //
-// Three consumers — sd-native.mjs's quoting transforms and output filter, and
+// Two consumers — sd-native.mjs's output filter, and
 // validate-token-output.mjs's invalid-literal rule. Its own module for the same
 // reason lib/dtcg.mjs is one: shared by both token gates.
 //
