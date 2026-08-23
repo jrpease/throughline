@@ -11,6 +11,7 @@ import {
   nativePlatform,
   nativeSources,
   registerNativeTransforms,
+  emitsNativeLiteral,
 } from './sd-native.mjs';
 
 test('magnitude treats px as 1:1', () => {
@@ -123,6 +124,7 @@ test('nativePlatform emits the stock ios-swift list with the size transform repl
     'content/swift/literal',
     'asset/swift/literal',
     'size/unit-aware/swift',
+    'value/swift-string-literal',
   ]);
 });
 
@@ -167,7 +169,8 @@ test('nativePlatform flattens references and wires the format and filter', () =>
   assert.equal(p.files[0].destination, 'Tokens.swift');
   assert.equal(p.files[0].format, 'ios-swift/enum.swift');
   assert.equal(p.files[0].options.className, 'Tokens');
-  assert.equal(p.files[0].filter, nativeFilter);
+  assert.equal(typeof p.files[0].filter, 'function');
+  assert.equal(p.files[0].filter({ original: { $value: '1.5em' }, $value: '1.5em' }), false);
 });
 
 test('nativePlatform targets Tokens.kt via compose/object for android', () => {
@@ -245,7 +248,7 @@ test('nativeSources names the file when its JSON does not parse', () => {
   });
 });
 
-test('registerNativeTransforms registers the preprocessor and four transforms', () => {
+test('registerNativeTransforms registers the preprocessor and six transforms', () => {
   const preprocessors = [];
   const transforms = [];
   registerNativeTransforms({
@@ -259,6 +262,8 @@ test('registerNativeTransforms registers the preprocessor and four transforms', 
     'size/unit-aware/compose-sp',
     'size/unit-aware/swift',
     'value/color-mix-to-hex8',
+    'value/kotlin-string-literal',
+    'value/swift-string-literal',
   ]);
   for (const t of transforms) assert.equal(t.type, 'value');
 });
@@ -302,4 +307,98 @@ test('the registered size transforms skip a value with no native magnitude', () 
   registerNativeTransforms({ registerPreprocessor: () => {}, registerTransform: (t) => transforms.push(t) });
   const swift = transforms.find((t) => t.name === 'size/unit-aware/swift');
   assert.equal(swift.filter({ $type: 'dimension', $value: '100%', original: { $value: '100%' } }), false);
+});
+
+// Collect the transforms registerNativeTransforms registers, without needing
+// a real Style Dictionary. Mirrors the fake used elsewhere in this file.
+function collectTransforms() {
+  const registered = new Map();
+  registerNativeTransforms({
+    registerPreprocessor() {},
+    registerTransform(t) {
+      registered.set(t.name, t);
+    },
+  });
+  return registered;
+}
+
+test('the quoting transform quotes fontFamily and string types', () => {
+  const t = collectTransforms().get('value/swift-string-literal');
+  assert.ok(t.filter({ $type: 'fontFamily', $value: 'Nunito Sans' }));
+  assert.ok(t.filter({ $type: 'string', $value: 'italic' }));
+  assert.equal(t.transform({ $type: 'fontFamily', $value: 'Nunito Sans' }), '"Nunito Sans"');
+});
+
+test('the quoting transform leaves typed non-strings alone', () => {
+  const t = collectTransforms().get('value/swift-string-literal');
+  assert.equal(t.filter({ $type: 'dimension', $value: '14px' }), false);
+  assert.equal(t.filter({ $type: 'color', $value: '#ffffff' }), false);
+});
+
+// DTCG permits a fontWeight keyword as well as a number. "400" already emits
+// as a valid native integer and must stay untouched.
+test('fontWeight is quoted only when it is a keyword', () => {
+  const t = collectTransforms().get('value/swift-string-literal');
+  assert.ok(t.filter({ $type: 'fontWeight', $value: 'bold' }));
+  assert.equal(t.filter({ $type: 'fontWeight', $value: '400' }), false);
+  assert.equal(t.filter({ $type: 'fontWeight', $value: 400 }), false);
+});
+
+test('a fontFamily list is joined into one native string', () => {
+  const t = collectTransforms().get('value/swift-string-literal');
+  const token = { $type: 'fontFamily', $value: ['Nunito Sans', 'sans-serif'] };
+  assert.ok(t.filter(token));
+  assert.equal(t.transform(token), '"Nunito Sans, sans-serif"');
+});
+
+// "$foo" is template interpolation in Kotlin, so a literal $ must be escaped
+// there — and must NOT be in Swift, where \$ is not a valid escape.
+test('Kotlin escapes the dollar sign and Swift does not', () => {
+  const ts = collectTransforms();
+  const token = { $type: 'string', $value: 'cost: $5' };
+  assert.equal(ts.get('value/kotlin-string-literal').transform(token), '"cost: \\$5"');
+  assert.equal(ts.get('value/swift-string-literal').transform(token), '"cost: $5"');
+});
+
+test('both quoting transforms escape backslashes, quotes and newlines', () => {
+  const ts = collectTransforms();
+  for (const name of ['value/swift-string-literal', 'value/kotlin-string-literal']) {
+    const t = ts.get(name);
+    assert.equal(t.transform({ $type: 'string', $value: 'a"b' }), '"a\\"b"', name);
+    assert.equal(t.transform({ $type: 'string', $value: 'a\\b' }), '"a\\\\b"', name);
+    assert.equal(t.transform({ $type: 'string', $value: 'a\nb' }), '"a\\nb"', name);
+  }
+});
+
+// Distinct from nativeFilter: this reads the TRANSFORMED $value and asks
+// whether any transform rendered it into something the language can parse.
+test('emitsNativeLiteral keeps transformed output and drops what nothing rescued', () => {
+  assert.ok(emitsNativeLiteral({ $value: 'CGFloat(14.00)' }, 'ios-swift'));
+  assert.ok(emitsNativeLiteral({ $value: '"Nunito Sans"' }, 'ios-swift'));
+  assert.ok(emitsNativeLiteral({ $value: 'Color(0xffffffff)' }, 'android-kotlin'));
+  assert.ok(emitsNativeLiteral({ $value: '16.00.dp' }, 'android-kotlin'));
+  assert.equal(emitsNativeLiteral({ $value: 'linear-gradient(90deg, #fff 0%)' }, 'ios-swift'), false);
+  assert.equal(emitsNativeLiteral({ $value: 'Nunito Sans' }, 'ios-swift'), false);
+});
+
+// A color-mix value is rescued by value/color-mix-to-hex8 and then by the
+// colour transform, so by filter time it is a valid literal and survives.
+// This is why the filter asks about the transformed value and needs no
+// per-transform exemption list.
+test('emitsNativeLiteral does not drop a rescued color-mix token', () => {
+  assert.ok(emitsNativeLiteral({ $value: 'UIColor(red: 0.1, green: 0.2, blue: 0.3, alpha: 0.5)' }, 'ios-swift'));
+});
+
+test('nativePlatform composes the authored-unit filter with the literal filter', () => {
+  const p = nativePlatform({ platform: 'ios-swift', buildPath: 'out/' });
+  const f = p.files[0].filter;
+  // dropped by nativeFilter — a web-only authored unit
+  assert.equal(f({ original: { $value: '1.5em' }, $value: '1.5em' }), false);
+  // dropped by emitsNativeLiteral — nothing rescued it into a literal
+  assert.equal(
+    f({ original: { $value: 'linear-gradient(90deg, #fff 0%)' }, $value: 'linear-gradient(90deg, #fff 0%)' }),
+    false,
+  );
+  // kept — transformed into a valid literal
+  assert.equal(f({ original: { $value: '14px' }, $value: 'CGFloat(14.00)' }), true);
 });

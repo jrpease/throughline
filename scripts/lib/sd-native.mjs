@@ -11,6 +11,7 @@
 // @doc-section imports
 import { readFileSync } from 'node:fs';
 import { flattenDtcg, resolveValue, findModeCollisions } from './dtcg.mjs';
+import { isValidLiteral, GRAMMAR } from './native-literal.mjs';
 // @doc-section-end imports
 
 // @doc-section unit-aware
@@ -153,6 +154,7 @@ const PLATFORMS = {
       'content/swift/literal',
       'asset/swift/literal',
       'size/unit-aware/swift',
+      'value/swift-string-literal',
     ],
     destination: 'Tokens.swift',
     format: 'ios-swift/enum.swift',
@@ -165,6 +167,7 @@ const PLATFORMS = {
       'color/composeColor',
       'size/unit-aware/compose-dp',
       'size/unit-aware/compose-sp',
+      'value/kotlin-string-literal',
     ],
     destination: 'Tokens.kt',
     format: 'compose/object',
@@ -178,6 +181,23 @@ const WEB_ONLY_UNIT = /^-?[\d.]+(%|em)$/;
 
 export function nativeFilter(token) {
   return !WEB_ONLY_UNIT.test(String(token.original?.$value ?? token.$value).trim());
+}
+
+// Did the transforms actually produce a valid native literal?
+//
+// A different question from nativeFilter's, which is about the AUTHORED value.
+// This reads the TRANSFORMED $value and asks whether anything rendered it into
+// something the target language can parse. A value nothing rescued — a CSS
+// linear-gradient, say — has no native form and must not be emitted.
+//
+// Asking it this way needs no exemption list. A filter that asked "is this a
+// CSS function" would need one entry per transform that rescues one
+// (value/color-mix-to-hex8 first, whatever comes next after) — exactly the
+// hand-picked list this module indicts above. A rescued value passes on its own
+// merits, and a consumer's added transforms are respected rather than
+// second-guessed.
+export function emitsNativeLiteral(token, platform) {
+  return isValidLiteral(String(token.$value).trim(), GRAMMAR[platform]);
 }
 
 export function nativePlatform({ platform, buildPath, className = 'Tokens', packageName }) {
@@ -210,7 +230,7 @@ export function nativePlatform({ platform, buildPath, className = 'Tokens', pack
         destination: preset.destination,
         format: preset.format,
         options: fileOptions,
-        filter: nativeFilter,
+        filter: (token) => nativeFilter(token) && emitsNativeLiteral(token, platform),
       },
     ],
   };
@@ -275,6 +295,38 @@ const isDimension = (token) => token.$type === 'dimension';
 const isFontSize = (token) => token.$type === 'fontSize';
 const hasMagnitude = (token) => authored(token) !== null;
 
+// Quote string-valued tokens no stock transform covers.
+//
+// Style Dictionary quotes by $type: content/swift/literal and
+// asset/swift/literal handle $type content and asset. A $type: fontFamily token
+// matches neither and emits bare — `public static let f = Nunito Sans`, which
+// is not Swift. There is no stock transform for it.
+const QUOTED_TYPES = new Set(['fontFamily', 'string']);
+
+// A DTCG fontFamily may be a list; join it into one native string.
+function stringValue(token) {
+  const v = Array.isArray(token.$value) ? token.$value.join(', ') : token.$value;
+  return typeof v === 'string' ? v : null;
+}
+
+// DTCG permits fontWeight as a keyword ("bold") as well as a number. The
+// keyword form emits as a bare identifier and hits the identical failure;
+// "400" already emits as a valid native integer and must stay untouched.
+function isQuotable(token) {
+  const v = stringValue(token);
+  if (v === null) return false;
+  if (QUOTED_TYPES.has(token.$type)) return true;
+  return token.$type === 'fontWeight' && Number.isNaN(Number(v.trim()));
+}
+
+const escapeCommon = (s) =>
+  s
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t');
+
 export function registerNativeTransforms(StyleDictionary) {
   StyleDictionary.registerPreprocessor({
     name: 'dtcg/resolve-dual-node',
@@ -315,6 +367,26 @@ export function registerNativeTransforms(StyleDictionary) {
     transitive: true,
     filter: (token) => isFontSize(token) && hasMagnitude(token),
     transform: (token) => `${authored(token).toFixed(2)}.sp`,
+  });
+
+  // Two transforms rather than one platform-sniffing transform, because the
+  // escaping genuinely differs: "$foo" is template interpolation in Kotlin, so
+  // a literal $ must be escaped there and must NOT be in Swift, where \$ is not
+  // a valid escape at all.
+  StyleDictionary.registerTransform({
+    name: 'value/swift-string-literal',
+    type: 'value',
+    transitive: true,
+    filter: isQuotable,
+    transform: (token) => `"${escapeCommon(stringValue(token))}"`,
+  });
+
+  StyleDictionary.registerTransform({
+    name: 'value/kotlin-string-literal',
+    type: 'value',
+    transitive: true,
+    filter: isQuotable,
+    transform: (token) => `"${escapeCommon(stringValue(token)).replace(/\$/g, '\\$')}"`,
   });
 }
 // @doc-section-end register
