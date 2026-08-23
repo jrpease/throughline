@@ -2,7 +2,8 @@
 
 **Issue:** [#53](https://github.com/jrpease/throughline/issues/53)
 **Date:** 2026-08-23
-**Revision:** 2 — the shared predicate was redesigned after review; see
+**Revision:** 3 — the quoting refusal was restored and the filter narrowed after
+Task 3's review found the gradient shipping quoted; see
 [Revision history](#revision-history).
 
 ## The problem
@@ -134,9 +135,16 @@ production. The grammar discriminates by platform rather than accepting a union.
 
 ### 1. `scripts/lib/native-literal.mjs` — the shared grammar (new file)
 
-The grammar has three consumers, so it is its own module rather than living in
-either of them. This follows the precedent set by `lib/dtcg.mjs`, which #34
-extracted for exactly this reason — one reader shared by both token gates.
+The grammar has two consumers — `sd-native.mjs`'s output filter and
+`validate-token-output.mjs`'s `invalid-literal` rule — so it is its own module
+rather than living in either of them. This follows the precedent set by
+`lib/dtcg.mjs`, which #34 extracted for exactly this reason: one reader shared
+by both token gates.
+
+(The quoting transforms are *not* a consumer. They decide on `CSS_FUNCTION`
+alone and never call `isValidLiteral` — worth stating precisely, because an
+earlier draft of this section and of the module's own header comment both
+claimed three consumers.)
 
 ```js
 export function isValidLiteral(value, grammar) -> boolean
@@ -253,7 +261,7 @@ broken. That is the division of labour this design rests on —
 It is also why the two halves ship together rather than as separate PRs. Either
 alone leaves the other's failure mode open.
 
-**The filter — `emitsNativeLiteral`, composed with the existing
+**The filter — `hasNativeForm`, composed with the existing
 `nativeFilter`.**
 
 The gradient must not be emitted. The question is what predicate decides that,
@@ -340,7 +348,7 @@ passes its own hand-written examples and fails on real output.
 4. **Transforms and filter** (`sd-native.test.mjs`) — quoting per `$type`, the
    `fontWeight` numeric/keyword split, array join, `$` escaped for Kotlin and
    not for Swift, `"` and `\` escaped for both. `nativeFilter`'s existing tests
-   are unchanged; `emitsNativeLiteral` gets its own. The existing
+   are unchanged; `hasNativeForm` gets its own. The existing
    `p.files[0].filter === nativeFilter` identity assertion
    (`sd-native.test.mjs:170`) becomes a behavioural assertion, since the filter
    is now a composition.
@@ -392,7 +400,7 @@ Stated separately, because this area was demoted once for overclaiming:
   rejects is emitted and fails `invalid-literal` loudly, because a silent drop
   is the weaker outcome and should be reserved for the one case where no native
   form exists at all.
-- **The filter now depends on transform output.** `emitsNativeLiteral` reads the
+- **The filter now depends on transform output.** `hasNativeForm` reads the
   transformed `$value`, so a consumer who removes a transform changes what is
   filtered. This is the intended behaviour — the filter's question is "did the
   transforms handle this" — but it is a real coupling and is worth knowing when
