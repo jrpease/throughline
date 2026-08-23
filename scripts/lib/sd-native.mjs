@@ -1,67 +1,19 @@
-# Native adapter configuration (GENERATED)
-
-> **GENERATED FILE — do not edit by hand.** Source: `scripts/lib/sd-native.mjs`,
-> which is unit-tested in Node and installed into the consumer's repo.
-> Regenerate with `node scripts/build-native-adapter-config.mjs`; CI gates
-> freshness with `--check`.
-
-The Style Dictionary configuration a native adapter (`ios-swift`,
-`android-kotlin`, or any generated native target) needs in order to emit
-**correct** output from a real DTCG token source.
-
-**Why this exists.** The stock `ios-swift` and `compose` transform groups
-produce output that compiles and is wrong. Run against a real source, the stock
-configuration emitted every `px`-authored dimension at ×16 its authored value,
-leaked `color-mix()` expressions into Swift, and left dual-node aliases as bare
-`px` literals — all at exit `0`. None of that is a Style Dictionary limitation.
-All of it is configuration.
-
-**You do not need to copy any of this.** It ships as
-`${CLAUDE_PLUGIN_ROOT}/scripts/lib/sd-native.mjs`. Install it beside
-`lib/dtcg.mjs` and call it:
-
-```js
-import StyleDictionary from 'style-dictionary';
-import { registerNativeTransforms, nativePlatform, nativeSources }
-  from './scripts/lib/sd-native.mjs';
-
-registerNativeTransforms(StyleDictionary);
-
-for (const mode of ['light', 'dark']) {
-  const sd = new StyleDictionary({
-    source: nativeSources(sourcesFor(mode)),
-    preprocessors: ['dtcg/resolve-dual-node'],
-    platforms: {
-      ios: nativePlatform({ platform: 'ios-swift', buildPath: `out/${mode}/` }),
-    },
-  });
-  await sd.buildAllPlatforms();
-}
-```
-
-The sections below are the module's own source, inlined so the configuration
-stays reviewable. Pair this with `${CLAUDE_PLUGIN_ROOT}/references/sync-adapters.md`,
-which covers the adapter contract itself.
-
-## Imports
-
-`node:fs` plus the sibling `lib/dtcg.mjs` this plugin already installs —
-nothing else. Style Dictionary is passed in as a parameter, never imported,
-which is what keeps this module installable into a consumer's repo.
-
-```js
+// Style Dictionary native configuration, as code rather than prose.
+//
+// The stock ios-swift and compose transform groups emit every px-authored
+// dimension at x16 its value, in Swift and Kotlin that compile. This module is
+// the verified replacement. Zero dependencies: Style Dictionary is passed in,
+// never imported, so this file installs into a user's packages/tokens/scripts/
+// alongside lib/dtcg.mjs.
+//
+// references/native-adapter-config.md is GENERATED from this file by
+// scripts/build-native-adapter-config.mjs. Edit the code here, then regenerate.
+// @doc-section imports
 import { readFileSync } from 'node:fs';
 import { flattenDtcg, resolveValue, findModeCollisions } from './dtcg.mjs';
-```
+// @doc-section-end imports
 
-## 1. Read the authored unit
-
-**This replaces `size/swift/remToCGFloat` and the `size/compose/*` transforms,
-and it is the single most important piece.** Those assume every dimension is
-authored in `rem` and multiply by 16. Against a `px`-authored source that
-silently produces output at sixteen times scale which compiles and ships.
-
-```js
+// @doc-section unit-aware
 // Read the magnitude from the AUTHORED value's own unit.
 //
 // The stock size/swift/remToCGFloat and size/compose/rem* transforms assume rem
@@ -79,17 +31,9 @@ export function magnitude(authored) {
   if (m[2] === 'rem') return n * 16;
   return null;
 }
-```
+// @doc-section-end unit-aware
 
-## 2. Compute `color-mix()` to a literal
-
-A CSS expression has no native equivalent, and Style Dictionary does no colour
-math. Native adapters resolve to literals; for a `color-mix` that means
-actually computing the blend. Register this **before** the platform's colour
-transform, so the colour transform receives a valid hex8 rather than a CSS
-function.
-
-```js
+// @doc-section color-mix
 // Compute a color-mix() against transparent to a literal hex8.
 //
 // A CSS expression has no native equivalent and Style Dictionary does no colour
@@ -106,19 +50,9 @@ export function colorMixToHex8(value) {
     .padStart(2, '0');
   return `${m[1]}${alpha}`.toLowerCase();
 }
-```
+// @doc-section-end color-mix
 
-## 3. Resolve aliases and hoist dual-node children
-
-Style Dictionary's resolver will not traverse into a node that carries both a
-`$value` and children, and its collector stops there too. The dual-node pattern
-is legal DTCG and common in Figma-derived sources: `text.sm` holds
-`$value: "14px"` *and* a `text.sm.lineHeight` child. So every alias to such a
-child fails to resolve, and the child is never emitted at all.
-
-Both are fixed before Style Dictionary sees the tree.
-
-```js
+// @doc-section preprocess
 // Resolve aliases and hoist dual-node children, before Style Dictionary sees
 // the tree.
 //
@@ -186,34 +120,9 @@ function hoistDualNodes(node) {
 export function preprocess(dict) {
   return hoistDualNodes(resolveInPlace(structuredClone(dict), flattenDtcg(dict)));
 }
-```
+// @doc-section-end preprocess
 
-## 4. Assemble the platform from the stock list
-
-Build the transform list from Style Dictionary's **stock group**, replacing only
-the rem-assuming size transforms. A hand-picked list silently drops whatever it
-forgets — three real defects arose exactly that way.
-
-**Two Android-only unit limitations remain, and are not fixed here.** Style
-Dictionary's Compose transforms select on `$type`, and DTCG's type set does not
-line up with what they expect:
-
-- **Font sizes emit as `dp`, not `sp`.** DTCG has no `fontSize` type — it types
-  font sizes as `dimension` — while `size/unit-aware/compose-sp` filters on
-  `$type === "fontSize"`. On spec-compliant input it never fires and every font
-  size falls through to `dp`, which does not respect the user's font-scale
-  accessibility setting. Measured on a real 322-token source: zero `.sp` in the
-  Kotlin output.
-- **A unitless ratio emits as `dp`.** `leading.normal: "1.5"`, typed
-  `dimension`, emits `1.50.dp`. The magnitude is faithful; the unit is
-  semantically wrong.
-
-Both are Android-only. `size/unit-aware/swift` filters `dimension || fontSize`,
-so iOS handles dimension-typed font sizes correctly, and `CGFloat(1.50)` carries
-no unit to be wrong about. `tokens:validate-output` passes in both cases: it
-checks magnitude, not unit.
-
-```js
+// @doc-section platform
 // Build each platform's transform list from Style Dictionary's STOCK group,
 // replacing only the rem-assuming size transforms and inserting the color-mix
 // computation ahead of the colour transform. A hand-picked list silently drops
@@ -306,17 +215,9 @@ export function nativePlatform({ platform, buildPath, className = 'Tokens', pack
     ],
   };
 }
-```
+// @doc-section-end platform
 
-## 5. Guard the per-mode source list
-
-Style Dictionary deduplicates by dot-path, so one build over both a light and a
-dark definition of the same token keeps whichever file sorts last and drops the
-other mode with no diagnostic. Pass every build's sources through
-`nativeSources`, which returns them, so the check cannot be skipped by
-forgetting it.
-
-```js
+// @doc-section sources
 // Guard the source list for ONE mode, and return it so it can only be used
 // through this call.
 //
@@ -364,14 +265,9 @@ export function nativeSources(paths) {
       `${shown}${more}`,
   );
 }
-```
+// @doc-section-end sources
 
-## 6. Register with Style Dictionary
-
-One call. Style Dictionary is a parameter, never an import, which is what lets
-this module install into a consumer's `packages/tokens/scripts/lib/`.
-
-```js
+// @doc-section register
 // Register everything with a Style Dictionary instance. SD is a parameter, not
 // an import, so this module stays zero-dependency and installable.
 const authored = (token) => magnitude(token.original?.$value ?? token.$value);
@@ -421,27 +317,4 @@ export function registerNativeTransforms(StyleDictionary) {
     transform: (token) => `${authored(token).toFixed(2)}.sp`,
   });
 }
-```
-
-## Verify, always
-
-Configuration this specific is exactly what regresses unnoticed, because every
-failure mode above produces output that compiles. Run `tokens:validate-output`
-against each generated file with the same source list that file's build used,
-and treat it as a gate rather than a spot check:
-
-```
-node scripts/validate-token-output.mjs \
-  --source tokens/color-primitives.json --source tokens/text-primitives.json \
-  --output out/light/Tokens.swift --platform ios-swift --min-match 1
-```
-
-A clean run reports 100% of emitted symbols matched with zero rule failures.
-Anything less means the configuration drifted — so **pass `--min-match 1`**.
-The flag's default is `0.5`, which is a floor against wholly unparseable output
-rather than the gate this doc describes; without it a 60% match rate exits `0`.
-See `${CLAUDE_PLUGIN_ROOT}/scripts/README.md`.
-
-"Matched" means an emitted symbol's name resolved to a source token. Numeric
-magnitudes are additionally compared; colour and string values are matched by
-name only, and no rule checks that the output compiles.
+// @doc-section-end register

@@ -26,7 +26,7 @@ they're on** — this manages expectations honestly.
 
 ### Tier 1 — curated adapters (vetted presets)
 
-Four built-in adapters ship with framework-specific knowledge baked in. When the
+Five built-in adapters ship with framework-specific knowledge baked in. When the
 user names one of these, use the vetted preset — high confidence, no guessing.
 
 | Adapter | Values live in | Modes via | Sem→prim refs | Naming |
@@ -35,23 +35,51 @@ user names one of these, use the vetted preset — high confidence, no guessing.
 | `tailwind` | tailwind theme config | `dark:` variant / class strategy | preserved (via CSS vars) | `colors.background` |
 | `mui` | JS theme object | `createTheme` palettes | preserved (object refs) | `palette.primary.main` |
 | `vanilla-css` | one CSS file | `:root` + `[data-theme]` | preserved | `--color-bg-default` |
+| `ios-swift` | Swift enum constants (`Tokens.swift`) | one build per mode, one output directory per mode | flattened | `Tokens.textSm` |
 
-These four were chosen for coverage of this plugin's web-first, design-led
-audience: three React framework adapters (shadcn — the dominant new-project
-choice; standalone Tailwind — for the large Tailwind-without-shadcn population;
-MUI — the enterprise/Material standard), plus the universal `vanilla-css`
-escape hatch (plain CSS custom properties, no framework). Everything else —
-Ant Design, Chakra, HeroUI, iOS/Swift, Android/Kotlin, Flutter, React Native,
-etc. — is fully supported via Tier 2.
+Four of the five cover this plugin's web-first, design-led audience: three React
+framework adapters (shadcn — the dominant new-project choice; standalone
+Tailwind — for the large Tailwind-without-shadcn population; MUI — the
+enterprise/Material standard), plus the universal `vanilla-css` escape hatch
+(plain CSS custom properties, no framework). `ios-swift` is the one native
+member, and it is curated because its configuration ships as tested code rather
+than as advice — see `${CLAUDE_PLUGIN_ROOT}/references/native-adapter-config.md`.
+Everything else — Ant Design, Chakra, HeroUI, Android/Kotlin, Flutter, React
+Native, etc. — is fully supported via Tier 2.
 
-**`ios-swift` was curated and is not any more.** Run against a real DTCG source
-it emitted px-authored dimensions at ×16 their authored value (valid, compiling Swift),
-leaked `color-mix()` expressions, and left dual-node aliases as bare `px`
-literals — the same failures as the generated `android-kotlin` adapter, in the
-same counts. The tier did not predict quality, so the badge came off. The cause was the stock transform group, not the adapter concept: configured per `${CLAUDE_PLUGIN_ROOT}/references/native-adapter-config.md`, the same source validates 196/196. Re-promotion is available once a native preset ships that configuration by default. Native
-targets go through the Tier 2 protocol, and `tokens:validate-output` is what
-now decides whether an adapter can be trusted. Re-promotion is available to any
-adapter that passes it against a real source.
+**`ios-swift` was demoted, and has been restored.** Run against a real DTCG
+source under the *stock* transform group it emitted px-authored dimensions at
+×16 their authored value (valid, compiling Swift), leaked `color-mix()`
+expressions, and left dual-node aliases as bare `px` literals. The tier badge
+claimed a confidence the stock configuration had not earned, so it came off.
+
+The cause was the transform group, not the adapter concept. That configuration
+now ships as tested code at
+`${CLAUDE_PLUGIN_ROOT}/scripts/lib/sd-native.mjs`, is installed into the
+consumer's repo, and is verified end to end against a real source (196 emitted
+symbols matched, zero rule failures, on both light and dark builds). The badge
+is back on that basis.
+
+**What the badge does not cover: the generated file does not compile as-is.**
+15 emitted symbols per file are not valid Swift or Kotlin — 14 `fontFamily`
+values and one `linear-gradient(...)`, all emitted unquoted, because
+`content/swift/literal` and `asset/swift/literal` apply only to
+`$type: content`/`asset`. That is stock Style Dictionary behaviour rather than
+anything this configuration does, and `tokens:validate-output` does not flag it:
+its `no-foreign-syntax` rule matches only `color-mix|calc|var`, and it has no
+rule for language validity. Quote or drop those symbols before the file reaches
+a compiler.
+
+`android-kotlin` uses the same module and stays Tier 2: its remaining unknowns
+are on the consumption side — Compose `dp`/`sp` behaviour against a real Compose
+app, resource-qualifier conventions, package layout — which building tokens does
+not exercise. Concretely, DTCG has no `fontSize` type — it types font sizes as
+`dimension` — and the `sp` transform gates on `$type === 'fontSize'`, so on
+spec-compliant input Android font sizes currently emit as `dp`, not `sp`; the
+Swift transform filters `dimension || fontSize` and is unaffected.
+`tokens:validate-output` remains what decides whether any adapter can be
+trusted, and re-promotion is available to any adapter that passes it against a
+real source.
 
 `shadcn` vs `tailwind`: shadcn emits CSS vars *plus* the specific var names
 shadcn components expect; `tailwind` targets Tailwind used on its own, mapping
@@ -59,7 +87,7 @@ tokens into the Tailwind theme config. Related but distinct targets.
 
 ### Tier 2 — generated adapters (any other framework)
 
-When the user names a framework **not** in the curated four, the skill does NOT
+When the user names a framework **not** in the curated five, the skill does NOT
 refuse and does NOT pretend it's curated. It **generates an adapter** via a
 structured protocol:
 
@@ -106,8 +134,10 @@ emit as references to primitive vars rather than flattened literals.
 - **Native adapters** (`ios-swift`, and generated native targets like
   Android/Kotlin): `outputReferences: false` — references resolve to literal
   values at build time, because the target language has no runtime var
-  indirection. Modes map to the platform's native mechanism (asset catalog
-  variants, resource qualifiers).
+  indirection. Modes map to **one build per mode, one output directory per
+  mode** — each build passing only that mode's sources, through `nativeSources`.
+  Asset-catalog variants and resource qualifiers are *not* implemented: nothing
+  here emits an `.xcassets` catalog or a `values-night/` resource tree.
 
 ## What the stock configuration gets wrong
 
@@ -116,10 +146,14 @@ transform group mishandles every one of them silently — emitting output that
 compiles and is wrong, which is why `tokens:validate-output` exists.
 
 **None of these are Style Dictionary limitations.** All four are fixed by
-roughly 80 lines of preprocessor and transform code, given in
-`${CLAUDE_PLUGIN_ROOT}/references/native-adapter-config.md`, which has been
-verified to emit 196/196 correct symbols from a real 322-token source. Configure
-a native adapter from that file rather than from a stock `transformGroup`.
+roughly 80 lines of preprocessor and transform code, which ships as a tested
+module at `${CLAUDE_PLUGIN_ROOT}/scripts/lib/sd-native.mjs` and is documented in
+`${CLAUDE_PLUGIN_ROOT}/references/native-adapter-config.md`. Against a real
+322-token source it emitted 196 symbols that all map to a source token, 107 of
+them with their numeric magnitude additionally verified, with zero rule failures
+— colour and string values are matched by name only and are checked by no rule.
+**Import that module** rather than configuring a native adapter from a stock
+`transformGroup` or transcribing the reference doc.
 
 - **CSS expressions in a value** — `color-mix(in srgb, {color.brand.500} 12%,
   transparent)` is a runtime CSS construct. Style Dictionary does no colour

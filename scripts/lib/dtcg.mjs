@@ -37,3 +37,23 @@ export function resolveValue(name, flat, seen = new Set()) {
   }
   return val;
 }
+
+// A token path defined in more than one source file with differing values means
+// the build's source list spans modes. Style Dictionary dedupes these silently,
+// dropping one whole mode — 864 such collisions produced a light-only build from
+// a dark-default system.
+export function findModeCollisions(sources) {
+  const seen = new Map();
+  for (const { file, dtcg } of sources) {
+    for (const [path, value] of Object.entries(flattenDtcg(dtcg))) {
+      if (!seen.has(path)) seen.set(path, []);
+      seen.get(path).push({ file, value });
+    }
+  }
+  const collisions = [];
+  for (const [path, defs] of seen) {
+    const distinct = new Set(defs.map((d) => JSON.stringify(d.value)));
+    if (defs.length > 1 && distinct.size > 1) collisions.push({ path, defs });
+  }
+  return collisions;
+}

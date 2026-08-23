@@ -23,3 +23,5 @@ jobs:
         run: node scripts/adapters/generate.mjs --check
       - name: Check doc-card builder is up to date
         run: node scripts/build-doc-card-builder.mjs --check
+      - name: Check native adapter config doc is up to date
+        run: node scripts/build-native-adapter-config.mjs --check

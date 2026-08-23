@@ -7,10 +7,10 @@
 import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
-import { flattenDtcg, resolveValue } from './lib/dtcg.mjs';
+import { flattenDtcg, resolveValue, findModeCollisions } from './lib/dtcg.mjs';
 
 // Re-exported so consumers (and the test file) keep one import surface.
-export { flattenDtcg, resolveValue };
+export { flattenDtcg, resolveValue, findModeCollisions };
 
 // Declaration patterns per platform. Coupled to the ios-swift/enum.swift and
 // compose/object output formats; a different format needs a different pattern,
@@ -83,26 +83,6 @@ export function expectedMagnitude(sourceValue) {
     default:
       return { skip: 'not-a-dimension' };
   }
-}
-
-// A token path defined in more than one source file with differing values means
-// the build's source list spans modes. Style Dictionary dedupes these silently,
-// dropping one whole mode — 864 such collisions produced a light-only build from
-// a dark-default system.
-export function findModeCollisions(sources) {
-  const seen = new Map();
-  for (const { file, dtcg } of sources) {
-    for (const [path, value] of Object.entries(flattenDtcg(dtcg))) {
-      if (!seen.has(path)) seen.set(path, []);
-      seen.get(path).push({ file, value });
-    }
-  }
-  const collisions = [];
-  for (const [path, defs] of seen) {
-    const distinct = new Set(defs.map((d) => JSON.stringify(d.value)));
-    if (defs.length > 1 && distinct.size > 1) collisions.push({ path, defs });
-  }
-  return collisions;
 }
 
 const FOREIGN = /(?:color-mix|calc|var)\s*\(/;
