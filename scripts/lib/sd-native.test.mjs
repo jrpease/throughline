@@ -11,7 +11,7 @@ import {
   nativePlatform,
   nativeSources,
   registerNativeTransforms,
-  emitsNativeLiteral,
+  hasNativeForm,
 } from './sd-native.mjs';
 
 test('magnitude treats px as 1:1', () => {
@@ -159,6 +159,7 @@ test('nativePlatform gives Compose separate dp and sp transforms', () => {
   const p = nativePlatform({ platform: 'android-kotlin', buildPath: 'o/', packageName: 'com.example' });
   assert.ok(p.transforms.includes('size/unit-aware/compose-dp'));
   assert.ok(p.transforms.includes('size/unit-aware/compose-sp'));
+  assert.ok(p.transforms.includes('value/kotlin-string-literal'));
 });
 
 test('nativePlatform flattens references and wires the format and filter', () => {
@@ -371,22 +372,35 @@ test('both quoting transforms escape backslashes, quotes and newlines', () => {
 });
 
 // Distinct from nativeFilter: this reads the TRANSFORMED $value and asks
-// whether any transform rendered it into something the language can parse.
-test('emitsNativeLiteral keeps transformed output and drops what nothing rescued', () => {
-  assert.ok(emitsNativeLiteral({ $value: 'CGFloat(14.00)' }, 'ios-swift'));
-  assert.ok(emitsNativeLiteral({ $value: '"Nunito Sans"' }, 'ios-swift'));
-  assert.ok(emitsNativeLiteral({ $value: 'Color(0xffffffff)' }, 'android-kotlin'));
-  assert.ok(emitsNativeLiteral({ $value: '16.00.dp' }, 'android-kotlin'));
-  assert.equal(emitsNativeLiteral({ $value: 'linear-gradient(90deg, #fff 0%)' }, 'ios-swift'), false);
-  assert.equal(emitsNativeLiteral({ $value: 'Nunito Sans' }, 'ios-swift'), false);
+// whether it is a literal the language can parse, or at least not a CSS
+// function call it has zero hope of rendering.
+test('hasNativeForm keeps a valid literal and a CSS function nothing rescued drops', () => {
+  assert.ok(hasNativeForm({ $value: 'CGFloat(14.00)' }, 'ios-swift'));
+  assert.ok(hasNativeForm({ $value: '"Nunito Sans"' }, 'ios-swift'));
+  assert.ok(hasNativeForm({ $value: 'Color(0xffffffff)' }, 'android-kotlin'));
+  assert.ok(hasNativeForm({ $value: '16.00.dp' }, 'android-kotlin'));
+  assert.equal(hasNativeForm({ $value: 'linear-gradient(90deg, #fff 0%)' }, 'ios-swift'), false);
+});
+
+// A value that is invalid but NOT shaped like a CSS function call — a bare
+// identifier a forgotten $type left unquoted, say — must stay and fail loudly
+// at compile time rather than vanish as a silent drop.
+test('hasNativeForm keeps an invalid value that is not a CSS function', () => {
+  assert.ok(hasNativeForm({ $value: 'Nunito Sans' }, 'ios-swift'));
+  assert.ok(hasNativeForm({ $value: '200ms' }, 'ios-swift'));
+  assert.ok(hasNativeForm({ $value: '0.5,0,1,1' }, 'android-kotlin'));
+});
+
+test('hasNativeForm throws on an unknown platform', () => {
+  assert.throws(() => hasNativeForm({ $value: '14' }, 'flutter'), /unknown native platform/);
 });
 
 // A color-mix value is rescued by value/color-mix-to-hex8 and then by the
 // colour transform, so by filter time it is a valid literal and survives.
 // This is why the filter asks about the transformed value and needs no
 // per-transform exemption list.
-test('emitsNativeLiteral does not drop a rescued color-mix token', () => {
-  assert.ok(emitsNativeLiteral({ $value: 'UIColor(red: 0.1, green: 0.2, blue: 0.3, alpha: 0.5)' }, 'ios-swift'));
+test('hasNativeForm does not drop a rescued color-mix token', () => {
+  assert.ok(hasNativeForm({ $value: 'UIColor(red: 0.1, green: 0.2, blue: 0.3, alpha: 0.5)' }, 'ios-swift'));
 });
 
 test('nativePlatform composes the authored-unit filter with the literal filter', () => {
@@ -394,11 +408,43 @@ test('nativePlatform composes the authored-unit filter with the literal filter',
   const f = p.files[0].filter;
   // dropped by nativeFilter — a web-only authored unit
   assert.equal(f({ original: { $value: '1.5em' }, $value: '1.5em' }), false);
-  // dropped by emitsNativeLiteral — nothing rescued it into a literal
+  // dropped by hasNativeForm — a CSS function nothing rescued into a literal
   assert.equal(
     f({ original: { $value: 'linear-gradient(90deg, #fff 0%)' }, $value: 'linear-gradient(90deg, #fff 0%)' }),
     false,
   );
   // kept — transformed into a valid literal
   assert.equal(f({ original: { $value: '14px' }, $value: 'CGFloat(14.00)' }), true);
+});
+
+// The pipeline cannot produce a bare unquoted gradient for a $type: string
+// token — the quoting transform runs first and either quotes it or leaves it
+// alone for the filter to judge. This is the state that actually reaches the
+// filter, and the one the Critical this test guards against would have shipped
+// wrong: quoting the gradient into a validly-quoted, meaningless string.
+test('a $type string gradient is left unquoted by the transform and dropped by the filter', () => {
+  const t = collectTransforms().get('value/swift-string-literal');
+  const token = { $type: 'string', $value: 'linear-gradient(90deg, #fff 0%)' };
+  assert.equal(t.filter(token), false);
+
+  const p = nativePlatform({ platform: 'ios-swift', buildPath: 'out/' });
+  assert.equal(
+    p.files[0].filter({ original: { $value: token.$value }, $value: token.$value }),
+    false,
+  );
+});
+
+// Guards against an over-broad CSS_FUNCTION refusal: an ordinary $type: string
+// value must still be quoted and kept.
+test('a $type string non-function value is still quoted and kept', () => {
+  const t = collectTransforms().get('value/swift-string-literal');
+  const token = { $type: 'string', $value: 'italic' };
+  assert.ok(t.filter(token));
+  assert.equal(t.transform(token), '"italic"');
+
+  const p = nativePlatform({ platform: 'ios-swift', buildPath: 'out/' });
+  assert.equal(
+    p.files[0].filter({ original: { $value: token.$value }, $value: t.transform(token) }),
+    true,
+  );
 });

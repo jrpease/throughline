@@ -199,14 +199,15 @@ as **build artifacts** — regenerated every sync, never hand-edited. Wire
 `packages/tokens/package.json` to export them so the UI package, Storybook, and
 any future app consume them.
 
-**Install the native token toolkit — all three files, as a set.** Copy
+**Install the native token toolkit — all four files, as a set.** Copy
 `.throughline/scripts/validate-token-output.mjs` into
-`packages/tokens/scripts/`, and both
-`.throughline/scripts/lib/dtcg.mjs` and
+`packages/tokens/scripts/`, and
+`.throughline/scripts/lib/dtcg.mjs`,
+`.throughline/scripts/lib/native-literal.mjs`, and
 `.throughline/scripts/lib/sd-native.mjs` into
-`packages/tokens/scripts/lib/`. `sd-native.mjs` imports `dtcg.mjs` and the
-validator imports it too, so copying any of them without the others breaks at
-import. Then register the gate so it stays live on every future sync:
+`packages/tokens/scripts/lib/`. `sd-native.mjs` and the validator both import
+`dtcg.mjs` and `native-literal.mjs`, so copying any of them without the others
+breaks at import. Then register the gate so it stays live on every future sync:
 
 ```json
 "tokens:validate-output": "node scripts/validate-token-output.mjs --min-match 1"

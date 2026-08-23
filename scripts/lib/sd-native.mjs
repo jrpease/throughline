@@ -183,21 +183,30 @@ export function nativeFilter(token) {
   return !WEB_ONLY_UNIT.test(String(token.original?.$value ?? token.$value).trim());
 }
 
-// Did the transforms actually produce a valid native literal?
+// A CSS function has no native form. Quoting it would produce a string that
+// compiles and means nothing — the exact failure class this module exists to
+// prevent, and worse than the bare value, which at least fails to compile.
+// Leave it bare so the filter drops it.
+const CSS_FUNCTION = /^[A-Za-z][A-Za-z0-9-]*\s*\(/;
+
+// Did the transforms leave a value with no native form at all?
 //
-// A different question from nativeFilter's, which is about the AUTHORED value.
-// This reads the TRANSFORMED $value and asks whether anything rendered it into
-// something the target language can parse. A value nothing rescued — a CSS
-// linear-gradient, say — has no native form and must not be emitted.
-//
-// Asking it this way needs no exemption list. A filter that asked "is this a
-// CSS function" would need one entry per transform that rescues one
-// (value/color-mix-to-hex8 first, whatever comes next after) — exactly the
-// hand-picked list this module indicts above. A rescued value passes on its own
-// merits, and a consumer's added transforms are respected rather than
-// second-guessed.
-export function emitsNativeLiteral(token, platform) {
-  return isValidLiteral(String(token.$value).trim(), GRAMMAR[platform]);
+// A different question from nativeFilter's, which is about the AUTHORED
+// value. This reads the TRANSFORMED $value. A value that already parses as a
+// literal passes outright. A value that does not is dropped only if it is
+// ALSO shaped like a CSS function call — a linear-gradient, say, which has no
+// native rendering whatsoever. Everything else invalid but not function-shaped
+// stays and fails loudly at compile time: duration ("200ms"), cubicBezier
+// ("0.5,0,1,1"), and, on Kotlin, content and asset, which have no stock
+// quoting transform there. Silently dropping those would hide a forgotten
+// $type behind a shorter output file instead of a build failure.
+export function hasNativeForm(token, platform) {
+  const grammar = GRAMMAR[platform];
+  if (!grammar) {
+    throw new Error(`unknown native platform "${platform}" (expected ${Object.keys(GRAMMAR).join(' or ')})`);
+  }
+  const v = String(token.$value).trim();
+  return isValidLiteral(v, grammar) || !CSS_FUNCTION.test(v);
 }
 
 export function nativePlatform({ platform, buildPath, className = 'Tokens', packageName }) {
@@ -230,7 +239,7 @@ export function nativePlatform({ platform, buildPath, className = 'Tokens', pack
         destination: preset.destination,
         format: preset.format,
         options: fileOptions,
-        filter: (token) => nativeFilter(token) && emitsNativeLiteral(token, platform),
+        filter: (token) => nativeFilter(token) && hasNativeForm(token, platform),
       },
     ],
   };
@@ -315,6 +324,7 @@ function stringValue(token) {
 function isQuotable(token) {
   const v = stringValue(token);
   if (v === null) return false;
+  if (CSS_FUNCTION.test(v)) return false;
   if (QUOTED_TYPES.has(token.$type)) return true;
   return token.$type === 'fontWeight' && Number.isNaN(Number(v.trim()));
 }
