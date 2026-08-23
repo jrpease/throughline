@@ -7,7 +7,7 @@
 // without naming any of them, which is the point: the next unanticipated case
 // is caught by the same rule.
 //
-// Three consumers — sd-native.mjs's quoting transforms and output filter, and
+// Two consumers — sd-native.mjs's output filter, and
 // validate-token-output.mjs's invalid-literal rule. Its own module for the same
 // reason lib/dtcg.mjs is one: shared by both token gates.
 //

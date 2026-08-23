@@ -187,7 +187,13 @@ export function nativeFilter(token) {
 // compiles and means nothing — the exact failure class this module exists to
 // prevent, and worse than the bare value, which at least fails to compile.
 // Leave it bare so the filter drops it.
-const CSS_FUNCTION = /^[A-Za-z][A-Za-z0-9-]*\s*\(/;
+//
+// No \s* before the paren: CSS function notation forbids whitespace between
+// the name and the open paren, and a real font family can legitimately
+// contain one — "Helvetica (Regular)". Requiring the paren immediately after
+// the identifier is what tells that apart from linear-gradient(, calc(,
+// var(, and color-mix(.
+const CSS_FUNCTION = /^[A-Za-z][A-Za-z0-9-]*\(/;
 
 // Did the transforms leave a value with no native form at all?
 //

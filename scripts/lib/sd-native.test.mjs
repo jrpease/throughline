@@ -448,3 +448,20 @@ test('a $type string non-function value is still quoted and kept', () => {
     true,
   );
 });
+
+// Regression: a legitimate font family can contain a space-then-paren —
+// "Helvetica (Regular)" — which must not be mistaken for a CSS function call.
+// CSS function notation forbids whitespace before the paren; a fontFamily
+// with one is exactly the case CSS_FUNCTION's lack of \s* exists to admit.
+test('a fontFamily containing a parenthesized suffix is quoted and kept, not mistaken for a CSS function', () => {
+  const t = collectTransforms().get('value/swift-string-literal');
+  const token = { $type: 'fontFamily', $value: 'Helvetica (Regular)' };
+  assert.ok(t.filter(token));
+  assert.equal(t.transform(token), '"Helvetica (Regular)"');
+
+  const p = nativePlatform({ platform: 'ios-swift', buildPath: 'out/' });
+  assert.equal(
+    p.files[0].filter({ original: { $value: token.$value }, $value: t.transform(token) }),
+    true,
+  );
+});
