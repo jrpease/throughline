@@ -100,7 +100,7 @@ Two things the plan must not lose:
 - **Should dual nodes be reported as invalid DTCG?** Now that the shape is known
   non-conforming, detecting and warning on it is a real option — but it belongs
   in a validator, not in a preprocessor whose job is to make the build work.
-  Deliberately out of scope for #55; not yet filed as an issue.
+  Deliberately out of scope for #55; filed as [#58](https://github.com/jrpease/throughline/issues/58).
 
 ## Working notes
 

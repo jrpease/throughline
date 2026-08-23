@@ -294,7 +294,7 @@ wrong recursion frame passes every single-level test.
 - **Dual nodes remain unreported as invalid DTCG.** Now that the shape is known
   to be non-conforming, detecting and reporting it is a real option — but it
   belongs in a validator, not a preprocessor whose job is to make the build work.
-  Out of scope; worth its own issue.
+  Out of scope; filed as #58.
 
 ## Out of scope
 
