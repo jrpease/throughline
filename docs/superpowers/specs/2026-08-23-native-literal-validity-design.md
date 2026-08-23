@@ -201,9 +201,31 @@ transforms mirror the existing `size/unit-aware/swift` vs
 | `$type` | Quoted? |
 |---|---|
 | `fontFamily` | yes |
-| `string` | yes |
+| `string` | yes — **unless the value is CSS-function-shaped** |
 | `fontWeight` | only when non-numeric |
 | anything else | no |
+
+**The refusal is load-bearing, and revision 2 lost it.** `gradient.brand.primary`
+is `$type: string`. Blanket-quoting that type turns
+`linear-gradient(90deg, ...)` into `"linear-gradient(90deg, ...)"` — which
+parses as a valid literal, survives the filter, and ships. That is the option
+this design's own §"The general discriminator" rejects outright: output that
+compiles and means nothing, and *worse* than the bug being fixed, because a
+syntax error a compiler catches becomes a plausible string constant it does
+not. It also defeats `invalid-literal`, the rule built for this exact symbol.
+
+So the quoting transform **refuses** a value shaped like a function call:
+
+```js
+const CSS_FUNCTION = /^[A-Za-z][A-Za-z0-9-]*\s*\(/;
+```
+
+This is the predicate revision 1 called `hasNoNativeForm`. Revision 1 was wrong
+to hand it to the *filter*; revision 2 over-corrected by deleting it entirely,
+taking the quoting refusal with it. It is correct here and only here, because
+`isQuotable` is already narrowed to string-valued `$type`s — colours never
+reach it, so the false positives that killed revision 1's filter use cannot
+occur.
 
 The `fontWeight` predicate, stated so it cannot be read two ways:
 
@@ -242,17 +264,29 @@ a web-only unit"* — along with its existing tests. A second, separate predicat
 is added:
 
 ```js
-export function emitsNativeLiteral(token, platform)   // isValidLiteral($value, GRAMMAR[platform])
+export function hasNativeForm(token, platform)
+// isValidLiteral($value) || !CSS_FUNCTION.test($value)
 ```
 
-It asks a different question — *"after every transform has run, did this token
-end up as a valid native literal?"* — and it reads the **transformed** `$value`,
-not `original.$value`. `nativePlatform()` composes the two at the one place
-that knows the platform:
+It asks a different question — *"after every transform has run, is this value
+something the target language could express at all?"* — and it reads the
+**transformed** `$value`, not `original.$value`. `nativePlatform()` composes
+the two at the one place that knows the platform:
 
 ```js
-filter: (token) => nativeFilter(token) && emitsNativeLiteral(token, platform)
+filter: (token) => nativeFilter(token) && hasNativeForm(token, platform)
 ```
+
+**Only a value that is both invalid *and* function-shaped is dropped.** An
+earlier draft dropped everything the grammar rejected, which silently swallowed
+`duration` (`200ms`), `cubicBezier` (`0.5,0,1,1`), and — on Kotlin only, which
+has no stock content/asset quoting transform — `content` and `asset` tokens.
+That directly contradicted the division of labour below: a `$type` the quoting
+list forgets is supposed to fail **loudly**, and a filtered token never reaches
+`invalid-literal` at all (`unemittedTokens` is informational and never fails
+the gate). Measured on a real build with probe tokens for each of those types,
+the two-part predicate drops only the gradients and leaves all four loud, on
+both platforms.
 
 Two named predicates, one job each, composed once. This replaces revision 1's
 single `hasNoNativeForm` regex, which was measured to be wrong in both possible
@@ -353,7 +387,11 @@ Stated separately, because this area was demoted once for overclaiming:
   `unemittedTokens` is informational and never fails the gate, so a future
   authored `calc(...)` token would be excluded without failing anything. That is
   consistent with the existing `%`/`em` treatment and is a stated choice, not an
-  oversight.
+  oversight. It is also the reason the filter is deliberately narrow: **only**
+  CSS-function-shaped values take this silent path. Anything else the grammar
+  rejects is emitted and fails `invalid-literal` loudly, because a silent drop
+  is the weaker outcome and should be reserved for the one case where no native
+  form exists at all.
 - **The filter now depends on transform output.** `emitsNativeLiteral` reads the
   transformed `$value`, so a consumer who removes a transform changes what is
   filtered. This is the intended behaviour — the filter's question is "did the
@@ -371,6 +409,29 @@ exists specifically to prove #52 is still reachable afterwards, and the grammar
 accepts `.sp` so that #51's fix does not read as a new failure.
 
 ## Revision history
+
+**Revision 3 (2026-08-23)** — Task 3's review found a Critical defect authored
+in revision 2, measured on real output: the gradient was **quoted rather than
+dropped**, emitting
+`public static let gradientBrandPrimary = "linear-gradient(90deg, ...)"` and
+leaving 196 declarations where this spec requires 195. `emitsNativeLiteral`
+dropped **zero** tokens on both platforms — the filter, the larger half of the
+change, was inert against the artifact it exists for.
+
+Cause: revision 1's `hasNoNativeForm` served two consumers. Its *filter* use was
+wrong and revision 2 correctly replaced it with the grammar — but revision 2
+deleted the predicate outright, silently losing its *quoting-refusal* use, which
+had been correct. `$type: string` then blanket-quoted the gradient.
+
+A second finding from the same review: dropping everything the grammar rejected
+turned loud failures into silent drops for `duration`, `cubicBezier`, and
+Kotlin `content`/`asset`, contradicting this design's own central claim.
+
+Both are fixed above: the refusal returns, scoped to the quoting transform
+only, and the filter drops only what is invalid **and** function-shaped. Two
+lessons worth keeping — a predicate correct for one consumer is not thereby
+correct for another, and deleting a shared helper must account for every use
+it served, not just the broken one.
 
 **Revision 2 (2026-08-23)** — review found the revision 1 predicate blocking.
 Revision 1 proposed a single `hasNoNativeForm(value)` regex,
