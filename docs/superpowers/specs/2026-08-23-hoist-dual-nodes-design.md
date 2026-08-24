@@ -2,8 +2,9 @@
 
 **Issue:** [#55](https://github.com/jrpease/throughline/issues/55)
 **Date:** 2026-08-23
-**Revision:** 2 — review found a mis-citation, an unsound argument, and a real
-hazard the rule created. See [Revision history](#revision-history).
+**Revision:** 3 — the reference tag became a `WeakSet`, and the blast-radius
+section now records that #51 is widened alongside #52. See
+[Revision history](#revision-history).
 **Depends on:** [#56](https://github.com/jrpease/throughline/pull/56) (#53). Same
 file, and `references/native-adapter-config.md` is generated from the whole
 module, so this branch stacks rather than forking from `main`.
@@ -150,11 +151,20 @@ inherit. It keeps whatever it has, which is today's behaviour — no regression,
 and no new #52 instances.
 
 **Mechanism.** `resolveInPlace` already tests `WHOLE_REF` and is the only place
-that still knows. It tags such a node with a module-private `Symbol`; the hoist
-reads the tag and skips inheritance. A `Symbol` key is invisible to
-`Object.entries`, to `JSON.stringify`, and to Style Dictionary, so it cannot leak
-into output. The tag is set on the clone `preprocess` already makes, after
-`structuredClone`, so clone semantics are not involved.
+that still knows. It records such a node in a **module-level `WeakSet`**; the
+hoist checks membership and skips inheritance.
+
+A `Symbol` property was tried first and rejected on review. It is invisible to
+`Object.entries` and `JSON.stringify`, and real Style Dictionary (4.4.0 and
+5.5.2) tolerates it — but `assert.deepEqual` under `node:assert/strict`
+**does** compare own symbol properties, and `structuredClone` drops them. So
+`preprocess(preprocess(x))` differed structurally from `preprocess(x)` whenever
+a reference was present, breaking the idempotency this module documents at
+`sd-native.mjs:308` and relies on in real builds. The shipped idempotency test
+passed only because its fixture contained no alias — a trap for whoever edited
+that fixture next. A `WeakSet` writes nothing to the object, so the property
+holds exactly rather than being managed, and entries are collected with the
+clone.
 
 Reordering the pipeline to hoist before resolving is **not** the fix: aliases
 elsewhere in the source point at the pre-hoist path (`{text.sm.lineHeight}`), and
@@ -178,14 +188,38 @@ shape is "malformed in a way no reading rescues." Both parts were wrong:
   child exactly, which is why the exclusion above exists.
 
 The honest statement of the residual cost: *a child with a **literal** value, no
-`$type`, and a differently-typed parent is malformed, and is accepted as newly
-silent.* That is narrow, and it is the price of fixing the common case.
+`$type`, and a parent whose type does not describe it is malformed, and is
+accepted as newly silent.* That is narrow, and it is the price of fixing the
+common case.
 
-**#52 blast radius.** The rule takes an untyped unitless literal child under a
-`dimension`-typed dual node and makes it `dimension` — precisely #52's shape, in
-a source where it did not exist before. That is not *masking* #52 (no existing
-instance is hidden) but it does widen it, and the widening must be demonstrated
-by test rather than asserted away.
+Revision 2 wrote "a *differently-typed* parent" there, which was too narrow —
+see the #51 case below, where the parent's type is `dimension` and so is the
+child's, and the emitted unit is still wrong.
+
+### Blast radius — two open issues, both widened, both recorded
+
+The rule converts a loud failure into a silent one in two measured cases. Both
+are the *same mechanism*, and both are demonstrated by test rather than
+asserted away, because "this change must neither fix nor mask them" is worth
+nothing if the widening is simply not looked for.
+
+| Issue | Shape the rule now produces | Before | After |
+|---|---|---|---|
+| **#52** | untyped **unitless** literal child under a `dimension` dual node | `1.5` | `1.50.dp` — a ratio in density-independent pixels |
+| **#51** | untyped **fontSize** child under a `dimension` dual node | `18px` bare, caught by `no-bare-units` | `18.00.dp` — compiles, wrong unit, defeats the user's font-scale setting |
+
+Neither is *masked* — no existing instance is hidden, and the test asserting
+`1.50.dp` still validates keeps #52 reachable. Both are widened: the rule
+manufactures the shape in sources where it did not occur.
+
+**Not fixed here, deliberately.** The mechanism is the one this section already
+accepts, and the only way to exempt #51's case would be to special-case a child
+*named* `fontSize` — a name-based heuristic, which is the precise thing #51
+exists to complain about. Fixing it properly means deciding how DTCG font sizes
+are identified, which is #51's own open question.
+
+Neither instance is reachable in zygarden: every `text.*` and
+`typography.textStyle.*` child carries an explicit `$type`, so nothing inherits.
 
 ## Decision — collision throws
 
@@ -302,6 +336,20 @@ wrong recursion frame passes every single-level test.
 records the one place it widens #52 rather than leaving the claim unexamined.
 
 ## Revision history
+
+**Revision 3 (2026-08-24)** — Task 2's review, during execution. Two
+corrections, both to claims this document made rather than to the decision:
+
+1. **The mechanism changed from a `Symbol` property to a `WeakSet`.** The symbol
+   was compared by `assert.deepEqual` and dropped by `structuredClone`, so it
+   broke structural idempotency — and the test meant to catch that passed only
+   because its fixture had no alias.
+2. **The blast-radius section named only #52; the rule widens #51 by the
+   identical mechanism.** An untyped `fontSize` child under a `dimension` dual
+   node becomes `dimension`, so `18px` (bare, caught loudly) becomes `18.00.dp`
+   (compiles, wrong unit). The accepted-cost sentence said "a *differently-typed*
+   parent," which does not describe that case at all. Both widenings are now
+   tabulated and each has its own test.
 
 **Revision 2 (2026-08-23)** — `/review-spec` returned "needs revision" and was
 right on every count that mattered. Four corrections:
