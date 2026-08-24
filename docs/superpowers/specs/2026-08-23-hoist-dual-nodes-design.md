@@ -221,6 +221,16 @@ zygarden, and the added machinery is a worse trade than the defect. Recorded
 here so the residual is described accurately rather than flatteringly, which is
 the whole point of this section.
 
+**This is the one residual not pinned by a test**, and the asymmetry is worth
+naming, because the blast-radius section immediately below insists that a
+widening be "demonstrated by test rather than asserted away." That standard is
+met for #52 and #51 and not for this. The reason is that a test would pin
+behaviour we have judged wrong rather than behaviour we have judged acceptable
+— the other two record a bad-but-accepted *output*, whereas this records a
+*regression* from a correct answer. Pinning it would read as endorsement.
+Reproduced above from a real run against `main` and `HEAD`; that transcript is
+the evidence, and it is weaker than a test, deliberately.
+
 ### Blast radius — two open issues, both widened, both recorded
 
 The rule converts a loud failure into a silent one in two measured cases. Both
