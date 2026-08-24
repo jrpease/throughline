@@ -198,7 +198,14 @@ function resolveInPlace(node, flat, prefix = []) {
 // an inherited Object.prototype member (toString, valueOf, ...) reported a
 // collision against a sibling that does not exist. Object.hasOwn checks the
 // tree's own keys only.
-function hoistDualNodes(node, collisions, prefix = []) {
+function hoistDualNodes(node, collisions, prefix = [], groupType = undefined) {
+  // The $type a plain member of THIS frame inherits, and the one a child
+  // hoisted INTO it will inherit — the same value, because the hoist makes the
+  // child a member of node. A node carrying a $value is a token, not a group
+  // (DTCG 6.1), so it is not an inheritance source: look through it and keep
+  // the chain from above. That also covers the nested case, where node is a
+  // dual node and the child hoists past it on the next frame up anyway.
+  const inherited = '$value' in node ? groupType : (node.$type ?? groupType);
   // Which hoisted names THIS pass has already claimed, and the authored path
   // of the child that claimed each one — a collision here is a second hoist
   // landing on a name no sibling ever authored. Local to this frame: node is
@@ -207,7 +214,7 @@ function hoistDualNodes(node, collisions, prefix = []) {
   const claimedBy = new Map();
   for (const [key, val] of Object.entries(node)) {
     if (key.startsWith('$') || !val || typeof val !== 'object') continue;
-    hoistDualNodes(val, collisions, [...prefix, key]);
+    hoistDualNodes(val, collisions, [...prefix, key], inherited);
     if ('$value' in val) {
       for (const [childKey, childVal] of Object.entries(val)) {
         if (childKey.startsWith('$') || !childVal || typeof childVal !== 'object') continue;
@@ -229,11 +236,28 @@ function hoistDualNodes(node, collisions, prefix = []) {
           });
           continue;
         }
-        // The dual node is the child's closest $type-bearing ancestor as
-        // authored; after the hoist it is a sibling, so the type is lost unless
-        // it travels. Excluded for a reference-valued child — DTCG 5.2.2 gives
-        // it the referent's type, which outranks inheritance.
-        if (!('$type' in childVal) && '$type' in val && !WAS_REF.has(childVal)) {
+        // The carry pays for what the hoist costs: the dual node is the
+        // child's closest $type-bearing ancestor as authored, and after the
+        // hoist it is a sibling, so that type is lost unless it travels.
+        //
+        // Two cases where nothing was lost, so nothing is carried. A
+        // reference-valued child already has its referent's resolved type, and
+        // DTCG 5.2.2 rule 1 ranks that above inheritance. And where an
+        // enclosing GROUP supplies a type, that group was the child's
+        // inheritance source all along — 5.2.2 inherits from the closest parent
+        // group, and the dual node is a token — so it still is after the hoist,
+        // and carrying would shadow it.
+        //
+        // The invariant is transparency, not correctness: the child ends with
+        // the type DTCG inheritance gives it in the authored tree. An enclosing
+        // group wins even where its type suits the child badly, because that is
+        // what the source says and the hoist is not entitled to improve on it.
+        if (
+          !('$type' in childVal) &&
+          '$type' in val &&
+          !WAS_REF.has(childVal) &&
+          inherited === undefined
+        ) {
           childVal.$type = val.$type;
         }
         node[hoisted] = childVal;

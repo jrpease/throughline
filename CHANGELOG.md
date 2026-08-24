@@ -45,8 +45,8 @@ to [Semantic Versioning](https://semver.org).
   ancestor as authored, and that ancestry is lost once the hoist makes the
   child a sibling instead. A child whose authored value was a whole-value
   reference is excluded and keeps its referent's resolved type per DTCG
-  5.2.2. Three consequences are knowingly accepted, and none is subtle enough
-  to leave implicit:
+  5.2.2. Two consequences are knowingly accepted and a third was not, and none
+  is subtle enough to leave implicit:
   - An untyped `fontSize` child under a `dimension`-typed parent now emits
     through the `dimension` transform — `.dp` on Android rather than `.sp`,
     which **defeats the user's font-scale accessibility setting**. It
@@ -55,15 +55,27 @@ to [Semantic Versioning](https://semver.org).
   - An untyped unitless child now emits as a `dimension` — a ratio rendered in
     density-independent pixels. Also previously caught loudly.
   - Where an enclosing *group* carries a `$type` that correctly describes the
-    child, the dual node's type now shadows it, so a token that resolved
-    correctly before can resolve wrongly. Contrived, and not present in any
-    source we have measured, but it is the one case that turns right into
-    wrong rather than loud into silent.
+    child, the dual node's type shadowed it, so a token that resolved
+    correctly before resolved wrongly. **Fixed below**; it is listed here
+    because the two above are accepted and this one was not.
 
-  The first two are covered by tests; the third is documented in
-  `docs/superpowers/specs/2026-08-23-hoist-dual-nodes-design.md` and is not.
-  This does not make native output compile-verified or validate DTCG
-  conformance on its own.
+  The two accepted consequences are covered by tests. This does not make
+  native output compile-verified or validate DTCG conformance on its own.
+- **An enclosing group's `$type` is no longer shadowed by a dual node's.**
+  The hoist carries a dual node's `$type` onto an untyped child to replace the
+  ancestry the hoist costs it. Where an enclosing *group* already supplies a
+  type, nothing was lost — DTCG §5.2.2 inherits from the closest parent
+  *group*, and §6.1 makes a node carrying a `$value` a token — so the carry
+  shadowed a type that was already correct. It is now suppressed there, which
+  makes the hoist type-transparent: a child ends with the type DTCG
+  inheritance gives it in the authored tree, including where that type suits
+  the child badly. Measured through Compose, the shape emitted
+  `val textSmLineHeight = 20px` (does not compile, and
+  `tokens:validate-output` caught it) for a `px` child, and
+  `val textSmLineHeight = 1.5` — a `Double` where a `Dp` belongs, compiling
+  and passing the gate clean — for a unitless one. Both now emit `.dp`. Output
+  against a real 322-token source is byte-identical: the shape requires a dual
+  node typed differently from both its enclosing group and its own child.
 - **`no-foreign-syntax` reconciled with the native output filter.** An
   unrescued `calc(...)`, `var(...)`, or `color-mix(...)` variant was
   previously dropped from native output by `sd-native.mjs`'s filter before

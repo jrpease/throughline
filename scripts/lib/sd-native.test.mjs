@@ -688,6 +688,92 @@ test('nothing is invented when the dual node has no $type', () => {
   assert.equal('$type' in out.text.smLineHeight, false);
 });
 
+// The carry exists because the hoist costs the child its closest $type-bearing
+// ancestor. Where an enclosing GROUP already supplies one, nothing was lost:
+// DTCG 5.2.2 inherits from the closest parent group, and 6.1 makes a node with
+// a $value a token, so the dual node never was the child's inheritance source.
+// Carrying there does not restore a type, it shadows a correct one.
+test('an enclosing group $type is not shadowed by the dual node $type', () => {
+  const out = preprocess({
+    text: {
+      $type: 'dimension',
+      sm: { $value: '#fff', $type: 'color', lineHeight: { $value: '20px' } },
+    },
+  });
+  assert.equal('$type' in out.text.smLineHeight, false);
+});
+
+// The invariant is transparency, not correctness: the child ends with the type
+// DTCG inheritance gives it in the AUTHORED tree, even where that type suits it
+// badly. b inherits color before the hoist — a is a token, so g is b's closest
+// group either way — and carrying dimension here would be the hoist inventing a
+// better answer than the source states.
+// The variant with teeth, and the reason this is worth fixing rather than
+// documenting. Measured end-to-end through Style Dictionary against the real
+// Compose config: with the carry, this emits `val textSmLineHeight = 1.5` — a
+// Double where a Dp belongs, which compiles and passes tokens:validate-output
+// clean, because no-bare-units fires only on a unit-suffixed literal. Without
+// it, 1.50.dp. The issue's own 20px example is the LOUD one: it emits a bare
+// `20px` the gate catches under no-bare-units and unverifiable-dimension.
+test('an enclosing group is not shadowed where the shadowed output would compile', () => {
+  const out = preprocess({
+    text: {
+      $type: 'dimension',
+      sm: { $value: '1.25', $type: 'number', lineHeight: { $value: '1.5' } },
+    },
+  });
+  assert.equal('$type' in out.text.smLineHeight, false);
+});
+
+test('an enclosing group wins even where its $type suits the child badly', () => {
+  const out = preprocess({
+    g: {
+      $type: 'color',
+      a: { $value: '#fff', $type: 'dimension', b: { $value: '2px' } },
+    },
+  });
+  assert.equal('$type' in out.g.aB, false);
+});
+
+// Depth-first, so b hoists to a and then a's children hoist to g. The frame
+// that decides b's carry has a as its node, and a is a dual node — the guard
+// has to look through it to g, or the two-level case keeps the shadowing the
+// single-level case just lost.
+test('the group guard reaches a child hoisted through two levels', () => {
+  const out = preprocess({
+    text: {
+      $type: 'dimension',
+      sm: {
+        $value: '#fff',
+        $type: 'color',
+        lineHeight: { $value: '20px', tight: { $value: '18px' } },
+      },
+    },
+  });
+  assert.equal('$type' in out.text.smLineHeight, false);
+  assert.equal('$type' in out.text.smLineHeightTight, false);
+});
+
+// A group with no $type of its own is not a supplier; the chain continues past
+// it. Without this the guard could read "has an enclosing group" rather than
+// "an enclosing group supplies a type" and suppress every carry one level down.
+test('an untyped enclosing group does not suppress the carry', () => {
+  const out = preprocess({
+    text: { sm: { $value: '14px', $type: 'dimension', lineHeight: { $value: '20px' } } },
+  });
+  assert.equal(out.text.smLineHeight.$type, 'dimension');
+});
+
+// $type at the file root is a group's, per DTCG 5.2.2 — the root object is a
+// group like any other.
+test('a root $type suppresses the carry', () => {
+  const out = preprocess({
+    $type: 'dimension',
+    sm: { $value: '#fff', $type: 'color', lineHeight: { $value: '20px' } },
+  });
+  assert.equal('$type' in out.smLineHeight, false);
+});
+
 // Depth-first recursion means the inner hoist completes first, so lineHeightTight
 // is a direct child of sm by the time sm hoists. This is the test that catches a
 // $type carry running in the wrong recursion frame — every single-level test

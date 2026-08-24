@@ -2,9 +2,9 @@
 
 **Issue:** [#55](https://github.com/jrpease/throughline/issues/55)
 **Date:** 2026-08-23
-**Revision:** 4 — the accepted-cost section now records the *correct becomes
-wrong* sub-case alongside *loud becomes silent*. See
-[Revision history](#revision-history).
+**Revision:** 5 — the *correct becomes wrong* residual is **fixed** in
+[#60](https://github.com/jrpease/throughline/issues/60), and revision 4's
+severity claim about it was wrong. See [Revision history](#revision-history).
 **Depends on:** [#56](https://github.com/jrpease/throughline/pull/56) (#53). Same
 file, and `references/native-adapter-config.md` is generated from the whole
 module, so this branch stacks rather than forking from `main`.
@@ -213,23 +213,44 @@ HEAD : text.smLineHeight = { $value: "20px", $type: "color" }  -> WRONG
 There was no loud failure here and no malformed input by the standard the
 sentence above uses — there was a right answer, and the carry replaces it.
 
-Not fixed, deliberately. The rule that would fix it — carry the dual node's
-`$type` only when no enclosing group supplies one — means threading the ancestor
-group chain through the recursion for a shape that requires a dual node typed
-differently from both its parent group and its own child. Unreachable in
-zygarden, and the added machinery is a worse trade than the defect. Recorded
-here so the residual is described accurately rather than flatteringly, which is
-the whole point of this section.
+**Fixed in [#60](https://github.com/jrpease/throughline/issues/60), and the
+machinery cost one parameter.** Revision 4 declined the fix on the grounds that
+carrying the dual node's `$type` only when no enclosing group supplies one
+"means threading the ancestor group chain through the recursion." It does, and
+the chain is one value: the `$type` a plain member of the current frame
+inherits, recomputed per frame as `'$value' in node ? groupType : node.$type ??
+groupType`. Looking through a `$value`-bearing node is what makes a dual node a
+non-source, and it is also what makes the nested case work, since the child
+hoists past that node on the next frame up anyway. The same value serves the
+guard, because a hoisted child lands as a member of the frame it is computed
+for.
 
-**This is the one residual not pinned by a test**, and the asymmetry is worth
-naming, because the blast-radius section immediately below insists that a
-widening be "demonstrated by test rather than asserted away." That standard is
-met for #52 and #51 and not for this. The reason is that a test would pin
-behaviour we have judged wrong rather than behaviour we have judged acceptable
-— the other two record a bad-but-accepted *output*, whereas this records a
-*regression* from a correct answer. Pinning it would read as endorsement.
-Reproduced above from a real run against `main` and `HEAD`; that transcript is
-the evidence, and it is weaker than a test, deliberately.
+The invariant is worth stating, because it is what makes the rule principled
+rather than a patch: **the hoist is type-transparent.** A child ends with the
+type DTCG inheritance gives it in the authored tree. That holds even where the
+group's type suits the child badly — `g: {$type: "color", a: {$value: "#fff",
+$type: "dimension", b: {$value: "2px"}}}` gives `b` colour before the hoist and
+after it, because `a` is a token and never was `b`'s inheritance source. The
+hoist is not entitled to improve on what the source says.
+
+### Revision 4 measured this case at the wrong layer
+
+The transcript above is a `preprocess` tree, and revision 4 read severity off
+it: "there was no loud failure here." Built end-to-end through Style Dictionary,
+that is false for the very example it uses.
+
+| input child | with the carry | `tokens:validate-output` | fixed |
+|---|---|---|---|
+| `20px`, group `dimension`, dual node `color` | `val textSmLineHeight = 20px` — does not compile | **caught**: `no-bare-units`, `unverifiable-dimension` | `20.00.dp` |
+| `1.5`, group `dimension`, dual node `number` | `val textSmLineHeight = 1.5` — a `Double`, compiles | **clean** | `1.50.dp` |
+
+So the shape is loud for a unit-suffixed literal and silent for a unitless one —
+the *identical* asymmetry this section documents two paragraphs above, where
+`BARE_UNIT` is shown to fire "only on a *unit-suffixed* literal" and the
+archetypal wrongly-typed child is noted to be a unitless ratio. Revision 4
+established the asymmetry and then chose an example that falls on the other side
+of it. Both rows are now tests; the second is the one with teeth, and it is the
+one revision 4's transcript did not show.
 
 ### Blast radius — two open issues, both widened, both recorded
 
@@ -371,6 +392,24 @@ wrong recursion frame passes every single-level test.
 records the one place it widens #52 rather than leaving the claim unexamined.
 
 ## Revision history
+
+**Revision 5 (2026-08-24)** — the *correct becomes wrong* residual revision 4
+recorded is fixed, in #60. Two things revision 4 got wrong, both about its own
+residual rather than about the decision to ship #55:
+
+1. **The cost of fixing it was overstated.** "Threading the ancestor group chain
+   through the recursion" is one parameter and one expression, not machinery.
+2. **Its severity was measured on a `preprocess` tree rather than on emitted
+   output.** The `20px` example it chose does not compile and the output gate
+   catches it. The silent case is a unitless child, which emits a `Double` where
+   a `Dp` belongs and passes the gate clean — the same `BARE_UNIT` asymmetry
+   this document had already established, applied to everything except its own
+   example.
+
+Both rows are now tests, so the section that had "the one residual not pinned by
+a test" has no residual left to pin. Output against the real source is
+byte-identical: the shape requires a dual node typed differently from both its
+enclosing group and its own child, which zygarden does not contain.
 
 **Revision 4 (2026-08-24)** — the final whole-branch review. One correction,
 again to a claim rather than the decision: the accepted-cost section framed the
