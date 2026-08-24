@@ -279,14 +279,20 @@ export function preprocess(dict) {
 // whatever it forgets; three real defects arose that way, including Compose
 // font sizes rendered in dp instead of sp.
 //
-// That last one is only half fixed, and the half that remains is load-bearing:
-// the sp transform below gates on $type === 'fontSize', but DTCG has no
-// fontSize type — it types font sizes as dimension — so on a spec-compliant
-// source the sp branch never fires and Android font sizes still emit as dp.
-// Android-only; size/unit-aware/swift filters dimension || fontSize and is
-// correct. Same class as a unitless ratio (leading.normal: "1.5") emitting as
-// 1.50.dp. Both are measured, not theoretical — see
-// docs/superpowers/notes/2026-08-21-native-config-e2e-results.md.
+// That last one is fixed for tokens whose role a DTCG source actually states:
+// classifyTextUnits stamps fontSize, letterSpacing and lineHeight members, and
+// the sp transform gates on the stamp rather than on a $type DTCG never emits.
+// Three limits remain, all Android-only and all measured rather than
+// theoretical — see docs/superpowers/notes/2026-08-21-native-config-e2e-results.md:
+//
+//   - A scale primitive carries no role. text.base: "16px" is a font size only
+//     to a human, so it emits as dp. The semantic tokens referencing it are
+//     correct, and those are what a consumer should reach for.
+//   - An em-valued letterSpacing is filtered out of native output entirely,
+//     rather than emitted as Compose's .em TextUnit.
+//   - A unitless ratio (leading.normal: "1.5") emits as 1.50.dp. It is
+//     deliberately NOT stamped: 1.50.sp would compile and render 1.5sp text,
+//     turning a loud failure into a silent one.
 //
 // Stock, from SD 4.4.0:
 //   ios-swift: attribute/cti name/camel color/UIColorSwift
@@ -466,6 +472,8 @@ const authored = (token) => magnitude(token.original?.$value ?? token.$value);
 const isDimension = (token) => token.$type === 'dimension';
 const isFontSize = (token) => token.$type === 'fontSize';
 const hasMagnitude = (token) => authored(token) !== null;
+// The role preprocess stamped. $type cannot carry it — see classifyTextUnits.
+const isTextUnit = (token) => token.$extensions?.[EXT_NS]?.nativeUnit === 'text';
 
 // Quote string-valued tokens no stock transform covers.
 //
@@ -530,7 +538,7 @@ export function registerNativeTransforms(StyleDictionary) {
     name: 'size/unit-aware/compose-dp',
     type: 'value',
     transitive: true,
-    filter: (token) => isDimension(token) && hasMagnitude(token),
+    filter: (token) => isDimension(token) && !isTextUnit(token) && hasMagnitude(token),
     transform: (token) => `${authored(token).toFixed(2)}.dp`,
   });
 
@@ -538,7 +546,7 @@ export function registerNativeTransforms(StyleDictionary) {
     name: 'size/unit-aware/compose-sp',
     type: 'value',
     transitive: true,
-    filter: (token) => isFontSize(token) && hasMagnitude(token),
+    filter: (token) => (isTextUnit(token) || isFontSize(token)) && hasMagnitude(token),
     transform: (token) => `${authored(token).toFixed(2)}.sp`,
   });
 
