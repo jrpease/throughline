@@ -200,14 +200,17 @@ child's, and the emitted unit is still wrong.
 *correct becomes wrong*. When an enclosing **group** carries a `$type` that does
 describe the child, the carry shadows it — DTCG §5.2.2 inherits from the closest
 parent *group*, and the dual node is a token, not a group, so before this change
-the group's type was the one that applied. Measured against `main`:
+the group's type was the one that applied. Measured at the time against `main`
+at `698a236` — the pin matters, because #59 has since merged and the row labelled
+`HEAD` is what `main` produces today:
 
 ```
-in   : { text: { $type: "dimension",
-                 sm: { $value: "#fff", $type: "color",
-                       lineHeight: { $value: "20px" } } } }
-main : text.smLineHeight = { $value: "20px" }                  -> inherits dimension from the group: RIGHT
-HEAD : text.smLineHeight = { $value: "20px", $type: "color" }  -> WRONG
+in     : { text: { $type: "dimension",
+                   sm: { $value: "#fff", $type: "color",
+                         lineHeight: { $value: "20px" } } } }
+698a236: text.smLineHeight = { $value: "20px" }                  -> inherits dimension from the group: RIGHT
+  #59  : text.smLineHeight = { $value: "20px", $type: "color" }  -> WRONG
+  #60  : text.smLineHeight = { $value: "20px" }                  -> RIGHT again
 ```
 
 There was no loud failure here and no malformed input by the standard the
@@ -226,12 +229,33 @@ guard, because a hoisted child lands as a member of the frame it is computed
 for.
 
 The invariant is worth stating, because it is what makes the rule principled
-rather than a patch: **the hoist is type-transparent.** A child ends with the
-type DTCG inheritance gives it in the authored tree. That holds even where the
-group's type suits the child badly — `g: {$type: "color", a: {$value: "#fff",
-$type: "dimension", b: {$value: "2px"}}}` gives `b` colour before the hoist and
-after it, because `a` is a token and never was `b`'s inheritance source. The
-hoist is not entitled to improve on what the source says.
+rather than a patch — and worth stating no wider than it holds: **the hoist
+never *changes* a type DTCG inheritance already determines.** Where inheritance
+determines none, the carry supplies the dual node's, which is a repair rather
+than a reading of the source.
+
+So an enclosing group wins even where its type suits the child badly —
+`g: {$type: "color", a: {$value: "#fff", $type: "dimension", b: {$value:
+"2px"}}}` gives `b` colour before the hoist and after it, because `a` is a token
+and never was `b`'s inheritance source, and the hoist is not entitled to improve
+on what the source says.
+
+An earlier draft of this paragraph claimed the stronger "a child ends with the
+type DTCG inheritance gives it in the authored tree," which is false in exactly
+the case the carry exists for, and false again where the hoisted node is a
+*group*:
+
+```
+in : { text: { sm: { $value: "#fff", $type: "color",
+                     heights: { line: { $value: "20px" } } } } }
+out: { text: { sm: {...}, smHeights: { $type: "color", line: { $value: "20px" } } } }
+                                       ^ line now inherits color; authored, it inherited nothing
+```
+
+That is pre-existing behaviour, unchanged here and out of scope for #60, which
+is about shadowing a type that already applied. It is the same over-reach one
+step further out, and it is filed as
+[#67](https://github.com/jrpease/throughline/issues/67) rather than absorbed.
 
 ### Revision 4 measured this case at the wrong layer
 
@@ -249,8 +273,14 @@ the *identical* asymmetry this section documents two paragraphs above, where
 `BARE_UNIT` is shown to fire "only on a *unit-suffixed* literal" and the
 archetypal wrongly-typed child is noted to be a unitless ratio. Revision 4
 established the asymmetry and then chose an example that falls on the other side
-of it. Both rows are now tests; the second is the one with teeth, and it is the
-one revision 4's transcript did not show.
+of it.
+
+Both rows now have a test — at the `preprocess` layer, asserting no `$type` is
+carried. The emitted `val …` strings and the `fixed` column were measured by
+hand through a Style Dictionary 4.4.0 build and are not pinned by the suite,
+which is worth saying plainly in a section whose whole complaint is that
+revision 4 read severity off the wrong layer. The second row is the one with
+teeth, and it is the one revision 4's transcript did not show.
 
 ### Blast radius — two open issues, both widened, both recorded
 
@@ -406,8 +436,9 @@ residual rather than about the decision to ship #55:
    this document had already established, applied to everything except its own
    example.
 
-Both rows are now tests, so the section that had "the one residual not pinned by
-a test" has no residual left to pin. Output against the real source is
+Both rows now have a `preprocess`-layer test, so the section that had "the one
+residual not pinned by a test" has no residual left to pin; the emitted-output
+half was measured by hand and says so. Output against the real source is
 byte-identical: the shape requires a dual node typed differently from both its
 enclosing group and its own child, which zygarden does not contain.
 

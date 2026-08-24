@@ -248,10 +248,13 @@ function hoistDualNodes(node, collisions, prefix = [], groupType = undefined) {
         // group, and the dual node is a token — so it still is after the hoist,
         // and carrying would shadow it.
         //
-        // The invariant is transparency, not correctness: the child ends with
-        // the type DTCG inheritance gives it in the authored tree. An enclosing
-        // group wins even where its type suits the child badly, because that is
-        // what the source says and the hoist is not entitled to improve on it.
+        // The invariant, stated no wider than it holds: the hoist never
+        // CHANGES a type DTCG inheritance already determines. Where it
+        // determines none, the carry supplies the dual node's — a repair, not
+        // a reading of the source. So an enclosing group wins even where its
+        // type suits the child badly, because the hoist is not entitled to
+        // improve on what the source says; but the carry firing at all is the
+        // hoist saying something the source did not.
         if (
           !('$type' in childVal) &&
           '$type' in val &&

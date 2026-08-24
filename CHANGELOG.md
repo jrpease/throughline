@@ -66,10 +66,11 @@ to [Semantic Versioning](https://semver.org).
   ancestry the hoist costs it. Where an enclosing *group* already supplies a
   type, nothing was lost — DTCG §5.2.2 inherits from the closest parent
   *group*, and §6.1 makes a node carrying a `$value` a token — so the carry
-  shadowed a type that was already correct. It is now suppressed there, which
-  makes the hoist type-transparent: a child ends with the type DTCG
-  inheritance gives it in the authored tree, including where that type suits
-  the child badly. Measured through Compose, the shape emitted
+  shadowed a type that was already correct. It is now suppressed there, so the
+  hoist never *changes* a type DTCG inheritance already determines — including
+  where that type suits the child badly. Where inheritance determines none,
+  the carry still supplies the dual node's, which is a repair rather than a
+  reading of the source. Measured through Compose, the shape emitted
   `val textSmLineHeight = 20px` (does not compile, and
   `tokens:validate-output` caught it) for a `px` child, and
   `val textSmLineHeight = 1.5` — a `Double` where a `Dp` belongs, compiling
