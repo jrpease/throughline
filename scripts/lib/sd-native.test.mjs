@@ -543,6 +543,32 @@ test('preprocess throws when two hoists collide with each other', () => {
   );
 });
 
+// The collision message has a fourth branch: the name was already claimed by
+// an earlier hoist, and that hoisted child was itself a group. The existing
+// group test above only matches /\(a group\)/, which this branch does not —
+// its text is "(a group, already claimed by the hoist of ...)" — so that test
+// does not cover it. t.a.bC has no $value of its own, so it hoists to t.aBC
+// as a group; t.aB.c then collides with that claimed name.
+test('preprocess throws when a hoisted name collides with a hoisted group', () => {
+  assert.throws(
+    () =>
+      preprocess({
+        t: {
+          a: { $value: '1px', bC: { x: { $value: '2px' } } },
+          aB: { $value: '3px', c: { $value: '4px' } },
+        },
+      }),
+    (err) => {
+      assert.match(err.message, /collide/i);
+      assert.match(err.message, /t\.a\.bC/);
+      assert.match(err.message, /t\.aB\.c/);
+      assert.match(err.message, /a group/);
+      assert.match(err.message, /claimed by/);
+      return true;
+    },
+  );
+});
+
 // findModeCollisions exempts identical values because it is deduping across
 // files. This is not a dedupe — two distinct authored tokens land on one name,
 // and they may differ in $type or $description even with equal $value.
