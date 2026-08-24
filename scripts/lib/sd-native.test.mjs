@@ -12,6 +12,7 @@ import {
   nativeSources,
   registerNativeTransforms,
   hasNativeForm,
+  EXT_NS,
 } from './sd-native.mjs';
 
 test('magnitude treats px as 1:1', () => {
@@ -774,4 +775,128 @@ test('a reference embedded inside an expression still inherits $type', () => {
     },
   });
   assert.equal(out.text.smTracking.$type, 'dimension');
+});
+
+// #51. DTCG has no fontSize type, so the role cannot come from $type. It comes
+// from the member names the Format Module's 30 July 2026 draft §9.8 fixes at
+// MUST level for the typography composite.
+const roleOf = (token) => token?.$extensions?.[EXT_NS]?.nativeUnit;
+
+test('preprocess stamps a dimension named fontSize as a text unit', () => {
+  const out = preprocess({
+    typography: { h1: { fontSize: { $value: '30px', $type: 'dimension' } } },
+  });
+  assert.equal(roleOf(out.typography.h1.fontSize), 'text');
+});
+
+test('preprocess stamps letterSpacing and lineHeight, not fontFamily or fontWeight', () => {
+  const out = preprocess({
+    t: {
+      letterSpacing: { $value: '0.5px', $type: 'dimension' },
+      lineHeight: { $value: '24px', $type: 'dimension' },
+      fontFamily: { $value: 'Nunito Sans', $type: 'fontFamily' },
+      fontWeight: { $value: '700', $type: 'fontWeight' },
+    },
+  });
+  assert.equal(roleOf(out.t.letterSpacing), 'text');
+  assert.equal(roleOf(out.t.lineHeight), 'text');
+  assert.equal(roleOf(out.t.fontFamily), undefined);
+  assert.equal(roleOf(out.t.fontWeight), undefined);
+});
+
+// The load-bearing case, and the one the spec review caught. Every semantic
+// font size in a real source is authored as a REFERENCE — "{text.3xl}" — and
+// carries no unit at all. Classifying on the authored string would stamp only
+// the px-authored primitives and miss two thirds of the fix.
+test('preprocess stamps a fontSize authored as a reference, using the resolved value', () => {
+  const out = preprocess({
+    text: { '3xl': { $value: '30px', $type: 'dimension' } },
+    typography: { h1: { fontSize: { $value: '{text.3xl}', $type: 'dimension' } } },
+  });
+  assert.equal(out.typography.h1.fontSize.$value, '30px');
+  assert.equal(roleOf(out.typography.h1.fontSize), 'text');
+});
+
+// The hoist renames text.xs.lineHeight to text.xsLineHeight, consuming the
+// leaf name the rule matches on. Classification must run first.
+test('preprocess stamps a dual-node child before the hoist consumes its name', () => {
+  const out = preprocess({
+    text: { xs: { $value: '12px', $type: 'dimension', lineHeight: { $value: '16px', $type: 'dimension' } } },
+  });
+  assert.equal(out.text.xsLineHeight.$value, '16px');
+  assert.equal(roleOf(out.text.xsLineHeight), 'text');
+  assert.equal(roleOf(out.text.xs), undefined);
+});
+
+// magnitude() reads a bare number as a ratio. Stamping one would emit
+// 1.50.sp — which compiles and renders 1.5sp text, trading a loud failure for
+// a silent one. leading.normal stays the separate defect it already is.
+test('preprocess does not stamp a unitless ratio named lineHeight', () => {
+  const out = preprocess({
+    t: { lineHeight: { $value: '1.5', $type: 'dimension' } },
+  });
+  assert.equal(roleOf(out.t.lineHeight), undefined);
+});
+
+test('preprocess does not stamp an em or percentage value', () => {
+  const out = preprocess({
+    t: {
+      letterSpacing: { $value: '-0.03em', $type: 'dimension' },
+      lineHeight: { $value: '150%', $type: 'dimension' },
+    },
+  });
+  assert.equal(roleOf(out.t.letterSpacing), undefined);
+  assert.equal(roleOf(out.t.lineHeight), undefined);
+});
+
+test('preprocess stamps rem as well as px', () => {
+  const out = preprocess({ t: { fontSize: { $value: '1.5rem', $type: 'dimension' } } });
+  assert.equal(roleOf(out.t.fontSize), 'text');
+});
+
+// The $type check reads the token's OWN key, so a fontSize typed something
+// else is not swept in.
+test('preprocess does not stamp a fontSize that is not dimension-typed', () => {
+  const out = preprocess({ t: { fontSize: { $value: '30px', $type: 'string' } } });
+  assert.equal(roleOf(out.t.fontSize), undefined);
+});
+
+// The override, and the reason this design needs no new config parameter.
+test('preprocess honours a nativeUnit the source already set', () => {
+  const out = preprocess({
+    t: {
+      lineHeight: {
+        $value: '24px',
+        $type: 'dimension',
+        $extensions: { 'com.radicool.throughline': { nativeUnit: 'device' } },
+      },
+      size: {
+        $value: '30px',
+        $type: 'dimension',
+        $extensions: { 'com.radicool.throughline': { nativeUnit: 'text' } },
+      },
+    },
+  });
+  assert.equal(roleOf(out.t.lineHeight), 'device');
+  assert.equal(roleOf(out.t.size), 'text');
+});
+
+test('preprocess leaves an unrelated $extensions namespace untouched', () => {
+  const out = preprocess({
+    t: {
+      fontSize: {
+        $value: '30px',
+        $type: 'dimension',
+        $extensions: { 'org.example.other': { hint: 'keep me' } },
+      },
+    },
+  });
+  assert.equal(out.t.fontSize.$extensions['org.example.other'].hint, 'keep me');
+  assert.equal(roleOf(out.t.fontSize), 'text');
+});
+
+test('preprocess does not stamp the caller input', () => {
+  const input = { t: { fontSize: { $value: '30px', $type: 'dimension' } } };
+  preprocess(input);
+  assert.equal(input.t.fontSize.$extensions, undefined);
 });
