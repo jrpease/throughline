@@ -176,10 +176,75 @@ function hoistDualNodes(node, collisions, prefix = []) {
   return node;
 }
 
+// Which native unit a dimension belongs in: Compose's Dp, or its TextUnit.
+//
+// $type cannot answer this. DTCG's type set has no fontSize — font sizes are
+// dimension, and so are spacing, radius and stroke widths — so the stock
+// size/compose/remToSp filter on $type === 'fontSize' never fires on a
+// spec-compliant source and every font size falls through to dp.
+//
+// The role therefore comes from the one place a DTCG source states it: the
+// member names the Format Module's 30 July 2026 draft, §9.8, fixes at MUST
+// level for the typography composite. Three of the five are dimension-valued,
+// and Compose's TextStyle takes TextUnit for all three with no Dp overload.
+//
+// The limit, stated rather than hidden: §9.8 puts those names inside a
+// composite token's $value object, while Figma-derived sources put them as
+// sibling tokens in a group. Reading them there mirrors the spec's vocabulary;
+// it is not a guarantee the spec makes. A source naming its font size
+// typography.body.size sets $extensions itself and is honoured below.
+const TEXT_UNIT_NAMES = new Set(['fontSize', 'letterSpacing', 'lineHeight']);
+
+// Reverse-DNS, per DTCG's $extensions convention. Exported because the
+// transforms and their tests address the same key.
+export const EXT_NS = 'com.radicool.throughline';
+
+// px and rem only. magnitude() reads a bare number as an unscaled ratio, so a
+// lineHeight authored "1.5" would otherwise be stamped and emit 1.50.sp —
+// which compiles and renders 1.5sp text. That trades a loud failure (a Dp
+// where a TextUnit is required) for a silent one, which is the failure class
+// this module exists to prevent. A ratio keeps today's behaviour and stays the
+// separate defect it already is.
+const ABSOLUTE_UNIT = /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem)$/;
+
+// Runs AFTER resolveInPlace and BEFORE hoistDualNodes. Both halves matter.
+//
+// After resolution, because the unit is not in the authored text: a semantic
+// font size is authored "{text.3xl}" and carries no unit at all. Reading the
+// authored string would classify only the px-authored primitives — 13 of 39
+// on a real source.
+//
+// Before the hoist, because the hoist consumes the leaf name:
+// text.xs.lineHeight becomes text.xsLineHeight, and the name this rule matches
+// on is gone. Matching a suffix against the camel-joined name instead would
+// couple the rule to the hoist's naming scheme, and case-insensitively it
+// false-positives on names like baselineHeight.
+function classifyTextUnits(node) {
+  for (const [key, val] of Object.entries(node)) {
+    if (key.startsWith('$') || !val || typeof val !== 'object') continue;
+    if (
+      TEXT_UNIT_NAMES.has(key) &&
+      '$value' in val &&
+      val.$type === 'dimension' &&
+      ABSOLUTE_UNIT.test(String(val.$value).trim())
+    ) {
+      val.$extensions ??= {};
+      val.$extensions[EXT_NS] ??= {};
+      const ns = val.$extensions[EXT_NS];
+      // A source that states the role itself wins. This is the override, and
+      // it costs no configuration parameter: declining to overwrite IS the
+      // feature. It is also what makes the pass idempotent.
+      if (!('nativeUnit' in ns)) ns.nativeUnit = 'text';
+    }
+    classifyTextUnits(val);
+  }
+  return node;
+}
+
 export function preprocess(dict) {
   const collisions = [];
   const out = hoistDualNodes(
-    resolveInPlace(structuredClone(dict), flattenDtcg(dict)),
+    classifyTextUnits(resolveInPlace(structuredClone(dict), flattenDtcg(dict))),
     collisions,
   );
   if (collisions.length) {
