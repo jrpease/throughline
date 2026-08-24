@@ -478,3 +478,107 @@ test('a fontFamily containing a parenthesized suffix is quoted and kept, not mis
     true,
   );
 });
+
+// A dual node's child is renamed to a camel-joined sibling. If that name is
+// already taken, the pre-fix code overwrote it and a token vanished with no
+// diagnostic — the same class as the mode collision nativeSources guards.
+test('preprocess throws when a hoisted name collides with an authored token', () => {
+  assert.throws(
+    () =>
+      preprocess({
+        text: {
+          sm: { $value: '14px', lineHeight: { $value: '20px' } },
+          smLineHeight: { $value: '28px' },
+        },
+      }),
+    (err) => {
+      assert.match(err.message, /collide/i);
+      assert.match(err.message, /text\.sm\.lineHeight/);
+      assert.match(err.message, /text\.smLineHeight/);
+      return true;
+    },
+  );
+});
+
+// A group, not a token — hoisting onto it would destroy a whole subtree.
+test('preprocess throws when a hoisted name collides with an authored group', () => {
+  assert.throws(
+    () =>
+      preprocess({
+        text: {
+          sm: { $value: '14px', lineHeight: { $value: '20px' } },
+          smLineHeight: { bold: { $value: '28px' } },
+        },
+      }),
+    /collide/i,
+  );
+});
+
+// Neither name is authored: t.a.bC and t.aB.c both camel-join to t.aBC.
+// The issue does not name this variant; it was found by probing.
+test('preprocess throws when two hoists collide with each other', () => {
+  assert.throws(
+    () =>
+      preprocess({
+        t: {
+          a: { $value: '1px', bC: { $value: '2px' } },
+          aB: { $value: '3px', c: { $value: '4px' } },
+        },
+      }),
+    /collide/i,
+  );
+});
+
+// findModeCollisions exempts identical values because it is deduping across
+// files. This is not a dedupe — two distinct authored tokens land on one name,
+// and they may differ in $type or $description even with equal $value.
+test('preprocess throws on collision even when the values are identical', () => {
+  assert.throws(
+    () =>
+      preprocess({
+        text: {
+          sm: { $value: '14px', lineHeight: { $value: '20px' } },
+          smLineHeight: { $value: '20px' },
+        },
+      }),
+    /collide/i,
+  );
+});
+
+// The recursion is depth-first, so the deepest frame finishes first. An
+// implementation that throws per-frame reports one subtree and stops.
+test('preprocess reports every collision, across depths, in one error', () => {
+  assert.throws(
+    () =>
+      preprocess({
+        outer: {
+          a: { $value: '1px', b: { $value: '2px' } },
+          aB: { $value: '3px' },
+          nested: {
+            c: { $value: '4px', d: { $value: '5px' } },
+            cD: { $value: '6px' },
+          },
+        },
+      }),
+    (err) => {
+      assert.match(err.message, /outer\.a\.b/);
+      assert.match(err.message, /outer\.nested\.c\.d/);
+      assert.match(err.message, /^2 hoisted token name/m);
+      return true;
+    },
+  );
+});
+
+// sd-native.mjs states in prose that preprocess is idempotent, and real builds
+// rely on it (a project may declare the preprocessor at top level as well as on
+// the platform). No test asserted it before this one.
+test('preprocess is idempotent', () => {
+  const input = {
+    text: {
+      sm: { $value: '14px', $type: 'dimension', lineHeight: { $value: '20px', $type: 'dimension' } },
+    },
+  };
+  const once = preprocess(input);
+  const twice = preprocess(once);
+  assert.deepEqual(twice, once);
+});

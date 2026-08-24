@@ -103,14 +103,33 @@ function resolveInPlace(node, flat, prefix = []) {
 
 // text.sm.lineHeight becomes text.smLineHeight, which name/camel renders as
 // textSmLineHeight — the identical symbol the un-hoisted path would produce.
-function hoistDualNodes(node) {
+//
+// Collisions are COLLECTED, not thrown here: the walk has to continue to report
+// every one, and the recursion is depth-first, so throwing from a frame would
+// report one subtree. preprocess throws once, after the whole tree is walked.
+//
+// On collision the assignment is SKIPPED. Continuing to overwrite while
+// collecting means later detections are computed against a tree already
+// corrupted — the enclosing loop's Object.entries snapshot still holds the
+// detached node, and its own children then hoist out of a subtree no longer
+// reachable.
+function hoistDualNodes(node, collisions, prefix = []) {
   for (const [key, val] of Object.entries(node)) {
     if (key.startsWith('$') || !val || typeof val !== 'object') continue;
-    hoistDualNodes(val);
+    hoistDualNodes(val, collisions, [...prefix, key]);
     if ('$value' in val) {
       for (const [childKey, childVal] of Object.entries(val)) {
         if (childKey.startsWith('$') || !childVal || typeof childVal !== 'object') continue;
-        node[key + childKey[0].toUpperCase() + childKey.slice(1)] = childVal;
+        const hoisted = key + childKey[0].toUpperCase() + childKey.slice(1);
+        if (hoisted in node) {
+          collisions.push({
+            from: [...prefix, key, childKey].join('.'),
+            onto: [...prefix, hoisted].join('.'),
+            existing: node[hoisted].$value,
+          });
+          continue;
+        }
+        node[hoisted] = childVal;
         delete val[childKey];
       }
     }
@@ -119,7 +138,25 @@ function hoistDualNodes(node) {
 }
 
 export function preprocess(dict) {
-  return hoistDualNodes(resolveInPlace(structuredClone(dict), flattenDtcg(dict)));
+  const collisions = [];
+  const out = hoistDualNodes(
+    resolveInPlace(structuredClone(dict), flattenDtcg(dict)),
+    collisions,
+  );
+  if (collisions.length) {
+    const shown = collisions
+      .slice(0, 5)
+      .map((c) => `  ${c.from} -> ${c.onto}` + (c.existing === undefined ? ' (a group)' : ` (would overwrite ${JSON.stringify(c.existing)})`))
+      .join('\n');
+    const more = collisions.length > 5 ? `\n  ...and ${collisions.length - 5} more` : '';
+    throw new Error(
+      `${collisions.length} hoisted token name(s) collide with an existing sibling.\n` +
+        "A dual node's child is renamed to a camel-joined sibling, and that name is taken.\n" +
+        'Hoisting would silently discard one of the two. Rename the child or the sibling.\n' +
+        `${shown}${more}`,
+    );
+  }
+  return out;
 }
 // @doc-section-end preprocess
 
