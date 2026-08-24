@@ -2,8 +2,8 @@
 
 **Issue:** [#55](https://github.com/jrpease/throughline/issues/55)
 **Date:** 2026-08-23
-**Revision:** 3 — the reference tag became a `WeakSet`, and the blast-radius
-section now records that #51 is widened alongside #52. See
+**Revision:** 4 — the accepted-cost section now records the *correct becomes
+wrong* sub-case alongside *loud becomes silent*. See
 [Revision history](#revision-history).
 **Depends on:** [#56](https://github.com/jrpease/throughline/pull/56) (#53). Same
 file, and `references/native-adapter-config.md` is generated from the whole
@@ -196,6 +196,31 @@ Revision 2 wrote "a *differently-typed* parent" there, which was too narrow —
 see the #51 case below, where the parent's type is `dimension` and so is the
 child's, and the emitted unit is still wrong.
 
+**And "loud becomes silent" does not cover every case either.** One sub-case is
+*correct becomes wrong*. When an enclosing **group** carries a `$type` that does
+describe the child, the carry shadows it — DTCG §5.2.2 inherits from the closest
+parent *group*, and the dual node is a token, not a group, so before this change
+the group's type was the one that applied. Measured against `main`:
+
+```
+in   : { text: { $type: "dimension",
+                 sm: { $value: "#fff", $type: "color",
+                       lineHeight: { $value: "20px" } } } }
+main : text.smLineHeight = { $value: "20px" }                  -> inherits dimension from the group: RIGHT
+HEAD : text.smLineHeight = { $value: "20px", $type: "color" }  -> WRONG
+```
+
+There was no loud failure here and no malformed input by the standard the
+sentence above uses — there was a right answer, and the carry replaces it.
+
+Not fixed, deliberately. The rule that would fix it — carry the dual node's
+`$type` only when no enclosing group supplies one — means threading the ancestor
+group chain through the recursion for a shape that requires a dual node typed
+differently from both its parent group and its own child. Unreachable in
+zygarden, and the added machinery is a worse trade than the defect. Recorded
+here so the residual is described accurately rather than flatteringly, which is
+the whole point of this section.
+
 ### Blast radius — two open issues, both widened, both recorded
 
 The rule converts a loud failure into a silent one in two measured cases. Both
@@ -336,6 +361,19 @@ wrong recursion frame passes every single-level test.
 records the one place it widens #52 rather than leaving the claim unexamined.
 
 ## Revision history
+
+**Revision 4 (2026-08-24)** — the final whole-branch review. One correction,
+again to a claim rather than the decision: the accepted-cost section framed the
+residual entirely as *loud becomes silent*, and one sub-case is *correct becomes
+wrong*. Where an enclosing group carries a `$type` that describes the child, the
+carry shadows it — and DTCG §5.2.2 inherits from the closest parent *group*, so
+the group's type is the one that applied before. Measured and recorded above,
+with the reason it is not fixed.
+
+The same review found two things outside this document, both fixed rather than
+recorded: the collision error message described only the authored-sibling case
+and misdirected on the hoist-vs-hoist variant, and `CHANGELOG.md` had no entry
+for a change that makes a consumer's build throw.
 
 **Revision 3 (2026-08-24)** — Task 2's review, during execution. Two
 corrections, both to claims this document made rather than to the decision:
