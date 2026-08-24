@@ -587,6 +587,15 @@ the use site."
 - Consumes: the behaviour Tasks 1 and 2 shipped.
 - Produces: nothing consumed by later tasks.
 
+> **Amended after Task 2's review.** Two defects in this plan's own text were
+> found and are fixed in this task: the ratio example in Task 2 Step 5's
+> comment is excluded by two gates rather than the one it illustrates, and the
+> test renamed in Task 2 Step 2 has a title its body does not match. Both are
+> written out as Steps 0a/0b in
+> `.superpowers/sdd/2026-08-24-compose-text-units/task-3-brief.md`, with a
+> Step 0c regenerating the reference doc — required, because 0a edits
+> `scripts/lib/sd-native.mjs`.
+
 - [ ] **Step 1: Correct the `sync-adapters.md` Tier 2 paragraph**
 
 Replace this sentence inside the `android-kotlin` paragraph:
