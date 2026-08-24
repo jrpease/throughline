@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
 import { flattenDtcg, resolveValue, findModeCollisions } from './lib/dtcg.mjs';
+import { parseLiteral, isValidLiteral, GRAMMAR } from './lib/native-literal.mjs';
 
 // Re-exported so consumers (and the test file) keep one import surface.
 export { flattenDtcg, resolveValue, findModeCollisions };
@@ -85,6 +86,13 @@ export function expectedMagnitude(sourceValue) {
   }
 }
 
+// Unanchored: matches this text anywhere in the value, including inside a
+// quoted string. That is deliberate for the bare case — an unrescued
+// calc(...)/var(...)/color-mix(...) leaks CSS syntax wherever it sits — but it
+// means a well-formed quoted literal whose TEXT happens to contain "calc(" or
+// "var(" (e.g. a $type: string value describing CSS) would also match. The
+// isValidLiteral gate below is what tells those apart: a value the grammar
+// accepts as a literal is not foreign syntax, whatever text it contains.
 const FOREIGN = /(?:color-mix|calc|var)\s*\(/;
 const BARE_UNIT = /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em|%)$/;
 
@@ -127,8 +135,28 @@ export function validate({ sources, output, platform, minMatch = 0.5 }) {
   let matched = 0;
 
   for (const { symbol, value } of decls) {
-    if (FOREIGN.test(value)) failures.push({ rule: 'no-foreign-syntax', symbol, emitted: value });
-    if (BARE_UNIT.test(value)) failures.push({ rule: 'no-bare-units', symbol, emitted: value });
+    // The two specific rules diagnose better than "not a valid literal", so
+    // they win; invalid-literal is the general net underneath them. Reporting
+    // one symbol under all three would be noise.
+    const foreign = FOREIGN.test(value) && !isValidLiteral(value, GRAMMAR[platform]);
+    const bare = BARE_UNIT.test(value);
+    if (foreign) failures.push({ rule: 'no-foreign-syntax', symbol, emitted: value });
+    if (bare) failures.push({ rule: 'no-bare-units', symbol, emitted: value });
+    if (!foreign && !bare) {
+      // Before the name-match `continue` below: a symbol that resolves to no
+      // source token must not escape a validity check by being unnamed.
+      const parsed = parseLiteral(value, GRAMMAR[platform]);
+      if (!parsed.ok) {
+        failures.push({
+          rule: 'invalid-literal',
+          symbol,
+          emitted: value,
+          platform,
+          offset: parsed.offset,
+          rest: parsed.rest,
+        });
+      }
+    }
 
     const path = byKey.get(normalizeKey(symbol));
     if (!path) continue;
@@ -178,11 +206,18 @@ export function formatReport(r) {
     lines.push(`\n${r.failures.length} rule failure(s):`);
     for (const f of r.failures) {
       lines.push(
-        f.rule === 'unit-fidelity'
-          ? `  - [${f.rule}] ${f.symbol}: source ${f.source} expects ${f.expected}, emitted ${f.emitted} (${f.actual})`
-          : f.rule === 'unverifiable-dimension'
-            ? `  - [${f.rule}] ${f.symbol}: source ${f.source} has a dimension magnitude but emitted ${f.emitted} could not be read — the token was never actually compared`
-            : `  - [${f.rule}] ${f.symbol}: ${f.emitted}`,
+        f.rule === 'invalid-literal'
+          ? `  - [${f.rule}] ${f.symbol}: emitted \`${f.emitted}\` is not a valid ${f.platform} literal — parsing stopped at offset ${f.offset} (${JSON.stringify(f.rest.slice(0, 30))})`
+          : f.rule === 'unit-fidelity'
+            ? `  - [${f.rule}] ${f.symbol}: source ${f.source} expects ${f.expected}, emitted ${f.emitted} (${f.actual})`
+            : f.rule === 'unverifiable-dimension'
+              ? `  - [${f.rule}] ${f.symbol}: source ${f.source} has a dimension magnitude but emitted ${f.emitted} could not be read — the token was never actually compared`
+              : `  - [${f.rule}] ${f.symbol}: ${f.emitted}`,
+      );
+    }
+    if (r.failures.some((f) => f.rule === 'invalid-literal')) {
+      lines.push(
+        `\nAn invalid-literal value will not compile. A string value must be quoted — add its $type to the quoting transform in lib/sd-native.mjs. A CSS construct such as linear-gradient() has no native form and should be filtered out of native builds instead.`,
       );
     }
   }

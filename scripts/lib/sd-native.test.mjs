@@ -11,6 +11,7 @@ import {
   nativePlatform,
   nativeSources,
   registerNativeTransforms,
+  hasNativeForm,
 } from './sd-native.mjs';
 
 test('magnitude treats px as 1:1', () => {
@@ -123,6 +124,7 @@ test('nativePlatform emits the stock ios-swift list with the size transform repl
     'content/swift/literal',
     'asset/swift/literal',
     'size/unit-aware/swift',
+    'value/swift-string-literal',
   ]);
 });
 
@@ -157,6 +159,7 @@ test('nativePlatform gives Compose separate dp and sp transforms', () => {
   const p = nativePlatform({ platform: 'android-kotlin', buildPath: 'o/', packageName: 'com.example' });
   assert.ok(p.transforms.includes('size/unit-aware/compose-dp'));
   assert.ok(p.transforms.includes('size/unit-aware/compose-sp'));
+  assert.ok(p.transforms.includes('value/kotlin-string-literal'));
 });
 
 test('nativePlatform flattens references and wires the format and filter', () => {
@@ -167,7 +170,8 @@ test('nativePlatform flattens references and wires the format and filter', () =>
   assert.equal(p.files[0].destination, 'Tokens.swift');
   assert.equal(p.files[0].format, 'ios-swift/enum.swift');
   assert.equal(p.files[0].options.className, 'Tokens');
-  assert.equal(p.files[0].filter, nativeFilter);
+  assert.equal(typeof p.files[0].filter, 'function');
+  assert.equal(p.files[0].filter({ original: { $value: '1.5em' }, $value: '1.5em' }), false);
 });
 
 test('nativePlatform targets Tokens.kt via compose/object for android', () => {
@@ -245,7 +249,7 @@ test('nativeSources names the file when its JSON does not parse', () => {
   });
 });
 
-test('registerNativeTransforms registers the preprocessor and four transforms', () => {
+test('registerNativeTransforms registers the preprocessor and six transforms', () => {
   const preprocessors = [];
   const transforms = [];
   registerNativeTransforms({
@@ -259,6 +263,8 @@ test('registerNativeTransforms registers the preprocessor and four transforms', 
     'size/unit-aware/compose-sp',
     'size/unit-aware/swift',
     'value/color-mix-to-hex8',
+    'value/kotlin-string-literal',
+    'value/swift-string-literal',
   ]);
   for (const t of transforms) assert.equal(t.type, 'value');
 });
@@ -302,4 +308,173 @@ test('the registered size transforms skip a value with no native magnitude', () 
   registerNativeTransforms({ registerPreprocessor: () => {}, registerTransform: (t) => transforms.push(t) });
   const swift = transforms.find((t) => t.name === 'size/unit-aware/swift');
   assert.equal(swift.filter({ $type: 'dimension', $value: '100%', original: { $value: '100%' } }), false);
+});
+
+// Collect the transforms registerNativeTransforms registers, without needing
+// a real Style Dictionary. Mirrors the fake used elsewhere in this file.
+function collectTransforms() {
+  const registered = new Map();
+  registerNativeTransforms({
+    registerPreprocessor() {},
+    registerTransform(t) {
+      registered.set(t.name, t);
+    },
+  });
+  return registered;
+}
+
+test('the quoting transform quotes fontFamily and string types', () => {
+  const t = collectTransforms().get('value/swift-string-literal');
+  assert.ok(t.filter({ $type: 'fontFamily', $value: 'Nunito Sans' }));
+  assert.ok(t.filter({ $type: 'string', $value: 'italic' }));
+  assert.equal(t.transform({ $type: 'fontFamily', $value: 'Nunito Sans' }), '"Nunito Sans"');
+});
+
+test('the quoting transform leaves typed non-strings alone', () => {
+  const t = collectTransforms().get('value/swift-string-literal');
+  assert.equal(t.filter({ $type: 'dimension', $value: '14px' }), false);
+  assert.equal(t.filter({ $type: 'color', $value: '#ffffff' }), false);
+});
+
+// DTCG permits a fontWeight keyword as well as a number. "400" already emits
+// as a valid native integer and must stay untouched.
+test('fontWeight is quoted only when it is a keyword', () => {
+  const t = collectTransforms().get('value/swift-string-literal');
+  assert.ok(t.filter({ $type: 'fontWeight', $value: 'bold' }));
+  assert.equal(t.filter({ $type: 'fontWeight', $value: '400' }), false);
+  assert.equal(t.filter({ $type: 'fontWeight', $value: 400 }), false);
+});
+
+test('a fontFamily list is joined into one native string', () => {
+  const t = collectTransforms().get('value/swift-string-literal');
+  const token = { $type: 'fontFamily', $value: ['Nunito Sans', 'sans-serif'] };
+  assert.ok(t.filter(token));
+  assert.equal(t.transform(token), '"Nunito Sans, sans-serif"');
+});
+
+// "$foo" is template interpolation in Kotlin, so a literal $ must be escaped
+// there — and must NOT be in Swift, where \$ is not a valid escape.
+test('Kotlin escapes the dollar sign and Swift does not', () => {
+  const ts = collectTransforms();
+  const token = { $type: 'string', $value: 'cost: $5' };
+  assert.equal(ts.get('value/kotlin-string-literal').transform(token), '"cost: \\$5"');
+  assert.equal(ts.get('value/swift-string-literal').transform(token), '"cost: $5"');
+});
+
+test('both quoting transforms escape backslashes, quotes and newlines', () => {
+  const ts = collectTransforms();
+  for (const name of ['value/swift-string-literal', 'value/kotlin-string-literal']) {
+    const t = ts.get(name);
+    assert.equal(t.transform({ $type: 'string', $value: 'a"b' }), '"a\\"b"', name);
+    assert.equal(t.transform({ $type: 'string', $value: 'a\\b' }), '"a\\\\b"', name);
+    assert.equal(t.transform({ $type: 'string', $value: 'a\nb' }), '"a\\nb"', name);
+  }
+});
+
+// Distinct from nativeFilter: this reads the TRANSFORMED $value and asks
+// whether it is a literal the language can parse, or at least not a CSS
+// function call it has zero hope of rendering.
+test('hasNativeForm keeps a valid literal and a CSS function nothing rescued drops', () => {
+  assert.ok(hasNativeForm({ $value: 'CGFloat(14.00)' }, 'ios-swift'));
+  assert.ok(hasNativeForm({ $value: '"Nunito Sans"' }, 'ios-swift'));
+  assert.ok(hasNativeForm({ $value: 'Color(0xffffffff)' }, 'android-kotlin'));
+  assert.ok(hasNativeForm({ $value: '16.00.dp' }, 'android-kotlin'));
+  assert.equal(hasNativeForm({ $value: 'linear-gradient(90deg, #fff 0%)' }, 'ios-swift'), false);
+});
+
+// A value that is invalid but NOT shaped like a CSS function call — a bare
+// identifier a forgotten $type left unquoted, say — must stay and fail loudly
+// at compile time rather than vanish as a silent drop.
+test('hasNativeForm keeps an invalid value that is not a CSS function', () => {
+  assert.ok(hasNativeForm({ $value: 'Nunito Sans' }, 'ios-swift'));
+  assert.ok(hasNativeForm({ $value: '200ms' }, 'ios-swift'));
+  assert.ok(hasNativeForm({ $value: '0.5,0,1,1' }, 'android-kotlin'));
+});
+
+test('hasNativeForm throws on an unknown platform', () => {
+  assert.throws(() => hasNativeForm({ $value: '14' }, 'flutter'), /unknown native platform/);
+});
+
+// A color-mix value is rescued by value/color-mix-to-hex8 and then by the
+// colour transform, so by filter time it is a valid literal and survives.
+// This is why the filter asks about the transformed value and needs no
+// per-transform exemption list.
+test('hasNativeForm does not drop a rescued color-mix token', () => {
+  assert.ok(hasNativeForm({ $value: 'UIColor(red: 0.1, green: 0.2, blue: 0.3, alpha: 0.5)' }, 'ios-swift'));
+});
+
+// calc(...) and var(...) are unrescued but valid identifiers, and an
+// unrescued color-mix(...) variant is a rescue this module's own transform
+// simply did not match. None of those are "no native form" — dropping them
+// here would make no-foreign-syntax in validate-token-output.mjs unreachable,
+// so hasNativeForm must keep them and let that gate fail loudly instead.
+test('hasNativeForm keeps an unrescued CSS construct instead of silently dropping it', () => {
+  assert.ok(hasNativeForm({ $value: 'calc(1rem + 2px)' }, 'ios-swift'));
+  assert.ok(hasNativeForm({ $value: 'var(--x)' }, 'ios-swift'));
+  assert.ok(hasNativeForm({ $value: 'color-mix(in srgb, #aaa 50%, #bbb)' }, 'ios-swift'));
+  // A gradient has no rescue and no name-diagnosed construct — still dropped.
+  assert.equal(hasNativeForm({ $value: 'linear-gradient(90deg, #fff 0%)' }, 'ios-swift'), false);
+});
+
+test('nativePlatform composes the authored-unit filter with the literal filter', () => {
+  const p = nativePlatform({ platform: 'ios-swift', buildPath: 'out/' });
+  const f = p.files[0].filter;
+  // dropped by nativeFilter — a web-only authored unit
+  assert.equal(f({ original: { $value: '1.5em' }, $value: '1.5em' }), false);
+  // dropped by hasNativeForm — a CSS function nothing rescued into a literal
+  assert.equal(
+    f({ original: { $value: 'linear-gradient(90deg, #fff 0%)' }, $value: 'linear-gradient(90deg, #fff 0%)' }),
+    false,
+  );
+  // kept — transformed into a valid literal
+  assert.equal(f({ original: { $value: '14px' }, $value: 'CGFloat(14.00)' }), true);
+});
+
+// The pipeline cannot produce a bare unquoted gradient for a $type: string
+// token — the quoting transform runs first and either quotes it or leaves it
+// alone for the filter to judge. This is the state that actually reaches the
+// filter, and the one the Critical this test guards against would have shipped
+// wrong: quoting the gradient into a validly-quoted, meaningless string.
+test('a $type string gradient is left unquoted by the transform and dropped by the filter', () => {
+  const t = collectTransforms().get('value/swift-string-literal');
+  const token = { $type: 'string', $value: 'linear-gradient(90deg, #fff 0%)' };
+  assert.equal(t.filter(token), false);
+
+  const p = nativePlatform({ platform: 'ios-swift', buildPath: 'out/' });
+  assert.equal(
+    p.files[0].filter({ original: { $value: token.$value }, $value: token.$value }),
+    false,
+  );
+});
+
+// Guards against an over-broad CSS_FUNCTION refusal: an ordinary $type: string
+// value must still be quoted and kept.
+test('a $type string non-function value is still quoted and kept', () => {
+  const t = collectTransforms().get('value/swift-string-literal');
+  const token = { $type: 'string', $value: 'italic' };
+  assert.ok(t.filter(token));
+  assert.equal(t.transform(token), '"italic"');
+
+  const p = nativePlatform({ platform: 'ios-swift', buildPath: 'out/' });
+  assert.equal(
+    p.files[0].filter({ original: { $value: token.$value }, $value: t.transform(token) }),
+    true,
+  );
+});
+
+// Regression: a legitimate font family can contain a space-then-paren —
+// "Helvetica (Regular)" — which must not be mistaken for a CSS function call.
+// CSS function notation forbids whitespace before the paren; a fontFamily
+// with one is exactly the case CSS_FUNCTION's lack of \s* exists to admit.
+test('a fontFamily containing a parenthesized suffix is quoted and kept, not mistaken for a CSS function', () => {
+  const t = collectTransforms().get('value/swift-string-literal');
+  const token = { $type: 'fontFamily', $value: 'Helvetica (Regular)' };
+  assert.ok(t.filter(token));
+  assert.equal(t.transform(token), '"Helvetica (Regular)"');
+
+  const p = nativePlatform({ platform: 'ios-swift', buildPath: 'out/' });
+  assert.equal(
+    p.files[0].filter({ original: { $value: token.$value }, $value: t.transform(token) }),
+    true,
+  );
 });

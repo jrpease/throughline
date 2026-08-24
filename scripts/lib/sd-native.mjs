@@ -11,6 +11,7 @@
 // @doc-section imports
 import { readFileSync } from 'node:fs';
 import { flattenDtcg, resolveValue, findModeCollisions } from './dtcg.mjs';
+import { isValidLiteral, GRAMMAR, CSS_CONSTRUCT } from './native-literal.mjs';
 // @doc-section-end imports
 
 // @doc-section unit-aware
@@ -153,6 +154,7 @@ const PLATFORMS = {
       'content/swift/literal',
       'asset/swift/literal',
       'size/unit-aware/swift',
+      'value/swift-string-literal',
     ],
     destination: 'Tokens.swift',
     format: 'ios-swift/enum.swift',
@@ -165,6 +167,7 @@ const PLATFORMS = {
       'color/composeColor',
       'size/unit-aware/compose-dp',
       'size/unit-aware/compose-sp',
+      'value/kotlin-string-literal',
     ],
     destination: 'Tokens.kt',
     format: 'compose/object',
@@ -178,6 +181,46 @@ const WEB_ONLY_UNIT = /^-?[\d.]+(%|em)$/;
 
 export function nativeFilter(token) {
   return !WEB_ONLY_UNIT.test(String(token.original?.$value ?? token.$value).trim());
+}
+
+// A CSS function has no native form. Quoting it would produce a string that
+// compiles and means nothing — the exact failure class this module exists to
+// prevent, and worse than the bare value, which at least fails to compile.
+// Leave it bare so the filter drops it.
+//
+// No \s* before the paren: CSS function notation forbids whitespace between
+// the name and the open paren, and a real font family can legitimately
+// contain one — "Helvetica (Regular)". Requiring the paren immediately after
+// the identifier is what tells that apart from linear-gradient(, calc(,
+// var(, and color-mix(.
+const CSS_FUNCTION = /^[A-Za-z][A-Za-z0-9-]*\(/;
+
+// Did the transforms leave a value with no native form at all?
+//
+// A different question from nativeFilter's, which is about the AUTHORED
+// value. This reads the TRANSFORMED $value. A value that already parses as a
+// literal passes outright. A value that does not is dropped only if it is
+// ALSO shaped like a CSS function call — a linear-gradient, say, which has no
+// native rendering whatsoever. Everything else invalid but not function-shaped
+// stays and fails loudly at compile time: duration ("200ms"), cubicBezier
+// ("0.5,0,1,1"), and, on Kotlin, content and asset, which have no stock
+// quoting transform there. Silently dropping those would hide a forgotten
+// $type behind a shorter output file instead of a build failure.
+//
+// A CSS_CONSTRUCT match is exempt from the drop even though it fails
+// isValidLiteral: calc(...) and var(...) are unrescued but valid identifiers,
+// and an unrescued color-mix(...) variant is a rescue this module's own
+// color-mix transform simply did not match — none of those are "no native
+// form", they are unimplemented rescues. Dropping them here would make
+// no-foreign-syntax in validate-token-output.mjs unreachable, so they are
+// kept and left to fail loudly there instead.
+export function hasNativeForm(token, platform) {
+  const grammar = GRAMMAR[platform];
+  if (!grammar) {
+    throw new Error(`unknown native platform "${platform}" (expected ${Object.keys(GRAMMAR).join(' or ')})`);
+  }
+  const v = String(token.$value).trim();
+  return isValidLiteral(v, grammar) || CSS_CONSTRUCT.test(v) || !CSS_FUNCTION.test(v);
 }
 
 export function nativePlatform({ platform, buildPath, className = 'Tokens', packageName }) {
@@ -210,7 +253,7 @@ export function nativePlatform({ platform, buildPath, className = 'Tokens', pack
         destination: preset.destination,
         format: preset.format,
         options: fileOptions,
-        filter: nativeFilter,
+        filter: (token) => nativeFilter(token) && hasNativeForm(token, platform),
       },
     ],
   };
@@ -275,6 +318,39 @@ const isDimension = (token) => token.$type === 'dimension';
 const isFontSize = (token) => token.$type === 'fontSize';
 const hasMagnitude = (token) => authored(token) !== null;
 
+// Quote string-valued tokens no stock transform covers.
+//
+// Style Dictionary quotes by $type: content/swift/literal and
+// asset/swift/literal handle $type content and asset. A $type: fontFamily token
+// matches neither and emits bare — `public static let f = Nunito Sans`, which
+// is not Swift. There is no stock transform for it.
+const QUOTED_TYPES = new Set(['fontFamily', 'string']);
+
+// A DTCG fontFamily may be a list; join it into one native string.
+function stringValue(token) {
+  const v = Array.isArray(token.$value) ? token.$value.join(', ') : token.$value;
+  return typeof v === 'string' ? v : null;
+}
+
+// DTCG permits fontWeight as a keyword ("bold") as well as a number. The
+// keyword form emits as a bare identifier and hits the identical failure;
+// "400" already emits as a valid native integer and must stay untouched.
+function isQuotable(token) {
+  const v = stringValue(token);
+  if (v === null) return false;
+  if (CSS_FUNCTION.test(v)) return false;
+  if (QUOTED_TYPES.has(token.$type)) return true;
+  return token.$type === 'fontWeight' && Number.isNaN(Number(v.trim()));
+}
+
+const escapeCommon = (s) =>
+  s
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t');
+
 export function registerNativeTransforms(StyleDictionary) {
   StyleDictionary.registerPreprocessor({
     name: 'dtcg/resolve-dual-node',
@@ -315,6 +391,26 @@ export function registerNativeTransforms(StyleDictionary) {
     transitive: true,
     filter: (token) => isFontSize(token) && hasMagnitude(token),
     transform: (token) => `${authored(token).toFixed(2)}.sp`,
+  });
+
+  // Two transforms rather than one platform-sniffing transform, because the
+  // escaping genuinely differs: "$foo" is template interpolation in Kotlin, so
+  // a literal $ must be escaped there and must NOT be in Swift, where \$ is not
+  // a valid escape at all.
+  StyleDictionary.registerTransform({
+    name: 'value/swift-string-literal',
+    type: 'value',
+    transitive: true,
+    filter: isQuotable,
+    transform: (token) => `"${escapeCommon(stringValue(token))}"`,
+  });
+
+  StyleDictionary.registerTransform({
+    name: 'value/kotlin-string-literal',
+    type: 'value',
+    transitive: true,
+    filter: isQuotable,
+    transform: (token) => `"${escapeCommon(stringValue(token)).replace(/\$/g, '\\$')}"`,
   });
 }
 // @doc-section-end register

@@ -56,19 +56,19 @@ claimed a confidence the stock configuration had not earned, so it came off.
 The cause was the transform group, not the adapter concept. That configuration
 now ships as tested code at
 `${CLAUDE_PLUGIN_ROOT}/scripts/lib/sd-native.mjs`, is installed into the
-consumer's repo, and is verified end to end against a real source (196 emitted
-symbols matched, zero rule failures, on both light and dark builds). The badge
-is back on that basis.
+consumer's repo, and is verified end to end against a real source (195 emitted
+symbols matched, zero rule failures under the shipping ruleset, on both light
+and dark builds). The badge is back on that basis.
 
-**What the badge does not cover: the generated file does not compile as-is.**
-15 emitted symbols per file are not valid Swift or Kotlin — 14 `fontFamily`
-values and one `linear-gradient(...)`, all emitted unquoted, because
-`content/swift/literal` and `asset/swift/literal` apply only to
-`$type: content`/`asset`. That is stock Style Dictionary behaviour rather than
-anything this configuration does, and `tokens:validate-output` does not flag it:
-its `no-foreign-syntax` rule matches only `color-mix|calc|var`, and it has no
-rule for language validity. Quote or drop those symbols before the file reaches
-a compiler.
+**What the badge does not cover: nothing is compiled.** Every emitted value is
+checked to be a well-formed Swift or Kotlin *literal* — `tokens:validate-output`'s
+`invalid-literal` rule parses each one and fails on anything that is not
+(#53) — but no `swiftc` or `kotlinc` runs, so a type mismatch or a call to an
+undefined symbol would still pass. String-valued tokens (`fontFamily`, `string`,
+keyword `fontWeight`) are quoted by the module's own transforms, and a value with
+no native form at all — a CSS `linear-gradient(...)` — is filtered out of native
+output rather than emitted broken. That drop is reported as an unemitted token,
+not hidden.
 
 `android-kotlin` uses the same module and stays Tier 2: its remaining unknowns
 are on the consumption side — Compose `dp`/`sp` behaviour against a real Compose
@@ -149,7 +149,7 @@ compiles and is wrong, which is why `tokens:validate-output` exists.
 roughly 80 lines of preprocessor and transform code, which ships as a tested
 module at `${CLAUDE_PLUGIN_ROOT}/scripts/lib/sd-native.mjs` and is documented in
 `${CLAUDE_PLUGIN_ROOT}/references/native-adapter-config.md`. Against a real
-322-token source it emitted 196 symbols that all map to a source token, 107 of
+322-token source it emitted 195 symbols that all map to a source token, 107 of
 them with their numeric magnitude additionally verified, with zero rule failures
 — colour and string values are matched by name only and are checked by no rule.
 **Import that module** rather than configuring a native adapter from a stock

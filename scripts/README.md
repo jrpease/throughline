@@ -14,6 +14,7 @@ tested here; copied verbatim by `token-crosswalk-builder` into the user's
 | `lib/crosswalk.mjs` | Shared loader + structural validation for `crosswalk.json` (used by the validator and reverse-index). | copied alongside |
 | `lib/dtcg.mjs` | Shared DTCG flatten + `{alias}` resolution. Dual-node aware: a node carrying both a `$value` and children yields its own value **and** is descended into. Used by `validate-crosswalk.mjs` and `validate-token-output.mjs`. | copied alongside both |
 | `lib/sd-native.mjs` | The Style Dictionary native configuration as code: unit-aware dimension transforms, `color-mix` computation, dual-node preprocessing, platform assembly, and a per-mode source guard. Style Dictionary is a parameter, never an import. | copied alongside `validate-token-output.mjs` |
+| `lib/native-literal.mjs` | Shared grammar for "is this a well-formed Swift or Kotlin literal": parses rather than pattern-matches, so an unquoted string, a raw CSS function, or any other unanticipated case fails the same way. Used by `sd-native.mjs`'s output filter and by `validate-token-output.mjs`'s invalid-literal rule. | copied alongside `validate-token-output.mjs` and `lib/sd-native.mjs` |
 | `crosswalk.schema.json` | The finalized JSON Schema for `crosswalk.json` (contract + editor support). | copied beside `crosswalk.json` |
 | `build-docs-digest.mjs` | Aggregate every `design-system/docs/components/*.doc.json` into `design-system/docs/index.json` + `llms.txt` for AI/human consumers. | `docs:digest` |
 | `docs-check.mjs` | Drift gate — verifies each component's doc surfaces still match its canonical record (via `lib/doc-record.mjs` fingerprints). Exits 1 on drift. | `docs:check` |
@@ -70,9 +71,10 @@ wires `packages/tokens/package.json`:
 }
 ```
 
-`token-sync-layer` copies `validate-token-output.mjs`, `lib/dtcg.mjs`, **and**
-`lib/sd-native.mjs`, and wires `"tokens:validate-output"`. All three travel
-together: `sd-native.mjs` and the validator both import `lib/dtcg.mjs`, so
+`token-sync-layer` copies `validate-token-output.mjs`, `lib/dtcg.mjs`,
+`lib/native-literal.mjs`, **and** `lib/sd-native.mjs`, and wires
+`"tokens:validate-output"`. All four travel together: `sd-native.mjs` and the
+validator both import `lib/dtcg.mjs` and `lib/native-literal.mjs`, so
 installing any one of them alone breaks at import time.
 
 The scripts version with the user's repo so their CI runs them locally — a path

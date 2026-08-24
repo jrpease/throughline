@@ -78,9 +78,10 @@ export function assertCovered(source) {
 const PROSE = [
   ['imports', `## Imports
 
-\`node:fs\` plus the sibling \`lib/dtcg.mjs\` this plugin already installs —
-nothing else. Style Dictionary is passed in as a parameter, never imported,
-which is what keeps this module installable into a consumer's repo.`],
+\`node:fs\` plus the siblings \`lib/dtcg.mjs\` and \`lib/native-literal.mjs\` this
+plugin already installs — nothing else. Style Dictionary is passed in as a
+parameter, never imported, which is what keeps this module installable into a
+consumer's repo.`],
   ['unit-aware', `## 1. Read the authored unit
 
 **This replaces \`size/swift/remToCGFloat\` and the \`size/compose/*\` transforms,
@@ -160,7 +161,7 @@ All of it is configuration.
 
 **You do not need to copy any of this.** It ships as
 \`\${CLAUDE_PLUGIN_ROOT}/scripts/lib/sd-native.mjs\`. Install it beside
-\`lib/dtcg.mjs\` and call it:
+\`lib/dtcg.mjs\` and \`lib/native-literal.mjs\` and call it:
 
 \`\`\`js
 import StyleDictionary from 'style-dictionary';

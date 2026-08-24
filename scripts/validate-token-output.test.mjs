@@ -361,3 +361,122 @@ test('CLI exits 2 on a non-numeric --min-match', () => {
   writeFileSync(good, 'public static let textSm = CGFloat(14.00)\n');
   assert.equal(runCli(['--source', src, '--output', good, '--platform', 'ios-swift', '--min-match', 'abc']).code, 2);
 });
+
+const srcOf = (dtcg) => [{ file: 'a.json', dtcg }];
+const rules = (r) => r.failures.map((f) => f.rule);
+
+test('invalid-literal catches an unquoted string value', () => {
+  const r = validate({
+    sources: srcOf({ typography: { fontFamily: { Web: { $value: 'Nunito Sans', $type: 'fontFamily' } } } }),
+    output: 'public static let typographyFontFamilyWeb = Nunito Sans',
+    platform: 'ios-swift',
+    minMatch: 0,
+  });
+  assert.deepEqual(rules(r), ['invalid-literal']);
+  assert.equal(r.ok, false);
+});
+
+test('invalid-literal catches a raw CSS function', () => {
+  const r = validate({
+    sources: srcOf({ gradient: { brand: { $value: 'linear-gradient(90deg, #fff 0%)', $type: 'string' } } }),
+    output: 'public static let gradientBrand = linear-gradient(90deg, #fff 0%)',
+    platform: 'ios-swift',
+    minMatch: 0,
+  });
+  assert.deepEqual(rules(r), ['invalid-literal']);
+});
+
+// Reporting one symbol under three rules is noise. The specific rules win.
+test('invalid-literal is suppressed when a more specific rule fired', () => {
+  const bare = validate({
+    sources: srcOf({ text: { sm: { $value: '14px', $type: 'dimension' } } }),
+    output: 'public static let textSm = 14px',
+    platform: 'ios-swift',
+    minMatch: 0,
+  });
+  assert.ok(rules(bare).includes('no-bare-units'));
+  assert.equal(rules(bare).includes('invalid-literal'), false);
+
+  const foreign = validate({
+    sources: srcOf({ c: { a: { $value: '#fff', $type: 'color' } } }),
+    output: 'public static let ca = calc(1rem + 2px)',
+    platform: 'ios-swift',
+    minMatch: 0,
+  });
+  assert.deepEqual(rules(foreign), ['no-foreign-syntax']);
+});
+
+// Placement: the rule runs before the name-match `continue`, so a symbol that
+// resolves to no source token cannot escape a validity check by being unnamed.
+test('invalid-literal fires on a symbol that matches no source token', () => {
+  const r = validate({
+    sources: srcOf({ unrelated: { $value: '1px', $type: 'dimension' } }),
+    output: 'public static let mysterySymbol = Nunito Sans',
+    platform: 'ios-swift',
+    minMatch: 0,
+  });
+  assert.deepEqual(rules(r), ['invalid-literal']);
+});
+
+test('valid native output produces no invalid-literal failure', () => {
+  const r = validate({
+    sources: srcOf({ text: { sm: { $value: '14px', $type: 'dimension' } } }),
+    output: 'public static let textSm = CGFloat(14.00)',
+    platform: 'ios-swift',
+    minMatch: 0,
+  });
+  assert.deepEqual(r.failures, []);
+  assert.equal(r.ok, true);
+});
+
+// #52 is open and must stay reachable: this change must not mask it.
+test('a unitless ratio emitted as .dp still passes — #52 is not masked', () => {
+  const r = validate({
+    sources: srcOf({ leading: { normal: { $value: '1.5', $type: 'dimension' } } }),
+    output: 'val leadingNormal = 1.50.dp',
+    platform: 'android-kotlin',
+    minMatch: 0,
+  });
+  assert.deepEqual(r.failures, []);
+  assert.equal(r.ok, true);
+});
+
+// A quoted string this branch's own transform produced compiles fine, whatever
+// text it contains — a value the grammar accepts as a literal is not foreign
+// syntax.
+test('no-foreign-syntax does not fire on a quoted string containing "calc("', () => {
+  const r = validate({
+    sources: srcOf({ s: { hint: { $value: 'width: calc(100% - 2rem)', $type: 'string' } } }),
+    output: 'public static let sHint = "width: calc(100% - 2rem)"',
+    platform: 'ios-swift',
+    minMatch: 0,
+  });
+  assert.deepEqual(r.failures, []);
+  assert.equal(r.ok, true);
+});
+
+// Bare, unquoted calc(...) is not a valid literal, so it must still fire.
+test('no-foreign-syntax still fires on a bare, unquoted calc(...)', () => {
+  const r = validate({
+    sources: srcOf({ c: { a: { $value: '#fff', $type: 'color' } } }),
+    output: 'public static let ca = calc(1rem + 2px)',
+    platform: 'ios-swift',
+    minMatch: 0,
+  });
+  assert.deepEqual(rules(r), ['no-foreign-syntax']);
+});
+
+test('formatReport renders an invalid-literal failure with the stop position', () => {
+  const lines = formatReport({
+    total: 1, matched: 1, matchRate: 1, minMatch: 0.5, collisions: [], ok: false,
+    failures: [{
+      rule: 'invalid-literal', symbol: 'fontFamilyBase', emitted: 'Nunito Sans',
+      platform: 'ios-swift', offset: 7, rest: 'Sans',
+    }],
+  }).join('\n');
+  assert.match(lines, /invalid-literal/);
+  assert.match(lines, /fontFamilyBase/);
+  assert.match(lines, /ios-swift/);
+  assert.match(lines, /offset 7/);
+  assert.match(lines, /quoted/);
+});
