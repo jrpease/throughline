@@ -7,6 +7,23 @@ to [Semantic Versioning](https://semver.org).
 ## [Unreleased]
 
 ### Fixed
+- **Compose font sizes and line heights emit as `sp` rather than `dp`.**
+  `size/unit-aware/compose-sp` gated on `$type === "fontSize"`, which DTCG
+  does not define — it types font sizes as `dimension` — so on a
+  spec-compliant source the branch never fired and every dimension emitted as
+  `dp`. Measured on a real 322-token source: zero `.sp` in the Kotlin output.
+  The role now comes from the member names DTCG §9.8 fixes for the typography
+  composite: a `dimension` token named `fontSize`, `letterSpacing` or
+  `lineHeight` whose resolved value carries a `px` or `rem` unit is stamped
+  `$extensions["com.radicool.throughline"].nativeUnit = "text"` during
+  preprocessing, and the Compose transforms partition on that stamp. Style
+  Dictionary's own `$type: "fontSize"` convention still works, so the change
+  is additive. A source can set the extension itself to override the rule, or
+  set it to `"device"` to opt a token out. Three limits remain and are
+  documented: a bare scale primitive (`text.base`) carries no role and stays
+  `dp`, an `em` letterSpacing is still filtered out of native output, and a
+  unitless ratio still emits as `dp` — deliberately, since `1.50.sp` would
+  compile and render 1.5sp text.
 - **`preprocess` throws on a dual-node hoist collision instead of silently
   discarding a token.** `hoistDualNodes` renames a dual node's child to a
   camel-joined sibling (`text.sm.lineHeight` becomes `text.smLineHeight`).

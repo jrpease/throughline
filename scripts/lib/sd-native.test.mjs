@@ -279,7 +279,7 @@ test('the registered swift transform converts a px dimension 1:1', () => {
   assert.equal(swift.transform(token), 'CGFloat(14.00)');
 });
 
-test('the registered compose transforms split sp from dp by $type or stamp', () => {
+test('the registered compose transforms still split sp from dp by the legacy $type gate', () => {
   const transforms = [];
   registerNativeTransforms({ registerPreprocessor: () => {}, registerTransform: (t) => transforms.push(t) });
   const dp = transforms.find((t) => t.name === 'size/unit-aware/compose-dp');
