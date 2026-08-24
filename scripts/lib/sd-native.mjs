@@ -176,10 +176,81 @@ function hoistDualNodes(node, collisions, prefix = []) {
   return node;
 }
 
+// Which native unit a dimension belongs in: Compose's Dp, or its TextUnit.
+//
+// $type cannot answer this. DTCG's type set has no fontSize — font sizes are
+// dimension, and so are spacing, radius and stroke widths — so the stock
+// size/compose/remToSp filter on $type === 'fontSize' never fires on a
+// spec-compliant source and every font size falls through to dp.
+//
+// The role therefore comes from the one place a DTCG source states it: the
+// member names the Format Module's 30 July 2026 draft, §9.8, fixes at MUST
+// level for the typography composite. Two of the five are dimension-valued:
+// fontSize and letterSpacing. §9.8 types lineHeight as a NUMBER multiplier, so
+// a source following the spec exactly emits no dimension-typed lineHeight and
+// this rule never fires on one. Figma-derived sources — what this module
+// targets — emit px line heights typed dimension, and those are the majority of
+// the tokens the rule fixes on a real source. lineHeight is named here anyway
+// because Compose's TextStyle takes TextUnit for all three, with no Dp
+// overload, so a px line height must reach the sp branch to be usable at all.
+//
+// The limit, stated rather than hidden: §9.8 puts those names inside a
+// composite token's $value object, while Figma-derived sources put them as
+// sibling tokens in a group. Reading them there mirrors the spec's vocabulary;
+// it is not a guarantee the spec makes. A source naming its font size
+// typography.body.size sets $extensions itself and is honoured below.
+const TEXT_UNIT_NAMES = new Set(['fontSize', 'letterSpacing', 'lineHeight']);
+
+// Reverse-DNS, per DTCG's $extensions convention. Exported because the
+// transforms and their tests address the same key.
+export const EXT_NS = 'com.radicool.throughline';
+
+// px and rem only. magnitude() reads a bare number as an unscaled ratio, so a
+// lineHeight authored "1.5" would otherwise be stamped and emit 1.50.sp —
+// which compiles and renders 1.5sp text. That trades a loud failure (a Dp
+// where a TextUnit is required) for a silent one, which is the failure class
+// this module exists to prevent. A ratio keeps today's behaviour and stays the
+// separate defect it already is.
+const ABSOLUTE_UNIT = /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem)$/;
+
+// Runs AFTER resolveInPlace and BEFORE hoistDualNodes. Both halves matter.
+//
+// After resolution, because the unit is not in the authored text: a semantic
+// font size is authored "{text.3xl}" and carries no unit at all. Reading the
+// authored string would classify only the px-authored primitives — 13 of 39
+// on a real source.
+//
+// Before the hoist, because the hoist consumes the leaf name:
+// text.xs.lineHeight becomes text.xsLineHeight, and the name this rule matches
+// on is gone. Matching a suffix against the camel-joined name instead would
+// couple the rule to the hoist's naming scheme, and case-insensitively it
+// false-positives on names like baselineHeight.
+function classifyTextUnits(node) {
+  for (const [key, val] of Object.entries(node)) {
+    if (key.startsWith('$') || !val || typeof val !== 'object') continue;
+    if (
+      TEXT_UNIT_NAMES.has(key) &&
+      '$value' in val &&
+      val.$type === 'dimension' &&
+      ABSOLUTE_UNIT.test(String(val.$value).trim())
+    ) {
+      val.$extensions ??= {};
+      val.$extensions[EXT_NS] ??= {};
+      const ns = val.$extensions[EXT_NS];
+      // A source that states the role itself wins. This is the override, and
+      // it costs no configuration parameter: declining to overwrite IS the
+      // feature. It is also what makes the pass idempotent.
+      if (!('nativeUnit' in ns)) ns.nativeUnit = 'text';
+    }
+    classifyTextUnits(val);
+  }
+  return node;
+}
+
 export function preprocess(dict) {
   const collisions = [];
   const out = hoistDualNodes(
-    resolveInPlace(structuredClone(dict), flattenDtcg(dict)),
+    classifyTextUnits(resolveInPlace(structuredClone(dict), flattenDtcg(dict))),
     collisions,
   );
   if (collisions.length) {
@@ -214,14 +285,23 @@ export function preprocess(dict) {
 // whatever it forgets; three real defects arose that way, including Compose
 // font sizes rendered in dp instead of sp.
 //
-// That last one is only half fixed, and the half that remains is load-bearing:
-// the sp transform below gates on $type === 'fontSize', but DTCG has no
-// fontSize type — it types font sizes as dimension — so on a spec-compliant
-// source the sp branch never fires and Android font sizes still emit as dp.
-// Android-only; size/unit-aware/swift filters dimension || fontSize and is
-// correct. Same class as a unitless ratio (leading.normal: "1.5") emitting as
-// 1.50.dp. Both are measured, not theoretical — see
-// docs/superpowers/notes/2026-08-21-native-config-e2e-results.md.
+// That last one is fixed for tokens whose role a DTCG source actually states:
+// classifyTextUnits stamps fontSize, letterSpacing and lineHeight members, and
+// the sp transform gates on the stamp rather than on a $type DTCG never emits.
+// Three limits remain, all Android-only and all measured rather than
+// theoretical — see docs/superpowers/notes/2026-08-21-native-config-e2e-results.md:
+//
+//   - A scale primitive carries no role. text.base: "16px" is a font size only
+//     to a human, so it emits as dp. The semantic tokens referencing it are
+//     correct, and those are what a consumer should reach for.
+//   - An em-valued letterSpacing is filtered out of native output entirely,
+//     rather than emitted as Compose's .em TextUnit.
+//   - A unitless ratio emits as dp. leading.normal: "1.5" gives 1.50.dp, but
+//     that token is excluded twice over — its key is not a typography member
+//     AND its value has no absolute unit. The gate that carries the weight is
+//     the second one: a lineHeight-keyed "1.5" is deliberately NOT stamped,
+//     because 1.50.sp would compile and render 1.5sp text, turning a loud
+//     failure into a silent one.
 //
 // Stock, from SD 4.4.0:
 //   ios-swift: attribute/cti name/camel color/UIColorSwift
@@ -401,6 +481,8 @@ const authored = (token) => magnitude(token.original?.$value ?? token.$value);
 const isDimension = (token) => token.$type === 'dimension';
 const isFontSize = (token) => token.$type === 'fontSize';
 const hasMagnitude = (token) => authored(token) !== null;
+// The role preprocess stamped. $type cannot carry it — see classifyTextUnits.
+const isTextUnit = (token) => token.$extensions?.[EXT_NS]?.nativeUnit === 'text';
 
 // Quote string-valued tokens no stock transform covers.
 //
@@ -458,14 +540,17 @@ export function registerNativeTransforms(StyleDictionary) {
     transform: (token) => `CGFloat(${authored(token).toFixed(2)})`,
   });
 
-  // Compose distinguishes dp from sp by $type, and sp is what respects the
-  // user's font-scale accessibility setting. One .dp transform for both would
-  // silently defeat that.
+  // sp is what respects the user's font-scale accessibility setting, and
+  // Compose's TextStyle takes TextUnit — not Dp — for fontSize, lineHeight and
+  // letterSpacing, so a Dp there does not even compile at the use site. One .dp
+  // transform for both would silently defeat the first and loudly break the
+  // second. The split is driven by the role classifyTextUnits stamped, plus
+  // Style Dictionary's own $type: fontSize convention for sources that use it.
   StyleDictionary.registerTransform({
     name: 'size/unit-aware/compose-dp',
     type: 'value',
     transitive: true,
-    filter: (token) => isDimension(token) && hasMagnitude(token),
+    filter: (token) => isDimension(token) && !isTextUnit(token) && hasMagnitude(token),
     transform: (token) => `${authored(token).toFixed(2)}.dp`,
   });
 
@@ -473,7 +558,7 @@ export function registerNativeTransforms(StyleDictionary) {
     name: 'size/unit-aware/compose-sp',
     type: 'value',
     transitive: true,
-    filter: (token) => isFontSize(token) && hasMagnitude(token),
+    filter: (token) => (isTextUnit(token) || isFontSize(token)) && hasMagnitude(token),
     transform: (token) => `${authored(token).toFixed(2)}.sp`,
   });
 

@@ -12,6 +12,7 @@ import {
   nativeSources,
   registerNativeTransforms,
   hasNativeForm,
+  EXT_NS,
 } from './sd-native.mjs';
 
 test('magnitude treats px as 1:1', () => {
@@ -278,7 +279,7 @@ test('the registered swift transform converts a px dimension 1:1', () => {
   assert.equal(swift.transform(token), 'CGFloat(14.00)');
 });
 
-test('the registered compose transforms split sp from dp by $type', () => {
+test('the registered compose transforms still split sp from dp by the legacy $type gate', () => {
   const transforms = [];
   registerNativeTransforms({ registerPreprocessor: () => {}, registerTransform: (t) => transforms.push(t) });
   const dp = transforms.find((t) => t.name === 'size/unit-aware/compose-dp');
@@ -774,4 +775,200 @@ test('a reference embedded inside an expression still inherits $type', () => {
     },
   });
   assert.equal(out.text.smTracking.$type, 'dimension');
+});
+
+// #51. DTCG has no fontSize type, so the role cannot come from $type. It comes
+// from the member names the Format Module's 30 July 2026 draft §9.8 fixes at
+// MUST level for the typography composite.
+const roleOf = (token) => token?.$extensions?.[EXT_NS]?.nativeUnit;
+
+test('preprocess stamps a dimension named fontSize as a text unit', () => {
+  const out = preprocess({
+    typography: { h1: { fontSize: { $value: '30px', $type: 'dimension' } } },
+  });
+  assert.equal(roleOf(out.typography.h1.fontSize), 'text');
+});
+
+test('preprocess stamps letterSpacing and lineHeight, not fontFamily or fontWeight', () => {
+  const out = preprocess({
+    t: {
+      letterSpacing: { $value: '0.5px', $type: 'dimension' },
+      lineHeight: { $value: '24px', $type: 'dimension' },
+      fontFamily: { $value: 'Nunito Sans', $type: 'fontFamily' },
+      fontWeight: { $value: '700', $type: 'fontWeight' },
+    },
+  });
+  assert.equal(roleOf(out.t.letterSpacing), 'text');
+  assert.equal(roleOf(out.t.lineHeight), 'text');
+  assert.equal(roleOf(out.t.fontFamily), undefined);
+  assert.equal(roleOf(out.t.fontWeight), undefined);
+});
+
+// The load-bearing case, and the one the spec review caught. Every semantic
+// font size in a real source is authored as a REFERENCE — "{text.3xl}" — and
+// carries no unit at all. Classifying on the authored string would stamp only
+// the px-authored primitives and miss two thirds of the fix.
+test('preprocess stamps a fontSize authored as a reference, using the resolved value', () => {
+  const out = preprocess({
+    text: { '3xl': { $value: '30px', $type: 'dimension' } },
+    typography: { h1: { fontSize: { $value: '{text.3xl}', $type: 'dimension' } } },
+  });
+  assert.equal(out.typography.h1.fontSize.$value, '30px');
+  assert.equal(roleOf(out.typography.h1.fontSize), 'text');
+});
+
+// The hoist renames text.xs.lineHeight to text.xsLineHeight, consuming the
+// leaf name the rule matches on. Classification must run first.
+test('preprocess stamps a dual-node child before the hoist consumes its name', () => {
+  const out = preprocess({
+    text: { xs: { $value: '12px', $type: 'dimension', lineHeight: { $value: '16px', $type: 'dimension' } } },
+  });
+  assert.equal(out.text.xsLineHeight.$value, '16px');
+  assert.equal(roleOf(out.text.xsLineHeight), 'text');
+  assert.equal(roleOf(out.text.xs), undefined);
+});
+
+// magnitude() reads a bare number as a ratio. Stamping one would emit
+// 1.50.sp — which compiles and renders 1.5sp text, trading a loud failure for
+// a silent one. leading.normal stays the separate defect it already is.
+test('preprocess does not stamp a unitless ratio named lineHeight', () => {
+  const out = preprocess({
+    t: { lineHeight: { $value: '1.5', $type: 'dimension' } },
+  });
+  assert.equal(roleOf(out.t.lineHeight), undefined);
+});
+
+test('preprocess does not stamp an em or percentage value', () => {
+  const out = preprocess({
+    t: {
+      letterSpacing: { $value: '-0.03em', $type: 'dimension' },
+      lineHeight: { $value: '150%', $type: 'dimension' },
+    },
+  });
+  assert.equal(roleOf(out.t.letterSpacing), undefined);
+  assert.equal(roleOf(out.t.lineHeight), undefined);
+});
+
+test('preprocess stamps rem as well as px', () => {
+  const out = preprocess({ t: { fontSize: { $value: '1.5rem', $type: 'dimension' } } });
+  assert.equal(roleOf(out.t.fontSize), 'text');
+});
+
+// The $type check reads the token's OWN key, so a fontSize typed something
+// else is not swept in.
+test('preprocess does not stamp a fontSize that is not dimension-typed', () => {
+  const out = preprocess({ t: { fontSize: { $value: '30px', $type: 'string' } } });
+  assert.equal(roleOf(out.t.fontSize), undefined);
+});
+
+// The override, and the reason this design needs no new config parameter.
+test('preprocess honours a nativeUnit the source already set', () => {
+  const out = preprocess({
+    t: {
+      lineHeight: {
+        $value: '24px',
+        $type: 'dimension',
+        $extensions: { 'com.radicool.throughline': { nativeUnit: 'device' } },
+      },
+      size: {
+        $value: '30px',
+        $type: 'dimension',
+        $extensions: { 'com.radicool.throughline': { nativeUnit: 'text' } },
+      },
+    },
+  });
+  assert.equal(roleOf(out.t.lineHeight), 'device');
+  assert.equal(roleOf(out.t.size), 'text');
+});
+
+test('preprocess leaves an unrelated $extensions namespace untouched', () => {
+  const out = preprocess({
+    t: {
+      fontSize: {
+        $value: '30px',
+        $type: 'dimension',
+        $extensions: { 'org.example.other': { hint: 'keep me' } },
+      },
+    },
+  });
+  assert.equal(out.t.fontSize.$extensions['org.example.other'].hint, 'keep me');
+  assert.equal(roleOf(out.t.fontSize), 'text');
+});
+
+test('preprocess does not stamp the caller input', () => {
+  const input = { t: { fontSize: { $value: '30px', $type: 'dimension' } } };
+  preprocess(input);
+  assert.equal(input.t.fontSize.$extensions, undefined);
+});
+
+// #51. The sp branch used to gate on $type === 'fontSize', which DTCG never
+// produces. It now gates on the role stamped in preprocess.
+const stamped = (value) => ({
+  $type: 'dimension',
+  $value: value,
+  original: { $value: value },
+  $extensions: { [EXT_NS]: { nativeUnit: 'text' } },
+});
+
+test('the compose transforms split sp from dp by the text-unit stamp', () => {
+  const t = collectTransforms();
+  const dp = t.get('size/unit-aware/compose-dp');
+  const sp = t.get('size/unit-aware/compose-sp');
+
+  const textUnit = stamped('30px');
+  const device = { $type: 'dimension', $value: '16px', original: { $value: '16px' } };
+
+  assert.equal(sp.filter(textUnit), true);
+  assert.equal(dp.filter(textUnit), false);
+  assert.equal(sp.transform(textUnit), '30.00.sp');
+
+  assert.equal(dp.filter(device), true);
+  assert.equal(sp.filter(device), false);
+  assert.equal(dp.transform(device), '16.00.dp');
+});
+
+// The partition must be disjoint AND total: exactly one of the two filters
+// matches. Asserting `dp && sp === false` alone would pass against an
+// implementation where both always return false, so assert the exclusive-or.
+test('no dimension token matches both compose transforms', () => {
+  const t = collectTransforms();
+  const dp = t.get('size/unit-aware/compose-dp');
+  const sp = t.get('size/unit-aware/compose-sp');
+  for (const token of [
+    stamped('30px'),
+    { $type: 'dimension', $value: '16px', original: { $value: '16px' } },
+    { $type: 'fontSize', $value: '14px', original: { $value: '14px' } },
+  ]) {
+    assert.equal(dp.filter(token) !== sp.filter(token), true, `${JSON.stringify(token)} must match exactly one transform`);
+  }
+});
+
+// The override invites a source to stamp any token it likes, so the sp filter
+// needs the same hasMagnitude guard both size transforms already carry.
+// Without it this reaches authored(token).toFixed(2) on null.
+test('the sp transform skips a stamped token with no build-time magnitude', () => {
+  const sp = collectTransforms().get('size/unit-aware/compose-sp');
+  assert.equal(sp.filter(stamped('-0.03em')), false);
+  assert.equal(sp.filter(stamped('Nunito Sans')), false);
+});
+
+// Style Dictionary's own convention keeps working: this change is additive.
+test('the sp transform still fires on a Style Dictionary $type fontSize', () => {
+  const sp = collectTransforms().get('size/unit-aware/compose-sp');
+  const token = { $type: 'fontSize', $value: '14px', original: { $value: '14px' } };
+  assert.equal(sp.filter(token), true);
+  assert.equal(sp.transform(token), '14.00.sp');
+});
+
+// End to end through preprocess: the shape a real source actually has.
+test('a resolved semantic fontSize reaches the sp transform', () => {
+  const out = preprocess({
+    text: { '3xl': { $value: '30px', $type: 'dimension' } },
+    typography: { h1: { fontSize: { $value: '{text.3xl}', $type: 'dimension' } } },
+  });
+  const token = out.typography.h1.fontSize;
+  token.original = { $value: token.$value };
+  const sp = collectTransforms().get('size/unit-aware/compose-sp');
+  assert.equal(sp.filter(token), true);
+  assert.equal(sp.transform(token), '30.00.sp');
 });
