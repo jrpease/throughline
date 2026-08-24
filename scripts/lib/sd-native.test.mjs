@@ -608,10 +608,20 @@ test('a hoisted name matching an inherited Object.prototype member does not coll
 // sd-native.mjs states in prose that preprocess is idempotent, and real builds
 // rely on it (a project may declare the preprocessor at top level as well as on
 // the platform). No test asserted it before this one.
+//
+// The alias is deliberate: it is the only fixture shape that exercises the
+// WAS_REF membership, so a regression that leaked identity onto the cloned
+// tree (rather than tracking it in the WeakSet) would fail here.
 test('preprocess is idempotent', () => {
   const input = {
+    ratio: { normal: { $value: '1.5', $type: 'number' } },
     text: {
-      sm: { $value: '14px', $type: 'dimension', lineHeight: { $value: '20px', $type: 'dimension' } },
+      sm: {
+        $value: '14px',
+        $type: 'dimension',
+        lineHeight: { $value: '20px', $type: 'dimension' },
+        tracking: { $value: '{ratio.normal}' },
+      },
     },
   };
   const once = preprocess(input);
@@ -675,7 +685,7 @@ test('a child whose authored value was a reference does not inherit $type', () =
   assert.equal('$type' in out.text.smLineHeight, false);
 });
 
-// The Symbol tag must not reach Style Dictionary or any serialized output.
+// The reference tag must not reach Style Dictionary or any serialized output.
 test('the reference tag does not leak into output', () => {
   const out = preprocess({
     ratio: { normal: { $value: '1.5', $type: 'number' } },
@@ -693,4 +703,40 @@ test('the $type rule widens #52 — recorded, not masked', () => {
     leading: { base: { $value: '16px', $type: 'dimension', normal: { $value: '1.5' } } },
   });
   assert.equal(out.leading.baseNormal.$type, 'dimension', '#52 shape, knowingly produced');
+});
+
+// Same mechanism as the #52 widening above, and worth recording separately: an
+// untyped fontSize child under a dimension-typed dual node now inherits
+// dimension, which routes it to .dp rather than .sp. That is #51's shape — a
+// loud `18px` becomes a silent `18.00.dp`. Recorded, not masked.
+test('the $type rule widens #51 — recorded, not masked', () => {
+  const out = preprocess({
+    typography: { body: { $value: '16px', $type: 'dimension', fontSize: { $value: '18px' } } },
+  });
+  assert.equal(out.typography.bodyFontSize.$type, 'dimension', '#51 shape, knowingly produced');
+});
+
+// WAS_REF is set before the resolveValue try, not after: an unresolvable
+// reference is still a reference and must not inherit $type from the dual
+// node, even though it is left in place, unresolved, for SD to report.
+test('an unresolvable whole-value reference still does not inherit $type', () => {
+  const out = preprocess({
+    text: {
+      sm: { $value: '14px', $type: 'dimension', lineHeight: { $value: '{nope.missing}' } },
+    },
+  });
+  assert.equal('$type' in out.text.smLineHeight, false);
+});
+
+// DTCG 5.2.2 rule 1 governs whole-value aliases only; a reference embedded
+// inside an expression is resolved by interpolate, never tagged WAS_REF, and
+// so correctly inherits the dual node's $type like any other literal child.
+test('a reference embedded inside an expression still inherits $type', () => {
+  const out = preprocess({
+    ratio: { normal: { $value: '1.5', $type: 'number' } },
+    text: {
+      sm: { $value: '14px', $type: 'dimension', tracking: { $value: 'calc({ratio.normal} * 2)' } },
+    },
+  });
+  assert.equal(out.text.smTracking.$type, 'dimension');
 });

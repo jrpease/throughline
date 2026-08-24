@@ -135,11 +135,14 @@ Both are fixed before Style Dictionary sees the tree.
 // Resolving here also handles references embedded inside an expression, which
 // SD's whole-value matcher misses. Pre-resolving costs nothing on native
 // targets: they set outputReferences: false, so references flatten regardless.
+//
 // Marks a node whose AUTHORED $value was a whole-value reference, so the hoist
 // can decline to override the type DTCG 5.2.2 rule 1 already determined from the
-// referent. A Symbol key is invisible to Object.entries, to JSON.stringify, and
-// to Style Dictionary, so it cannot leak into output.
-const WAS_REF = Symbol('dtcg/was-reference');
+// referent. A WeakSet keyed on the node object, rather than a property written
+// onto it, holds structural idempotency exactly: structuredClone drops the
+// membership along with the rest of the identity, so preprocess(preprocess(x))
+// is deepEqual to preprocess(x) with no leak question to manage.
+const WAS_REF = new WeakSet();
 const WHOLE_REF = /^\{[^}]+\}$/;
 
 function interpolate(value, flat) {
@@ -159,7 +162,7 @@ function resolveInPlace(node, flat, prefix = []) {
     const path = [...prefix, key];
     if ('$value' in val && typeof val.$value === 'string') {
       if (WHOLE_REF.test(val.$value)) {
-        val[WAS_REF] = true;
+        WAS_REF.add(val);
         try {
           val.$value = resolveValue(path.join('.'), flat);
         } catch {
@@ -218,7 +221,7 @@ function hoistDualNodes(node, collisions, prefix = []) {
         // authored; after the hoist it is a sibling, so the type is lost unless
         // it travels. Excluded for a reference-valued child — DTCG 5.2.2 gives
         // it the referent's type, which outranks inheritance.
-        if (!('$type' in childVal) && '$type' in val && !childVal[WAS_REF]) {
+        if (!('$type' in childVal) && '$type' in val && !WAS_REF.has(childVal)) {
           childVal.$type = val.$type;
         }
         node[hoisted] = childVal;
