@@ -7,6 +7,25 @@ to [Semantic Versioning](https://semver.org).
 ## [Unreleased]
 
 ### Fixed
+- **`preprocess` throws on a dual-node hoist collision instead of silently
+  discarding a token.** `hoistDualNodes` renames a dual node's child to a
+  camel-joined sibling (`text.sm.lineHeight` becomes `text.smLineHeight`).
+  When that name is already taken — by an authored sibling, or by another
+  dual node's child hoisted earlier in the same pass — `preprocess` now
+  throws, naming both colliding paths, instead of silently overwriting one
+  and dropping the other. A build that previously succeeded may now throw
+  here; that is the point, not a regression — it surfaces a token your build
+  was already losing without telling you, rather than causing a new loss.
+- **A hoisted dual-node child now inherits the dual node's `$type`** when it
+  has none of its own — the dual node is the child's closest `$type`-bearing
+  ancestor as authored, and that ancestry is lost once the hoist makes the
+  child a sibling instead. A child whose authored value was a whole-value
+  reference is excluded and keeps its referent's resolved type per DTCG
+  5.2.2. Two consequences are knowingly accepted and covered by tests: an
+  untyped `fontSize` child hoisted under a `dimension`-typed parent now emits
+  through the `dimension` size transform (`.dp` on Android, not `.sp`), and
+  an untyped unitless child now emits as a `dimension`. This does not make
+  native output compile-verified or validate DTCG conformance on its own.
 - **`no-foreign-syntax` reconciled with the native output filter.** An
   unrescued `calc(...)`, `var(...)`, or `color-mix(...)` variant was
   previously dropped from native output by `sd-native.mjs`'s filter before
