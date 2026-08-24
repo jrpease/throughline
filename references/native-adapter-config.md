@@ -199,6 +199,12 @@ function resolveInPlace(node, flat, prefix = []) {
 // collision against a sibling that does not exist. Object.hasOwn checks the
 // tree's own keys only.
 function hoistDualNodes(node, collisions, prefix = []) {
+  // Which hoisted names THIS pass has already claimed, and the authored path
+  // of the child that claimed each one — a collision here is a second hoist
+  // landing on a name no sibling ever authored. Local to this frame: node is
+  // fixed per invocation, so collisions are always within one parent's key
+  // space.
+  const claimedBy = new Map();
   for (const [key, val] of Object.entries(node)) {
     if (key.startsWith('$') || !val || typeof val !== 'object') continue;
     hoistDualNodes(val, collisions, [...prefix, key]);
@@ -206,13 +212,15 @@ function hoistDualNodes(node, collisions, prefix = []) {
       for (const [childKey, childVal] of Object.entries(val)) {
         if (childKey.startsWith('$') || !childVal || typeof childVal !== 'object') continue;
         const hoisted = key + childKey[0].toUpperCase() + childKey.slice(1);
+        const from = [...prefix, key, childKey].join('.');
         if (Object.hasOwn(node, hoisted)) {
           const existingNode = node[hoisted];
           const isGroup = existingNode !== null && typeof existingNode === 'object' && !('$value' in existingNode);
           collisions.push({
-            from: [...prefix, key, childKey].join('.'),
+            from,
             onto: [...prefix, hoisted].join('.'),
             isGroup,
+            claimant: claimedBy.get(hoisted),
             existing: isGroup
               ? undefined
               : existingNode && typeof existingNode === 'object'
@@ -230,6 +238,7 @@ function hoistDualNodes(node, collisions, prefix = []) {
         }
         node[hoisted] = childVal;
         delete val[childKey];
+        claimedBy.set(hoisted, from);
       }
     }
   }
@@ -245,13 +254,21 @@ export function preprocess(dict) {
   if (collisions.length) {
     const shown = collisions
       .slice(0, 5)
-      .map((c) => `  ${c.from} -> ${c.onto}` + (c.isGroup ? ' (a group)' : ` (would overwrite ${JSON.stringify(c.existing)})`))
+      .map((c) => {
+        const line = `  ${c.from} -> ${c.onto}`;
+        if (c.isGroup) {
+          return line + (c.claimant ? ` (a group, already claimed by the hoist of ${c.claimant})` : ' (a group)');
+        }
+        return c.claimant
+          ? `${line} (already claimed by the hoist of ${c.claimant}, value ${JSON.stringify(c.existing)})`
+          : `${line} (would overwrite ${JSON.stringify(c.existing)})`;
+      })
       .join('\n');
     const more = collisions.length > 5 ? `\n  ...and ${collisions.length - 5} more` : '';
     throw new Error(
-      `${collisions.length} hoisted token name(s) collide with an existing sibling.\n` +
-        "A dual node's child is renamed to a camel-joined sibling, and that name is taken.\n" +
-        'Hoisting would silently discard one of the two. Rename the child or the sibling.\n' +
+      `${collisions.length} hoisted token name(s) collide with an existing sibling or with a name an earlier hoist already claimed.\n` +
+        "A dual node's child is renamed to a camel-joined sibling, and that name may already be taken — by an authored token or group, or by another dual node's child hoisted earlier in the same pass.\n" +
+        'Hoisting would silently discard one of the two. Rename the child, the sibling, or whichever colliding child should keep the name.\n' +
         `${shown}${more}`,
     );
   }

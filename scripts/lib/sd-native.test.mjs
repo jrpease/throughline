@@ -496,6 +496,7 @@ test('preprocess throws when a hoisted name collides with an authored token', ()
       assert.match(err.message, /text\.sm\.lineHeight/);
       assert.match(err.message, /text\.smLineHeight/);
       assert.match(err.message, /28px/);
+      assert.doesNotMatch(err.message, /claimed by/);
       return true;
     },
   );
@@ -520,7 +521,9 @@ test('preprocess throws when a hoisted name collides with an authored group', ()
 });
 
 // Neither name is authored: t.a.bC and t.aB.c both camel-join to t.aBC.
-// The issue does not name this variant; it was found by probing.
+// The issue does not name this variant; it was found by probing. Both halves
+// of the collision must be named — t.a.bC is the only path the author could
+// act on, and there is no sibling t.aBC in the source to blame instead.
 test('preprocess throws when two hoists collide with each other', () => {
   assert.throws(
     () =>
@@ -530,7 +533,13 @@ test('preprocess throws when two hoists collide with each other', () => {
           aB: { $value: '3px', c: { $value: '4px' } },
         },
       }),
-    /collide/i,
+    (err) => {
+      assert.match(err.message, /collide/i);
+      assert.match(err.message, /t\.a\.bC/);
+      assert.match(err.message, /t\.aB\.c/);
+      assert.match(err.message, /claimed by/);
+      return true;
+    },
   );
 });
 
