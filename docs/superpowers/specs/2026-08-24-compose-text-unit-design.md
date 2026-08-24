@@ -115,16 +115,26 @@ gives it an override.
 | Reference-graph inference (`text.5xl` is referenced by a `fontSize`, so it is one) | The only option that reaches all 52. Rejected for now: aliases are resolved in place by this module's own preprocessor before Style Dictionary sees them, so the graph must be captured separately, and a token referenced by two different roles has no defined answer. Recorded as the option to revisit if §6.1 proves painful. |
 | A new `nativePlatform({ textUnits: [...] })` parameter | New public API surface for a need no consumer has stated. §5.3 gets the same override for free. |
 
-## 4. Where classification runs: before the hoist
+## 4. Where classification runs: between resolution and the hoist
 
-`preprocess` already does two things in order — `resolveInPlace`, then
-`hoistDualNodes`. Classification is inserted **before the hoist**.
+`preprocess` does two things in order — `resolveInPlace`, then
+`hoistDualNodes`. Classification is inserted **between them**: after aliases
+resolve, before children are renamed. Both halves are load-bearing, and
+neither is a stylistic choice.
 
-This is not a stylistic choice. `hoistDualNodes` renames
-`text.xs.lineHeight` to `text.xsLineHeight`; the leaf name is consumed by the
-rename. Measured: of the 39 tokens this change fixes, **13 are hoisted
-children**, so classifying after the hoist would silently miss a third of
-them.
+**After `resolveInPlace`, because the unit is not in the authored text.** All
+26 semantic tokens this change fixes are authored as references —
+`typography.textStyle.h1.fontSize` is `"{text.3xl}"` in the source, carrying
+no unit at all. A rule that reads the *authored* string finds no `px`, stamps
+nothing, and fixes 13 tokens instead of 39. Classification therefore reads the
+token's `$value` **as it stands after resolution**, when the reference has
+already become `30px`. The word "authored" must not appear in the rule; it
+names the wrong string.
+
+**Before `hoistDualNodes`, because the hoist consumes the leaf name.** It
+renames `text.xs.lineHeight` to `text.xsLineHeight`. Measured: of the 39
+tokens this change fixes, **13 are hoisted children**, so classifying after
+the hoist would silently miss a third of them.
 
 Matching a suffix against the hoisted camelCase name (`…LineHeight`) was
 considered and rejected: it couples the role rule to the hoist's naming
@@ -142,6 +152,9 @@ Verified by direct probe against Style Dictionary 4.4.0: a token carrying
 FILTER a | $ext: {"com.throughline.native":{"unit":"text"}} | keys: $type,$value,$extensions
 FILTER b | $ext: undefined                                 | keys: $type,$value
 ```
+
+(The probe predates §5.2's naming decision and exercises Style Dictionary's
+behaviour, not the key name. The names this spec adopts are in §5.2.)
 
 A `WeakSet` — the mechanism #55 used to carry `WAS_REF` — is **not** an option
 here. It works inside `preprocess` because the marking and the reading happen
@@ -194,14 +207,24 @@ Documented as a known limit. Filed as a follow-up, not guessed at.
 
 ### 6.2 The 13 `letterSpacing` tokens stay dropped
 
-They resolve to `em` values (`-0.03em`), and `nativeFilter`'s `WEB_ONLY_UNIT`
-removes them before any transform runs — so they appear in neither the Kotlin
-nor the Swift output today. Compose has a real `.em` `TextUnit`, so this is a
-genuine gap, but it is a *filter* gap, not a dp/sp gap. Different fix, filed
-separately.
+They resolve to `em` values (`-0.03em`). `nativeFilter`'s `WEB_ONLY_UNIT`
+removes them, so they appear in neither the Kotlin nor the Swift output today.
+Compose has a real `.em` `TextUnit`, so this is a genuine gap — but it is a
+*filter* gap, not a dp/sp gap. Different fix, filed separately.
 
-They are still classified by §3.2 — the stamp is cheap and correct — and simply
-never reach a transform. If §6.2 is fixed later, the role is already there.
+Two precise points, because an earlier draft of this spec got both wrong:
+
+- **`nativeFilter` is the file filter, not a transform filter.** Style
+  Dictionary applies it at *format* time, after every transform has run. So
+  these tokens do reach the size transforms today. Nothing breaks, but only
+  because `magnitude('-0.03em')` returns null and `hasMagnitude` gates both
+  transforms — which is the same guard finding 1 of the spec review requires
+  on the sp filter (§7).
+- **They are NOT stamped.** §7's absolute-unit gate admits `px` and `rem`
+  only, and `em` is neither. The role is therefore *not* pre-recorded for a
+  later fix. Whoever fixes the `em` gap must revisit §7's unit gate in the
+  same change; the two are coupled, and this spec does not leave a
+  half-finished hook behind pretending otherwise.
 
 ### 6.3 The 5 `leading.*` unitless ratios stay `.dp`
 
@@ -222,14 +245,56 @@ one, which is precisely the failure class this module exists to prevent.
 
 The rule, in full:
 
-> During `preprocess`, before hoisting: a token whose `$type` is `dimension`,
-> whose leaf name is `fontSize`, `letterSpacing`, or `lineHeight`, and whose
-> authored `$value` carries an absolute unit (`px` or `rem`), is stamped
-> `$extensions["com.radicool.throughline"].nativeUnit = "text"` — unless that
-> key is already set, in which case the source's value stands.
+> **Classification** — in `preprocess`, after `resolveInPlace` and before
+> `hoistDualNodes`. A token is stamped
+> `$extensions["com.radicool.throughline"].nativeUnit = "text"` when all four
+> hold:
 >
-> `size/unit-aware/compose-sp` filters on `nativeUnit === "text"`.
-> `size/unit-aware/compose-dp` filters `dimension` **and not** `nativeUnit === "text"`.
+> 1. its own `$type` key is `"dimension"` (see the limit below);
+> 2. its leaf name is exactly `fontSize`, `letterSpacing`, or `lineHeight`;
+> 3. its **resolved** `$value` — the string as it stands at this point in
+>    `preprocess`, not the authored text — carries an absolute unit, `px` or
+>    `rem`;
+> 4. the key is not already set, in which case the source's value stands
+>    untouched (§5.3).
+>
+> **Transforms.**
+>
+> - `size/unit-aware/compose-sp` filters
+>   `(isTextUnit(token) || isFontSize(token)) && hasMagnitude(token)`.
+> - `size/unit-aware/compose-dp` filters
+>   `isDimension(token) && !isTextUnit(token) && hasMagnitude(token)`.
+
+**`hasMagnitude` on the sp filter is load-bearing, not defensive.** Both
+existing size transforms carry it. Without it, a source that uses §5.3's
+override to stamp a token with no build-time magnitude reaches
+`authored(token).toFixed(2)` with `authored()` returning null — a bare
+`TypeError` mid-build rather than a clean skip.
+
+**`$type === 'fontSize'` is kept alongside the stamp.** Style Dictionary's own
+convention still works, `size/unit-aware/swift` already matches stock by
+filtering `dimension || fontSize`, and keeping it makes this change purely
+additive: no source that builds today builds differently unless it has a
+dimension token named for a DTCG typography member.
+
+**The two filters are disjoint by construction**, so no token is transformed
+twice and none falls through the partition. Transitive re-runs are harmless
+regardless, because `authored()` reads `original.$value` rather than the
+running value.
+
+**Stated limit — the `$type` check reads the token's own key.** A typeless
+child that would inherit `dimension` from its parent is not classified,
+because `hoistDualNodes` copies the parent's `$type` down *after*
+classification has run. §4 puts classification before the hoist for an
+unrelated and stronger reason — the leaf name — and this limit is the price of
+that ordering. zygarden's dual-node children all carry their own `$type`, so
+the §7.1 prediction is unaffected. This is the same class of limit as §3.2's naming
+caveat: narrow, real, and documented rather than papered over.
+
+**The override is trusted but guarded.** Requirement 1 applies to
+*classification* only. A source that sets `nativeUnit` itself is making a
+deliberate declaration and is not required to be `dimension`-typed —
+`hasMagnitude` is what keeps that safe.
 
 `ios-swift` is unchanged. `size/unit-aware/swift` filters `dimension ||
 fontSize` and emits `CGFloat` for both; iOS handles Dynamic Type at the use
