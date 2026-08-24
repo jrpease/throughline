@@ -279,7 +279,7 @@ test('the registered swift transform converts a px dimension 1:1', () => {
   assert.equal(swift.transform(token), 'CGFloat(14.00)');
 });
 
-test('the registered compose transforms split sp from dp by $type', () => {
+test('the registered compose transforms split sp from dp by $type or stamp', () => {
   const transforms = [];
   registerNativeTransforms({ registerPreprocessor: () => {}, registerTransform: (t) => transforms.push(t) });
   const dp = transforms.find((t) => t.name === 'size/unit-aware/compose-dp');
@@ -899,4 +899,75 @@ test('preprocess does not stamp the caller input', () => {
   const input = { t: { fontSize: { $value: '30px', $type: 'dimension' } } };
   preprocess(input);
   assert.equal(input.t.fontSize.$extensions, undefined);
+});
+
+// #51. The sp branch used to gate on $type === 'fontSize', which DTCG never
+// produces. It now gates on the role stamped in preprocess.
+const stamped = (value) => ({
+  $type: 'dimension',
+  $value: value,
+  original: { $value: value },
+  $extensions: { [EXT_NS]: { nativeUnit: 'text' } },
+});
+
+test('the compose transforms split sp from dp by the text-unit stamp', () => {
+  const t = collectTransforms();
+  const dp = t.get('size/unit-aware/compose-dp');
+  const sp = t.get('size/unit-aware/compose-sp');
+
+  const textUnit = stamped('30px');
+  const device = { $type: 'dimension', $value: '16px', original: { $value: '16px' } };
+
+  assert.equal(sp.filter(textUnit), true);
+  assert.equal(dp.filter(textUnit), false);
+  assert.equal(sp.transform(textUnit), '30.00.sp');
+
+  assert.equal(dp.filter(device), true);
+  assert.equal(sp.filter(device), false);
+  assert.equal(dp.transform(device), '16.00.dp');
+});
+
+// The partition must be disjoint: no token may be transformed by both, and
+// none may fall through neither.
+test('no dimension token matches both compose transforms', () => {
+  const t = collectTransforms();
+  const dp = t.get('size/unit-aware/compose-dp');
+  const sp = t.get('size/unit-aware/compose-sp');
+  for (const token of [
+    stamped('30px'),
+    { $type: 'dimension', $value: '16px', original: { $value: '16px' } },
+    { $type: 'fontSize', $value: '14px', original: { $value: '14px' } },
+  ]) {
+    assert.equal(dp.filter(token) && sp.filter(token), false);
+  }
+});
+
+// The override invites a source to stamp any token it likes, so the sp filter
+// needs the same hasMagnitude guard both size transforms already carry.
+// Without it this reaches authored(token).toFixed(2) on null.
+test('the sp transform skips a stamped token with no build-time magnitude', () => {
+  const sp = collectTransforms().get('size/unit-aware/compose-sp');
+  assert.equal(sp.filter(stamped('-0.03em')), false);
+  assert.equal(sp.filter(stamped('Nunito Sans')), false);
+});
+
+// Style Dictionary's own convention keeps working: this change is additive.
+test('the sp transform still fires on a Style Dictionary $type fontSize', () => {
+  const sp = collectTransforms().get('size/unit-aware/compose-sp');
+  const token = { $type: 'fontSize', $value: '14px', original: { $value: '14px' } };
+  assert.equal(sp.filter(token), true);
+  assert.equal(sp.transform(token), '14.00.sp');
+});
+
+// End to end through preprocess: the shape a real source actually has.
+test('a resolved semantic fontSize reaches the sp transform', () => {
+  const out = preprocess({
+    text: { '3xl': { $value: '30px', $type: 'dimension' } },
+    typography: { h1: { fontSize: { $value: '{text.3xl}', $type: 'dimension' } } },
+  });
+  const token = out.typography.h1.fontSize;
+  token.original = { $value: token.$value };
+  const sp = collectTransforms().get('size/unit-aware/compose-sp');
+  assert.equal(sp.filter(token), true);
+  assert.equal(sp.transform(token), '30.00.sp');
 });
