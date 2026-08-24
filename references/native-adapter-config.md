@@ -384,9 +384,12 @@ checks magnitude, not unit.
 //     correct, and those are what a consumer should reach for.
 //   - An em-valued letterSpacing is filtered out of native output entirely,
 //     rather than emitted as Compose's .em TextUnit.
-//   - A unitless ratio (leading.normal: "1.5") emits as 1.50.dp. It is
-//     deliberately NOT stamped: 1.50.sp would compile and render 1.5sp text,
-//     turning a loud failure into a silent one.
+//   - A unitless ratio emits as dp. leading.normal: "1.5" gives 1.50.dp, but
+//     that token is excluded twice over — its key is not a typography member
+//     AND its value has no absolute unit. The gate that carries the weight is
+//     the second one: a lineHeight-keyed "1.5" is deliberately NOT stamped,
+//     because 1.50.sp would compile and render 1.5sp text, turning a loud
+//     failure into a silent one.
 //
 // Stock, from SD 4.4.0:
 //   ios-swift: attribute/cti name/camel color/UIColorSwift

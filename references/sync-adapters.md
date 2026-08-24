@@ -73,10 +73,13 @@ not hidden.
 `android-kotlin` uses the same module and stays Tier 2: its remaining unknowns
 are on the consumption side — Compose `dp`/`sp` behaviour against a real Compose
 app, resource-qualifier conventions, package layout — which building tokens does
-not exercise. Concretely, DTCG has no `fontSize` type — it types font sizes as
-`dimension` — and the `sp` transform gates on `$type === 'fontSize'`, so on
-spec-compliant input Android font sizes currently emit as `dp`, not `sp`; the
-Swift transform filters `dimension || fontSize` and is unaffected.
+not exercise. The `dp`/`sp` split itself is no longer among them: font sizes and
+line heights whose role a DTCG source states — the `fontSize`, `letterSpacing`
+and `lineHeight` member names of §9.8's typography composite — now emit as
+`sp`. What remains is narrower and documented in
+`${CLAUDE_PLUGIN_ROOT}/references/native-adapter-config.md`: a bare scale
+primitive carries no role and stays `dp`, an `em` letterSpacing is filtered
+out rather than emitted as `.em`, and a unitless ratio still emits as `dp`.
 `tokens:validate-output` remains what decides whether any adapter can be
 trusted, and re-promotion is available to any adapter that passes it against a
 real source.
