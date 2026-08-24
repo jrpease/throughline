@@ -618,3 +618,79 @@ test('preprocess is idempotent', () => {
   const twice = preprocess(once);
   assert.deepEqual(twice, once);
 });
+
+test('a hoisted child inherits the dual node $type when it has none', () => {
+  const out = preprocess({
+    text: { sm: { $value: '14px', $type: 'dimension', lineHeight: { $value: '20px' } } },
+  });
+  assert.equal(out.text.smLineHeight.$type, 'dimension');
+});
+
+test('a hoisted child keeps its own $type', () => {
+  const out = preprocess({
+    text: {
+      sm: { $value: '14px', $type: 'dimension', family: { $value: 'Inter', $type: 'fontFamily' } },
+    },
+  });
+  assert.equal(out.text.smFamily.$type, 'fontFamily');
+});
+
+test('nothing is invented when the dual node has no $type', () => {
+  const out = preprocess({
+    text: { sm: { $value: '14px', lineHeight: { $value: '20px' } } },
+  });
+  assert.equal('$type' in out.text.smLineHeight, false);
+});
+
+// Depth-first recursion means the inner hoist completes first, so lineHeightTight
+// is a direct child of sm by the time sm hoists. This is the test that catches a
+// $type carry running in the wrong recursion frame — every single-level test
+// passes regardless.
+test('$type inheritance reaches a child hoisted through two levels', () => {
+  const out = preprocess({
+    text: {
+      sm: {
+        $value: '14px',
+        $type: 'dimension',
+        lineHeight: { $value: '20px', tight: { $value: '18px' } },
+      },
+    },
+  });
+  assert.equal(out.text.smLineHeight.$type, 'dimension');
+  assert.equal(out.text.smLineHeightTight.$type, 'dimension');
+});
+
+// DTCG 5.2.2 orders its rules: a reference-valued token takes the RESOLVED type
+// of its referent, and that outranks group inheritance. resolveInPlace flattens
+// the reference before the hoist runs, so without a tag the hoist cannot tell
+// and would stamp the parent's $type over the referent's.
+test('a child whose authored value was a reference does not inherit $type', () => {
+  const out = preprocess({
+    ratio: { normal: { $value: '1.5', $type: 'number' } },
+    text: {
+      sm: { $value: '14px', $type: 'dimension', lineHeight: { $value: '{ratio.normal}' } },
+    },
+  });
+  assert.equal(out.text.smLineHeight.$value, '1.5');
+  assert.equal('$type' in out.text.smLineHeight, false);
+});
+
+// The Symbol tag must not reach Style Dictionary or any serialized output.
+test('the reference tag does not leak into output', () => {
+  const out = preprocess({
+    ratio: { normal: { $value: '1.5', $type: 'number' } },
+    text: { sm: { $value: '14px', lineHeight: { $value: '{ratio.normal}' } } },
+  });
+  assert.deepEqual(Object.keys(out.text.smLineHeight), ['$value']);
+  assert.equal(JSON.stringify(out).includes('was-reference'), false);
+});
+
+// #55's fix widens #52 rather than masking it: an untyped unitless literal child
+// under a dimension-typed dual node now becomes dimension, which is exactly
+// #52's shape. Asserted so the widening is recorded, not discovered later.
+test('the $type rule widens #52 — recorded, not masked', () => {
+  const out = preprocess({
+    leading: { base: { $value: '16px', $type: 'dimension', normal: { $value: '1.5' } } },
+  });
+  assert.equal(out.leading.baseNormal.$type, 'dimension', '#52 shape, knowingly produced');
+});

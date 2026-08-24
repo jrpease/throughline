@@ -135,6 +135,11 @@ Both are fixed before Style Dictionary sees the tree.
 // Resolving here also handles references embedded inside an expression, which
 // SD's whole-value matcher misses. Pre-resolving costs nothing on native
 // targets: they set outputReferences: false, so references flatten regardless.
+// Marks a node whose AUTHORED $value was a whole-value reference, so the hoist
+// can decline to override the type DTCG 5.2.2 rule 1 already determined from the
+// referent. A Symbol key is invisible to Object.entries, to JSON.stringify, and
+// to Style Dictionary, so it cannot leak into output.
+const WAS_REF = Symbol('dtcg/was-reference');
 const WHOLE_REF = /^\{[^}]+\}$/;
 
 function interpolate(value, flat) {
@@ -154,6 +159,7 @@ function resolveInPlace(node, flat, prefix = []) {
     const path = [...prefix, key];
     if ('$value' in val && typeof val.$value === 'string') {
       if (WHOLE_REF.test(val.$value)) {
+        val[WAS_REF] = true;
         try {
           val.$value = resolveValue(path.join('.'), flat);
         } catch {
@@ -207,6 +213,13 @@ function hoistDualNodes(node, collisions, prefix = []) {
                 : existingNode,
           });
           continue;
+        }
+        // The dual node is the child's closest $type-bearing ancestor as
+        // authored; after the hoist it is a sibling, so the type is lost unless
+        // it travels. Excluded for a reference-valued child — DTCG 5.2.2 gives
+        // it the referent's type, which outranks inheritance.
+        if (!('$type' in childVal) && '$type' in val && !childVal[WAS_REF]) {
+          childVal.$type = val.$type;
         }
         node[hoisted] = childVal;
         delete val[childKey];
