@@ -114,9 +114,11 @@ export function colorMixToHex8(value) {
 
 Style Dictionary's resolver will not traverse into a node that carries both a
 `$value` and children, and its collector stops there too. The dual-node pattern
-is legal DTCG and common in Figma-derived sources: `text.sm` holds
-`$value: "14px"` *and* a `text.sm.lineHeight` child. So every alias to such a
-child fails to resolve, and the child is never emitted at all.
+is invalid DTCG — the Design Tokens Format Module's 30 July 2026 draft, §6.1,
+requires tools to report it as an error, and §6.2's `$root` is the sanctioned
+way to pair a value with children. Figma-derived sources emit it anyway:
+`text.sm` holds `$value: "14px"` *and* a `text.sm.lineHeight` child. So every
+alias to such a child fails to resolve, and the child is never emitted at all.
 
 Both are fixed before Style Dictionary sees the tree.
 
@@ -125,8 +127,10 @@ Both are fixed before Style Dictionary sees the tree.
 // the tree.
 //
 // Two distinct SD limitations, both caused by a node carrying BOTH a $value and
-// children — legal DTCG, and common in Figma-derived sources, where text.sm
-// holds $value "14px" plus a text.sm.lineHeight child:
+// children — invalid DTCG: the Format Module's 30 July 2026 draft, §6.1,
+// requires tools to report this as an error; §6.2's $root is the sanctioned
+// way to pair a value with children. Common in Figma-derived sources anyway,
+// where text.sm holds $value "14px" plus a text.sm.lineHeight child:
 //
 //   1. The resolver will not traverse into such a node, so every alias to the
 //      child fails to resolve and emits as a bare literal.

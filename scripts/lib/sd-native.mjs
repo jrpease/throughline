@@ -58,8 +58,10 @@ export function colorMixToHex8(value) {
 // the tree.
 //
 // Two distinct SD limitations, both caused by a node carrying BOTH a $value and
-// children — legal DTCG, and common in Figma-derived sources, where text.sm
-// holds $value "14px" plus a text.sm.lineHeight child:
+// children — invalid DTCG: the Format Module's 30 July 2026 draft, §6.1,
+// requires tools to report this as an error; §6.2's $root is the sanctioned
+// way to pair a value with children. Common in Figma-derived sources anyway,
+// where text.sm holds $value "14px" plus a text.sm.lineHeight child:
 //
 //   1. The resolver will not traverse into such a node, so every alias to the
 //      child fails to resolve and emits as a bare literal.
