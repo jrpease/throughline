@@ -173,9 +173,11 @@ for (const mode of MODES) {                     // e.g. ['light', 'dark']
 by dot-path, so a single build over the whole token directory collapses light
 and dark into whichever file sorted last, silently dropping a mode. Passing each
 mode's sources through `nativeSources` turns that into a thrown error naming the
-colliding paths. Then run `tokens:validate-output` against each generated file
-with that same source list. See
-`.throughline/references/native-adapter-config.md`.
+colliding paths. The `dtcg/resolve-dual-node` preprocessor throws too, on its
+own collision: a dual node's hoisted child renamed to a camel-joined name that
+an existing sibling or an earlier hoist in the same pass already has. Then run
+`tokens:validate-output` against each generated file with that same source
+list. See `.throughline/references/native-adapter-config.md`.
 
 **Execution model — subagent dispatch with model routing.** Generating each
 platform's output is independent and verifiable. If your host supports subagent

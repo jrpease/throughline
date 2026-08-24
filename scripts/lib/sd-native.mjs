@@ -58,8 +58,10 @@ export function colorMixToHex8(value) {
 // the tree.
 //
 // Two distinct SD limitations, both caused by a node carrying BOTH a $value and
-// children — legal DTCG, and common in Figma-derived sources, where text.sm
-// holds $value "14px" plus a text.sm.lineHeight child:
+// children — invalid DTCG: the Format Module's 30 July 2026 draft, §6.1,
+// requires tools to report this as an error; §6.2's $root is the sanctioned
+// way to pair a value with children. Common in Figma-derived sources anyway,
+// where text.sm holds $value "14px" plus a text.sm.lineHeight child:
 //
 //   1. The resolver will not traverse into such a node, so every alias to the
 //      child fails to resolve and emits as a bare literal.
@@ -68,6 +70,14 @@ export function colorMixToHex8(value) {
 // Resolving here also handles references embedded inside an expression, which
 // SD's whole-value matcher misses. Pre-resolving costs nothing on native
 // targets: they set outputReferences: false, so references flatten regardless.
+//
+// Marks a node whose AUTHORED $value was a whole-value reference, so the hoist
+// can decline to override the type DTCG 5.2.2 rule 1 already determined from the
+// referent. A WeakSet keyed on the node object, rather than a property written
+// onto it, holds structural idempotency exactly: structuredClone drops the
+// membership along with the rest of the identity, so preprocess(preprocess(x))
+// is deepEqual to preprocess(x) with no leak question to manage.
+const WAS_REF = new WeakSet();
 const WHOLE_REF = /^\{[^}]+\}$/;
 
 function interpolate(value, flat) {
@@ -87,6 +97,7 @@ function resolveInPlace(node, flat, prefix = []) {
     const path = [...prefix, key];
     if ('$value' in val && typeof val.$value === 'string') {
       if (WHOLE_REF.test(val.$value)) {
+        WAS_REF.add(val);
         try {
           val.$value = resolveValue(path.join('.'), flat);
         } catch {
@@ -103,15 +114,62 @@ function resolveInPlace(node, flat, prefix = []) {
 
 // text.sm.lineHeight becomes text.smLineHeight, which name/camel renders as
 // textSmLineHeight — the identical symbol the un-hoisted path would produce.
-function hoistDualNodes(node) {
+//
+// Collisions are COLLECTED, not thrown here: the walk has to continue to report
+// every one, and the recursion is depth-first, so throwing from a frame would
+// report one subtree. preprocess throws once, after the whole tree is walked.
+//
+// On collision the assignment is SKIPPED. Continuing to overwrite while
+// collecting means later detections are computed against a tree already
+// corrupted — the enclosing loop's Object.entries snapshot still holds the
+// detached node, and its own children then hoist out of a subtree no longer
+// reachable.
+//
+// hoisted in node walks the prototype chain, so a camel-joined name matching
+// an inherited Object.prototype member (toString, valueOf, ...) reported a
+// collision against a sibling that does not exist. Object.hasOwn checks the
+// tree's own keys only.
+function hoistDualNodes(node, collisions, prefix = []) {
+  // Which hoisted names THIS pass has already claimed, and the authored path
+  // of the child that claimed each one — a collision here is a second hoist
+  // landing on a name no sibling ever authored. Local to this frame: node is
+  // fixed per invocation, so collisions are always within one parent's key
+  // space.
+  const claimedBy = new Map();
   for (const [key, val] of Object.entries(node)) {
     if (key.startsWith('$') || !val || typeof val !== 'object') continue;
-    hoistDualNodes(val);
+    hoistDualNodes(val, collisions, [...prefix, key]);
     if ('$value' in val) {
       for (const [childKey, childVal] of Object.entries(val)) {
         if (childKey.startsWith('$') || !childVal || typeof childVal !== 'object') continue;
-        node[key + childKey[0].toUpperCase() + childKey.slice(1)] = childVal;
+        const hoisted = key + childKey[0].toUpperCase() + childKey.slice(1);
+        const from = [...prefix, key, childKey].join('.');
+        if (Object.hasOwn(node, hoisted)) {
+          const existingNode = node[hoisted];
+          const isGroup = existingNode !== null && typeof existingNode === 'object' && !('$value' in existingNode);
+          collisions.push({
+            from,
+            onto: [...prefix, hoisted].join('.'),
+            isGroup,
+            claimant: claimedBy.get(hoisted),
+            existing: isGroup
+              ? undefined
+              : existingNode && typeof existingNode === 'object'
+                ? existingNode.$value
+                : existingNode,
+          });
+          continue;
+        }
+        // The dual node is the child's closest $type-bearing ancestor as
+        // authored; after the hoist it is a sibling, so the type is lost unless
+        // it travels. Excluded for a reference-valued child — DTCG 5.2.2 gives
+        // it the referent's type, which outranks inheritance.
+        if (!('$type' in childVal) && '$type' in val && !WAS_REF.has(childVal)) {
+          childVal.$type = val.$type;
+        }
+        node[hoisted] = childVal;
         delete val[childKey];
+        claimedBy.set(hoisted, from);
       }
     }
   }
@@ -119,7 +177,33 @@ function hoistDualNodes(node) {
 }
 
 export function preprocess(dict) {
-  return hoistDualNodes(resolveInPlace(structuredClone(dict), flattenDtcg(dict)));
+  const collisions = [];
+  const out = hoistDualNodes(
+    resolveInPlace(structuredClone(dict), flattenDtcg(dict)),
+    collisions,
+  );
+  if (collisions.length) {
+    const shown = collisions
+      .slice(0, 5)
+      .map((c) => {
+        const line = `  ${c.from} -> ${c.onto}`;
+        if (c.isGroup) {
+          return line + (c.claimant ? ` (a group, already claimed by the hoist of ${c.claimant})` : ' (a group)');
+        }
+        return c.claimant
+          ? `${line} (already claimed by the hoist of ${c.claimant}, value ${JSON.stringify(c.existing)})`
+          : `${line} (would overwrite ${JSON.stringify(c.existing)})`;
+      })
+      .join('\n');
+    const more = collisions.length > 5 ? `\n  ...and ${collisions.length - 5} more` : '';
+    throw new Error(
+      `${collisions.length} hoisted token name(s) collide with an existing sibling or with a name an earlier hoist already claimed.\n` +
+        "A dual node's child is renamed to a camel-joined sibling, and that name may already be taken — by an authored token or group, or by another dual node's child hoisted earlier in the same pass.\n" +
+        'Hoisting would silently discard one of the two. Rename the child, the sibling, or whichever colliding child should keep the name.\n' +
+        `${shown}${more}`,
+    );
+  }
+  return out;
 }
 // @doc-section-end preprocess
 

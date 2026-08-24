@@ -1,0 +1,144 @@
+# hoist-dual-nodes (#55) — e2e proof that nothing moved
+
+**Date:** 2026-08-24
+**Gate for:** Task 3 of the `#55` plan (`hoistDualNodes`: collision throw, `$type`
+carry-through)
+**Verdict:** PASS against the stated bar — `diff -r` between a build at this
+branch's HEAD and a build at `main` (pre-`#55`) is **empty**. All eight output
+files (four per build) show `decls=195 broken=0`. The assertion is narrower
+than a validator run: this proves *byte-identical output*, nothing more.
+
+## Why this run exists
+
+Tasks 1 and 2 fixed two defects in `hoistDualNodes` — a silent token loss on a
+name collision, and a hoisted child losing its `$type`. Neither defect is
+authored anywhere in zygarden's real token source (see below), so the purpose
+of this run is not to exercise the fixes. It is to prove the fixes did not
+perturb output on a real, unrelated source — i.e. that Tasks 1 and 2 changed
+behaviour only on the paths they targeted.
+
+## Harness
+
+Reused, not rebuilt — it already existed from the prior native-config e2e work
+and was live at the time this task started:
+
+```
+/private/tmp/claude-501/-Users-jordansstudio-Dev-throughline/395cf4ed-9e55-4c18-a73d-e9980db4545c/scratchpad/e2e
+```
+
+- **Style Dictionary:** `4.4.0`, installed in the scratch directory.
+- **`scripts/lib`:** a symlink, swapped between the two builds below — not a
+  copy — so each build exercises the module's actual source at that commit,
+  not a snapshot.
+- **Source:** the same 15 zygarden JSON files already extracted into
+  `tokens/` from prior work (`libs/shared/util-tokens/src/tokens/`,
+  `feature/apply-brandguide-styles`). Not re-extracted; the zygarden repo was
+  not touched.
+- **`build.mjs`:** the harness's existing script — `ios-swift` and
+  `android-kotlin`, light/dark, mobile viewport axis,
+  `packageName: 'com.zygarden.tokens'` for Kotlin. Unmodified.
+
+## Procedure
+
+1. `scripts/lib` symlinked to this branch's live tree
+   (`/Users/jordansstudio/Dev/throughline/scripts/lib`, HEAD =
+   `9ef5230`), built, output moved to `out-55/`.
+2. `git worktree add /tmp/tl-main main` — a throwaway worktree at `main`
+   (pre-`#55`), to get the un-patched module without touching this branch's
+   checkout.
+3. `scripts/lib` re-pointed to `/tmp/tl-main/scripts/lib`, built, output moved
+   to `out-main/`.
+4. `diff -r out-main out-55`.
+5. `git worktree remove /tmp/tl-main`.
+
+```
+$ node build.mjs        # HEAD (fix/55-hoist-dual-nodes)
+ios-swift
+✔︎ out/light/ios/Tokens.swift
+built ios-swift / light
+
+android-kotlin
+✔︎ out/light/android/Tokens.kt
+built android-kotlin / light
+
+ios-swift
+✔︎ out/dark/ios/Tokens.swift
+built ios-swift / dark
+
+android-kotlin
+✔︎ out/dark/android/Tokens.kt
+built android-kotlin / dark
+EXIT:0
+
+$ mv out out-55
+
+$ git worktree add /tmp/tl-main main
+Preparing worktree (checking out 'main')
+HEAD is now at 698a236 fix: native token output that does not compile — quote string values, reject invalid literals (#53) (#56)
+
+$ ln -sfn /tmp/tl-main/scripts/lib scripts/lib
+$ node build.mjs        # main (pre-#55)
+ios-swift
+✔︎ out/light/ios/Tokens.swift
+built ios-swift / light
+
+android-kotlin
+✔︎ out/light/android/Tokens.kt
+built android-kotlin / light
+
+ios-swift
+✔︎ out/dark/ios/Tokens.swift
+built ios-swift / dark
+
+android-kotlin
+✔︎ out/dark/android/Tokens.kt
+built android-kotlin / dark
+EXIT:0
+
+$ mv out out-main
+
+$ diff -r out-main out-55
+$ echo "DIFF_EXIT:$?"
+DIFF_EXIT:0
+```
+
+`diff -r` produced no output and exited `0`: the two builds are byte-identical.
+
+## Declaration / broken-symbol counts
+
+```
+out-55/dark/ios/Tokens.swift    decls=195 broken=0
+out-55/light/ios/Tokens.swift   decls=195 broken=0
+out-55/dark/android/Tokens.kt   decls=195 broken=0
+out-55/light/android/Tokens.kt  decls=195 broken=0
+out-main/dark/ios/Tokens.swift   decls=195 broken=0
+out-main/light/ios/Tokens.swift  decls=195 broken=0
+out-main/dark/android/Tokens.kt  decls=195 broken=0
+out-main/light/android/Tokens.kt decls=195 broken=0
+```
+
+All eight files: `decls=195 broken=0`. Matches the prior recorded count for
+this source, and matches identically between HEAD and `main`.
+
+## What this run does NOT establish
+
+- **Neither defect is reachable from this source.** Zygarden's `text.*`
+  children each carry an explicit `$type: dimension` and no camel-joined name
+  collides, so this e2e run does **not** validate either fix — synthetic unit
+  fixtures do (see Tasks 1 and 2's test suites). Proving *nothing moved* is
+  this run's entire job, and is the only thing it claims to have proven.
+- **Nothing was compiled.** No `swiftc` or `kotlinc` ran. `decls`/`broken` are
+  `grep`-based counts, not a compiler's verdict, and `diff -r` establishes
+  byte-identity, not correctness of what those bytes mean.
+- **The two widenings recorded in the spec (`#52` and `#51`) are unreachable
+  in this source for the same reason.** `#52` (untyped unitless literal child
+  under a `dimension` dual node emitting `dp`) and `#51` (untyped `fontSize`
+  child under a `dimension` dual node emitting `dp` instead of `sp`) both
+  require an untyped hoisted child — zygarden's `text.*` children are always
+  explicitly typed, so neither widening fires here. This run says nothing
+  about them one way or the other.
+- **No validator (`tokens:validate-output`) was run this time.** The prior
+  `2026-08-21-native-config-e2e-results.md` run already established the
+  validator's bar on this same source; this run's only new claim is
+  byte-identity across the `#55` change, which a diff answers more directly
+  than re-running the validator would.

@@ -99,9 +99,11 @@ function.`],
 
 Style Dictionary's resolver will not traverse into a node that carries both a
 \`$value\` and children, and its collector stops there too. The dual-node pattern
-is legal DTCG and common in Figma-derived sources: \`text.sm\` holds
-\`$value: "14px"\` *and* a \`text.sm.lineHeight\` child. So every alias to such a
-child fails to resolve, and the child is never emitted at all.
+is invalid DTCG — the Design Tokens Format Module's 30 July 2026 draft, §6.1,
+requires tools to report it as an error, and §6.2's \`$root\` is the sanctioned
+way to pair a value with children. Figma-derived sources emit it anyway:
+\`text.sm\` holds \`$value: "14px"\` *and* a \`text.sm.lineHeight\` child. So every
+alias to such a child fails to resolve, and the child is never emitted at all.
 
 Both are fixed before Style Dictionary sees the tree.`],
   ['platform', `## 4. Assemble the platform from the stock list

@@ -478,3 +478,300 @@ test('a fontFamily containing a parenthesized suffix is quoted and kept, not mis
     true,
   );
 });
+
+// A dual node's child is renamed to a camel-joined sibling. If that name is
+// already taken, the pre-fix code overwrote it and a token vanished with no
+// diagnostic — the same class as the mode collision nativeSources guards.
+test('preprocess throws when a hoisted name collides with an authored token', () => {
+  assert.throws(
+    () =>
+      preprocess({
+        text: {
+          sm: { $value: '14px', lineHeight: { $value: '20px' } },
+          smLineHeight: { $value: '28px' },
+        },
+      }),
+    (err) => {
+      assert.match(err.message, /collide/i);
+      assert.match(err.message, /text\.sm\.lineHeight/);
+      assert.match(err.message, /text\.smLineHeight/);
+      assert.match(err.message, /28px/);
+      assert.doesNotMatch(err.message, /claimed by/);
+      return true;
+    },
+  );
+});
+
+// A group, not a token — hoisting onto it would destroy a whole subtree.
+test('preprocess throws when a hoisted name collides with an authored group', () => {
+  assert.throws(
+    () =>
+      preprocess({
+        text: {
+          sm: { $value: '14px', lineHeight: { $value: '20px' } },
+          smLineHeight: { bold: { $value: '28px' } },
+        },
+      }),
+    (err) => {
+      assert.match(err.message, /collide/i);
+      assert.match(err.message, /\(a group\)/);
+      return true;
+    },
+  );
+});
+
+// Neither name is authored: t.a.bC and t.aB.c both camel-join to t.aBC.
+// The issue does not name this variant; it was found by probing. Both halves
+// of the collision must be named — t.a.bC is the only path the author could
+// act on, and there is no sibling t.aBC in the source to blame instead.
+test('preprocess throws when two hoists collide with each other', () => {
+  assert.throws(
+    () =>
+      preprocess({
+        t: {
+          a: { $value: '1px', bC: { $value: '2px' } },
+          aB: { $value: '3px', c: { $value: '4px' } },
+        },
+      }),
+    (err) => {
+      assert.match(err.message, /collide/i);
+      assert.match(err.message, /t\.a\.bC/);
+      assert.match(err.message, /t\.aB\.c/);
+      assert.match(err.message, /claimed by/);
+      return true;
+    },
+  );
+});
+
+// The collision message has a fourth branch: the name was already claimed by
+// an earlier hoist, and that hoisted child was itself a group. The existing
+// group test above only matches /\(a group\)/, which this branch does not —
+// its text is "(a group, already claimed by the hoist of ...)" — so that test
+// does not cover it. t.a.bC has no $value of its own, so it hoists to t.aBC
+// as a group; t.aB.c then collides with that claimed name.
+test('preprocess throws when a hoisted name collides with a hoisted group', () => {
+  assert.throws(
+    () =>
+      preprocess({
+        t: {
+          a: { $value: '1px', bC: { x: { $value: '2px' } } },
+          aB: { $value: '3px', c: { $value: '4px' } },
+        },
+      }),
+    (err) => {
+      assert.match(err.message, /collide/i);
+      assert.match(err.message, /t\.a\.bC/);
+      assert.match(err.message, /t\.aB\.c/);
+      assert.match(err.message, /a group/);
+      assert.match(err.message, /claimed by/);
+      return true;
+    },
+  );
+});
+
+// findModeCollisions exempts identical values because it is deduping across
+// files. This is not a dedupe — two distinct authored tokens land on one name,
+// and they may differ in $type or $description even with equal $value.
+test('preprocess throws on collision even when the values are identical', () => {
+  assert.throws(
+    () =>
+      preprocess({
+        text: {
+          sm: { $value: '14px', lineHeight: { $value: '20px' } },
+          smLineHeight: { $value: '20px' },
+        },
+      }),
+    /collide/i,
+  );
+});
+
+// The recursion is depth-first, so the deepest frame finishes first. An
+// implementation that throws per-frame reports one subtree and stops.
+test('preprocess reports every collision, across depths, in one error', () => {
+  assert.throws(
+    () =>
+      preprocess({
+        outer: {
+          a: { $value: '1px', b: { $value: '2px' } },
+          aB: { $value: '3px' },
+          nested: {
+            c: { $value: '4px', d: { $value: '5px' } },
+            cD: { $value: '6px' },
+          },
+        },
+      }),
+    (err) => {
+      assert.match(err.message, /outer\.a\.b/);
+      assert.match(err.message, /outer\.nested\.c\.d/);
+      assert.match(err.message, /^2 hoisted token name/m);
+      return true;
+    },
+  );
+});
+
+// The message truncates the shown list at 5 and tails with a count of the
+// rest. Seven collisions is the smallest case that exercises the tail.
+test('preprocess truncates a long collision list and reports the remainder', () => {
+  const dict = {};
+  for (let i = 0; i < 7; i++) {
+    const letter = String.fromCharCode(97 + i);
+    dict[`g${i}`] = { $value: '1px', [letter]: { $value: '2px' } };
+    dict[`g${i}${letter.toUpperCase()}`] = { $value: '3px' };
+  }
+  assert.throws(
+    () => preprocess(dict),
+    (err) => {
+      assert.match(err.message, /^7 hoisted token name/m);
+      assert.match(err.message, /\.\.\.and 2 more/);
+      return true;
+    },
+  );
+});
+
+// Regression: hoisted in node walked the prototype chain, so a camel-joined
+// name matching an inherited Object.prototype member (toString, valueOf, ...)
+// reported a collision against a sibling that does not exist.
+test('a hoisted name matching an inherited Object.prototype member does not collide', () => {
+  const out = preprocess({
+    g: { to: { $value: '1px', string: { $value: '2px' } } },
+  });
+  assert.deepEqual(out, {
+    g: { to: { $value: '1px' }, toString: { $value: '2px' } },
+  });
+});
+
+// sd-native.mjs states in prose that preprocess is idempotent, and real builds
+// rely on it (a project may declare the preprocessor at top level as well as on
+// the platform). No test asserted it before this one.
+//
+// The alias is deliberate: it is the only fixture shape that exercises the
+// WAS_REF membership, so a regression that leaked identity onto the cloned
+// tree (rather than tracking it in the WeakSet) would fail here.
+test('preprocess is idempotent', () => {
+  const input = {
+    ratio: { normal: { $value: '1.5', $type: 'number' } },
+    text: {
+      sm: {
+        $value: '14px',
+        $type: 'dimension',
+        lineHeight: { $value: '20px', $type: 'dimension' },
+        tracking: { $value: '{ratio.normal}' },
+      },
+    },
+  };
+  const once = preprocess(input);
+  const twice = preprocess(once);
+  assert.deepEqual(twice, once);
+});
+
+test('a hoisted child inherits the dual node $type when it has none', () => {
+  const out = preprocess({
+    text: { sm: { $value: '14px', $type: 'dimension', lineHeight: { $value: '20px' } } },
+  });
+  assert.equal(out.text.smLineHeight.$type, 'dimension');
+});
+
+test('a hoisted child keeps its own $type', () => {
+  const out = preprocess({
+    text: {
+      sm: { $value: '14px', $type: 'dimension', family: { $value: 'Inter', $type: 'fontFamily' } },
+    },
+  });
+  assert.equal(out.text.smFamily.$type, 'fontFamily');
+});
+
+test('nothing is invented when the dual node has no $type', () => {
+  const out = preprocess({
+    text: { sm: { $value: '14px', lineHeight: { $value: '20px' } } },
+  });
+  assert.equal('$type' in out.text.smLineHeight, false);
+});
+
+// Depth-first recursion means the inner hoist completes first, so lineHeightTight
+// is a direct child of sm by the time sm hoists. This is the test that catches a
+// $type carry running in the wrong recursion frame — every single-level test
+// passes regardless.
+test('$type inheritance reaches a child hoisted through two levels', () => {
+  const out = preprocess({
+    text: {
+      sm: {
+        $value: '14px',
+        $type: 'dimension',
+        lineHeight: { $value: '20px', tight: { $value: '18px' } },
+      },
+    },
+  });
+  assert.equal(out.text.smLineHeight.$type, 'dimension');
+  assert.equal(out.text.smLineHeightTight.$type, 'dimension');
+});
+
+// DTCG 5.2.2 orders its rules: a reference-valued token takes the RESOLVED type
+// of its referent, and that outranks group inheritance. resolveInPlace flattens
+// the reference before the hoist runs, so without a tag the hoist cannot tell
+// and would stamp the parent's $type over the referent's.
+test('a child whose authored value was a reference does not inherit $type', () => {
+  const out = preprocess({
+    ratio: { normal: { $value: '1.5', $type: 'number' } },
+    text: {
+      sm: { $value: '14px', $type: 'dimension', lineHeight: { $value: '{ratio.normal}' } },
+    },
+  });
+  assert.equal(out.text.smLineHeight.$value, '1.5');
+  assert.equal('$type' in out.text.smLineHeight, false);
+});
+
+// The reference tag must not reach Style Dictionary or any serialized output.
+test('the reference tag does not leak into output', () => {
+  const out = preprocess({
+    ratio: { normal: { $value: '1.5', $type: 'number' } },
+    text: { sm: { $value: '14px', lineHeight: { $value: '{ratio.normal}' } } },
+  });
+  assert.deepEqual(Object.keys(out.text.smLineHeight), ['$value']);
+  assert.equal(JSON.stringify(out).includes('was-reference'), false);
+});
+
+// #55's fix widens #52 rather than masking it: an untyped unitless literal child
+// under a dimension-typed dual node now becomes dimension, which is exactly
+// #52's shape. Asserted so the widening is recorded, not discovered later.
+test('the $type rule widens #52 — recorded, not masked', () => {
+  const out = preprocess({
+    leading: { base: { $value: '16px', $type: 'dimension', normal: { $value: '1.5' } } },
+  });
+  assert.equal(out.leading.baseNormal.$type, 'dimension', '#52 shape, knowingly produced');
+});
+
+// Same mechanism as the #52 widening above, and worth recording separately: an
+// untyped fontSize child under a dimension-typed dual node now inherits
+// dimension, which routes it to .dp rather than .sp. That is #51's shape — a
+// loud `18px` becomes a silent `18.00.dp`. Recorded, not masked.
+test('the $type rule widens #51 — recorded, not masked', () => {
+  const out = preprocess({
+    typography: { body: { $value: '16px', $type: 'dimension', fontSize: { $value: '18px' } } },
+  });
+  assert.equal(out.typography.bodyFontSize.$type, 'dimension', '#51 shape, knowingly produced');
+});
+
+// WAS_REF is set before the resolveValue try, not after: an unresolvable
+// reference is still a reference and must not inherit $type from the dual
+// node, even though it is left in place, unresolved, for SD to report.
+test('an unresolvable whole-value reference still does not inherit $type', () => {
+  const out = preprocess({
+    text: {
+      sm: { $value: '14px', $type: 'dimension', lineHeight: { $value: '{nope.missing}' } },
+    },
+  });
+  assert.equal('$type' in out.text.smLineHeight, false);
+});
+
+// DTCG 5.2.2 rule 1 governs whole-value aliases only; a reference embedded
+// inside an expression is resolved by interpolate, never tagged WAS_REF, and
+// so correctly inherits the dual node's $type like any other literal child.
+test('a reference embedded inside an expression still inherits $type', () => {
+  const out = preprocess({
+    ratio: { normal: { $value: '1.5', $type: 'number' } },
+    text: {
+      sm: { $value: '14px', $type: 'dimension', tracking: { $value: 'calc({ratio.normal} * 2)' } },
+    },
+  });
+  assert.equal(out.text.smTracking.$type, 'dimension');
+});

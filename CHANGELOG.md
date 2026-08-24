@@ -7,6 +7,42 @@ to [Semantic Versioning](https://semver.org).
 ## [Unreleased]
 
 ### Fixed
+- **`preprocess` throws on a dual-node hoist collision instead of silently
+  discarding a token.** `hoistDualNodes` renames a dual node's child to a
+  camel-joined sibling (`text.sm.lineHeight` becomes `text.smLineHeight`).
+  When that name is already taken — by an authored sibling, or by another
+  dual node's child hoisted earlier in the same pass — `preprocess` now
+  throws, naming both colliding paths, instead of silently overwriting one
+  and dropping the other. A build that previously succeeded may now throw
+  here; in almost every case that is the point rather than a regression — it
+  surfaces a token your build was already losing without telling you. The one
+  exception: when the two colliding nodes are deeply identical, the overwrite
+  was lossless, and such a build now throws having lost nothing. Renaming
+  either path resolves it.
+- **A hoisted dual-node child now inherits the dual node's `$type`** when it
+  has none of its own — the dual node is the child's closest `$type`-bearing
+  ancestor as authored, and that ancestry is lost once the hoist makes the
+  child a sibling instead. A child whose authored value was a whole-value
+  reference is excluded and keeps its referent's resolved type per DTCG
+  5.2.2. Three consequences are knowingly accepted, and none is subtle enough
+  to leave implicit:
+  - An untyped `fontSize` child under a `dimension`-typed parent now emits
+    through the `dimension` transform — `.dp` on Android rather than `.sp`,
+    which **defeats the user's font-scale accessibility setting**. It
+    previously emitted a bare literal that `tokens:validate-output` caught
+    loudly; that gate no longer fires on it.
+  - An untyped unitless child now emits as a `dimension` — a ratio rendered in
+    density-independent pixels. Also previously caught loudly.
+  - Where an enclosing *group* carries a `$type` that correctly describes the
+    child, the dual node's type now shadows it, so a token that resolved
+    correctly before can resolve wrongly. Contrived, and not present in any
+    source we have measured, but it is the one case that turns right into
+    wrong rather than loud into silent.
+
+  The first two are covered by tests; the third is documented in
+  `docs/superpowers/specs/2026-08-23-hoist-dual-nodes-design.md` and is not.
+  This does not make native output compile-verified or validate DTCG
+  conformance on its own.
 - **`no-foreign-syntax` reconciled with the native output filter.** An
   unrescued `calc(...)`, `var(...)`, or `color-mix(...)` variant was
   previously dropped from native output by `sd-native.mjs`'s filter before
