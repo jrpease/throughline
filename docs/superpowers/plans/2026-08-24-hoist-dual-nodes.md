@@ -238,10 +238,20 @@ Expected: PASS. The pre-existing hoist tests and "does not mutate its input" mus
 Run: `node --test`
 Expected: 318 pass, 0 fail (312 + 6 new).
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 7: Regenerate the reference doc**
+
+`references/native-adapter-config.md` is generated from `sd-native.mjs` and a test asserts it is fresh, so it goes stale the moment the module changes. Regenerate at the end of **every** task that touches the module, not once at the end — a suite with a known-failing test is one a real regression can hide behind.
 
 ```bash
-git add scripts/lib/sd-native.mjs scripts/lib/sd-native.test.mjs
+node scripts/build-native-adapter-config.mjs
+node --test
+```
+Expected: 318 pass, **0 fail**.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add scripts/lib/sd-native.mjs scripts/lib/sd-native.test.mjs references/native-adapter-config.md
 git commit -m "fix: throw when a hoisted dual-node name collides instead of discarding a token (#55)"
 ```
 
@@ -393,10 +403,18 @@ Expected: PASS.
 Run: `node --test`
 Expected: 325 pass, 0 fail (318 + 7 new).
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 7: Regenerate the reference doc**
 
 ```bash
-git add scripts/lib/sd-native.mjs scripts/lib/sd-native.test.mjs
+node scripts/build-native-adapter-config.mjs
+node --test
+```
+Expected: 325 pass, **0 fail**.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add scripts/lib/sd-native.mjs scripts/lib/sd-native.test.mjs references/native-adapter-config.md
 git commit -m "fix: carry \$type onto a hoisted dual-node child, except reference-valued ones (#55)"
 ```
 
