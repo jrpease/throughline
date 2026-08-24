@@ -291,10 +291,17 @@ that ordering. zygarden's dual-node children all carry their own `$type`, so
 the §7.1 prediction is unaffected. This is the same class of limit as §3.2's naming
 caveat: narrow, real, and documented rather than papered over.
 
-**The override is trusted but guarded.** Requirement 1 applies to
+**The override is trusted, and only partly guarded.** Requirement 1 applies to
 *classification* only. A source that sets `nativeUnit` itself is making a
-deliberate declaration and is not required to be `dimension`-typed —
-`hasMagnitude` is what keeps that safe.
+deliberate declaration and is not required to be `dimension`-typed.
+`hasMagnitude` stops the crash — a value with no build-time magnitude is
+skipped rather than reaching `.toFixed(2)` on null — but it does **not** stop a
+bad unit: an override on `{ $type: "number", $value: "1.5" }` passes
+`hasMagnitude` and emits `1.50.sp`, the exact silent render §6.3's
+absolute-unit gate exists to prevent. That is accepted: the override is an
+explicit declaration by the source, and a tool that second-guesses an explicit
+declaration has no override at all. Stated here so the guard is not read as
+broader than it is.
 
 `ios-swift` is unchanged. `size/unit-aware/swift` filters `dimension ||
 fontSize` and emits `CGFloat` for both; iOS handles Dynamic Type at the use
