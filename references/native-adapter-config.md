@@ -254,8 +254,14 @@ function hoistDualNodes(node, collisions, prefix = []) {
 //
 // The role therefore comes from the one place a DTCG source states it: the
 // member names the Format Module's 30 July 2026 draft, §9.8, fixes at MUST
-// level for the typography composite. Three of the five are dimension-valued,
-// and Compose's TextStyle takes TextUnit for all three with no Dp overload.
+// level for the typography composite. Two of the five are dimension-valued:
+// fontSize and letterSpacing. §9.8 types lineHeight as a NUMBER multiplier, so
+// a source following the spec exactly emits no dimension-typed lineHeight and
+// this rule never fires on one. Figma-derived sources — what this module
+// targets — emit px line heights typed dimension, and those are the majority of
+// the tokens the rule fixes on a real source. lineHeight is named here anyway
+// because Compose's TextStyle takes TextUnit for all three, with no Dp
+// overload, so a px line height must reach the sp branch to be usable at all.
 //
 // The limit, stated rather than hidden: §9.8 puts those names inside a
 // composite token's $value object, while Figma-derived sources put them as
@@ -347,24 +353,34 @@ Build the transform list from Style Dictionary's **stock group**, replacing only
 the rem-assuming size transforms. A hand-picked list silently drops whatever it
 forgets — three real defects arose exactly that way.
 
-**Two Android-only unit limitations remain, and are not fixed here.** Style
-Dictionary's Compose transforms select on `$type`, and DTCG's type set does not
-line up with what they expect:
+**The `dp`/`sp` split is fixed here; three narrower Android-only limits remain.**
+Style Dictionary's Compose transforms select on `$type`, and DTCG's type set
+does not line up with what they expect — there is no `fontSize` type, because
+DTCG types font sizes as `dimension`. So the role is taken instead from the
+member names DTCG §9.8 fixes for the typography composite, stamped onto
+`$extensions` during preprocessing, and the two Compose transforms partition on
+that stamp. Measured against a real source: 39 declarations that emitted `dp`
+now emit `sp`, with the Swift output byte-identical.
 
-- **Font sizes emit as `dp`, not `sp`.** DTCG has no `fontSize` type — it types
-  font sizes as `dimension` — while `size/unit-aware/compose-sp` filters on
-  `$type === "fontSize"`. On spec-compliant input it never fires and every font
-  size falls through to `dp`, which does not respect the user's font-scale
-  accessibility setting. Measured on a real 322-token source: zero `.sp` in the
-  Kotlin output.
+What remains:
+
+- **A bare scale primitive emits as `dp`.** `text.base: "16px"` is a font size
+  only to a human — no nominal or structural signal marks it — so it is not
+  stamped. The semantic tokens that reference it are, and those are what a
+  consumer should reach for.
+- **An `em`-valued `letterSpacing` is dropped from native output entirely**
+  rather than emitted as Compose's `.em` TextUnit. A filter gap, not a
+  `dp`/`sp` gap.
 - **A unitless ratio emits as `dp`.** `leading.normal: "1.5"`, typed
   `dimension`, emits `1.50.dp`. The magnitude is faithful; the unit is
-  semantically wrong.
+  semantically wrong. It is deliberately not stamped — `1.50.sp` would compile
+  and render 1.5sp text, turning a loud failure into a silent one.
 
-Both are Android-only. `size/unit-aware/swift` filters `dimension || fontSize`,
-so iOS handles dimension-typed font sizes correctly, and `CGFloat(1.50)` carries
-no unit to be wrong about. `tokens:validate-output` passes in both cases: it
-checks magnitude, not unit.
+All three are Android-only. `size/unit-aware/swift` filters
+`dimension || fontSize` and emits `CGFloat`, which carries no unit to be wrong
+about; iOS handles Dynamic Type at the use site via `UIFontMetrics`.
+`tokens:validate-output` passes in all three cases: it checks magnitude, not
+unit.
 
 ```js
 // Build each platform's transform list from Style Dictionary's STOCK group,
@@ -641,9 +657,12 @@ export function registerNativeTransforms(StyleDictionary) {
     transform: (token) => `CGFloat(${authored(token).toFixed(2)})`,
   });
 
-  // Compose distinguishes dp from sp by $type, and sp is what respects the
-  // user's font-scale accessibility setting. One .dp transform for both would
-  // silently defeat that.
+  // sp is what respects the user's font-scale accessibility setting, and
+  // Compose's TextStyle takes TextUnit — not Dp — for fontSize, lineHeight and
+  // letterSpacing, so a Dp there does not even compile at the use site. One .dp
+  // transform for both would silently defeat the first and loudly break the
+  // second. The split is driven by the role classifyTextUnits stamped, plus
+  // Style Dictionary's own $type: fontSize convention for sources that use it.
   StyleDictionary.registerTransform({
     name: 'size/unit-aware/compose-dp',
     type: 'value',

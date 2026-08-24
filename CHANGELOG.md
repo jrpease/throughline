@@ -13,14 +13,18 @@ to [Semantic Versioning](https://semver.org).
   spec-compliant source the branch never fired and every dimension emitted as
   `dp`. Measured on a real 322-token source: zero `.sp` in the Kotlin output.
   The role now comes from the member names DTCG §9.8 fixes for the typography
-  composite: a `dimension` token named `fontSize`, `letterSpacing` or
-  `lineHeight` whose resolved value carries a `px` or `rem` unit is stamped
+  composite: a token whose own `$type` is `dimension`, named `fontSize`,
+  `letterSpacing` or `lineHeight`, and whose resolved value carries a `px` or
+  `rem` unit, is stamped
   `$extensions["com.radicool.throughline"].nativeUnit = "text"` during
   preprocessing, and the Compose transforms partition on that stamp. Style
   Dictionary's own `$type: "fontSize"` convention still works, so the change
   is additive. A source can set the extension itself to override the rule, or
-  set it to `"device"` to opt a token out. Three limits remain and are
-  documented: a bare scale primitive (`text.base`) carries no role and stays
+  set it to `"device"` to opt a token out. The `$type` check reads the token's
+  own key, so a dual-node child that carries no `$type` of its own — and would
+  inherit `dimension` from its parent during hoisting — is not stamped and
+  still emits `dp`. Three limits remain and are documented: a bare scale
+  primitive (`text.base`) carries no role and stays
   `dp`, an `em` letterSpacing is still filtered out of native output, and a
   unitless ratio still emits as `dp` — deliberately, since `1.50.sp` would
   compile and render 1.5sp text.

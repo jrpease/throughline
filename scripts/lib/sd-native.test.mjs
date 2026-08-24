@@ -927,8 +927,9 @@ test('the compose transforms split sp from dp by the text-unit stamp', () => {
   assert.equal(dp.transform(device), '16.00.dp');
 });
 
-// The partition must be disjoint: no token may be transformed by both, and
-// none may fall through neither.
+// The partition must be disjoint AND total: exactly one of the two filters
+// matches. Asserting `dp && sp === false` alone would pass against an
+// implementation where both always return false, so assert the exclusive-or.
 test('no dimension token matches both compose transforms', () => {
   const t = collectTransforms();
   const dp = t.get('size/unit-aware/compose-dp');
@@ -938,7 +939,7 @@ test('no dimension token matches both compose transforms', () => {
     { $type: 'dimension', $value: '16px', original: { $value: '16px' } },
     { $type: 'fontSize', $value: '14px', original: { $value: '14px' } },
   ]) {
-    assert.equal(dp.filter(token) && sp.filter(token), false);
+    assert.equal(dp.filter(token) !== sp.filter(token), true, `${JSON.stringify(token)} must match exactly one transform`);
   }
 });
 
