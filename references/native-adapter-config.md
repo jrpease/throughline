@@ -180,6 +180,11 @@ function resolveInPlace(node, flat, prefix = []) {
 // corrupted — the enclosing loop's Object.entries snapshot still holds the
 // detached node, and its own children then hoist out of a subtree no longer
 // reachable.
+//
+// hoisted in node walks the prototype chain, so a camel-joined name matching
+// an inherited Object.prototype member (toString, valueOf, ...) reported a
+// collision against a sibling that does not exist. Object.hasOwn checks the
+// tree's own keys only.
 function hoistDualNodes(node, collisions, prefix = []) {
   for (const [key, val] of Object.entries(node)) {
     if (key.startsWith('$') || !val || typeof val !== 'object') continue;
@@ -188,11 +193,18 @@ function hoistDualNodes(node, collisions, prefix = []) {
       for (const [childKey, childVal] of Object.entries(val)) {
         if (childKey.startsWith('$') || !childVal || typeof childVal !== 'object') continue;
         const hoisted = key + childKey[0].toUpperCase() + childKey.slice(1);
-        if (hoisted in node) {
+        if (Object.hasOwn(node, hoisted)) {
+          const existingNode = node[hoisted];
+          const isGroup = existingNode !== null && typeof existingNode === 'object' && !('$value' in existingNode);
           collisions.push({
             from: [...prefix, key, childKey].join('.'),
             onto: [...prefix, hoisted].join('.'),
-            existing: node[hoisted].$value,
+            isGroup,
+            existing: isGroup
+              ? undefined
+              : existingNode && typeof existingNode === 'object'
+                ? existingNode.$value
+                : existingNode,
           });
           continue;
         }
@@ -213,7 +225,7 @@ export function preprocess(dict) {
   if (collisions.length) {
     const shown = collisions
       .slice(0, 5)
-      .map((c) => `  ${c.from} -> ${c.onto}` + (c.existing === undefined ? ' (a group)' : ` (would overwrite ${JSON.stringify(c.existing)})`))
+      .map((c) => `  ${c.from} -> ${c.onto}` + (c.isGroup ? ' (a group)' : ` (would overwrite ${JSON.stringify(c.existing)})`))
       .join('\n');
     const more = collisions.length > 5 ? `\n  ...and ${collisions.length - 5} more` : '';
     throw new Error(

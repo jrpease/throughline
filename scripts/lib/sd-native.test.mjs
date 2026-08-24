@@ -495,6 +495,7 @@ test('preprocess throws when a hoisted name collides with an authored token', ()
       assert.match(err.message, /collide/i);
       assert.match(err.message, /text\.sm\.lineHeight/);
       assert.match(err.message, /text\.smLineHeight/);
+      assert.match(err.message, /28px/);
       return true;
     },
   );
@@ -510,7 +511,11 @@ test('preprocess throws when a hoisted name collides with an authored group', ()
           smLineHeight: { bold: { $value: '28px' } },
         },
       }),
-    /collide/i,
+    (err) => {
+      assert.match(err.message, /collide/i);
+      assert.match(err.message, /\(a group\)/);
+      return true;
+    },
   );
 });
 
@@ -567,6 +572,37 @@ test('preprocess reports every collision, across depths, in one error', () => {
       return true;
     },
   );
+});
+
+// The message truncates the shown list at 5 and tails with a count of the
+// rest. Seven collisions is the smallest case that exercises the tail.
+test('preprocess truncates a long collision list and reports the remainder', () => {
+  const dict = {};
+  for (let i = 0; i < 7; i++) {
+    const letter = String.fromCharCode(97 + i);
+    dict[`g${i}`] = { $value: '1px', [letter]: { $value: '2px' } };
+    dict[`g${i}${letter.toUpperCase()}`] = { $value: '3px' };
+  }
+  assert.throws(
+    () => preprocess(dict),
+    (err) => {
+      assert.match(err.message, /^7 hoisted token name/m);
+      assert.match(err.message, /\.\.\.and 2 more/);
+      return true;
+    },
+  );
+});
+
+// Regression: hoisted in node walked the prototype chain, so a camel-joined
+// name matching an inherited Object.prototype member (toString, valueOf, ...)
+// reported a collision against a sibling that does not exist.
+test('a hoisted name matching an inherited Object.prototype member does not collide', () => {
+  const out = preprocess({
+    g: { to: { $value: '1px', string: { $value: '2px' } } },
+  });
+  assert.deepEqual(out, {
+    g: { to: { $value: '1px' }, toString: { $value: '2px' } },
+  });
 });
 
 // sd-native.mjs states in prose that preprocess is idempotent, and real builds
