@@ -204,6 +204,21 @@ test('unitless-dimension does not double-fire on a typed alias — only the refe
   assert.equal(r.advisories[0].token, 'spacing.space4');
 });
 
+// §6.2: flattenDtcgTypes reads the RAW source, where hoistDualNodes' $type
+// carry has not run yet. A unitless, untyped child of a dimension-typed dual
+// node with no enclosing group $type is flipped from N.dp to bare by the
+// size transforms (§5), but flattenDtcgTypes returns undefined for it here,
+// so DIMENSIONAL.has(undefined) is false and the advisory does not fire.
+// Recorded as a documented limit (spec §6.2), not desired behaviour — a
+// future fix should flip this test rather than go unnoticed.
+test('unitless-dimension misses the hoist carry — documented §6.2 limit', () => {
+  const sources = [{ file: 't.json', dtcg: {
+    leading: { base: { $value: '16px', $type: 'dimension', normal: { $value: '1.5' } } },
+  } }];
+  const r = validate({ sources, output: 'static let leadingBaseNormal = 1.5', platform: 'ios-swift' });
+  assert.deepEqual(r.advisories, []);
+});
+
 test('formatReport renders the advisory and names the fix', () => {
   const r = validate({ sources: SRC, output: 'static let leadingTight = 1.1', platform: 'ios-swift' });
   const text = formatReport(r).join('\n');
