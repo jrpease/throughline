@@ -385,7 +385,7 @@ Build the transform list from Style Dictionary's **stock group**, replacing only
 the rem-assuming size transforms. A hand-picked list silently drops whatever it
 forgets — three real defects arose exactly that way.
 
-**The `dp`/`sp` split is fixed here; three narrower Android-only limits remain.**
+**The `dp`/`sp` split is fixed here; two narrower Android-only limits remain.**
 Style Dictionary's Compose transforms select on `$type`, and DTCG's type set
 does not line up with what they expect — there is no `fontSize` type, because
 DTCG types font sizes as `dimension`. So the role is taken instead from the
@@ -403,16 +403,21 @@ What remains:
 - **An `em`-valued `letterSpacing` is dropped from native output entirely**
   rather than emitted as Compose's `.em` TextUnit. A filter gap, not a
   `dp`/`sp` gap.
-- **A unitless ratio emits as `dp`.** `leading.normal: "1.5"`, typed
-  `dimension`, emits `1.50.dp`. The magnitude is faithful; the unit is
-  semantically wrong. It is deliberately not stamped — `1.50.sp` would compile
-  and render 1.5sp text, turning a loud failure into a silent one.
 
-All three are Android-only. `size/unit-aware/swift` filters
+Both are Android-only. `size/unit-aware/swift` filters
 `dimension || fontSize` and emits `CGFloat`, which carries no unit to be wrong
 about; iOS handles Dynamic Type at the use site via `UIFontMetrics`.
-`tokens:validate-output` passes in all three cases: it checks magnitude, not
-unit.
+`tokens:validate-output` passes in both cases: it checks magnitude, not unit.
+
+**A unitless value is no longer one of them.** DTCG §8.2.1 requires a dimension
+to carry a unit, §8.7's `number` is the type for a ratio, and §9.8 types
+`lineHeight` as one — so `leading.normal: "1.5"` typed `dimension` is malformed
+input. No size transform claims it: it emits bare on both platforms, which is
+byte-for-byte what a correctly typed `number` already produced, so correcting
+the source's `$type` changes no output. `tokens:validate-output` reports it as
+a `unitless-dimension` advisory, which does not gate — the emitted value is
+right under the ratio reading, and only the author can say whether a ratio is
+what was meant.
 
 ```js
 // Build each platform's transform list from Style Dictionary's STOCK group,

@@ -90,6 +90,31 @@ to [Semantic Versioning](https://semver.org).
   `var(` (e.g. `"width: calc(100% - 2rem)"`) — a value the grammar accepts as
   a literal is not foreign syntax, whatever text it contains, and this
   previously false-failed a build that compiles.
+- **A unitless value no longer emits with an invented unit.** `leading.normal:
+  "1.5"` typed `dimension` emitted `1.50.dp` on Compose and `CGFloat(1.50)` on
+  Swift — the magnitude faithful, the unit meaningless. DTCG §8.2.1 requires a
+  dimension to carry a unit and §8.7's `number` is the type for a ratio, so this
+  is malformed input rather than a shape to interpret. No size transform now
+  claims a unitless value; it emits bare, which is byte-for-byte what a
+  correctly typed `number` already produced on both platforms, so correcting a
+  source's `$type` changes no output. `tokens:validate-output` reports it as a
+  `unitless-dimension` advisory, which does not gate.
+
+### Changed
+- **A dimension whose unit was omitted by mistake now fails loudly instead of
+  working by accident.** `spacing.gutter: "16"` meant as `16px` previously
+  emitted `16.00.dp`, correct only because px and dp map 1:1 by convention. It
+  now emits bare `16`, which does not compile at a Compose `Dp` use site and
+  infers `Int` in Swift, where it will not convert at a `CGFloat` use site. A
+  unitless `0` is affected identically — DTCG §8.2.1 requires the unit "even if
+  `$value.value` is `0`". Add the unit, or type the token `number` if it really
+  is a ratio.
+- **The `nativeUnit` override no longer applies to a unitless value.** It
+  chooses between `dp` and `sp` for a value that has a unit; it does not
+  manufacture one. A source that stamped `nativeUnit: "text"` onto a unitless
+  token previously got `1.50.sp` — which compiles and renders 1.5sp text — and
+  now gets the bare value. This narrows the "a source that states the role
+  itself wins" contract introduced in 0.15.0.
 
 ## [0.15.0] — 2026-08-12
 
