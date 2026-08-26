@@ -492,8 +492,12 @@ test('valid native output produces no invalid-literal failure', () => {
   assert.equal(r.ok, true);
 });
 
-// #52 is open and must stay reachable: this change must not mask it.
-test('a unitless ratio emitted as .dp still passes — #52 is not masked', () => {
+// #52 is now closed — the pipeline itself no longer emits `.dp` for a
+// unitless dimension — but the validator's magnitude checks are unit-agnostic
+// and never depended on that shape: they check magnitude and literal
+// validity against whatever the OUTPUT actually is, not what the current
+// pipeline would produce. Pins that tolerance.
+test('a unitless ratio manually emitted as .dp still passes — the validator only checks magnitude', () => {
   const r = validate({
     sources: srcOf({ leading: { normal: { $value: '1.5', $type: 'dimension' } } }),
     output: 'val leadingNormal = 1.50.dp',

@@ -708,13 +708,19 @@ test('an enclosing group $type is not shadowed by the dual node $type', () => {
 // badly. b inherits color before the hoist — a is a token, so g is b's closest
 // group either way — and carrying dimension here would be the hoist inventing a
 // better answer than the source states.
-// The variant with teeth, and the reason this is worth fixing rather than
-// documenting. Measured end-to-end through Style Dictionary against the real
-// Compose config: with the carry, this emits `val textSmLineHeight = 1.5` — a
-// Double where a Dp belongs, which compiles and passes tokens:validate-output
-// clean, because no-bare-units fires only on a unit-suffixed literal. Without
-// it, 1.50.dp. The issue's own 20px example is the LOUD one: it emits a bare
-// `20px` the gate catches under no-bare-units and unverifiable-dimension.
+// The variant with teeth when this was written, and the reason it was worth
+// fixing rather than documenting. Measured end-to-end through Style
+// Dictionary against the real Compose config: with the carry (the bug),
+// $type stays 'number' and this emits `val textSmLineHeight = 1.5` — a
+// Double where a Dp belongs, which compiled and passed
+// tokens:validate-output clean, because no-bare-units fires only on a
+// unit-suffixed literal. Without it, $type resolves to 'dimension' via the
+// enclosing group — which, since #52, ALSO emits bare `1.5`: a unitless
+// dimension now declines every size transform, so this shape no longer has
+// output-level teeth and the assertion below (no `$type` stamped) is what
+// still pins it. The issue's own 20px example is the LOUD one: it emits a
+// bare `20px` the gate catches under no-bare-units and
+// unverifiable-dimension.
 test('an enclosing group is not shadowed where the shadowed output would compile', () => {
   const out = preprocess({
     text: {
@@ -817,10 +823,12 @@ test('the reference tag does not leak into output', () => {
   assert.equal(JSON.stringify(out).includes('was-reference'), false);
 });
 
-// #55's fix widens #52 rather than masking it: an untyped unitless literal child
-// under a dimension-typed dual node now becomes dimension, which is exactly
-// #52's shape. Asserted so the widening is recorded, not discovered later.
-test('the $type rule widens #52 — recorded, not masked', () => {
+// The carry widens the shape #52 fixes, rather than masking it: an untyped
+// unitless literal child under a dimension-typed dual node becomes dimension
+// too — and since #52, a unitless dimension declines every size transform
+// and emits bare, so the widened shape gets #52's fix rather than #52's old
+// defect. Asserted so the widening is recorded, not discovered later.
+test('the $type rule widens the #52 shape — recorded, not masked', () => {
   const out = preprocess({
     leading: { base: { $value: '16px', $type: 'dimension', normal: { $value: '1.5' } } },
   });
