@@ -234,24 +234,40 @@ contract:
   unitless token.** See below.
 
 **The explicit override on a unitless token: `!isRatio` goes on `compose-sp`
-too, and this is a behaviour change.**
+too — but not for the reason an earlier draft of this section gave.**
 
-`isTextUnit` reads the stamp, not `$type`, so a manually stamped token reaches
-`compose-sp` whatever its `$type` is. That makes this the case that decides the
-invariant, and the two placements are not symmetric:
+An earlier draft claimed `compose-sp`'s `!isRatio` was what held the invariant,
+and that omitting it broke Swift. **That was wrong, and it was wrong in the way
+this project keeps rediscovering: it was reasoned, not executed.** Built in
+isolation across three filter variants, the actual behaviour is:
 
-| | `compose-sp` keeps `!isRatio` | `compose-sp` omits it |
-|---|---|---|
-| `$type: dimension`, stamped, `"1.5"` | bare / bare | `1.50.sp` / `CGFloat(1.50)` |
-| `$type: number`, stamped, `"1.5"` | bare / bare | `1.50.sp` / **`1.5`** |
+| variant | stamped `dimension` `"1.5"` | stamped `number` `"1.5"` | invariant |
+|---|---|---|---|
+| all three carry `!isRatio` | bare / bare | bare / bare | **holds** |
+| `compose-sp` omits it | `1.50.sp` / bare | `1.50.sp` / bare | **holds** |
+| `swift` omits it | — / `CGFloat(1.50)` | — / bare | **breaks** |
 
-Omitting it **breaks the invariant on Swift**, because `size/unit-aware/swift`
-filters on `isDimension || isFontSize` and never consults the stamp — so the
-`number` form falls through to bare while the `dimension` form wraps. Keeping it
-holds the invariant on both platforms.
+So the invariant is carried by **`size/unit-aware/swift`**, whose filter is
+`isDimension || isFontSize` and therefore *is* sensitive to `$type`.
+`compose-sp` filters on `isTextUnit || isFontSize`, and `isTextUnit` reads the
+stamp rather than `$type` — so a stamped token behaves identically under both
+`$type`s whatever `compose-sp` does. It cannot break the invariant, and it
+cannot save it.
 
-Keeping it also costs something real, and #51 must be answered rather than
-quietly overridden. #51 §7 accepted that "a tool that second-guesses an explicit
+**`!isRatio` still belongs on `compose-sp`, on the merits rather than on the
+invariant.** Without it, a stamped unitless token emits `1.50.sp` — 1.5
+scale-pixels of text. That is precisely the output #51 gated `ABSOLUTE_UNIT` to
+prevent, described there as "a loud failure traded for a silent one, which is
+precisely the failure class this module exists to prevent." An explicit stamp
+should not be able to produce it either.
+
+The consequence for §7 matters: **an invariant test cannot catch a missing
+`!isRatio` on `compose-sp`**, because the invariant holds without it. That
+placement needs its own direct behavioural assertion — a stamped unitless token
+emits bare — and §7 specifies both.
+
+Narrowing the override costs something real, and #51 must be answered rather
+than quietly overridden. #51 §7 accepted that "a tool that second-guesses an explicit
 declaration has no override at all," and `classifyTextUnits`' own comment says
 "A source that states the role itself wins" (`sd-native.mjs:267-270`). Under
 this change that sentence stops being true for unitless values.
@@ -457,12 +473,16 @@ review.
 - `lib/sd-native.test.mjs` — **the output-neutrality invariant of §5.2**, as an
   executed assertion: the same value authored as `$type: dimension` and as
   `$type: number` emits identical output on both platforms.
-- `lib/sd-native.test.mjs` — **the invariant again, with an explicit
-  `nativeUnit: "text"` stamp on both forms.** This is the case that decides
-  where `!isRatio` goes, and the plain invariant test above passes even if
-  `compose-sp` omits it. Without this case the suite would not catch the one
-  filter placement that breaks the design. It doubles as the pin on the narrowed
-  override contract, which no test currently holds.
+- `lib/sd-native.test.mjs` — **a direct assertion that a stamped unitless token
+  emits bare**, i.e. that `compose-sp` declines it. This is *not* an invariant
+  test, and the distinction is the point: §5.2 measured that the invariant holds
+  whether or not `compose-sp` carries `!isRatio`, so an invariant test cannot
+  catch that placement. Only a behavioural assertion can. It doubles as the pin
+  on the narrowed override contract, which no test currently holds.
+- `lib/sd-native.test.mjs` — **the invariant test must exercise the Swift
+  filter**, since §5.2 measured that as the one that actually carries it. A test
+  that only compares Compose output would pass against the variant that breaks
+  the design.
 - `lib/sd-native.test.mjs` — **the unitless-zero regression of §5.4**, asserted
   explicitly, so the cost is recorded in a test and cannot later be reverted as
   though it were a bug.
