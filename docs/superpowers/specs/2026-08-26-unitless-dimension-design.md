@@ -54,6 +54,13 @@ Android-only ... `CGFloat`, which carries no unit to be wrong about" — so it i
 the issue text, not the codebase, that overstates. Swift is nonetheless changed
 here, for a different reason: §5.2.
 
+**That framing has a shelf life, and §5.5 is where it expires.** "No unit to be
+wrong about" holds only while the `CGFloat` wrapper is present. Once it is
+removed the constant carries a Swift *type* instead of a unit, and an `Int`
+mismatch at a `CGFloat` use site is a real failure. This is therefore the first
+item in the family whose behaviour change is **not** Android-only, and §5.5
+states the regression for both platforms rather than inheriting §4's framing.
+
 **2.2 It is not the silent half of the family.** The #60 handoff's open question
 assumed #60 established this as the silent case, which argued it up the ranking.
 Measured, that is wrong. `1.50.dp` is a `Dp`, and Compose's `TextStyle` takes
@@ -132,6 +139,28 @@ contradict #51's own reasoning and re-open the problem #63 exists to track.
 is why the answer is not a cleverer classifier. §5 picks the reading the spec
 mandates; §6 tells the author what was assumed so they can correct it.
 
+### 4.1 Rejected: a `preprocess` throw
+
+Since §3 places this input in the same category as the dual node in #55, and
+#55 answers its unrepairable case with a throw naming both paths, the throw
+option needs an explicit rejection rather than an allusion.
+
+**Rejected, on one measured difference.** #55's throw fires on **zero**
+zygarden tokens — the collision it detects is not authored anywhere in the real
+source, so the throw is a guard against a shape that does not occur. This throw
+would fire on **five, immediately**, breaking the flagship Figma-derived source
+on first run, and Figma emits no DTCG `number` tokens at all (§10), so every
+source reaching this pipeline carries the shape.
+
+The second difference is what is at stake. #55's collision **silently discards a
+token** — a build that appears to succeed has lost data, and stopping is the
+only way to surface it. Here nothing is lost: output is produced for every
+token, with one reading of an ambiguous type. A fatal error for a token that
+emits correctly under the mandated reading is disproportionate to the harm.
+
+The throw remains the right answer for the case where output cannot be produced
+at all. That is not this case.
+
 ## 5. The transform change
 
 ### 5.1 Placement: the transform filters, not `magnitude()`
@@ -190,7 +219,9 @@ Taking the advice becomes a no-op. This is the load-bearing claim of the design,
 so §7 makes it a test rather than a sentence.
 
 Cases hunted for a counterexample, per the #60 lesson that the tidiest sentence
-in a spec is the one most worth executing — all four hold:
+in a spec is the one most worth executing — all five hold, but the fifth holds
+only because of a deliberate choice, and that choice changes a documented
+contract:
 
 - a numeric (non-string) `$value`: `magnitude()` stringifies, so it is caught.
 - `$type: fontSize` with a unitless value: excluded from `compose-sp` and
@@ -199,6 +230,51 @@ in a spec is the one most worth executing — all four hold:
   it is unstamped under either `$type`.
 - `$type: number` reaching a size transform at all: it cannot —
   `isDimension`/`isFontSize` both false.
+- **a source that sets `$extensions[EXT_NS].nativeUnit = "text"` itself on a
+  unitless token.** See below.
+
+**The explicit override on a unitless token: `!isRatio` goes on `compose-sp`
+too, and this is a behaviour change.**
+
+`isTextUnit` reads the stamp, not `$type`, so a manually stamped token reaches
+`compose-sp` whatever its `$type` is. That makes this the case that decides the
+invariant, and the two placements are not symmetric:
+
+| | `compose-sp` keeps `!isRatio` | `compose-sp` omits it |
+|---|---|---|
+| `$type: dimension`, stamped, `"1.5"` | bare / bare | `1.50.sp` / `CGFloat(1.50)` |
+| `$type: number`, stamped, `"1.5"` | bare / bare | `1.50.sp` / **`1.5`** |
+
+Omitting it **breaks the invariant on Swift**, because `size/unit-aware/swift`
+filters on `isDimension || isFontSize` and never consults the stamp — so the
+`number` form falls through to bare while the `dimension` form wraps. Keeping it
+holds the invariant on both platforms.
+
+Keeping it also costs something real, and #51 must be answered rather than
+quietly overridden. #51 §7 accepted that "a tool that second-guesses an explicit
+declaration has no override at all," and `classifyTextUnits`' own comment says
+"A source that states the role itself wins" (`sd-native.mjs:267-270`). Under
+this change that sentence stops being true for unitless values.
+
+**It is still the right call, and the reason completes #51's argument rather
+than reversing it.** #51 gated the *automatic* stamp on `ABSOLUTE_UNIT`
+precisely because `1.50.sp` compiles and renders 1.5sp text — "a loud failure
+traded for a silent one, which is precisely the failure class this module exists
+to prevent." That reasoning is about the *value*, not about who did the
+stamping: 1.5 scale-pixels of text is nonsense no matter who declared it. #51
+simply did not extend the gate to the manual stamp.
+
+So the override's scope is narrowed, and stated explicitly:
+
+> The `nativeUnit` override chooses between `dp` and `sp` for a value that
+> **has** a unit. It does not manufacture one. On a unitless value it is
+> declined, because there is no magnitude for `sp` to scale.
+
+This is an unrecorded behaviour change today; §7 gives it a test, §9 lists the
+comment that must be corrected, and the changelog carries it. **No existing test
+pins the old behaviour** — `sd-native.test.mjs:1035` covers only the
+no-magnitude stamp — so nothing forces an implementer to confront this unless
+the spec says so.
 
 ### 5.3 `ABSOLUTE_UNIT` is unchanged, and this resolves a tension #51 carried
 
@@ -220,8 +296,9 @@ bare `0`. zygarden has none, but other sources will.
 DTCG anticipated exactly this — §8.2.1's "still required even if
 `$value.value` is `0`" exists for this case — so the input is invalid and §6
 flags it. In Compose it fails loudly: `Modifier.padding(0)` does not compile
-without `.dp`. It is a real behaviour change and §7 gives it a test and a
-changelog line.
+without `.dp`. On Swift it emits `0`, which infers `Int` and will not convert at
+a `CGFloat` use site — see §5.5. It is a real behaviour change on both platforms
+and §7 gives it a test and a changelog line.
 
 ### 5.5 The trade being made, named honestly
 
@@ -230,11 +307,18 @@ Today a *forgotten unit* — `spacing.gutter: "16"` meant as `16px` — emits
 convention. Under this change it emits bare `16`, which is wrong, and fails at
 any Compose `Dp` use site.
 
-So this trades accidental-correctness for loud-failure-plus-advice. That is the
-right trade — it is the module's stated thesis, #53 made the identical trade for
-invalid literals, and the correctness was luck rather than design — but it is a
-regression for anyone relying on it, and it is recorded as one rather than
-presented as a pure win.
+**This regression lands on Swift too, and §2.1 does not cover it.** "CGFloat
+carries no unit to be wrong about" is true only while the wrapper is there. Once
+`CGFloat(16.00)` becomes bare `16`, the constant infers **`Int`**, and Swift
+does not implicitly convert an `Int` constant at a `CGFloat` use site. So the
+forgotten-unit case is a real Swift-side regression, not an Android-only one —
+the first in this family that is not. The same applies to §5.4's zero.
+
+So this trades accidental-correctness for loud-failure-plus-advice, on both
+platforms. That is the right trade — it is the module's stated thesis, #53 made
+the identical trade for invalid literals, and the correctness was luck rather
+than design — but it is a regression for anyone relying on it, and it is
+recorded as one rather than presented as a pure win.
 
 ## 6. The gate rule
 
@@ -244,21 +328,30 @@ Fires when a source token's effective `$type` is `dimension` or `fontSize` and
 its resolved value is a bare number. Reports the token path, the emitted symbol,
 and the fix: *type it `number`, or add the unit you meant.*
 
-**Severity: advisory — reported, excluded from `ok`.** The principled line is
-that **the gate judges output, and this is a source problem.** Every existing
-fatal rule concerns output that will not compile (`invalid-literal`,
-`no-bare-units`, `no-foreign-syntax`) or that does not match its source
-magnitude (`unit-fidelity`, `unverifiable-dimension`). A unitless dimension
-under §5 emits output that compiles *and* matches its magnitude. Putting source
-hygiene in the fatal set changes the gate's contract.
+**Severity: advisory — reported, excluded from `ok`.**
 
-It would also relocate rather than avoid the cost that disqualified a
-preprocess throw: zygarden trips this on five tokens on day one, and a red gate
-is a red gate wherever it fires.
+An earlier draft rested this on a general principle — "the gate judges output,
+and this is a source problem." **That principle is false in this codebase and is
+withdrawn.** Mode collisions are fatal in `validate()` today
+(`validate-token-output.mjs:185`) and are purely a source-list problem, so the
+gate's actual contract already includes fatal source rules. The argument is the
+narrower one, which does not need the principle:
 
-Precedent exists in the same function: `unparsedLines` and `unemittedTokens` are
-both reported and both excluded from `ok` — zygarden shows 19 unemitted tokens
-today at exit 0.
+- **The output is correct.** Under §5 a unitless dimension emits the ratio
+  reading, which compiles and matches its magnitude. Failing a gate on output
+  that is right — under the reading the spec itself mandates — inverts what the
+  gate is for. Mode collisions are fatal because they mean output is *missing*
+  a whole mode; nothing is missing or wrong here.
+- **It relocates rather than avoids the cost that disqualifies a throw** (§4.1):
+  zygarden trips this on five tokens on day one, and a red gate is a red gate
+  wherever it fires.
+- **Precedent exists in the same function.** `unparsedLines` and
+  `unemittedTokens` are both reported and both excluded from `ok` — zygarden
+  shows 19 unemitted tokens today at exit 0.
+
+The claim is therefore about *this* source problem, not about source problems in
+general: it is diagnosable, it does not corrupt output, and its own fix is a
+one-line `$type` edit.
 
 ### 6.2 Where the type comes from
 
@@ -275,9 +368,36 @@ and returning `{ path: effectiveType }`:
 - otherwise the nearest ancestor **group**'s `$type`;
 - a `$value`-bearing node is **not** an inheritance source for its children.
 
-That third rule is the same one `hoistDualNodes` computes as `inherited`, and it
-must match, or two functions in this codebase disagree about the type of the
-same tree.
+That third rule is the same one `hoistDualNodes` computes as `inherited`
+(`sd-native.mjs:139`), and it must match, or two functions in this codebase
+disagree about the type of the same tree.
+
+**But matching `inherited` is not matching the pipeline, and the spec must not
+claim otherwise.** `hoistDualNodes` types a child by *two* mechanisms. The
+second is the **carry** (`sd-native.mjs:189-196`): where no group supplies a
+type, the dual node's own `$type` is stamped onto an untyped hoisted child.
+`flattenDtcgTypes` reads the **raw source**, where the hoist has not run, so it
+cannot see the carry.
+
+The consequence, stated as a limit:
+
+> A unitless child with no own `$type`, under a `dimension`-typed dual node with
+> no enclosing group type, is a `dimension` to the pipeline via the carry — so
+> §5 flips it from `N.dp` to bare — but `flattenDtcgTypes` returns `undefined`
+> for it and the advisory does **not** fire.
+
+This is the worst-placed limit in the design, and it is recorded rather than
+buried: that shape is exactly #60's "genuinely silent" case, the one this rule
+most wants to catch. It is not reachable in zygarden — every dual-node child
+there carries its own `$type` — so it is a stated limit here and a filed
+follow-up (§10) rather than scope absorbed into this item.
+
+Resolving it properly means running the advisory against the **preprocessed**
+tree rather than the raw source, which is a larger change to how
+`validate-token-output.mjs` reads its input: the gate deliberately validates
+emitted output against the *authored* source, and pointing it at a preprocessed
+tree would mean it no longer checks what the author wrote. That trade is not
+this item's to make.
 
 ### 6.3 Deliberately not implemented
 
@@ -312,11 +432,20 @@ at HEAD against zygarden's real source:**
 | Changed lines, Kotlin | — | **5** (`leading*`, `N.dp` -> bare) |
 | Changed lines, Swift | — | **5** (`CGFloat(N)` -> bare) |
 | Every other line, both files | — | **byte-identical** |
-| `tokens:validate-output` exit | 0 | 0, with 5 advisories |
+| `tokens:validate-output` exit | 0 | 0, with 5 advisories **per platform run** |
 
 If `.dp` does not land on exactly 45, something moved that should not have, and
 the diff says what. Counting declarations alone would miss compensating changes;
 the byte-level diff is the assertion.
+
+**One shift inside the ramp the §1 table does not show.** `leading.loose: "2"`
+emits bare `2`, which infers `Int` in both languages, while its four siblings
+emit `Double`. Today all five are `2.00.dp` / `CGFloat(2.00)` and uniformly
+floating-point. This is consistent with the design rather than an exception — a
+`number`-typed `2` emits `2` today, so the §5.2 invariant holds — but it means
+the five emitted constants are no longer of one type, which a consumer iterating
+the ramp would notice before we did. Recorded here rather than discovered in
+review.
 
 **Tests.**
 
@@ -328,6 +457,12 @@ the byte-level diff is the assertion.
 - `lib/sd-native.test.mjs` — **the output-neutrality invariant of §5.2**, as an
   executed assertion: the same value authored as `$type: dimension` and as
   `$type: number` emits identical output on both platforms.
+- `lib/sd-native.test.mjs` — **the invariant again, with an explicit
+  `nativeUnit: "text"` stamp on both forms.** This is the case that decides
+  where `!isRatio` goes, and the plain invariant test above passes even if
+  `compose-sp` omits it. Without this case the suite would not catch the one
+  filter placement that breaks the design. It doubles as the pin on the narrowed
+  override contract, which no test currently holds.
 - `lib/sd-native.test.mjs` — **the unitless-zero regression of §5.4**, asserted
   explicitly, so the cost is recorded in a test and cannot later be reverted as
   though it were a bug.
@@ -372,13 +507,23 @@ freshness in CI:
 2. `scripts/lib/sd-native.mjs` — the same list in the `platform` doc-section's
    comment, plus the `ABSOLUTE_UNIT` comment at ~line 235, whose reasoning
    about the unitless case is superseded by §5.3.
-3. `references/native-adapter-config.md` — regenerated.
+3. **`scripts/lib/sd-native.mjs:267-270`** — `classifyTextUnits`' comment "A
+   source that states the role itself wins. This is the override, and it costs
+   no configuration parameter: declining to overwrite IS the feature." That
+   sentence becomes false for unitless values under §5.2 and must be narrowed to
+   match the stated scope: the override chooses between `dp` and `sp` for a
+   value that has a unit; it does not manufacture one. This comment feeds the
+   generated doc, so leaving it would ship a documented contract the code no
+   longer honours.
+4. `references/native-adapter-config.md` — regenerated.
 
 Three remaining limits become two: the bare scale primitive (#63) and the
 `em`-valued `letterSpacing` (#64).
 
-**Changelog.** The `Unreleased` section gets the §5.5 trade stated as a
-regression, not only as a fix.
+**Changelog.** The `Unreleased` section gets **two** entries, not one: the §5.5
+trade stated as a regression rather than only as a fix, and the §5.2 narrowing
+of the `nativeUnit` override, which is a behaviour change to a contract #51
+documented.
 
 ## 10. Follow-ups to file
 
@@ -387,5 +532,12 @@ regression, not only as a fix.
   this pipeline will meet the §6 advisory. Whether throughline's Figma
   extraction should type ratios as `number` at the source is a separate item,
   and the one that would actually close this class.
+- **The advisory cannot see the hoist's `$type` carry** (§6.2). A unitless,
+  untyped child of a `dimension`-typed dual node with no enclosing group type is
+  flipped to bare by §5 and not flagged by §6 — and that shape is #60's
+  genuinely-silent case, so it is the token the rule most wants. Fixing it means
+  deciding whether `validate-token-output.mjs` may read a preprocessed tree,
+  which trades away its property of checking emitted output against what the
+  author actually wrote. A real decision, and not this item's.
 - Anything the implementation turns up that is out of scope here — filed rather
   than absorbed, per #60 and #67.
