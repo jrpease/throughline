@@ -149,6 +149,53 @@ test('unit-fidelity never scales a unitless ratio', () => {
   assert.equal(bad.failures[0].rule, 'unit-fidelity');
 });
 
+// #52. A unitless dimension is invalid DTCG (8.2.1). The emitted output is
+// correct under the ratio reading, so this is reported and does NOT gate.
+test('unitless-dimension is reported as an advisory', () => {
+  const r = validate({ sources: SRC, output: 'static let leadingTight = 1.1', platform: 'ios-swift' });
+  assert.equal(r.advisories.length, 1);
+  assert.equal(r.advisories[0].rule, 'unitless-dimension');
+  assert.equal(r.advisories[0].token, 'leading.tight');
+});
+
+test('unitless-dimension does not fail the gate', () => {
+  const r = validate({ sources: SRC, output: 'static let leadingTight = 1.1', platform: 'ios-swift' });
+  assert.deepEqual(r.failures, []);
+  assert.equal(r.ok, true);
+});
+
+test('unitless-dimension ignores a unitless non-dimension', () => {
+  const sources = [{ file: 't.json', dtcg: {
+    w: { bold: { $value: '700', $type: 'fontWeight' } },
+    ratio: { golden: { $value: '1.618', $type: 'number' } },
+  } }];
+  const r = validate({ sources, output: 'static let wBold = 700\nstatic let ratioGolden = 1.618', platform: 'ios-swift' });
+  assert.deepEqual(r.advisories, []);
+  assert.equal(r.ok, true);
+});
+
+test('unitless-dimension ignores a dimension that carries a unit', () => {
+  const r = validate({ sources: SRC, output: 'static let textSm = CGFloat(14.00)', platform: 'ios-swift' });
+  assert.deepEqual(r.advisories, []);
+});
+
+test('unitless-dimension fires on a type inherited from a group', () => {
+  const sources = [{ file: 't.json', dtcg: {
+    leading: { $type: 'dimension', normal: { $value: '1.5' } },
+  } }];
+  const r = validate({ sources, output: 'static let leadingNormal = 1.5', platform: 'ios-swift' });
+  assert.equal(r.advisories.length, 1);
+  assert.equal(r.advisories[0].token, 'leading.normal');
+});
+
+test('formatReport renders the advisory and names the fix', () => {
+  const r = validate({ sources: SRC, output: 'static let leadingTight = 1.1', platform: 'ios-swift' });
+  const text = formatReport(r).join('\n');
+  assert.match(text, /unitless-dimension/);
+  assert.match(text, /leadingTight/);
+  assert.match(text, /"number"/);
+});
+
 test('no-foreign-syntax catches leaked color-mix', () => {
   const out = 'static let textSm = color-mix(in srgb, UIColor(red: 1, green: 1, blue: 1, alpha: 1) 4%, transparent)';
   const r = validate({ sources: SRC, output: out, platform: 'ios-swift' });
