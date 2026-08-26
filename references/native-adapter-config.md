@@ -303,10 +303,12 @@ export const EXT_NS = 'com.radicool.throughline';
 
 // px and rem only. magnitude() reads a bare number as an unscaled ratio, so a
 // lineHeight authored "1.5" would otherwise be stamped and emit 1.50.sp —
-// which compiles and renders 1.5sp text. That trades a loud failure (a Dp
-// where a TextUnit is required) for a silent one, which is the failure class
-// this module exists to prevent. A ratio keeps today's behaviour and stays the
-// separate defect it already is.
+// which compiles and renders 1.5sp text, trading a loud failure for a silent
+// one. Since #52 a unitless value is declined by every size transform and
+// emits bare, which is what DTCG 8.7 and 9.8 say a ratio is, so this gate is
+// no longer the only thing standing between a ratio and 1.50.sp. It stays
+// because the stamp is also the override's carrier, and stamping a ratio as
+// text would still be a claim the source never made.
 const ABSOLUTE_UNIT = /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem)$/;
 
 // Runs AFTER resolveInPlace and BEFORE hoistDualNodes. Both halves matter.
@@ -333,9 +335,12 @@ function classifyTextUnits(node) {
       val.$extensions ??= {};
       val.$extensions[EXT_NS] ??= {};
       const ns = val.$extensions[EXT_NS];
-      // A source that states the role itself wins. This is the override, and
-      // it costs no configuration parameter: declining to overwrite IS the
-      // feature. It is also what makes the pass idempotent.
+      // A source that states the role itself wins — for a value that HAS a
+      // unit. The override chooses between dp and sp; it does not manufacture
+      // one, so a unitless value is declined by every size transform regardless
+      // of what is stamped here (see isRatio, #52). Declining to overwrite IS
+      // the feature: it costs no configuration parameter, and it is what makes
+      // the pass idempotent.
       if (!('nativeUnit' in ns)) ns.nativeUnit = 'text';
     }
     classifyTextUnits(val);
@@ -419,7 +424,7 @@ unit.
 // That last one is fixed for tokens whose role a DTCG source actually states:
 // classifyTextUnits stamps fontSize, letterSpacing and lineHeight members, and
 // the sp transform gates on the stamp rather than on a $type DTCG never emits.
-// Three limits remain, all Android-only and all measured rather than
+// Two limits remain, both Android-only and both measured rather than
 // theoretical — see docs/superpowers/notes/2026-08-21-native-config-e2e-results.md:
 //
 //   - A scale primitive carries no role. text.base: "16px" is a font size only
@@ -427,12 +432,10 @@ unit.
 //     correct, and those are what a consumer should reach for.
 //   - An em-valued letterSpacing is filtered out of native output entirely,
 //     rather than emitted as Compose's .em TextUnit.
-//   - A unitless ratio emits as dp. leading.normal: "1.5" gives 1.50.dp, but
-//     that token is excluded twice over — its key is not a typography member
-//     AND its value has no absolute unit. The gate that carries the weight is
-//     the second one: a lineHeight-keyed "1.5" is deliberately NOT stamped,
-//     because 1.50.sp would compile and render 1.5sp text, turning a loud
-//     failure into a silent one.
+//
+// The third — a unitless ratio emitting as dp — is fixed by #52: no size
+// transform claims a unitless value, so it emits bare on both platforms, and
+// tokens:validate-output reports it as a unitless-dimension advisory.
 //
 // Stock, from SD 4.4.0:
 //   ios-swift: attribute/cti name/camel color/UIColorSwift
@@ -625,6 +628,18 @@ const authored = (token) => magnitude(token.original?.$value ?? token.$value);
 const isDimension = (token) => token.$type === 'dimension';
 const isFontSize = (token) => token.$type === 'fontSize';
 const hasMagnitude = (token) => authored(token) !== null;
+// A unitless value is a ratio, not a measurement. DTCG 8.2.1 requires a
+// dimension to carry a unit ("still required even if $value.value is 0"), 8.7's
+// `number` is the type for a multiplier, and 9.8 types lineHeight as one — so a
+// unitless dimension is malformed input, and appending dp/sp/CGFloat to it
+// invents a unit the source never stated. Declining it emits the raw value,
+// which is exactly what a correctly typed `number` already produces.
+//
+// Reads the ORIGINAL authored value, like authored(), and must: preprocess has
+// already resolved references by transform time, and a value transform earlier
+// in the chain may have rewritten $value.
+const RATIO = /^-?(?:\d+(?:\.\d+)?|\.\d+)$/;
+const isRatio = (token) => RATIO.test(String(token.original?.$value ?? token.$value).trim());
 // The role preprocess stamped. $type cannot carry it — see classifyTextUnits.
 const isTextUnit = (token) => token.$extensions?.[EXT_NS]?.nativeUnit === 'text';
 
@@ -680,7 +695,7 @@ export function registerNativeTransforms(StyleDictionary) {
     name: 'size/unit-aware/swift',
     type: 'value',
     transitive: true,
-    filter: (token) => (isDimension(token) || isFontSize(token)) && hasMagnitude(token),
+    filter: (token) => (isDimension(token) || isFontSize(token)) && hasMagnitude(token) && !isRatio(token),
     transform: (token) => `CGFloat(${authored(token).toFixed(2)})`,
   });
 
@@ -694,7 +709,7 @@ export function registerNativeTransforms(StyleDictionary) {
     name: 'size/unit-aware/compose-dp',
     type: 'value',
     transitive: true,
-    filter: (token) => isDimension(token) && !isTextUnit(token) && hasMagnitude(token),
+    filter: (token) => isDimension(token) && !isTextUnit(token) && hasMagnitude(token) && !isRatio(token),
     transform: (token) => `${authored(token).toFixed(2)}.dp`,
   });
 
@@ -702,7 +717,7 @@ export function registerNativeTransforms(StyleDictionary) {
     name: 'size/unit-aware/compose-sp',
     type: 'value',
     transitive: true,
-    filter: (token) => (isTextUnit(token) || isFontSize(token)) && hasMagnitude(token),
+    filter: (token) => (isTextUnit(token) || isFontSize(token)) && hasMagnitude(token) && !isRatio(token),
     transform: (token) => `${authored(token).toFixed(2)}.sp`,
   });
 
