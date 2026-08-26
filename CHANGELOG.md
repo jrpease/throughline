@@ -23,11 +23,9 @@ to [Semantic Versioning](https://semver.org).
   set it to `"device"` to opt a token out. The `$type` check reads the token's
   own key, so a dual-node child that carries no `$type` of its own — and would
   inherit `dimension` from its parent during hoisting — is not stamped and
-  still emits `dp`. Three limits remain and are documented: a bare scale
+  still emits `dp`. Two limits remain and are documented: a bare scale
   primitive (`text.base`) carries no role and stays
-  `dp`, an `em` letterSpacing is still filtered out of native output, and a
-  unitless ratio still emits as `dp` — deliberately, since `1.50.sp` would
-  compile and render 1.5sp text.
+  `dp`, and an `em` letterSpacing is still filtered out of native output.
 - **`preprocess` throws on a dual-node hoist collision instead of silently
   discarding a token.** `hoistDualNodes` renames a dual node's child to a
   camel-joined sibling (`text.sm.lineHeight` becomes `text.smLineHeight`).
