@@ -188,6 +188,22 @@ test('unitless-dimension fires on a type inherited from a group', () => {
   assert.equal(r.advisories[0].token, 'leading.normal');
 });
 
+// A typed alias restates $type on the reference node itself (zygarden authors
+// every alias this way). `source` is the RESOLVED referent value; flagging on
+// that alone would advise both the alias and its referent for the same
+// problem. Only the referent — the token the author would actually edit —
+// should be flagged.
+test('unitless-dimension does not double-fire on a typed alias — only the referent is named', () => {
+  const sources = [{ file: 't.json', dtcg: {
+    spacing: { space4: { $value: '1.5', $type: 'dimension' } },
+    alias: { spacing4: { $value: '{spacing.space4}', $type: 'dimension' } },
+  } }];
+  const out = 'static let spacingSpace4 = 1.5\nstatic let aliasSpacing4 = 1.5';
+  const r = validate({ sources, output: out, platform: 'ios-swift' });
+  assert.equal(r.advisories.length, 1);
+  assert.equal(r.advisories[0].token, 'spacing.space4');
+});
+
 test('formatReport renders the advisory and names the fix', () => {
   const r = validate({ sources: SRC, output: 'static let leadingTight = 1.1', platform: 'ios-swift' });
   const text = formatReport(r).join('\n');

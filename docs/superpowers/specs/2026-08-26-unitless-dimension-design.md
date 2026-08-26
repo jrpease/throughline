@@ -420,8 +420,10 @@ this item's to make.
 **DTCG §5.2.2 rule 1** — a reference-valued token takes its referent's type — is
 not resolved here. An alias to a unitless dimension is not flagged; its
 *referent* is, and the referent is the token the author edits. Flagging both
-would be noise. Stated as a limit, in the manner of #63 and #64, rather than
-hidden.
+would be noise, so a token whose RAW authored `$value` is a whole-value
+reference (`^\{...\}$`) is excluded from the check even when it restates
+`$type: dimension` itself — which zygarden's aliases do universally. Stated as
+a limit, in the manner of #63 and #64, rather than hidden.
 
 **#36's blind spot is inherited, not worsened.** The rule maps symbol to source
 through the same `byKey` map, so a `normalizeKey` collision affects it exactly

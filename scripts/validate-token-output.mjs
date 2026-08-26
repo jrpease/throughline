@@ -103,6 +103,12 @@ const BARE_UNIT = /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em|%)$/;
 const UNITLESS = /^-?(?:\d+(?:\.\d+)?|\.\d+)$/;
 const DIMENSIONAL = new Set(['dimension', 'fontSize']);
 
+// A token whose RAW authored $value is itself a whole-value reference is not
+// flagged: its referent is (per DTCG 5.2.2, an alias takes the referent's
+// type), and `source` above is already the RESOLVED value, so testing it
+// alone would flag both the alias and its referent for the same problem.
+const WHOLE_REF = /^\{[^}]+\}$/;
+
 // Lines that are obviously not a would-be token declaration: braces-only,
 // comments, imports/package/annotations, or the container declarations
 // (enum/object/class) themselves. Anything else that DECL failed to match is
@@ -183,7 +189,11 @@ export function validate({ sources, output, platform, minMatch = 0.5 }) {
     // Advisory, not a failure: the emitted value is correct under the ratio
     // reading this build applies, so it compiles and its magnitude matches.
     // What is wrong is the SOURCE's $type, which only the author can settle.
-    if (UNITLESS.test(String(source).trim()) && DIMENSIONAL.has(types[path])) {
+    if (
+      UNITLESS.test(String(source).trim()) &&
+      DIMENSIONAL.has(types[path]) &&
+      !WHOLE_REF.test(String(flat[path]).trim())
+    ) {
       advisories.push({ rule: 'unitless-dimension', symbol, token: path, source, emitted: value });
     }
 
