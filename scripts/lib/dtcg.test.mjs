@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { flattenDtcg, resolveValue, findModeCollisions } from './dtcg.mjs';
+import { flattenDtcg, flattenDtcgTypes, resolveValue, findModeCollisions } from './dtcg.mjs';
 
 // text.sm is a DUAL-NODE token: it carries its own $value AND a child.
 const dtcg = {
@@ -92,4 +92,46 @@ test('findModeCollisions sees dual-node children', () => {
   ]);
   assert.equal(collisions.length, 1);
   assert.equal(collisions[0].path, 'text.sm.lineHeight');
+});
+
+test('flattenDtcgTypes reports a token own $type', () => {
+  const types = flattenDtcgTypes(dtcg);
+  assert.equal(types['text.sm'], 'dimension');
+  assert.equal(types['color.gray.900'], 'color');
+});
+
+test('flattenDtcgTypes inherits from the nearest ancestor group', () => {
+  const types = flattenDtcgTypes({
+    leading: { $type: 'dimension', normal: { $value: '1.5' } },
+  });
+  assert.equal(types['leading.normal'], 'dimension');
+});
+
+// DTCG 6.1: a node carrying a $value is a token, not a group, so it is not an
+// inheritance source. The same rule hoistDualNodes computes as `inherited`.
+test('flattenDtcgTypes does not inherit from a $value-bearing node', () => {
+  const types = flattenDtcgTypes({
+    text: { sm: { $value: '14px', $type: 'dimension', lineHeight: { $value: '20px' } } },
+  });
+  assert.equal(types['text.sm'], 'dimension');
+  assert.equal(types['text.sm.lineHeight'], undefined);
+});
+
+test('flattenDtcgTypes keeps an enclosing group type across a dual node', () => {
+  const types = flattenDtcgTypes({
+    text: { $type: 'dimension', sm: { $value: '14px', lineHeight: { $value: '20px' } } },
+  });
+  assert.equal(types['text.sm.lineHeight'], 'dimension');
+});
+
+test('flattenDtcgTypes lets an own $type beat an inherited one', () => {
+  const types = flattenDtcgTypes({
+    g: { $type: 'dimension', a: { $value: '400', $type: 'fontWeight' } },
+  });
+  assert.equal(types['g.a'], 'fontWeight');
+});
+
+test('flattenDtcgTypes returns undefined where nothing supplies a type', () => {
+  const types = flattenDtcgTypes({ g: { a: { $value: '1.5' } } });
+  assert.equal(types['g.a'], undefined);
 });

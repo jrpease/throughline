@@ -23,6 +23,34 @@ export function flattenDtcg(obj, prefix = [], out = {}) {
   return out;
 }
 
+// Flatten nested DTCG groups into { "dot.path": effectiveType }, applying the
+// $type resolution of DTCG 5.2.2: a token's own $type wins, otherwise the
+// nearest ancestor GROUP's. A node carrying a $value is a token, not a group
+// (DTCG 6.1), so it is not an inheritance source for its children — the same
+// rule hoistDualNodes computes as `inherited`, and the two must agree or two
+// functions in this codebase disagree about the type of the same tree.
+//
+// Separate from flattenDtcg rather than folded into it: that function has four
+// consumers and both validators re-export it, so its return shape is fixed.
+//
+// LIMIT, stated rather than hidden: this reads the RAW source, so it cannot see
+// the $type carry hoistDualNodes applies during preprocessing. An untyped child
+// of a dimension-typed dual node with no enclosing group type is a dimension to
+// the pipeline and undefined here. Reference-derived typing (5.2.2 rule 1) is
+// likewise not resolved — an alias is undefined, but its referent is typed, and
+// the referent is the token an author edits.
+export function flattenDtcgTypes(obj, prefix = [], out = {}, groupType = undefined) {
+  const inherited = '$value' in obj ? groupType : (obj.$type ?? groupType);
+  for (const [key, val] of Object.entries(obj)) {
+    if (key.startsWith('$')) continue;
+    if (!val || typeof val !== 'object') continue;
+    const path = [...prefix, key];
+    if ('$value' in val) out[path.join('.')] = val.$type ?? inherited;
+    flattenDtcgTypes(val, path, out, inherited);
+  }
+  return out;
+}
+
 // Follow {alias} chains to a leaf literal. Throws on missing or circular refs.
 export function resolveValue(name, flat, seen = new Set()) {
   if (!(name in flat)) throw new Error(`token "${name}" not found in DTCG source`);
