@@ -50,8 +50,9 @@ to [Semantic Versioning](https://semver.org).
     which **defeats the user's font-scale accessibility setting**. It
     previously emitted a bare literal that `tokens:validate-output` caught
     loudly; that gate no longer fires on it.
-  - An untyped unitless child now emits as a `dimension` — a ratio rendered in
-    density-independent pixels. Also previously caught loudly.
+  - An untyped unitless child now emits as a `dimension` — a ratio. It emitted
+    in density-independent pixels until the unitless-dimension fix below made
+    it emit bare instead. Also previously caught loudly.
   - Where an enclosing *group* carries a `$type` that correctly describes the
     child, the dual node's type shadowed it, so a token that resolved
     correctly before resolved wrongly. **Fixed below**; it is listed here
@@ -72,9 +73,11 @@ to [Semantic Versioning](https://semver.org).
   `val textSmLineHeight = 20px` (does not compile, and
   `tokens:validate-output` caught it) for a `px` child, and
   `val textSmLineHeight = 1.5` — a `Double` where a `Dp` belongs, compiling
-  and passing the gate clean — for a unitless one. Both now emit `.dp`. Output
-  against a real 322-token source is byte-identical: the shape requires a dual
-  node typed differently from both its enclosing group and its own child.
+  and passing the gate clean — for a unitless one. The `px` child now emits
+  `.dp`; the unitless one now emits bare instead, per the unitless-dimension
+  fix below. Output against a real 322-token source is byte-identical: the
+  shape requires a dual node typed differently from both its enclosing group
+  and its own child.
 - **`no-foreign-syntax` reconciled with the native output filter.** An
   unrescued `calc(...)`, `var(...)`, or `color-mix(...)` variant was
   previously dropped from native output by `sd-native.mjs`'s filter before
