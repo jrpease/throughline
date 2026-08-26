@@ -116,6 +116,13 @@ to [Semantic Versioning](https://semver.org).
   token previously got `1.50.sp` — which compiles and renders 1.5sp text — and
   now gets the bare value. This narrows the "a source that states the role
   itself wins" contract introduced in 0.15.0.
+- **A unitless dimension authored in leading-dot form (`".5"`) now emits a
+  bare `.5`, which does not compile on either platform** — it is not a valid
+  float literal in Kotlin or Swift. Previously it emitted `0.50.dp` and
+  compiled. `tokens:validate-output` does not catch it: the shared native
+  literal grammar's `NUMBER` already accepts a leading dot, a pre-existing gap
+  that a unitless `$type: number` value hit before this change and that
+  `invalid-literal` has never closed. Known gap, not fixed here.
 
 ## [0.15.0] — 2026-08-12
 
