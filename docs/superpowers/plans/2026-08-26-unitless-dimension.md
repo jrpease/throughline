@@ -660,7 +660,7 @@ byte-for-byte what a correctly typed \`number\` already produced, so correcting
 the source's \`$type\` changes no output. \`tokens:validate-output\` reports it as
 a \`unitless-dimension\` advisory, which does not gate — the emitted value is
 right under the ratio reading, and only the author can say whether a ratio is
-what was meant.\`],
+what was meant.`],
 ```
 
 - [ ] **Step 2: Regenerate and verify**
