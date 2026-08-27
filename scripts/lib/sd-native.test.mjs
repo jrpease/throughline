@@ -254,10 +254,12 @@ test('nativeSources names the file when its JSON does not parse', () => {
 test('registerNativeTransforms registers the preprocessor and six transforms', () => {
   const preprocessors = [];
   const transforms = [];
-  registerNativeTransforms({
-    registerPreprocessor: (p) => preprocessors.push(p),
-    registerTransform: (t) => transforms.push(t),
-  });
+  registerNativeTransforms(
+    fakeStyleDictionary({
+      onPreprocessor: (p) => preprocessors.push(p),
+      onTransform: (t) => transforms.push(t),
+    }),
+  );
 
   assert.deepEqual(preprocessors.map((p) => p.name), ['dtcg/resolve-dual-node']);
   assert.deepEqual(transforms.map((t) => t.name).sort(), [
@@ -272,19 +274,16 @@ test('registerNativeTransforms registers the preprocessor and six transforms', (
 });
 
 test('the registered swift transform converts a px dimension 1:1', () => {
-  const transforms = [];
-  registerNativeTransforms({ registerPreprocessor: () => {}, registerTransform: (t) => transforms.push(t) });
-  const swift = transforms.find((t) => t.name === 'size/unit-aware/swift');
+  const swift = collectTransforms().get('size/unit-aware/swift');
   const token = { $type: 'dimension', $value: '14px', original: { $value: '14px' } };
   assert.equal(swift.filter(token), true);
   assert.equal(swift.transform(token), 'CGFloat(14.00)');
 });
 
 test('the registered compose transforms still split sp from dp by the legacy $type gate', () => {
-  const transforms = [];
-  registerNativeTransforms({ registerPreprocessor: () => {}, registerTransform: (t) => transforms.push(t) });
-  const dp = transforms.find((t) => t.name === 'size/unit-aware/compose-dp');
-  const sp = transforms.find((t) => t.name === 'size/unit-aware/compose-sp');
+  const registered = collectTransforms();
+  const dp = registered.get('size/unit-aware/compose-dp');
+  const sp = registered.get('size/unit-aware/compose-sp');
 
   const dimension = { $type: 'dimension', $value: '16px', original: { $value: '16px' } };
   const fontSize = { $type: 'fontSize', $value: '14px', original: { $value: '14px' } };
@@ -299,29 +298,32 @@ test('the registered compose transforms still split sp from dp by the legacy $ty
 });
 
 test('the registered swift transform also handles fontSize, matching stock', () => {
-  const transforms = [];
-  registerNativeTransforms({ registerPreprocessor: () => {}, registerTransform: (t) => transforms.push(t) });
-  const swift = transforms.find((t) => t.name === 'size/unit-aware/swift');
+  const swift = collectTransforms().get('size/unit-aware/swift');
   assert.equal(swift.filter({ $type: 'fontSize', $value: '14px', original: { $value: '14px' } }), true);
 });
 
 test('the registered size transforms skip a value with no native magnitude', () => {
-  const transforms = [];
-  registerNativeTransforms({ registerPreprocessor: () => {}, registerTransform: (t) => transforms.push(t) });
-  const swift = transforms.find((t) => t.name === 'size/unit-aware/swift');
+  const swift = collectTransforms().get('size/unit-aware/swift');
   assert.equal(swift.filter({ $type: 'dimension', $value: '100%', original: { $value: '100%' } }), false);
 });
 
-// Collect the transforms registerNativeTransforms registers, without needing
-// a real Style Dictionary. Mirrors the fake used elsewhere in this file.
+// One fake Style Dictionary for every registerNativeTransforms call in this
+// file. It carries hooks.transformGroups because registration now audits them,
+// and a fake without hooks warns by design.
+function fakeStyleDictionary({ onPreprocessor = () => {}, onTransform = () => {} } = {}) {
+  return {
+    hooks: { transformGroups: REAL_STOCK },
+    registerPreprocessor: onPreprocessor,
+    registerTransform: onTransform,
+  };
+}
+
+// Collect the transforms registerNativeTransforms registers, keyed by name.
 function collectTransforms() {
   const registered = new Map();
-  registerNativeTransforms({
-    registerPreprocessor() {},
-    registerTransform(t) {
-      registered.set(t.name, t);
-    },
-  });
+  registerNativeTransforms(
+    fakeStyleDictionary({ onTransform: (t) => registered.set(t.name, t) }),
+  );
   return registered;
 }
 
@@ -1274,4 +1276,30 @@ test('auditStockGroups reports unreadable transformGroups', () => {
 
 test('auditStockGroups treats an array as a readable object with no groups', () => {
   assert.deepEqual(auditStockGroups([]), [NO_IOS_GROUP, NO_COMPOSE_GROUP]);
+});
+
+// Swap console.warn for the duration of fn and return everything it emitted.
+// Restored in a finally so a throwing fn cannot leak the stub into later tests.
+function captureWarnings(fn) {
+  const original = console.warn;
+  const seen = [];
+  console.warn = (...args) => seen.push(args.join(' '));
+  try {
+    fn();
+  } finally {
+    console.warn = original;
+  }
+  return seen;
+}
+
+test('registerNativeTransforms is silent when the stock groups are accounted for', () => {
+  const seen = captureWarnings(() => registerNativeTransforms(fakeStyleDictionary()));
+  assert.deepEqual(seen, []);
+});
+
+test('registerNativeTransforms warns when it cannot read the stock transform groups', () => {
+  const seen = captureWarnings(() =>
+    registerNativeTransforms({ registerPreprocessor() {}, registerTransform() {} }),
+  );
+  assert.deepEqual(seen, [UNREADABLE]);
 });

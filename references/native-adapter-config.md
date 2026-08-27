@@ -826,6 +826,17 @@ export function registerNativeTransforms(StyleDictionary) {
     filter: isQuotable,
     transform: (token) => `"${escapeCommon(stringValue(token)).replace(/\$/g, '\\$')}"`,
   });
+
+  // Last, so every registration side effect has completed before anything is
+  // printed. Fires once per REGISTRATION — typically once per process, not once
+  // per build: the documented usage registers once and then constructs one
+  // StyleDictionary per mode, and the stock groups cannot change between modes.
+  //
+  // The ?. chain is what turns a caller with no hooks into undefined, which
+  // auditStockGroups reports as unreadable rather than silently skipping.
+  for (const warning of auditStockGroups(StyleDictionary?.hooks?.transformGroups)) {
+    console.warn(warning);
+  }
 }
 ```
 
