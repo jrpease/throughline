@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.16.0] — 2026-08-27
+
 ### Breaking
 
 Regenerated token files change shape in ways that can stop a consumer build.
