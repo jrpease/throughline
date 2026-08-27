@@ -121,6 +121,37 @@ export function parseLiteral(value, grammar = {}) {
     if (i >= s.length) return false;
     if (s[i] === '"') return string();
 
+    // A parenthesised NUMBER, optionally with a unit. Compose letter spacing
+    // needs `(-0.03).em`, because `-0.03.em` parses as `-(0.03.em)` and
+    // kotlinc rejects it with "unresolved reference 'unaryMinus'" unless
+    // TextUnit defines that operator. The parenthesised form compiles either
+    // way, so it is what the transform emits.
+    //
+    // Deliberately not expression support: only a single number may sit inside
+    // the parens. Accepting `(1 + 2)` would make this gate vouch for
+    // arithmetic it cannot evaluate, which is the failure class the module
+    // exists to prevent.
+    if (s[i] === '(') {
+      const save = i;
+      i += 1;
+      ws();
+      const inner = s.slice(i).match(numberRe);
+      if (!inner) {
+        i = save;
+        return false;
+      }
+      i += inner[0].length;
+      ws();
+      if (s[i] !== ')') {
+        i = save;
+        return false;
+      }
+      i += 1;
+      if (take(units.map((u) => `.${u}`))) return true;
+      take(suffixes);
+      return true;
+    }
+
     const rest = s.slice(i);
     const bool = rest.match(/^(?:true|false)(?![A-Za-z0-9_])/);
     if (bool) {
