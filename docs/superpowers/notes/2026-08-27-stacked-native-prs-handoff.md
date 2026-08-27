@@ -84,10 +84,15 @@ on 2026-08-26.
   native tail — #62, #63, #64, #67, #70, #71, #72 — is individually small, and
   #71/#72 are the same underlying gap in the advisory's type resolution and
   should be done as one item.
-- **#54's own recorded limits** are in the spec's §12 rather than solved: a
-  transform that is both run *and* declined is invisible; `REAL_STOCK` in the
-  test file is a version-stamped literal needing re-blessing when a stock group
-  next changes; the incomplete-preset message ships unasserted.
+- **#54's own recorded limits** are in the spec's §12 rather than solved. One
+  is now tracked as [#75](https://github.com/jrpease/throughline/issues/75) —
+  a transform that is both run *and* declined is invisible, and because the
+  decline reasons ship in `references/native-adapter-config.md`, a contradiction
+  there is published documentation disagreeing with what runs. Two were left
+  untracked by choice: `REAL_STOCK` in the test file is a version-stamped
+  literal that will need re-blessing when a stock group next changes, and the
+  incomplete-preset message ships unasserted (deliberately — reaching it would
+  need a test-only injection parameter).
 
 ## Working note
 
