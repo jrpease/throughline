@@ -106,19 +106,37 @@ Answering it needs no snapshot. For each platform, take its stock group from the
 live `transformGroups` and report every name that is **neither** in that
 platform's own `transforms` array **nor** a declared exclusion.
 
-This requires making the exclusions explicit. Today they are an *absence* from
-the `PLATFORMS` arrays, which is indistinguishable from an oversight — issue
-item 4. They become data:
+This requires two things to become data.
+
+**The stock group each platform mirrors** moves *into* `PLATFORMS`, not into a
+parallel constant beside it:
 
 ```js
-// Which Style Dictionary stock transform group each platform is built from.
-// Held as data so auditStockGroups() can find it; nativePlatform() still emits
-// an explicit transform list and never a transformGroup key.
-const STOCK_GROUP = {
-  'ios-swift': 'ios-swift',
-  'android-kotlin': 'compose',
+const PLATFORMS = {
+  'ios-swift': {
+    stockGroup: 'ios-swift',
+    transforms: [ /* unchanged */ ],
+    destination: 'Tokens.swift',
+    format: 'ios-swift/enum.swift',
+  },
+  'android-kotlin': {
+    stockGroup: 'compose',
+    transforms: [ /* unchanged */ ],
+    destination: 'Tokens.kt',
+    format: 'compose/object',
+  },
 };
+```
 
+`nativePlatform()` builds its return value field by field
+(`sd-native.mjs:435-453`) rather than spreading the preset, so `stockGroup` is
+never emitted into the Style Dictionary platform config. Nothing about the
+produced config changes.
+
+**The exclusions** become a declared list. Today they are an *absence* from the
+`PLATFORMS` arrays, which is indistinguishable from an oversight — issue item 4:
+
+```js
 // Stock transforms this config deliberately does NOT run. The reason is the
 // point: an entry here is a decision on the record, where an absence from
 // PLATFORMS is indistinguishable from an oversight.
@@ -130,7 +148,23 @@ const DECLINED_STOCK_TRANSFORMS = {
 };
 ```
 
-### 3.1 Why this beats the snapshot approach
+### 3.1 The declined list is flat across platforms, deliberately
+
+`DECLINED_STOCK_TRANSFORMS` is keyed by transform name alone, with no platform
+qualifier. A name declined for Compose is therefore also declined if it ever
+appears in the `ios-swift` stock group.
+
+That is safe today **only because every name in it is platform-prefixed**
+(`size/swift/…`, `size/compose/…`), so no cross-platform collision is
+expressible. That safety is a property of Style Dictionary's current naming
+conventions, not of this design. A future decline of an unprefixed name — a
+hypothetical shared `size/px` — would widen silently across both platforms.
+
+The flat map is chosen because a per-platform map would be ceremony for a
+collision that cannot currently occur. The moment an unprefixed name is
+declined, it must become per-platform. Recorded in §12.
+
+### 3.2 Why this beats the snapshot approach
 
 - **Nothing to keep fresh.** No version-stamped constant, so no re-blessing
   ritual and no stale-vs-drifted ambiguity.
@@ -139,34 +173,55 @@ const DECLINED_STOCK_TRANSFORMS = {
   declined *in writing*.
 - **It discharges issue item 4** — the exclusions stop being implicit.
 - **It fits the module's existing principle.** From
-  `2026-08-21-native-adapter-config-module-design.md:95-109`: *"Pure functions are
-  the tested surface… testable without Style Dictionary present."* The check
+  `2026-08-21-native-adapter-config-module-design.md:95-109`: *"Pure functions
+  are the tested surface… testable without Style Dictionary present."* The check
   takes a plain object and tests against literals.
 - **It catches renames too.** A renamed stock transform arrives as an
   unaccounted name.
 
-### 3.2 What runs does not change
+### 3.3 What runs does not change
 
-`PLATFORMS` stays the deliberate, reviewable literal. `nativePlatform()` returns
-the same arrays it returns today. This is a diagnostic, not a behaviour change.
+`PLATFORMS` keeps the same deliberate, reviewable transform arrays.
+`nativePlatform()` returns exactly what it returns today. This is a diagnostic,
+not a behaviour change.
+
 Deriving the list at runtime instead — the issue's first option — was rejected:
 it trades a silent *omission* for a silent *inclusion*, and every native defect
 this project has found (#50's three, #51, #52) was a size/unit transform doing
 the wrong thing to a value. Auto-admitting an unknown transform into the
 pipeline is the more dangerous half of that trade.
 
-### 3.3 The mapping enforces itself
+### 3.4 A platform that declares no stock group
 
-`auditStockGroups` iterates `PLATFORMS`, not `STOCK_GROUP`. A third platform
-added without a stock-group mapping produces a lookup miss, which is reported as
-a **group missing** finding. Forgetting the mapping is therefore loud, not
-silent.
+An earlier draft of this spec kept the mapping in a separate `STOCK_GROUP`
+constant and claimed "the mapping enforces itself" because the audit iterates
+`PLATFORMS` rather than `STOCK_GROUP`. That claim was unpinnable: both constants
+had the same two keys, so an implementation looping over
+`Object.entries(STOCK_GROUP)` — the more natural way to write it, since it
+yields platform and group together — would satisfy every test and silently void
+the guarantee.
+
+Folding `stockGroup` into `PLATFORMS` **deletes the invariant instead of
+asserting it.** There is no second constant to fall out of sync with, and no
+wrong thing to iterate.
+
+What remains is a preset that omits `stockGroup`. `auditStockGroups` reports
+that as **its own finding kind with its own message** (§7) — never as a
+group-missing finding, whose diagnosis (*Style Dictionary drifted; report your
+version*) would be wrong for this cause and would tell a consumer to chase a
+defect that is ours.
+
+**The surface that catches it before shipping is our CI, not a consumer's
+console.** Test 1 (§9) runs the audit against the real stock arrays and asserts
+an empty result; a platform added without a `stockGroup` yields a finding and
+that test fails. The `console.warn` is the backstop for a build we never ran,
+not the primary guard.
 
 ---
 
 ## 4. Deliberate non-rules
 
-Three things the check must **not** report. Each is pinned by a test (§8) so a
+Three things the check must **not** report. Each is pinned by a test (§9) so a
 later change cannot quietly widen the rule.
 
 **4.1 Order is never compared.** Our transform lists are hand-ordered for our own
@@ -182,7 +237,7 @@ makes Style Dictionary throw on an unknown transform (§1.3), so we add nothing.
 **4.3 Ungrouped transforms are out of scope.** Style Dictionary registered 62
 transforms in 5.5.2; only six are in `compose`. A transform registered but placed
 in no stock group is invisible to this check — correctly, because this module
-mirrors *groups*, not the registry. Filed as a known limit (§11).
+mirrors *groups*, not the registry. Filed as a known limit (§12).
 
 ---
 
@@ -201,7 +256,13 @@ The check **warns and never throws, and never changes an exit code.**
   advisory and the doc lint are both non-gating by design.
 
 Delivery: `console.warn('throughline: …')`, matching the existing convention at
-`scripts/install.mjs:58`. It fires once per build, at registration.
+`scripts/install.mjs:58`.
+
+It fires once per **registration** — typically once per process — **not once per
+build.** Registration and builds are not one-to-one: the module's own documented
+usage (`build-native-adapter-config.mjs:190-199`) calls `registerNativeTransforms`
+once and then constructs one `StyleDictionary` per mode. Nothing re-checks per
+mode, and nothing needs to: the stock groups cannot change between modes.
 
 ---
 
@@ -273,6 +334,16 @@ throughline: could not read Style Dictionary's stock transform groups
 its transform lists are still complete.
 ```
 
+**No stock group declared** — a `PLATFORMS` preset missing `stockGroup`. This is
+our defect, not a drift signal, so it says so rather than sending the reader
+after their Style Dictionary version:
+
+```
+throughline: PLATFORMS['ios-tvos'] declares no stockGroup, so its transform list
+cannot be checked against Style Dictionary's stock groups. This is a throughline
+packaging defect — please report it.
+```
+
 The singular form of the unaccounted message reads `has 1 transform this
 adapter neither runs nor declined:` — no `transform(s)` anywhere.
 
@@ -292,18 +363,26 @@ export function auditStockGroups(transformGroups) // → string[]
 
 Contract:
 
-- `transformGroups` is not a non-null object → `[unreadable message]`, length 1.
+- `transformGroups` fails `typeof transformGroups === 'object' && transformGroups !== null`
+  → `[unreadable message]`, length 1, and nothing further is evaluated.
+  **An array passes this check** — it is a non-null object — and therefore flows
+  into the per-platform loop, where each platform yields a group-missing
+  finding. That is the chosen reading; a stricter plain-object test is
+  deliberately not used, because the only realistic non-object inputs are
+  `undefined` and `null`, and rejecting arrays would be a rule with no case.
 - Otherwise, for each entry of `PLATFORMS` in declaration order:
-  - `transformGroups[STOCK_GROUP[platform]]` is not an array → group-missing
+  - the preset has no `stockGroup` → the no-stock-group message for that
+    platform.
+  - `transformGroups[preset.stockGroup]` is not an array → the group-missing
     message for that platform.
-  - Otherwise collect every name in that array that is neither in the
+  - otherwise, collect every name in that array that is neither in the
     platform's `transforms` nor a key of `DECLINED_STOCK_TRANSFORMS`. If the
     collection is non-empty, emit **one** unaccounted message listing all of
     them, comma-separated, in stock order.
 - No findings → `[]`.
 
-Each platform is evaluated independently: a finding for `compose` must not
-suppress evaluation of `ios-swift`.
+Each platform is evaluated independently: a finding for one must never suppress
+evaluation of the other.
 
 Call site, inside `registerNativeTransforms`:
 
@@ -329,36 +408,60 @@ case is cheap and needs no Style Dictionary installed.
    byte-identical in 4.4.0 and 5.5.2 — asserting the same array twice would be
    duplication, not coverage.
 
+   This test carries two loads beyond the obvious one. It is the CI net for a
+   platform added without a `stockGroup` (§3.4). And it discriminates against an
+   implementation that compares the *reverse* direction: `PLATFORMS` contains six
+   names absent from stock (`value/color-mix-to-hex8`, the three `unit-aware`
+   size transforms, and both string-literal transforms), so a check asking "is
+   everything we run in stock?" fails here immediately.
+
 **The rule**
 
-2. One unaccounted name → exactly one message, matching §7 verbatim.
-3. Two unaccounted names in one group → **one** message listing both, not two
-   messages.
+2. One unaccounted name → exactly one message, matching §7's **singular** form
+   verbatim.
+3. Two unaccounted names in one group → **one** message listing both,
+   comma-separated in stock order — not two messages.
 4. Both platforms unaccounted → two messages, one per platform.
-5. A declined name present in stock → `[]`. Proves the deny-list works.
+5. A declined name present in stock → `[]`. Proves the deny-list is consulted.
 
 **The non-rules of §4**
 
-6. A stock group reordered, same names → `[]`.
-7. A declined name removed from stock → `[]`.
+6. A stock group reordered, same names → `[]`. Discriminates against a check
+   that compares ordered arrays.
+7. A declined name removed from stock → `[]`. Discriminates against a
+   snapshot-comparing implementation, which would report the removal.
 
 **Degenerate inputs**
 
 8. Group absent from `transformGroups` → group-missing message.
-9. `undefined`, `null`, and a non-object (e.g. a string) → the unreadable
-   message, length 1, in each case.
+9. `undefined`, `null`, a string, and a number → the unreadable message,
+   length 1, in each case.
+10. An **array** → two group-missing messages, *not* the unreadable message.
+    Pins §8's chosen reading, which two different implementations would
+    otherwise both satisfy.
 
 **Through the side-effecting caller**
 
-10. `registerNativeTransforms` with a fake carrying correct `hooks` emits no
+11. `registerNativeTransforms` with a fake carrying correct `hooks` emits no
     warning (capture `console.warn`, restore in a `finally`).
-11. `registerNativeTransforms` with a fake lacking `hooks` emits exactly one
+12. `registerNativeTransforms` with a fake lacking `hooks` emits exactly one
     unreadable warning. This pins the §6 decision.
 
 **Not broken**
 
-12. The existing assertions at `sd-native.test.mjs:118-164` still pass
-    unchanged — `nativePlatform`'s emitted arrays are untouched (§3.2).
+13. The existing assertions at `sd-native.test.mjs:118-164` still pass
+    unchanged — `nativePlatform`'s emitted arrays are untouched (§3.3).
+
+### 9.1 What is deliberately not asserted
+
+The **no-stock-group** message (§7) cannot be exercised from outside the module:
+`PLATFORMS` is module-private and `auditStockGroups` takes no injectable platform
+map. Adding a test-only injection parameter to a diagnostic would be
+configurability nothing asked for.
+
+So test 1 guards the *behaviour* — a preset added without `stockGroup` makes it
+fail — while the message's exact wording ships unasserted. That is a real gap,
+accepted rather than papered over, and recorded in §12.
 
 ---
 
@@ -384,8 +487,24 @@ enforces the mirroring at registration, and that both groups were verified
 identical in 4.4.0 and 5.5.2. Comments in this file are load-bearing: they are
 the shipped reference doc.
 
-**No new user-facing reference.** The message carries its own instructions (§7),
-and the repairs are ours, not the consumer's.
+**`PROSE['platform']` in the generator must be updated too.** The prose that
+accompanies the platform code block in the shipped reference is
+`scripts/build-native-adapter-config.mjs:109-147` — a narrative section titled
+*"Assemble the platform from the stock list"* that opens with the very rule this
+change enforces. Regeneration alone would leave the code block gaining two
+constants and an exported function with no prose acknowledging the audit exists,
+against the generator's own principle that prose sits adjacent to the code it
+explains.
+
+It gains one paragraph stating: that the stock list is now accounted for rather
+than mirrored by hand, that every stock transform must be run or declined in
+writing, that the check warns and never throws, and that it fires in the
+consumer's build because that is the only place the installed Style Dictionary
+version is knowable. It must not restate the message text — that would be a
+second copy to drift.
+
+**No new user-facing reference beyond that.** The message carries its own
+instructions (§7), and the repairs are ours, not the consumer's.
 
 **CHANGELOG:** one entry under `## [Unreleased]` → `### Added`.
 
@@ -418,3 +537,8 @@ and the repairs are ours, not the consumer's.
 - **The check cannot verify that a declined transform is still the right thing
   to decline.** `DECLINED_STOCK_TRANSFORMS` entries carry reasons for a human;
   nothing tests that the reason still holds.
+- **`DECLINED_STOCK_TRANSFORMS` is flat across platforms** (§3.1). Safe only
+  while every declined name is platform-prefixed. Declining an unprefixed name
+  must convert the map to per-platform; nothing enforces that today.
+- **The no-stock-group message ships unasserted** (§9.1). Its behaviour is
+  guarded by test 1; its wording is not.
