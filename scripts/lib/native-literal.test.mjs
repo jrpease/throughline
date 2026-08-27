@@ -92,10 +92,9 @@ test('parseLiteral reports where parsing stopped', () => {
 //
 // Swift measured with `swiftc -parse` on this machine: `.5` and `-.5` are
 // rejected ("it must be written '0.5'"), while `0100` and `00` compile.
-// Kotlin taken from the language spec's lexical grammar, not a compiler — no
-// kotlinc here: IntegerLiteral is `DecDigitNoZero {DecDigitOrSeparator} DecDigit
-// | DecDigit`, so `0100` cannot parse, while DoubleLiteral is
-// `[DecDigits] '.' DecDigits [DoubleExponent]`, so `.5` can.
+// Kotlin measured with `kotlinc` 2.4.10: `0100` and `00` are rejected with
+// "leading zeros are not allowed in integer literals", while `.5` and `-.5`
+// compile. Both agree with the spec's IntegerLiteral and DoubleLiteral rules.
 test('rejects a leading-dot float on Swift, where it does not compile', () => {
   assert.equal(isValidLiteral('.5', SWIFT), false);
   assert.equal(isValidLiteral('-.5', SWIFT), false);

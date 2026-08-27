@@ -71,9 +71,10 @@ Read this before upgrading; the full technical detail for each is below.
   the number rule is now per-platform, alongside the suffixes, units and escapes
   already held per platform. Hex stays: it compiles on both. This changes the
   gate only; `hasNativeForm` never drops a plain scalar for failing the literal
-  check, so no token is newly filtered out of output. The Kotlin half is derived
-  from the language specification, not a compiler; the Swift half is
-  compile-measured.
+  check, so no token is newly filtered out of output. Both platforms are
+  compile-measured, and the emitted output for this project's 322-token
+  reference source now compiles on both: `Tokens.kt` builds to bytecode against
+  Compose stubs, and `Tokens.swift` parses clean across all 195 declarations.
 - **Compose font sizes and line heights emit as `sp` rather than `dp`.**
   `size/unit-aware/compose-sp` gated on `$type === "fontSize"`, which DTCG
   does not define — it types font sizes as `dimension` — so on a

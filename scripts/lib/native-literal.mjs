@@ -23,11 +23,12 @@ const IDENT = /^[A-Za-z_][A-Za-z0-9_]*/;
 //   Swift, via `swiftc -parse`: `.5` and `-.5` are rejected — the compiler says
 //   "it must be written '0.5'" — while `0100` and `00` compile.
 //
-//   Kotlin, from the language spec's lexical grammar (no kotlinc available, so
-//   this half is spec-derived, not compile-verified): IntegerLiteral is
-//   `DecDigitNoZero {DecDigitOrSeparator} DecDigit | DecDigit`, so `0100`
-//   cannot parse; DoubleLiteral is `[DecDigits] '.' DecDigits [DoubleExponent]`,
-//   so `.5` can.
+//   Kotlin, via `kotlinc` 2.4.10: `0100` and `00` are rejected outright —
+//   "leading zeros are not allowed in integer literals" — while `.5` and `-.5`
+//   compile, which is why they stay accepted here. This matches the spec's
+//   lexical grammar exactly: IntegerLiteral is
+//   `DecDigitNoZero {DecDigitOrSeparator} DecDigit | DecDigit`, and
+//   DoubleLiteral is `[DecDigits] '.' DecDigits [DoubleExponent]`.
 //
 // Hex compiles on both and stays. A leading-zero integer is caught by the
 // trailing-input rule at the end of parseLiteral rather than by the regex:
