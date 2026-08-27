@@ -127,11 +127,15 @@ What remains:
   only to a human — no nominal or structural signal marks it — so it is not
   stamped. The semantic tokens that reference it are, and those are what a
   consumer should reach for.
-- **An \`em\`-valued \`letterSpacing\` is dropped from native output entirely**
-  rather than emitted as Compose's \`.em\` TextUnit. A filter gap, not a
-  \`dp\`/\`sp\` gap.
+- **An \`em\` letter spacing reaches Compose but not Swift.** \`size/unit-aware/compose-em\`
+  emits it as a real \`.em\` TextUnit, parenthesised — \`(-0.03).em\` — because
+  \`-0.03.em\` parses as \`-(0.03.em)\` and needs an \`unaryMinus\` operator, while
+  the parenthesised form compiles regardless. iOS is excluded deliberately, not
+  pending: letter spacing there is an \`NSAttributedString\` kern in points,
+  which needs the font size the token does not carry, so no constant Swift
+  could emit would be right at every font size.
 
-Both are Android-only. \`size/unit-aware/swift\` filters
+The first is Android-only. \`size/unit-aware/swift\` filters
 \`dimension || fontSize\` and emits \`CGFloat\`, which carries no unit to be wrong
 about; iOS handles Dynamic Type at the use site via \`UIFontMetrics\`.
 \`tokens:validate-output\` passes in both cases: it checks magnitude, not unit.

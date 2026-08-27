@@ -309,7 +309,11 @@ export const EXT_NS = 'com.radicool.throughline';
 // no longer the only thing standing between a ratio and 1.50.sp. It stays
 // because the stamp is also the override's carrier, and stamping a ratio as
 // text would still be a claim the source never made.
-const ABSOLUTE_UNIT = /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem)$/;
+// em joins px and rem since #64: Compose's TextUnit has a real .em, so an
+// em-valued letterSpacing is a text-role dimension like any other. It is still
+// a unit — the gate's job is to exclude the UNITLESS value, whose role the
+// source never stated.
+const TEXT_ROLE_UNIT = /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em)$/;
 
 // Runs AFTER resolveInPlace and BEFORE hoistDualNodes. Both halves matter.
 //
@@ -330,7 +334,7 @@ function classifyTextUnits(node) {
       TEXT_UNIT_NAMES.has(key) &&
       '$value' in val &&
       val.$type === 'dimension' &&
-      ABSOLUTE_UNIT.test(String(val.$value).trim())
+      TEXT_ROLE_UNIT.test(String(val.$value).trim())
     ) {
       val.$extensions ??= {};
       val.$extensions[EXT_NS] ??= {};
@@ -400,11 +404,15 @@ What remains:
   only to a human — no nominal or structural signal marks it — so it is not
   stamped. The semantic tokens that reference it are, and those are what a
   consumer should reach for.
-- **An `em`-valued `letterSpacing` is dropped from native output entirely**
-  rather than emitted as Compose's `.em` TextUnit. A filter gap, not a
-  `dp`/`sp` gap.
+- **An `em` letter spacing reaches Compose but not Swift.** `size/unit-aware/compose-em`
+  emits it as a real `.em` TextUnit, parenthesised — `(-0.03).em` — because
+  `-0.03.em` parses as `-(0.03.em)` and needs an `unaryMinus` operator, while
+  the parenthesised form compiles regardless. iOS is excluded deliberately, not
+  pending: letter spacing there is an `NSAttributedString` kern in points,
+  which needs the font size the token does not carry, so no constant Swift
+  could emit would be right at every font size.
 
-Both are Android-only. `size/unit-aware/swift` filters
+The first is Android-only. `size/unit-aware/swift` filters
 `dimension || fontSize` and emits `CGFloat`, which carries no unit to be wrong
 about; iOS handles Dynamic Type at the use site via `UIFontMetrics`.
 `tokens:validate-output` passes in both cases: it checks magnitude, not unit.
@@ -489,6 +497,7 @@ const PLATFORMS = {
       'color/composeColor',
       'size/unit-aware/compose-dp',
       'size/unit-aware/compose-sp',
+      'size/unit-aware/compose-em',
       'value/kotlin-string-literal',
     ],
     destination: 'Tokens.kt',
@@ -509,7 +518,7 @@ const DECLINED_STOCK_TRANSFORMS = {
   'size/swift/remToCGFloat': 'rem-assuming — replaced by size/unit-aware/swift',
   'size/compose/remToDp': 'rem-assuming — replaced by size/unit-aware/compose-dp',
   'size/compose/remToSp': 'rem-assuming — replaced by size/unit-aware/compose-sp',
-  'size/compose/em': 'em is not representable in native output — filtered out',
+  'size/compose/em': 'rem-assuming — replaced by size/unit-aware/compose-em',
 };
 
 // Report every transform in a platform's live stock group that this config
@@ -581,8 +590,24 @@ export function auditStockGroups(transformGroups) {
 // typed string rather than dimension.
 const WEB_ONLY_UNIT = /^-?[\d.]+(%|em)$/;
 
-export function nativeFilter(token) {
-  return !WEB_ONLY_UNIT.test(String(token.original?.$value ?? token.$value).trim());
+// The em magnitude, which magnitude() deliberately does not return: em has no
+// build-time px equivalent, so it is not a native LENGTH. It is a TextUnit.
+const EM_VALUE = /^(-?(?:\d+(?:\.\d+)?|\.\d+))em$/;
+
+export function nativeFilter(token, platform) {
+  const v = String(token.original?.$value ?? token.$value).trim();
+  if (!WEB_ONLY_UNIT.test(v)) return true;
+  // One exception, and it is narrow. Compose has a real .em TextUnit, so an
+  // em letterSpacing DOES have a native form there — unlike %, which has none
+  // anywhere. It survives only where all three hold: the platform is Compose,
+  // the value is em, and the token carries the text role. An em SPACING has no
+  // TextUnit meaning and still drops.
+  //
+  // iOS is deliberately excluded rather than pending. Letter spacing there is
+  // an NSAttributedString kern in points, which needs the font size the token
+  // does not carry, so there is no value Swift could emit that would not be
+  // wrong at some font size.
+  return platform === 'android-kotlin' && EM_VALUE.test(v) && isTextUnit(token);
 }
 
 // A CSS function has no native form. Quoting it would produce a string that
@@ -655,7 +680,7 @@ export function nativePlatform({ platform, buildPath, className = 'Tokens', pack
         destination: preset.destination,
         format: preset.format,
         options: fileOptions,
-        filter: (token) => nativeFilter(token) && hasNativeForm(token, platform),
+        filter: (token) => nativeFilter(token, platform) && hasNativeForm(token, platform),
       },
     ],
   };
@@ -746,6 +771,12 @@ const RATIO = /^-?(?:\d+(?:\.\d+)?|\.\d+)$/;
 const isRatio = (token) => RATIO.test(String(token.original?.$value ?? token.$value).trim());
 // The role preprocess stamped. $type cannot carry it — see classifyTextUnits.
 const isTextUnit = (token) => token.$extensions?.[EXT_NS]?.nativeUnit === 'text';
+const emMagnitude = (token) => {
+  const m = String(token.original?.$value ?? token.$value)
+    .trim()
+    .match(EM_VALUE);
+  return m ? Number(m[1]) : null;
+};
 
 // Quote string-valued tokens no stock transform covers.
 //
@@ -823,6 +854,23 @@ export function registerNativeTransforms(StyleDictionary) {
     transitive: true,
     filter: (token) => (isTextUnit(token) || isFontSize(token)) && hasMagnitude(token) && !isRatio(token),
     transform: (token) => `${authored(token).toFixed(2)}.sp`,
+  });
+
+  // em is a THIRD text unit, not a variant of sp. Compose's .em is relative to
+  // the font size at the use site, which is what an em letterSpacing means, so
+  // it needs neither a magnitude nor a conversion. dp and sp both decline these
+  // already — magnitude() returns null for em — so nothing contends.
+  //
+  // The parentheses are load-bearing. `-0.03.em` parses as `-(0.03.em)`, which
+  // kotlinc 2.4.10 rejects with "unresolved reference 'unaryMinus'" unless
+  // TextUnit defines that operator. `(-0.03).em` compiles either way, and
+  // negatives are the common case: a tight letterSpacing is negative.
+  StyleDictionary.registerTransform({
+    name: 'size/unit-aware/compose-em',
+    type: 'value',
+    transitive: true,
+    filter: (token) => (isTextUnit(token) || isFontSize(token)) && emMagnitude(token) !== null,
+    transform: (token) => `(${emMagnitude(token).toFixed(2)}).em`,
   });
 
   // Two transforms rather than one platform-sniffing transform, because the

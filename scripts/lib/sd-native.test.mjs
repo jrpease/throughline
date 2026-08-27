@@ -251,7 +251,7 @@ test('nativeSources names the file when its JSON does not parse', () => {
   });
 });
 
-test('registerNativeTransforms registers the preprocessor and six transforms', () => {
+test('registerNativeTransforms registers the preprocessor and seven transforms', () => {
   const preprocessors = [];
   const transforms = [];
   registerNativeTransforms(
@@ -264,6 +264,7 @@ test('registerNativeTransforms registers the preprocessor and six transforms', (
   assert.deepEqual(preprocessors.map((p) => p.name), ['dtcg/resolve-dual-node']);
   assert.deepEqual(transforms.map((t) => t.name).sort(), [
     'size/unit-aware/compose-dp',
+    'size/unit-aware/compose-em',
     'size/unit-aware/compose-sp',
     'size/unit-aware/swift',
     'value/color-mix-to-hex8',
@@ -935,14 +936,16 @@ test('preprocess does not stamp a unitless ratio named lineHeight', () => {
   assert.equal(roleOf(out.t.lineHeight), undefined);
 });
 
-test('preprocess does not stamp an em or percentage value', () => {
+// #64 split these two apart. em stamps now — Compose has a real .em TextUnit,
+// so the role is meaningful there. % does not, and has no native form anywhere.
+test('preprocess stamps an em value but never a percentage', () => {
   const out = preprocess({
     t: {
       letterSpacing: { $value: '-0.03em', $type: 'dimension' },
       lineHeight: { $value: '150%', $type: 'dimension' },
     },
   });
-  assert.equal(roleOf(out.t.letterSpacing), undefined);
+  assert.equal(roleOf(out.t.letterSpacing), 'text');
   assert.equal(roleOf(out.t.lineHeight), undefined);
 });
 
@@ -1302,4 +1305,99 @@ test('registerNativeTransforms warns when it cannot read the stock transform gro
     registerNativeTransforms({ registerPreprocessor() {}, registerTransform() {} }),
   );
   assert.deepEqual(seen, [UNREADABLE]);
+});
+
+// #64. An em-valued letterSpacing has a real Compose form — TextUnit's .em —
+// so unlike %, it is not "no native form". iOS is different: letter spacing
+// there is an NSAttributedString kern in points, which needs the font size a
+// token does not carry, so Swift keeps dropping these. The asymmetry is the
+// decision, not an oversight.
+const emSpacing = () => ({
+  $type: 'dimension',
+  $value: '-0.03em',
+  original: { $value: '-0.03em' },
+  $extensions: { [EXT_NS]: { nativeUnit: 'text' } },
+});
+
+// The role comes from the LEAF name, so this reaches the 13
+// typography.textStyle.*.letterSpacing tokens — which is where a consumer
+// should reach anyway. It does not reach the four
+// typography.letterSpacing.{tight,normal,wide,widest} primitives, whose leaf
+// names are tight/normal/wide/widest and which therefore state no role. That
+// is the same documented limit as a bare scale primitive (#63), not a new one.
+test('classifyTextUnits stamps an em letterSpacing, not only px and rem', () => {
+  const out = preprocess({
+    typography: {
+      letterSpacing: { tight: { $type: 'dimension', $value: '-0.03em' } },
+      textStyle: {
+        h1: { letterSpacing: { $type: 'dimension', $value: '{typography.letterSpacing.tight}' } },
+        h2: { letterSpacing: { $type: 'dimension', $value: '0.05em' } },
+      },
+    },
+  });
+  assert.equal(roleOf(out.typography.textStyle.h1.letterSpacing), 'text', 'resolved alias');
+  assert.equal(roleOf(out.typography.textStyle.h2.letterSpacing), 'text', 'authored directly');
+  assert.equal(roleOf(out.typography.letterSpacing.tight), undefined, 'primitive states no role');
+});
+
+test('nativeFilter keeps a text-role em on Compose and drops it on Swift', () => {
+  assert.equal(nativeFilter(emSpacing(), 'android-kotlin'), true);
+  assert.equal(nativeFilter(emSpacing(), 'ios-swift'), false);
+});
+
+test('nativeFilter still drops an em that carries no text role', () => {
+  const spacing = { $type: 'dimension', $value: '0.5em', original: { $value: '0.5em' } };
+  assert.equal(nativeFilter(spacing, 'android-kotlin'), false, 'em spacing has no TextUnit form');
+  assert.equal(nativeFilter(spacing, 'ios-swift'), false);
+});
+
+test('nativeFilter drops % on every platform, and defaults to dropping em', () => {
+  const pct = { $type: 'dimension', $value: '100%', original: { $value: '100%' } };
+  assert.equal(nativeFilter(pct, 'android-kotlin'), false);
+  assert.equal(nativeFilter(pct, 'ios-swift'), false);
+  assert.equal(nativeFilter(emSpacing()), false, 'no platform named — drop, as before');
+});
+
+// kotlinc 2.4.10: `-0.03.em` parses as `-(0.03.em)` and fails with
+// "unresolved reference 'unaryMinus'". `(-0.03).em` compiles whether or not
+// TextUnit defines that operator, so the parens are load-bearing.
+test('the compose em transform emits a parenthesised TextUnit', () => {
+  const t = collectTransforms().get('size/unit-aware/compose-em');
+  assert.ok(t, 'transform must be registered');
+  assert.equal(t.filter(emSpacing()), true);
+  assert.equal(t.transform(emSpacing()), '(-0.03).em');
+
+  const wide = { ...emSpacing(), $value: '0.05em', original: { $value: '0.05em' } };
+  assert.equal(t.transform(wide), '(0.05).em');
+});
+
+test('the em transform declines everything the dp and sp transforms claim', () => {
+  const t = collectTransforms().get('size/unit-aware/compose-em');
+  const px = { $type: 'dimension', $value: '16px', original: { $value: '16px' } };
+  const textPx = { ...px, $extensions: { [EXT_NS]: { nativeUnit: 'text' } } };
+  const ratio = { $type: 'dimension', $value: '1.5', original: { $value: '1.5' } };
+  assert.equal(t.filter(px), false);
+  assert.equal(t.filter(textPx), false);
+  assert.equal(t.filter(ratio), false);
+});
+
+test('dp and sp still decline an em value, so nothing contends for it', () => {
+  const registered = collectTransforms();
+  assert.equal(registered.get('size/unit-aware/compose-dp').filter(emSpacing()), false);
+  assert.equal(registered.get('size/unit-aware/compose-sp').filter(emSpacing()), false);
+  assert.equal(registered.get('size/unit-aware/swift').filter(emSpacing()), false);
+});
+
+test('the Compose preset runs the em transform', () => {
+  const p = nativePlatform({
+    platform: 'android-kotlin',
+    buildPath: 'o/',
+    packageName: 'com.example',
+  });
+  assert.ok(p.transforms.includes('size/unit-aware/compose-em'));
+});
+
+test('the emitted em value is a valid Kotlin literal by our own grammar', () => {
+  const v = collectTransforms().get('size/unit-aware/compose-em').transform(emSpacing());
+  assert.equal(hasNativeForm({ $value: v }, 'android-kotlin'), true);
 });

@@ -60,6 +60,28 @@ Read this before upgrading; the full technical detail for each is below.
   and `compose` groups are byte-identical.
 
 ### Fixed
+- **An `em` letter spacing now reaches Compose instead of being dropped.**
+  All 13 `typography.textStyle.*.letterSpacing` tokens on a real source resolve
+  to `em`, and `nativeFilter` removed them from both platforms — they were the
+  bulk of the 19 source tokens `tokens:validate-output` reported as having no
+  emitted symbol. Compose has a real `.em` `TextUnit`, so unlike `%` this is a
+  filter gap rather than a value with no native form. The classifier's unit gate
+  now admits `em` alongside `px` and `rem`, so the role is stamped;
+  `size/unit-aware/compose-em` emits it; and `nativeFilter` keeps it only where
+  the platform is Compose *and* the token carries the text role, so an `em`
+  *spacing* still drops. Emitted parenthesised — `(-0.03).em` — because
+  `-0.03.em` parses as `-(0.03.em)`, which `kotlinc` 2.4.10 rejects with
+  "unresolved reference 'unaryMinus'"; the parenthesised form compiles either
+  way, and a tight letter spacing is negative, so this is the common case rather
+  than an edge one. **iOS is excluded deliberately, not pending:** letter spacing
+  there is an `NSAttributedString` kern in points, which needs the font size a
+  token does not carry, so no constant Swift could emit would be right at every
+  font size. Measured: Kotlin goes from 195 to 208 declarations and compiles to
+  bytecode; Swift output is byte-identical. The four
+  `typography.letterSpacing.{tight,normal,wide,widest}` primitives still do not
+  emit — their leaf names state no role, the same documented limit as a bare
+  scale primitive — leaving Android with 6 unmatched source tokens, of which a
+  `linear-gradient()` and a `100%` have no native form at all.
 - **The native literal grammar no longer vouches for output that does not
   compile.** `invalid-literal` accepted `.5` and `0100`, so
   `tokens:validate-output` exited 0 on values neither platform can build. The

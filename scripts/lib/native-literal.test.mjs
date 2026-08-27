@@ -130,3 +130,26 @@ test('#70 does not narrow what both platforms already accepted', () => {
   assert.ok(isValidLiteral('0xffffffff', KOTLIN), 'Color() argument');
   assert.ok(isValidLiteral('16.00.dp', KOTLIN), 'unit suffix still parses');
 });
+
+// #64. Compose letter spacing emits `(-0.03).em`: `-0.03.em` parses as
+// `-(0.03.em)`, which kotlinc 2.4.10 rejects with "unresolved reference
+// 'unaryMinus'". The parenthesised form compiles whether or not TextUnit
+// defines that operator, so the grammar has to accept it.
+test('accepts a parenthesised number with a unit, as Compose em needs', () => {
+  assert.ok(isValidLiteral('(-0.03).em', KOTLIN));
+  assert.ok(isValidLiteral('(0.05).em', KOTLIN));
+  assert.ok(isValidLiteral('(0).em', KOTLIN));
+  assert.ok(isValidLiteral('(-0.03)', KOTLIN), 'parens without a unit');
+  assert.ok(isValidLiteral('(-0.03)', SWIFT), 'Swift parenthesises too');
+});
+
+// Parens wrap a NUMBER, not an expression. Widening to real expressions would
+// make the gate vouch for arithmetic it cannot evaluate.
+test('parenthesised support does not become expression support', () => {
+  assert.equal(isValidLiteral('(1 + 2).em', KOTLIN), false);
+  assert.equal(isValidLiteral('(foo).em', KOTLIN), false);
+  assert.equal(isValidLiteral('()', KOTLIN), false);
+  assert.equal(isValidLiteral('(-0.03', KOTLIN), false, 'unclosed');
+  assert.equal(isValidLiteral('(.5).em', KOTLIN), true, 'Kotlin allows .5');
+  assert.equal(isValidLiteral('(.5)', SWIFT), false, 'Swift still rejects .5');
+});
