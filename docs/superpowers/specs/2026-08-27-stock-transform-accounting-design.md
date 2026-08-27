@@ -166,8 +166,10 @@ declined, it must become per-platform. Recorded in §12.
 
 ### 3.2 Why this beats the snapshot approach
 
-- **Nothing to keep fresh.** No version-stamped constant, so no re-blessing
-  ritual and no stale-vs-drifted ambiguity.
+- **Nothing to keep fresh in the production path.** The live check needs no
+  snapshot, so divergence is reported against what this config decided rather
+  than against what we last recorded, and the stale-vs-drifted ambiguity is
+  gone. One version-stamped literal does remain, in the test file — see §12.
 - **It states the actual rule.** "A hand-picked list silently drops whatever it
   forgets" becomes mechanically impossible: every stock name must be run or
   declined *in writing*.
@@ -204,6 +206,10 @@ the guarantee.
 Folding `stockGroup` into `PLATFORMS` **deletes the invariant instead of
 asserting it.** There is no second constant to fall out of sync with, and no
 wrong thing to iterate.
+
+That is a claim about the stock-group mapping specifically.
+`DECLINED_STOCK_TRANSFORMS` is a separate constant and can contradict
+`PLATFORMS` in one direction this check cannot see — §12.
 
 What remains is a preset that omits `stockGroup`. `auditStockGroups` reports
 that as **its own finding kind with its own message** (§7) — never as a
@@ -334,14 +340,14 @@ throughline: could not read Style Dictionary's stock transform groups
 its transform lists are still complete.
 ```
 
-**No stock group declared** — a `PLATFORMS` preset missing `stockGroup`. This is
-our defect, not a drift signal, so it says so rather than sending the reader
-after their Style Dictionary version:
+**Incomplete preset** — a `PLATFORMS` preset missing `stockGroup` or `transforms`.
+This is our defect, not a drift signal, so it says so rather than sending the
+reader after their Style Dictionary version:
 
 ```
-throughline: PLATFORMS['ios-tvos'] declares no stockGroup, so its transform list
-cannot be checked against Style Dictionary's stock groups. This is a throughline
-packaging defect — please report it.
+throughline: PLATFORMS['ios-tvos'] is incomplete — it needs both stockGroup and
+transforms — so its transform list cannot be checked against Style Dictionary's
+stock groups. This is a throughline packaging defect — please report it.
 ```
 
 The singular form of the unaccounted message reads `has 1 transform this
@@ -371,8 +377,9 @@ Contract:
   deliberately not used, because the only realistic non-object inputs are
   `undefined` and `null`, and rejecting arrays would be a rule with no case.
 - Otherwise, for each entry of `PLATFORMS` in declaration order:
-  - the preset has no `stockGroup` → the no-stock-group message for that
-    platform.
+  - the preset has no `stockGroup`, or its `transforms` is not an array → the
+    incomplete-preset message for that platform. This guard is what keeps the
+    function's no-throw promise.
   - `transformGroups[preset.stockGroup]` is not an array → the group-missing
     message for that platform.
   - otherwise, collect every name in that array that is neither in the
@@ -454,7 +461,7 @@ case is cheap and needs no Style Dictionary installed.
 
 ### 9.1 What is deliberately not asserted
 
-The **no-stock-group** message (§7) cannot be exercised from outside the module:
+The **incomplete-preset** message (§7) cannot be exercised from outside the module:
 `PLATFORMS` is module-private and `auditStockGroups` takes no injectable platform
 map. Adding a test-only injection parameter to a diagnostic would be
 configurability nothing asked for.
@@ -540,5 +547,16 @@ instructions (§7), and the repairs are ours, not the consumer's.
 - **`DECLINED_STOCK_TRANSFORMS` is flat across platforms** (§3.1). Safe only
   while every declined name is platform-prefixed. Declining an unprefixed name
   must convert the map to per-platform; nothing enforces that today.
-- **The no-stock-group message ships unasserted** (§9.1). Its behaviour is
+- **The incomplete-preset message ships unasserted** (§9.1). Its behaviour is
   guarded by test 1; its wording is not.
+- **A transform that is both run and declined is invisible.**
+  `auditStockGroups` reports a name only when it is in neither the platform's
+  `transforms` nor `DECLINED_STOCK_TRANSFORMS`; a name in *both* satisfies the
+  check twice and is never reported. The decline reasons ship in
+  `references/native-adapter-config.md`, so a contradiction there is published
+  documentation disagreeing with what runs.
+- **`REAL_STOCK` in the test file is a version-stamped snapshot** (§3.2). When a
+  stock group next changes, test 1 keeps passing against the stale literal while
+  real consumers get the warning, and someone must re-bless it. The liability is
+  strictly smaller than a snapshot in production code — a stale literal can only
+  fail to alarm, never false-alarm — but it is not nil.

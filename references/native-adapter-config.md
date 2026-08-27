@@ -537,11 +537,12 @@ export function auditStockGroups(transformGroups) {
   const warnings = [];
   for (const [platform, preset] of Object.entries(PLATFORMS)) {
     const group = preset.stockGroup;
-    if (!group) {
+    if (!group || !Array.isArray(preset.transforms)) {
       warnings.push(
-        `throughline: PLATFORMS['${platform}'] declares no stockGroup, so its ` +
-          "transform list cannot be checked against Style Dictionary's stock " +
-          'groups. This is a throughline packaging defect — please report it.',
+        `throughline: PLATFORMS['${platform}'] is incomplete — it needs both ` +
+          'stockGroup and transforms — so its transform list cannot be checked ' +
+          "against Style Dictionary's stock groups. This is a throughline " +
+          'packaging defect — please report it.',
       );
       continue;
     }
