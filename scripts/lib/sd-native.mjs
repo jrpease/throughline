@@ -333,11 +333,17 @@ export function preprocess(dict) {
 // transform claims a unitless value, so it emits bare on both platforms, and
 // tokens:validate-output reports it as a unitless-dimension advisory.
 //
-// Stock, from SD 4.4.0:
-//   ios-swift: attribute/cti name/camel color/UIColorSwift
-//              content/swift/literal asset/swift/literal size/swift/remToCGFloat
-//   compose:   attribute/cti name/camel color/composeColor
-//              size/compose/em size/compose/remToSp size/compose/remToDp
+// The lists below mirror Style Dictionary's stock groups, and nothing derives
+// them at runtime — what runs stays deliberate and reviewable. But nothing is
+// transcribed either: auditStockGroups checks at registration that every name
+// in the live stock group is either run here or declined in writing, so a
+// stock transform this config has never made a decision about is loud rather
+// than silently dropped.
+//
+// Both groups were verified byte-identical in SD 4.4.0 and 5.5.2. The `ios`
+// group was not — it renamed size/remToPt to size/remToFloat between them, and
+// 5.x added seven transforms overall. The drift this guards against is real;
+// it has simply not landed on the two groups we build from.
 const PLATFORMS = {
   'ios-swift': {
     stockGroup: 'ios-swift',

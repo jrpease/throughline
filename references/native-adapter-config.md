@@ -419,6 +419,17 @@ a `unitless-dimension` advisory, which does not gate — the emitted value is
 right under the ratio reading, and only the author can say whether a ratio is
 what was meant.
 
+**The stock list is accounted for, not transcribed.** `PLATFORMS` records the
+stock group each platform mirrors, and `auditStockGroups` checks at
+registration that every transform in that live group is either run here or
+declined in writing, with a reason. A stock transform this config has never
+decided about warns; it is never silently dropped. The check warns and never
+throws — a new stock transform is usually harmless, and the fatal direction, a
+transform we run being removed, already makes Style Dictionary throw on an
+unknown name. It runs in your build because that is the only place the
+installed Style Dictionary version is knowable: ThroughLine declares no
+dependency on it.
+
 ```js
 // Build each platform's transform list from Style Dictionary's STOCK group,
 // replacing only the rem-assuming size transforms and inserting the color-mix
@@ -442,11 +453,17 @@ what was meant.
 // transform claims a unitless value, so it emits bare on both platforms, and
 // tokens:validate-output reports it as a unitless-dimension advisory.
 //
-// Stock, from SD 4.4.0:
-//   ios-swift: attribute/cti name/camel color/UIColorSwift
-//              content/swift/literal asset/swift/literal size/swift/remToCGFloat
-//   compose:   attribute/cti name/camel color/composeColor
-//              size/compose/em size/compose/remToSp size/compose/remToDp
+// The lists below mirror Style Dictionary's stock groups, and nothing derives
+// them at runtime — what runs stays deliberate and reviewable. But nothing is
+// transcribed either: auditStockGroups checks at registration that every name
+// in the live stock group is either run here or declined in writing, so a
+// stock transform this config has never made a decision about is loud rather
+// than silently dropped.
+//
+// Both groups were verified byte-identical in SD 4.4.0 and 5.5.2. The `ios`
+// group was not — it renamed size/remToPt to size/remToFloat between them, and
+// 5.x added seven transforms overall. The drift this guards against is real;
+// it has simply not landed on the two groups we build from.
 const PLATFORMS = {
   'ios-swift': {
     stockGroup: 'ios-swift',
