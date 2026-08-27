@@ -6,6 +6,22 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Added
+- **Style Dictionary's stock transform groups are now accounted for rather than
+  transcribed.** `PLATFORMS` claimed to mirror the stock lists, but nothing
+  checked it and the four rem-assuming transforms it declines existed only as
+  an absence from an array — indistinguishable from an oversight. Each platform
+  now records the stock group it mirrors, the exclusions are a declared list
+  with reasons, and `auditStockGroups` reports at registration any transform in
+  the live stock group that is neither run nor declined. It warns via
+  `console.warn` and never throws, and never changes an exit code: a new stock
+  transform is usually harmless, while the fatal direction — a transform we run
+  being removed — already makes Style Dictionary throw on an unknown name. The
+  check runs in your build because ThroughLine declares no dependency on Style
+  Dictionary, so that is the only place the installed version is knowable.
+  Verified silent against Style Dictionary 4.4.0 and 5.5.2, whose `ios-swift`
+  and `compose` groups are byte-identical.
+
 ### Fixed
 - **Compose font sizes and line heights emit as `sp` rather than `dp`.**
   `size/unit-aware/compose-sp` gated on `$type === "fontSize"`, which DTCG

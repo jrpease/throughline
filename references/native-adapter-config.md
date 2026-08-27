@@ -419,6 +419,17 @@ a `unitless-dimension` advisory, which does not gate — the emitted value is
 right under the ratio reading, and only the author can say whether a ratio is
 what was meant.
 
+**The stock list is accounted for, not transcribed.** `PLATFORMS` records the
+stock group each platform mirrors, and `auditStockGroups` checks at
+registration that every transform in that live group is either run here or
+declined in writing, with a reason. A stock transform this config has never
+decided about warns; it is never silently dropped. The check warns and never
+throws — a new stock transform is usually harmless, and the fatal direction, a
+transform we run being removed, already makes Style Dictionary throw on an
+unknown name. It runs in your build because that is the only place the
+installed Style Dictionary version is knowable: ThroughLine declares no
+dependency on it.
+
 ```js
 // Build each platform's transform list from Style Dictionary's STOCK group,
 // replacing only the rem-assuming size transforms and inserting the color-mix
@@ -442,13 +453,20 @@ what was meant.
 // transform claims a unitless value, so it emits bare on both platforms, and
 // tokens:validate-output reports it as a unitless-dimension advisory.
 //
-// Stock, from SD 4.4.0:
-//   ios-swift: attribute/cti name/camel color/UIColorSwift
-//              content/swift/literal asset/swift/literal size/swift/remToCGFloat
-//   compose:   attribute/cti name/camel color/composeColor
-//              size/compose/em size/compose/remToSp size/compose/remToDp
+// The lists below mirror Style Dictionary's stock groups, and nothing derives
+// them at runtime — what runs stays deliberate and reviewable. But nothing is
+// transcribed either: auditStockGroups checks at registration that every name
+// in the live stock group is either run here or declined in writing, so a
+// stock transform this config has never made a decision about is loud rather
+// than silently dropped.
+//
+// Both groups were verified byte-identical in SD 4.4.0 and 5.5.2. The `ios`
+// group was not — it renamed size/remToPt to size/remToFloat between them, and
+// 5.x added seven transforms overall. The drift this guards against is real;
+// it has simply not landed on the two groups we build from.
 const PLATFORMS = {
   'ios-swift': {
+    stockGroup: 'ios-swift',
     transforms: [
       'attribute/cti',
       'name/camel',
@@ -463,6 +481,7 @@ const PLATFORMS = {
     format: 'ios-swift/enum.swift',
   },
   'android-kotlin': {
+    stockGroup: 'compose',
     transforms: [
       'attribute/cti',
       'name/camel',
@@ -476,6 +495,86 @@ const PLATFORMS = {
     format: 'compose/object',
   },
 };
+
+// Stock transforms this config deliberately does NOT run. The reason is the
+// point: an entry here is a decision on the record, where an absence from
+// PLATFORMS is indistinguishable from an oversight.
+//
+// Keyed by transform name alone, with no platform qualifier. That is safe only
+// because every name here is platform-prefixed, so no cross-platform collision
+// is expressible. Declining an unprefixed name — a hypothetical shared
+// "size/px" — would widen silently across both platforms and must convert this
+// to a per-platform map.
+const DECLINED_STOCK_TRANSFORMS = {
+  'size/swift/remToCGFloat': 'rem-assuming — replaced by size/unit-aware/swift',
+  'size/compose/remToDp': 'rem-assuming — replaced by size/unit-aware/compose-dp',
+  'size/compose/remToSp': 'rem-assuming — replaced by size/unit-aware/compose-sp',
+  'size/compose/em': 'em is not representable in native output — filtered out',
+};
+
+// Report every transform in a platform's live stock group that this config
+// neither runs nor explicitly declined. Pure: it takes Style Dictionary's
+// hooks.transformGroups and returns formatted warning strings, so the wording
+// is what the tests assert and the caller is a bare loop.
+//
+// Warns, never throws. The dangerous direction is an ADDITION we never learned
+// about, which is usually harmless and occasionally important — throwing would
+// break a build over a change the consumer cannot fix. The fatal direction, a
+// transform we run being removed, already makes Style Dictionary throw on an
+// unknown transform name.
+//
+// Order is never compared: our lists are hand-ordered for our own reasons and
+// do not inherit stock order. Removals are never reported: a declined name
+// disappearing is a non-event.
+export function auditStockGroups(transformGroups) {
+  if (typeof transformGroups !== 'object' || transformGroups === null) {
+    return [
+      "throughline: could not read Style Dictionary's stock transform groups " +
+        '(hooks.transformGroups is not an object), so this adapter cannot check ' +
+        'whether its transform lists are still complete.',
+    ];
+  }
+  const warnings = [];
+  for (const [platform, preset] of Object.entries(PLATFORMS)) {
+    const group = preset.stockGroup;
+    if (!group || !Array.isArray(preset.transforms)) {
+      warnings.push(
+        `throughline: PLATFORMS['${platform}'] is incomplete — it needs both ` +
+          'stockGroup and transforms — so its transform list cannot be checked ' +
+          "against Style Dictionary's stock groups. This is a throughline " +
+          'packaging defect — please report it.',
+      );
+      continue;
+    }
+    const stock = transformGroups[group];
+    if (!Array.isArray(stock)) {
+      warnings.push(
+        `throughline: Style Dictionary has no "${group}" transform group, which ` +
+          `PLATFORMS['${platform}'] mirrors. The stock group may have been ` +
+          'renamed or removed. Upgrade @radicool/throughline, or report your ' +
+          'Style Dictionary version.',
+      );
+      continue;
+    }
+    const unaccounted = stock.filter(
+      (name) =>
+        !preset.transforms.includes(name) &&
+        !Object.hasOwn(DECLINED_STOCK_TRANSFORMS, name),
+    );
+    if (unaccounted.length) {
+      const n = unaccounted.length;
+      warnings.push(
+        `throughline: Style Dictionary's "${group}" transform group has ${n} ` +
+          `transform${n === 1 ? '' : 's'} this adapter neither runs nor declined: ` +
+          `${unaccounted.join(', ')}. Native output may be incomplete. Upgrade ` +
+          '@radicool/throughline, or report your Style Dictionary version. ' +
+          `(Maintainer repair: add each to PLATFORMS['${platform}'].transforms, ` +
+          'or to DECLINED_STOCK_TRANSFORMS with a reason.)',
+      );
+    }
+  }
+  return warnings;
+}
 
 // % and em are container- or parent-relative, so there is no build-time native
 // magnitude. Filter on the AUTHORED value, not on $type — a "100%" token may be
@@ -745,6 +844,17 @@ export function registerNativeTransforms(StyleDictionary) {
     filter: isQuotable,
     transform: (token) => `"${escapeCommon(stringValue(token)).replace(/\$/g, '\\$')}"`,
   });
+
+  // Last, so every registration side effect has completed before anything is
+  // printed. Fires once per REGISTRATION — typically once per process, not once
+  // per build: the documented usage registers once and then constructs one
+  // StyleDictionary per mode, and the stock groups cannot change between modes.
+  //
+  // The ?. chain is what turns a caller with no hooks into undefined, which
+  // auditStockGroups reports as unreadable rather than silently skipping.
+  for (const warning of auditStockGroups(StyleDictionary?.hooks?.transformGroups)) {
+    console.warn(warning);
+  }
 }
 ```
 

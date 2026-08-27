@@ -144,7 +144,18 @@ byte-for-byte what a correctly typed \`number\` already produced, so correcting
 the source's \`$type\` changes no output. \`tokens:validate-output\` reports it as
 a \`unitless-dimension\` advisory, which does not gate — the emitted value is
 right under the ratio reading, and only the author can say whether a ratio is
-what was meant.`],
+what was meant.
+
+**The stock list is accounted for, not transcribed.** \`PLATFORMS\` records the
+stock group each platform mirrors, and \`auditStockGroups\` checks at
+registration that every transform in that live group is either run here or
+declined in writing, with a reason. A stock transform this config has never
+decided about warns; it is never silently dropped. The check warns and never
+throws — a new stock transform is usually harmless, and the fatal direction, a
+transform we run being removed, already makes Style Dictionary throw on an
+unknown name. It runs in your build because that is the only place the
+installed Style Dictionary version is knowable: ThroughLine declares no
+dependency on it.`],
   ['sources', `## 5. Guard the per-mode source list
 
 Style Dictionary deduplicates by dot-path, so one build over both a light and a
