@@ -6,6 +6,43 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.16.0] — 2026-08-27
+
+### Breaking
+
+Regenerated token files change shape in ways that can stop a consumer build.
+Read this before upgrading; the full technical detail for each is below.
+
+- **A unitless `dimension` no longer emits a unit.** `leading.normal: "1.5"`
+  emitted `1.50.dp` / `CGFloat(1.50)` and now emits bare `1.5`. In Kotlin the
+  symbol's type changes from `Dp` to `Double`, so a use site like
+  `Modifier.padding(Tokens.leadingNormal)` stops compiling. *These values were
+  always ratios* — a line height is not a length — so use them where a ratio
+  belongs, and if a token really is a measurement, add the unit in source.
+- **A `dimension` whose unit was omitted by mistake now fails to compile.**
+  `spacing.gutter: "16"` emitted `16.00.dp`, correct only because px and dp map
+  1:1 by convention, and now emits bare `16`. Add the unit (`"16px"`), or type
+  the token `number` if it is genuinely a ratio.
+- **A unitless value authored in leading-dot form (`".5"`) emits `.5`, which
+  Swift rejects.** `tokens:validate-output` now fails the build on it instead of
+  vouching for it. Write `"0.5"`.
+- **`hoistDualNodes` throws on a name collision** where it previously discarded
+  one of the two tokens silently, so a build that succeeded may now stop. That
+  is the point — it names a token the build was already losing. Rename either
+  colliding path.
+- **`no-foreign-syntax` now fails an unrescued `calc()`, `var()` or
+  `color-mix()`** that the output filter used to remove before the gate could
+  see it. Resolve the value in source, or open an issue for a rescue.
+- **Android font sizes and line heights now emit `sp` rather than `dp`.** No
+  build breaks, but text renders at a different size for anyone who has changed
+  their system font-size setting — which is the accessibility behaviour that was
+  missing. 39 declarations changed on a real 322-token system. Re-check any
+  layout that assumed fixed text metrics.
+- **The `nativeUnit` override no longer applies to a unitless value.** A source
+  stamping `nativeUnit: "text"` on a unitless token got `1.50.sp` and now gets
+  the bare value, narrowing the "a source that states the role itself wins"
+  contract introduced in 0.15.0.
+
 ### Added
 - **Style Dictionary's stock transform groups are now accounted for rather than
   transcribed.** `PLATFORMS` claimed to mirror the stock lists, but nothing
@@ -23,6 +60,21 @@ to [Semantic Versioning](https://semver.org).
   and `compose` groups are byte-identical.
 
 ### Fixed
+- **The native literal grammar no longer vouches for output that does not
+  compile.** `invalid-literal` accepted `.5` and `0100`, so
+  `tokens:validate-output` exited 0 on values neither platform can build. The
+  two platforms disagree in opposite directions, measured rather than assumed:
+  `swiftc -parse` rejects `.5` ("it must be written '0.5'") but compiles `0100`,
+  while Kotlin's lexical grammar makes `0100` unparseable — `IntegerLiteral`
+  requires a non-zero leading digit — and permits `.5`. A single shared rule
+  would therefore over-reject on one platform or under-reject on the other, so
+  the number rule is now per-platform, alongside the suffixes, units and escapes
+  already held per platform. Hex stays: it compiles on both. This changes the
+  gate only; `hasNativeForm` never drops a plain scalar for failing the literal
+  check, so no token is newly filtered out of output. Both platforms are
+  compile-measured, and the emitted output for this project's 322-token
+  reference source now compiles on both: `Tokens.kt` builds to bytecode against
+  Compose stubs, and `Tokens.swift` parses clean across all 195 declarations.
 - **Compose font sizes and line heights emit as `sp` rather than `dp`.**
   `size/unit-aware/compose-sp` gated on `$type === "fontSize"`, which DTCG
   does not define — it types font sizes as `dimension` — so on a
@@ -133,12 +185,10 @@ to [Semantic Versioning](https://semver.org).
   now gets the bare value. This narrows the "a source that states the role
   itself wins" contract introduced in 0.15.0.
 - **A unitless dimension authored in leading-dot form (`".5"`) now emits a
-  bare `.5`, which does not compile on either platform** — it is not a valid
-  float literal in Kotlin or Swift. Previously it emitted `0.50.dp` and
-  compiled. `tokens:validate-output` does not catch it: the shared native
-  literal grammar's `NUMBER` already accepts a leading dot, a pre-existing gap
-  that a unitless `$type: number` value hit before this change and that
-  `invalid-literal` has never closed. Known gap, not fixed here.
+  bare `.5`, which Swift rejects.** Previously it emitted `0.50.dp` and
+  compiled. `tokens:validate-output` now catches it — see the literal-grammar
+  fix under Fixed. Kotlin's grammar does permit `.5`, so the gate fails the
+  Swift build and passes the Kotlin one.
 
 ## [0.15.0] — 2026-08-12
 

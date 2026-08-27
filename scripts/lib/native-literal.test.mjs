@@ -86,3 +86,47 @@ test('parseLiteral reports where parsing stopped', () => {
 
   assert.deepEqual(parseLiteral('CGFloat(1)', SWIFT), { ok: true });
 });
+
+// #70. Swift and Kotlin disagree about numeric literals in opposite directions,
+// so one shared NUMBER cannot describe both without over- or under-accepting.
+//
+// Swift measured with `swiftc -parse` on this machine: `.5` and `-.5` are
+// rejected ("it must be written '0.5'"), while `0100` and `00` compile.
+// Kotlin measured with `kotlinc` 2.4.10: `0100` and `00` are rejected with
+// "leading zeros are not allowed in integer literals", while `.5` and `-.5`
+// compile. Both agree with the spec's IntegerLiteral and DoubleLiteral rules.
+test('rejects a leading-dot float on Swift, where it does not compile', () => {
+  assert.equal(isValidLiteral('.5', SWIFT), false);
+  assert.equal(isValidLiteral('-.5', SWIFT), false);
+  assert.equal(isValidLiteral('.25', SWIFT), false);
+});
+
+test('accepts a leading-dot float on Kotlin, where the grammar permits it', () => {
+  assert.ok(isValidLiteral('.5', KOTLIN));
+  assert.ok(isValidLiteral('-.5', KOTLIN));
+});
+
+test('rejects a leading-zero integer on Kotlin, where it does not parse', () => {
+  assert.equal(isValidLiteral('0100', KOTLIN), false);
+  assert.equal(isValidLiteral('00', KOTLIN), false);
+  assert.equal(isValidLiteral('-0100', KOTLIN), false);
+});
+
+test('accepts a leading-zero integer on Swift, where it compiles', () => {
+  assert.ok(isValidLiteral('0100', SWIFT));
+  assert.ok(isValidLiteral('00', SWIFT));
+});
+
+// The shapes both platforms agree on must not move.
+test('#70 does not narrow what both platforms already accepted', () => {
+  for (const g of [SWIFT, KOTLIN]) {
+    assert.ok(isValidLiteral('0', g), 'bare zero');
+    assert.ok(isValidLiteral('0.5', g), 'zero-prefixed float');
+    assert.ok(isValidLiteral('-0.5', g), 'negative float');
+    assert.ok(isValidLiteral('1.5', g), '#52 bare ratio');
+    assert.ok(isValidLiteral('0xFF', g), 'hex — compiles on both');
+    assert.ok(isValidLiteral('400', g), 'plain integer');
+  }
+  assert.ok(isValidLiteral('0xffffffff', KOTLIN), 'Color() argument');
+  assert.ok(isValidLiteral('16.00.dp', KOTLIN), 'unit suffix still parses');
+});
