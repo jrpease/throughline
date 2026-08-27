@@ -193,7 +193,7 @@ this project has found (#50's three, #51, #52) was a size/unit transform doing
 the wrong thing to a value. Auto-admitting an unknown transform into the
 pipeline is the more dangerous half of that trade.
 
-### 3.4 A platform that declares no stock group
+### 3.4 A preset that cannot be checked
 
 An earlier draft of this spec kept the mapping in a separate `STOCK_GROUP`
 constant and claimed "the mapping enforces itself" because the audit iterates
@@ -211,9 +211,10 @@ That is a claim about the stock-group mapping specifically.
 `DECLINED_STOCK_TRANSFORMS` is a separate constant and can contradict
 `PLATFORMS` in one direction this check cannot see — §12.
 
-What remains is a preset that omits `stockGroup`. `auditStockGroups` reports
-that as **its own finding kind with its own message** (§7) — never as a
-group-missing finding, whose diagnosis (*Style Dictionary drifted; report your
+What remains is a preset that cannot be checked at all — one that omits
+`stockGroup`, or whose `transforms` is not an array. `auditStockGroups` reports
+either as **one finding kind with one message** (§7), the incomplete-preset
+message — never as a group-missing finding, whose diagnosis (*Style Dictionary drifted; report your
 version*) would be wrong for this cause and would tell a consumer to chase a
 defect that is ours.
 
