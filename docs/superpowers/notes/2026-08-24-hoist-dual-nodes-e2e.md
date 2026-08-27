@@ -38,6 +38,48 @@ and was live at the time this task started:
   `android-kotlin`, light/dark, mobile viewport axis,
   `packageName: 'com.zygarden.tokens'` for Kotlin. Unmodified.
 
+## Do not copy this procedure forward (added 2026-08-27, issue #73)
+
+The steps below were correct **for the harness as it existed when this run
+executed**, and stopped being correct about three hours later. Anyone
+reaching for them as a template will get a verification that cannot fail.
+
+The harness has two symlink surfaces. `<harness>/scripts/lib` is a
+directory-level symlink; `<harness>/lib/` is three per-file symlinks
+(`dtcg.mjs`, `native-literal.mjs`, `sd-native.mjs`). Which one matters
+depends on which `build.mjs` is present, and `build.mjs` was rewritten on
+2026-08-24 at 13:46 — the same minute `<harness>/lib/` was created. The
+rewritten script imports `./lib/sd-native.mjs` and never reads
+`scripts/lib`.
+
+| Run | Built at | Import surface | Swapping `scripts/lib` |
+|-----|----------|----------------|------------------------|
+| This one (`#55`) | 10:22 | `scripts/lib` — `lib/` did not exist yet | works |
+| `#60` | 17:59 | `./lib/` | no-op |
+| `#52` and later | — | `./lib/` | no-op |
+
+**This run's verdict stands.** `<harness>/lib/` was created at 13:46, three
+hours and 24 minutes after `out-55/` was built, so a 10:22 build importing
+`./lib/sd-native.mjs` would have failed with `ERR_MODULE_NOT_FOUND`. Both
+builds recorded `EXIT:0`, so the import resolved against the only surface
+that existed — the one the swap retargeted. The empty diff is a true
+negative.
+
+`#60`'s verdict also stands, on separate evidence: alongside its zygarden
+build it ran synthetic fixtures that reach the defect, and those *did* move
+across the swap (`20px` → `20.00.dp`, `1.5` → `1.50.dp`). A no-op swap
+could not have produced that.
+
+**The durable lesson.** For both runs the defect is unreachable in
+zygarden's source, so an empty diff was the predicted result under a sound
+procedure *and* under a broken one. The two hypotheses were observationally
+identical, and no amount of re-running the same comparison could separate
+them — only a baseline assertion can. Before trusting a diff, prove the
+baseline is what you think it is: check that the "before" build actually
+exhibits the pre-fix behaviour. `#52`'s run did this and caught the stale
+procedure before it produced a false result; see
+`2026-08-26-unitless-dimension-e2e.md`.
+
 ## Procedure
 
 1. `scripts/lib` symlinked to this branch's live tree
