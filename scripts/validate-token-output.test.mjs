@@ -149,6 +149,84 @@ test('unit-fidelity never scales a unitless ratio', () => {
   assert.equal(bad.failures[0].rule, 'unit-fidelity');
 });
 
+// #52. A unitless dimension is invalid DTCG (8.2.1). The emitted output is
+// correct under the ratio reading, so this is reported and does NOT gate.
+test('unitless-dimension is reported as an advisory', () => {
+  const r = validate({ sources: SRC, output: 'static let leadingTight = 1.1', platform: 'ios-swift' });
+  assert.equal(r.advisories.length, 1);
+  assert.equal(r.advisories[0].rule, 'unitless-dimension');
+  assert.equal(r.advisories[0].token, 'leading.tight');
+});
+
+test('unitless-dimension does not fail the gate', () => {
+  const r = validate({ sources: SRC, output: 'static let leadingTight = 1.1', platform: 'ios-swift' });
+  assert.deepEqual(r.failures, []);
+  assert.equal(r.ok, true);
+});
+
+test('unitless-dimension ignores a unitless non-dimension', () => {
+  const sources = [{ file: 't.json', dtcg: {
+    w: { bold: { $value: '700', $type: 'fontWeight' } },
+    ratio: { golden: { $value: '1.618', $type: 'number' } },
+  } }];
+  const r = validate({ sources, output: 'static let wBold = 700\nstatic let ratioGolden = 1.618', platform: 'ios-swift' });
+  assert.deepEqual(r.advisories, []);
+  assert.equal(r.ok, true);
+});
+
+test('unitless-dimension ignores a dimension that carries a unit', () => {
+  const r = validate({ sources: SRC, output: 'static let textSm = CGFloat(14.00)', platform: 'ios-swift' });
+  assert.deepEqual(r.advisories, []);
+});
+
+test('unitless-dimension fires on a type inherited from a group', () => {
+  const sources = [{ file: 't.json', dtcg: {
+    leading: { $type: 'dimension', normal: { $value: '1.5' } },
+  } }];
+  const r = validate({ sources, output: 'static let leadingNormal = 1.5', platform: 'ios-swift' });
+  assert.equal(r.advisories.length, 1);
+  assert.equal(r.advisories[0].token, 'leading.normal');
+});
+
+// A typed alias restates $type on the reference node itself (zygarden authors
+// every alias this way). `source` is the RESOLVED referent value; flagging on
+// that alone would advise both the alias and its referent for the same
+// problem. Only the referent — the token the author would actually edit —
+// should be flagged.
+test('unitless-dimension does not double-fire on a typed alias — only the referent is named', () => {
+  const sources = [{ file: 't.json', dtcg: {
+    spacing: { space4: { $value: '1.5', $type: 'dimension' } },
+    alias: { spacing4: { $value: '{spacing.space4}', $type: 'dimension' } },
+  } }];
+  const out = 'static let spacingSpace4 = 1.5\nstatic let aliasSpacing4 = 1.5';
+  const r = validate({ sources, output: out, platform: 'ios-swift' });
+  assert.equal(r.advisories.length, 1);
+  assert.equal(r.advisories[0].token, 'spacing.space4');
+});
+
+// §6.2: flattenDtcgTypes reads the RAW source, where hoistDualNodes' $type
+// carry has not run yet. A unitless, untyped child of a dimension-typed dual
+// node with no enclosing group $type is flipped from N.dp to bare by the
+// size transforms (§5), but flattenDtcgTypes returns undefined for it here,
+// so DIMENSIONAL.has(undefined) is false and the advisory does not fire.
+// Recorded as a documented limit (spec §6.2), not desired behaviour — a
+// future fix should flip this test rather than go unnoticed.
+test('unitless-dimension misses the hoist carry — documented §6.2 limit', () => {
+  const sources = [{ file: 't.json', dtcg: {
+    leading: { base: { $value: '16px', $type: 'dimension', normal: { $value: '1.5' } } },
+  } }];
+  const r = validate({ sources, output: 'static let leadingBaseNormal = 1.5', platform: 'ios-swift' });
+  assert.deepEqual(r.advisories, []);
+});
+
+test('formatReport renders the advisory and names the fix', () => {
+  const r = validate({ sources: SRC, output: 'static let leadingTight = 1.1', platform: 'ios-swift' });
+  const text = formatReport(r).join('\n');
+  assert.match(text, /unitless-dimension/);
+  assert.match(text, /leadingTight/);
+  assert.match(text, /"number"/);
+});
+
 test('no-foreign-syntax catches leaked color-mix', () => {
   const out = 'static let textSm = color-mix(in srgb, UIColor(red: 1, green: 1, blue: 1, alpha: 1) 4%, transparent)';
   const r = validate({ sources: SRC, output: out, platform: 'ios-swift' });
@@ -429,8 +507,12 @@ test('valid native output produces no invalid-literal failure', () => {
   assert.equal(r.ok, true);
 });
 
-// #52 is open and must stay reachable: this change must not mask it.
-test('a unitless ratio emitted as .dp still passes — #52 is not masked', () => {
+// #52 is now closed — the pipeline itself no longer emits `.dp` for a
+// unitless dimension — but the validator's magnitude checks are unit-agnostic
+// and never depended on that shape: they check magnitude and literal
+// validity against whatever the OUTPUT actually is, not what the current
+// pipeline would produce. Pins that tolerance.
+test('a unitless ratio manually emitted as .dp still passes — the validator only checks magnitude', () => {
   const r = validate({
     sources: srcOf({ leading: { normal: { $value: '1.5', $type: 'dimension' } } }),
     output: 'val leadingNormal = 1.50.dp',

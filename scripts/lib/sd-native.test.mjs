@@ -708,13 +708,19 @@ test('an enclosing group $type is not shadowed by the dual node $type', () => {
 // badly. b inherits color before the hoist — a is a token, so g is b's closest
 // group either way — and carrying dimension here would be the hoist inventing a
 // better answer than the source states.
-// The variant with teeth, and the reason this is worth fixing rather than
-// documenting. Measured end-to-end through Style Dictionary against the real
-// Compose config: with the carry, this emits `val textSmLineHeight = 1.5` — a
-// Double where a Dp belongs, which compiles and passes tokens:validate-output
-// clean, because no-bare-units fires only on a unit-suffixed literal. Without
-// it, 1.50.dp. The issue's own 20px example is the LOUD one: it emits a bare
-// `20px` the gate catches under no-bare-units and unverifiable-dimension.
+// The variant with teeth when this was written, and the reason it was worth
+// fixing rather than documenting. Measured end-to-end through Style
+// Dictionary against the real Compose config: with the carry (the bug),
+// $type stays 'number' and this emits `val textSmLineHeight = 1.5` — a
+// Double where a Dp belongs, which compiled and passed
+// tokens:validate-output clean, because no-bare-units fires only on a
+// unit-suffixed literal. Without it, $type resolves to 'dimension' via the
+// enclosing group — which, since #52, ALSO emits bare `1.5`: a unitless
+// dimension now declines every size transform, so this shape no longer has
+// output-level teeth and the assertion below (no `$type` stamped) is what
+// still pins it. The issue's own 20px example is the LOUD one: it emits a
+// bare `20px` the gate catches under no-bare-units and
+// unverifiable-dimension.
 test('an enclosing group is not shadowed where the shadowed output would compile', () => {
   const out = preprocess({
     text: {
@@ -817,10 +823,12 @@ test('the reference tag does not leak into output', () => {
   assert.equal(JSON.stringify(out).includes('was-reference'), false);
 });
 
-// #55's fix widens #52 rather than masking it: an untyped unitless literal child
-// under a dimension-typed dual node now becomes dimension, which is exactly
-// #52's shape. Asserted so the widening is recorded, not discovered later.
-test('the $type rule widens #52 — recorded, not masked', () => {
+// The carry widens the shape #52 fixes, rather than masking it: an untyped
+// unitless literal child under a dimension-typed dual node becomes dimension
+// too — and since #52, a unitless dimension declines every size transform
+// and emits bare, so the widened shape gets #52's fix rather than #52's old
+// defect. Asserted so the widening is recorded, not discovered later.
+test('the $type rule widens the #52 shape — recorded, not masked', () => {
   const out = preprocess({
     leading: { base: { $value: '16px', $type: 'dimension', normal: { $value: '1.5' } } },
   });
@@ -1013,9 +1021,11 @@ test('the compose transforms split sp from dp by the text-unit stamp', () => {
   assert.equal(dp.transform(device), '16.00.dp');
 });
 
-// The partition must be disjoint AND total: exactly one of the two filters
-// matches. Asserting `dp && sp === false` alone would pass against an
-// implementation where both always return false, so assert the exclusive-or.
+// The partition must be disjoint AND total FOR A TOKEN THAT CARRIES A UNIT:
+// exactly one of the two filters matches. Asserting `dp && sp === false` alone
+// would pass against an implementation where both always return false, so
+// assert the exclusive-or. A unitless value matches neither, deliberately (#52),
+// and is covered by its own tests rather than folded in here.
 test('no dimension token matches both compose transforms', () => {
   const t = collectTransforms();
   const dp = t.get('size/unit-aware/compose-dp');
@@ -1057,4 +1067,92 @@ test('a resolved semantic fontSize reaches the sp transform', () => {
   const sp = collectTransforms().get('size/unit-aware/compose-sp');
   assert.equal(sp.filter(token), true);
   assert.equal(sp.transform(token), '30.00.sp');
+});
+
+// #52. DTCG 8.2.1 requires a dimension to carry a unit; 8.7's `number` is the
+// type for a ratio, and 9.8 types lineHeight as one. A unitless value is
+// therefore malformed input, and no size transform may claim it.
+test('no size transform claims a unitless dimension', () => {
+  const t = collectTransforms();
+  const token = { $type: 'dimension', $value: '1.5', original: { $value: '1.5' } };
+  assert.equal(t.get('size/unit-aware/swift').filter(token), false);
+  assert.equal(t.get('size/unit-aware/compose-dp').filter(token), false);
+  assert.equal(t.get('size/unit-aware/compose-sp').filter(token), false);
+});
+
+test('no size transform claims a unitless fontSize', () => {
+  const t = collectTransforms();
+  const token = { $type: 'fontSize', $value: '1.5', original: { $value: '1.5' } };
+  assert.equal(t.get('size/unit-aware/swift').filter(token), false);
+  assert.equal(t.get('size/unit-aware/compose-sp').filter(token), false);
+});
+
+test('a unitless value is read from the ORIGINAL authored value', () => {
+  const t = collectTransforms();
+  const dp = t.get('size/unit-aware/compose-dp');
+  // $value rewritten by an earlier transform; original is what decides.
+  assert.equal(dp.filter({ $type: 'dimension', $value: '1.50.dp', original: { $value: '1.5' } }), false);
+  assert.equal(dp.filter({ $type: 'dimension', $value: '1.5', original: { $value: '16px' } }), true);
+});
+
+test('a united dimension is still claimed', () => {
+  const t = collectTransforms();
+  const px = { $type: 'dimension', $value: '16px', original: { $value: '16px' } };
+  assert.equal(t.get('size/unit-aware/compose-dp').filter(px), true);
+  assert.equal(t.get('size/unit-aware/swift').filter(px), true);
+});
+
+// Spec 5.2. The load-bearing claim of the design: taking the advisory's advice
+// ("type it number") must not change output.
+//
+// The SWIFT filter is what carries this — it gates on isDimension || isFontSize
+// and so is the only one of the three sensitive to $type. Measured: drop
+// !isRatio from swift alone and $type dimension emits CGFloat(1.50) while
+// $type number emits bare. Keep swift in this loop or the test stops catching
+// the variant that breaks the design.
+test('a unitless value emits identically as $type dimension and as $type number', () => {
+  const t = collectTransforms();
+  const asDimension = { $type: 'dimension', $value: '1.5', original: { $value: '1.5' } };
+  const asNumber = { $type: 'number', $value: '1.5', original: { $value: '1.5' } };
+  for (const name of ['size/unit-aware/swift', 'size/unit-aware/compose-dp', 'size/unit-aware/compose-sp']) {
+    const tr = t.get(name);
+    assert.equal(tr.filter(asDimension), tr.filter(asNumber), `${name} must treat both $types alike`);
+    assert.equal(tr.filter(asDimension), false, `${name} must claim neither`);
+  }
+});
+
+// Spec 5.2. NOT an invariant test, deliberately. The invariant holds whether or
+// not compose-sp carries !isRatio — measured, not assumed — because compose-sp
+// filters on isTextUnit, which reads the stamp rather than $type, so a stamped
+// token behaves the same under both $types either way. Only a direct
+// behavioural assertion catches a missing !isRatio here.
+//
+// What it would emit without the guard: 1.50.sp — 1.5 scale-pixels of text,
+// which is the output #51 gated ABSOLUTE_UNIT to prevent. An explicit stamp
+// must not be able to produce it either.
+test('a stamped unitless token is still declined — the override cannot manufacture a unit', () => {
+  const sp = collectTransforms().get('size/unit-aware/compose-sp');
+  assert.equal(sp.filter(stamped('1.5')), false);
+  assert.equal(sp.filter({ ...stamped('1.5'), $type: 'number' }), false);
+});
+
+// The override's scope, narrowed and pinned: it chooses between dp and sp for a
+// value that HAS a unit. It does not manufacture one.
+test('the nativeUnit override still selects sp for a united value', () => {
+  const sp = collectTransforms().get('size/unit-aware/compose-sp');
+  assert.equal(sp.filter(stamped('30px')), true);
+  assert.equal(sp.transform(stamped('30px')), '30.00.sp');
+});
+
+// Spec 5.4. A unitless zero is invalid DTCG for the same reason (8.2.1 requires
+// the unit "even if $value.value is 0"). Recorded as a test so the behaviour
+// change cannot later be reverted as though it were a bug.
+test('a unitless zero is a ratio, not a zero measurement', () => {
+  const t = collectTransforms();
+  const zero = { $type: 'dimension', $value: '0', original: { $value: '0' } };
+  assert.equal(t.get('size/unit-aware/compose-dp').filter(zero), false);
+  assert.equal(t.get('size/unit-aware/swift').filter(zero), false);
+  // "0px" is a measurement and is unaffected.
+  const zeroPx = { $type: 'dimension', $value: '0px', original: { $value: '0px' } };
+  assert.equal(t.get('size/unit-aware/compose-dp').filter(zeroPx), true);
 });

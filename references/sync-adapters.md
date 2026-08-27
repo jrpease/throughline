@@ -78,8 +78,8 @@ line heights whose role a DTCG source states — the `fontSize`, `letterSpacing`
 and `lineHeight` member names of §9.8's typography composite — now emit as
 `sp`. What remains is narrower and documented in
 `${CLAUDE_PLUGIN_ROOT}/references/native-adapter-config.md`: a bare scale
-primitive carries no role and stays `dp`, an `em` letterSpacing is filtered
-out rather than emitted as `.em`, and a unitless ratio still emits as `dp`.
+primitive carries no role and stays `dp`, and an `em` letterSpacing is
+filtered out rather than emitted as `.em`.
 `tokens:validate-output` remains what decides whether any adapter can be
 trusted, and re-promotion is available to any adapter that passes it against a
 real source.

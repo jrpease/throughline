@@ -7,11 +7,11 @@
 import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
-import { flattenDtcg, resolveValue, findModeCollisions } from './lib/dtcg.mjs';
+import { flattenDtcg, flattenDtcgTypes, resolveValue, findModeCollisions } from './lib/dtcg.mjs';
 import { parseLiteral, isValidLiteral, GRAMMAR } from './lib/native-literal.mjs';
 
 // Re-exported so consumers (and the test file) keep one import surface.
-export { flattenDtcg, resolveValue, findModeCollisions };
+export { flattenDtcg, flattenDtcgTypes, resolveValue, findModeCollisions };
 
 // Declaration patterns per platform. Coupled to the ios-swift/enum.swift and
 // compose/object output formats; a different format needs a different pattern,
@@ -96,6 +96,19 @@ export function expectedMagnitude(sourceValue) {
 const FOREIGN = /(?:color-mix|calc|var)\s*\(/;
 const BARE_UNIT = /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em|%)$/;
 
+// #52. A unitless value is a ratio, not a measurement: DTCG 8.2.1 requires a
+// dimension to carry a unit, and 8.7's `number` is the type for a multiplier.
+// Distinct from BARE_UNIT, which requires a unit SUFFIX and so never matches
+// this — which is exactly why the shape passed the gate silently before.
+const UNITLESS = /^-?(?:\d+(?:\.\d+)?|\.\d+)$/;
+const DIMENSIONAL = new Set(['dimension', 'fontSize']);
+
+// A token whose RAW authored $value is itself a whole-value reference is not
+// flagged: its referent is (per DTCG 5.2.2, an alias takes the referent's
+// type), and `source` above is already the RESOLVED value, so testing it
+// alone would flag both the alias and its referent for the same problem.
+const WHOLE_REF = /^\{[^}]+\}$/;
+
 // Lines that are obviously not a would-be token declaration: braces-only,
 // comments, imports/package/annotations, or the container declarations
 // (enum/object/class) themselves. Anything else that DECL failed to match is
@@ -127,11 +140,15 @@ export function validate({ sources, output, platform, minMatch = 0.5 }) {
   const flat = {};
   for (const { dtcg } of sources) Object.assign(flat, flattenDtcg(dtcg));
 
+  const types = {};
+  for (const { dtcg } of sources) Object.assign(types, flattenDtcgTypes(dtcg));
+
   const byKey = new Map();
   for (const path of Object.keys(flat)) byKey.set(normalizeKey(path), path);
 
   const decls = extractDeclarations(output, platform);
   const failures = [];
+  const advisories = [];
   let matched = 0;
 
   for (const { symbol, value } of decls) {
@@ -169,6 +186,17 @@ export function validate({ sources, output, platform, minMatch = 0.5 }) {
     }
     matched += 1;
 
+    // Advisory, not a failure: the emitted value is correct under the ratio
+    // reading this build applies, so it compiles and its magnitude matches.
+    // What is wrong is the SOURCE's $type, which only the author can settle.
+    if (
+      UNITLESS.test(String(source).trim()) &&
+      DIMENSIONAL.has(types[path]) &&
+      !WHOLE_REF.test(String(flat[path]).trim())
+    ) {
+      advisories.push({ rule: 'unitless-dimension', symbol, token: path, source, emitted: value });
+    }
+
     const expected = expectedMagnitude(source);
     if (expected.skip) continue;
     const actual = magnitudeOf(value);
@@ -189,7 +217,7 @@ export function validate({ sources, output, platform, minMatch = 0.5 }) {
   let unemittedTokens = 0;
   for (const key of byKey.keys()) if (!emittedKeys.has(key)) unemittedTokens += 1;
 
-  return { total: decls.length, matched, matchRate, failures, collisions, minMatch, ok, unparsedLines, unemittedTokens };
+  return { total: decls.length, matched, matchRate, failures, advisories, collisions, minMatch, ok, unparsedLines, unemittedTokens };
 }
 
 export function formatReport(r) {
@@ -228,6 +256,14 @@ export function formatReport(r) {
   }
   if (r.unparsedLines) {
     lines.push(`\n${r.unparsedLines} unparsed line(s) — declaration-shaped lines the extractor could not read; they count in neither the numerator nor the denominator above.`);
+  }
+  if (r.advisories?.length) {
+    lines.push(`\n${r.advisories.length} advisory note(s) — reported, not gating:`);
+    for (const a of r.advisories) {
+      lines.push(
+        `  - [${a.rule}] ${a.symbol}: source ${JSON.stringify(a.source)} for ${a.token} is a dimension with no unit, which DTCG §8.2.1 does not permit. It emitted ${a.emitted}, read as a ratio. If it is a ratio, type it "number" (§8.7); if it is a measurement, add the unit you meant.`,
+      );
+    }
   }
   if (r.unemittedTokens) {
     lines.push(`\n${r.unemittedTokens} source token(s) had no matching emitted symbol.`);

@@ -23,11 +23,9 @@ to [Semantic Versioning](https://semver.org).
   set it to `"device"` to opt a token out. The `$type` check reads the token's
   own key, so a dual-node child that carries no `$type` of its own — and would
   inherit `dimension` from its parent during hoisting — is not stamped and
-  still emits `dp`. Three limits remain and are documented: a bare scale
+  still emits `dp`. Two limits remain and are documented: a bare scale
   primitive (`text.base`) carries no role and stays
-  `dp`, an `em` letterSpacing is still filtered out of native output, and a
-  unitless ratio still emits as `dp` — deliberately, since `1.50.sp` would
-  compile and render 1.5sp text.
+  `dp`, and an `em` letterSpacing is still filtered out of native output.
 - **`preprocess` throws on a dual-node hoist collision instead of silently
   discarding a token.** `hoistDualNodes` renames a dual node's child to a
   camel-joined sibling (`text.sm.lineHeight` becomes `text.smLineHeight`).
@@ -52,8 +50,9 @@ to [Semantic Versioning](https://semver.org).
     which **defeats the user's font-scale accessibility setting**. It
     previously emitted a bare literal that `tokens:validate-output` caught
     loudly; that gate no longer fires on it.
-  - An untyped unitless child now emits as a `dimension` — a ratio rendered in
-    density-independent pixels. Also previously caught loudly.
+  - An untyped unitless child now emits as a `dimension` — a ratio. It emitted
+    in density-independent pixels until the unitless-dimension fix below made
+    it emit bare instead. Also previously caught loudly.
   - Where an enclosing *group* carries a `$type` that correctly describes the
     child, the dual node's type shadowed it, so a token that resolved
     correctly before resolved wrongly. **Fixed below**; it is listed here
@@ -74,9 +73,11 @@ to [Semantic Versioning](https://semver.org).
   `val textSmLineHeight = 20px` (does not compile, and
   `tokens:validate-output` caught it) for a `px` child, and
   `val textSmLineHeight = 1.5` — a `Double` where a `Dp` belongs, compiling
-  and passing the gate clean — for a unitless one. Both now emit `.dp`. Output
-  against a real 322-token source is byte-identical: the shape requires a dual
-  node typed differently from both its enclosing group and its own child.
+  and passing the gate clean — for a unitless one. The `px` child now emits
+  `.dp`; the unitless one now emits bare instead, per the unitless-dimension
+  fix below. Output against a real 322-token source is byte-identical: the
+  shape requires a dual node typed differently from both its enclosing group
+  and its own child.
 - **`no-foreign-syntax` reconciled with the native output filter.** An
   unrescued `calc(...)`, `var(...)`, or `color-mix(...)` variant was
   previously dropped from native output by `sd-native.mjs`'s filter before
@@ -90,6 +91,38 @@ to [Semantic Versioning](https://semver.org).
   `var(` (e.g. `"width: calc(100% - 2rem)"`) — a value the grammar accepts as
   a literal is not foreign syntax, whatever text it contains, and this
   previously false-failed a build that compiles.
+- **A unitless value no longer emits with an invented unit.** `leading.normal:
+  "1.5"` typed `dimension` emitted `1.50.dp` on Compose and `CGFloat(1.50)` on
+  Swift — the magnitude faithful, the unit meaningless. DTCG §8.2.1 requires a
+  dimension to carry a unit and §8.7's `number` is the type for a ratio, so this
+  is malformed input rather than a shape to interpret. No size transform now
+  claims a unitless value; it emits bare, which is byte-for-byte what a
+  correctly typed `number` already produced on both platforms, so correcting a
+  source's `$type` changes no output. `tokens:validate-output` reports it as a
+  `unitless-dimension` advisory, which does not gate.
+
+### Changed
+- **A dimension whose unit was omitted by mistake now fails loudly instead of
+  working by accident.** `spacing.gutter: "16"` meant as `16px` previously
+  emitted `16.00.dp`, correct only because px and dp map 1:1 by convention. It
+  now emits bare `16`, which does not compile at a Compose `Dp` use site and
+  infers `Int` in Swift, where it will not convert at a `CGFloat` use site. A
+  unitless `0` is affected identically — DTCG §8.2.1 requires the unit "even if
+  `$value.value` is `0`". Add the unit, or type the token `number` if it really
+  is a ratio.
+- **The `nativeUnit` override no longer applies to a unitless value.** It
+  chooses between `dp` and `sp` for a value that has a unit; it does not
+  manufacture one. A source that stamped `nativeUnit: "text"` onto a unitless
+  token previously got `1.50.sp` — which compiles and renders 1.5sp text — and
+  now gets the bare value. This narrows the "a source that states the role
+  itself wins" contract introduced in 0.15.0.
+- **A unitless dimension authored in leading-dot form (`".5"`) now emits a
+  bare `.5`, which does not compile on either platform** — it is not a valid
+  float literal in Kotlin or Swift. Previously it emitted `0.50.dp` and
+  compiled. `tokens:validate-output` does not catch it: the shared native
+  literal grammar's `NUMBER` already accepts a leading dot, a pre-existing gap
+  that a unitless `$type: number` value hit before this change and that
+  `invalid-literal` has never closed. Known gap, not fixed here.
 
 ## [0.15.0] — 2026-08-12
 
