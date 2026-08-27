@@ -340,6 +340,7 @@ export function preprocess(dict) {
 //              size/compose/em size/compose/remToSp size/compose/remToDp
 const PLATFORMS = {
   'ios-swift': {
+    stockGroup: 'ios-swift',
     transforms: [
       'attribute/cti',
       'name/camel',
@@ -354,6 +355,7 @@ const PLATFORMS = {
     format: 'ios-swift/enum.swift',
   },
   'android-kotlin': {
+    stockGroup: 'compose',
     transforms: [
       'attribute/cti',
       'name/camel',
@@ -367,6 +369,85 @@ const PLATFORMS = {
     format: 'compose/object',
   },
 };
+
+// Stock transforms this config deliberately does NOT run. The reason is the
+// point: an entry here is a decision on the record, where an absence from
+// PLATFORMS is indistinguishable from an oversight.
+//
+// Keyed by transform name alone, with no platform qualifier. That is safe only
+// because every name here is platform-prefixed, so no cross-platform collision
+// is expressible. Declining an unprefixed name — a hypothetical shared
+// "size/px" — would widen silently across both platforms and must convert this
+// to a per-platform map.
+const DECLINED_STOCK_TRANSFORMS = {
+  'size/swift/remToCGFloat': 'rem-assuming — replaced by size/unit-aware/swift',
+  'size/compose/remToDp': 'rem-assuming — replaced by size/unit-aware/compose-dp',
+  'size/compose/remToSp': 'rem-assuming — replaced by size/unit-aware/compose-sp',
+  'size/compose/em': 'em is not representable in native output — filtered out',
+};
+
+// Report every transform in a platform's live stock group that this config
+// neither runs nor explicitly declined. Pure: it takes Style Dictionary's
+// hooks.transformGroups and returns formatted warning strings, so the wording
+// is what the tests assert and the caller is a bare loop.
+//
+// Warns, never throws. The dangerous direction is an ADDITION we never learned
+// about, which is usually harmless and occasionally important — throwing would
+// break a build over a change the consumer cannot fix. The fatal direction, a
+// transform we run being removed, already makes Style Dictionary throw on an
+// unknown transform name.
+//
+// Order is never compared: our lists are hand-ordered for our own reasons and
+// do not inherit stock order. Removals are never reported: a declined name
+// disappearing is a non-event.
+export function auditStockGroups(transformGroups) {
+  if (typeof transformGroups !== 'object' || transformGroups === null) {
+    return [
+      "throughline: could not read Style Dictionary's stock transform groups " +
+        '(hooks.transformGroups is not an object), so this adapter cannot check ' +
+        'whether its transform lists are still complete.',
+    ];
+  }
+  const warnings = [];
+  for (const [platform, preset] of Object.entries(PLATFORMS)) {
+    const group = preset.stockGroup;
+    if (!group) {
+      warnings.push(
+        `throughline: PLATFORMS['${platform}'] declares no stockGroup, so its ` +
+          "transform list cannot be checked against Style Dictionary's stock " +
+          'groups. This is a throughline packaging defect — please report it.',
+      );
+      continue;
+    }
+    const stock = transformGroups[group];
+    if (!Array.isArray(stock)) {
+      warnings.push(
+        `throughline: Style Dictionary has no "${group}" transform group, which ` +
+          `PLATFORMS['${platform}'] mirrors. The stock group may have been ` +
+          'renamed or removed. Upgrade @radicool/throughline, or report your ' +
+          'Style Dictionary version.',
+      );
+      continue;
+    }
+    const unaccounted = stock.filter(
+      (name) =>
+        !preset.transforms.includes(name) &&
+        !Object.hasOwn(DECLINED_STOCK_TRANSFORMS, name),
+    );
+    if (unaccounted.length) {
+      const n = unaccounted.length;
+      warnings.push(
+        `throughline: Style Dictionary's "${group}" transform group has ${n} ` +
+          `transform${n === 1 ? '' : 's'} this adapter neither runs nor declined: ` +
+          `${unaccounted.join(', ')}. Native output may be incomplete. Upgrade ` +
+          '@radicool/throughline, or report your Style Dictionary version. ' +
+          `(Maintainer repair: add each to PLATFORMS['${platform}'].transforms, ` +
+          'or to DECLINED_STOCK_TRANSFORMS with a reason.)',
+      );
+    }
+  }
+  return warnings;
+}
 
 // % and em are container- or parent-relative, so there is no build-time native
 // magnitude. Filter on the AUTHORED value, not on $type — a "100%" token may be

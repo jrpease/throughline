@@ -13,6 +13,7 @@ import {
   registerNativeTransforms,
   hasNativeForm,
   EXT_NS,
+  auditStockGroups,
 } from './sd-native.mjs';
 
 test('magnitude treats px as 1:1', () => {
@@ -1155,4 +1156,122 @@ test('a unitless zero is a ratio, not a zero measurement', () => {
   // "0px" is a measurement and is unaffected.
   const zeroPx = { $type: 'dimension', $value: '0px', original: { $value: '0px' } };
   assert.equal(t.get('size/unit-aware/compose-dp').filter(zeroPx), true);
+});
+
+// Style Dictionary's stock transform groups, read from real installs of 4.4.0
+// and 5.5.2 via StyleDictionary.hooks.transformGroups. Both groups are
+// byte-identical across those versions, so one literal covers both; asserting
+// the same array twice would be duplication, not coverage.
+const REAL_STOCK = {
+  'ios-swift': [
+    'attribute/cti',
+    'name/camel',
+    'color/UIColorSwift',
+    'content/swift/literal',
+    'asset/swift/literal',
+    'size/swift/remToCGFloat',
+  ],
+  compose: [
+    'attribute/cti',
+    'name/camel',
+    'color/composeColor',
+    'size/compose/em',
+    'size/compose/remToSp',
+    'size/compose/remToDp',
+  ],
+};
+
+const UNREADABLE =
+  "throughline: could not read Style Dictionary's stock transform groups " +
+  '(hooks.transformGroups is not an object), so this adapter cannot check ' +
+  'whether its transform lists are still complete.';
+
+const NO_COMPOSE_GROUP =
+  'throughline: Style Dictionary has no "compose" transform group, which ' +
+  "PLATFORMS['android-kotlin'] mirrors. The stock group may have been renamed " +
+  'or removed. Upgrade @radicool/throughline, or report your Style Dictionary ' +
+  'version.';
+
+const NO_IOS_GROUP =
+  'throughline: Style Dictionary has no "ios-swift" transform group, which ' +
+  "PLATFORMS['ios-swift'] mirrors. The stock group may have been renamed " +
+  'or removed. Upgrade @radicool/throughline, or report your Style Dictionary ' +
+  'version.';
+
+test('auditStockGroups is silent on the real stock groups', () => {
+  assert.deepEqual(auditStockGroups(REAL_STOCK), []);
+});
+
+test('auditStockGroups reports one stock transform that is neither run nor declined', () => {
+  const groups = { ...REAL_STOCK, compose: [...REAL_STOCK.compose, 'size/compose/foo'] };
+  assert.deepEqual(auditStockGroups(groups), [
+    'throughline: Style Dictionary\'s "compose" transform group has 1 transform ' +
+      'this adapter neither runs nor declined: size/compose/foo. Native output ' +
+      'may be incomplete. Upgrade @radicool/throughline, or report your Style ' +
+      'Dictionary version. (Maintainer repair: add each to ' +
+      "PLATFORMS['android-kotlin'].transforms, or to DECLINED_STOCK_TRANSFORMS " +
+      'with a reason.)',
+  ]);
+});
+
+test('auditStockGroups reports two unaccounted names in ONE message, in stock order', () => {
+  const groups = {
+    ...REAL_STOCK,
+    compose: [...REAL_STOCK.compose, 'size/compose/foo', 'size/compose/bar'],
+  };
+  assert.deepEqual(auditStockGroups(groups), [
+    'throughline: Style Dictionary\'s "compose" transform group has 2 transforms ' +
+      'this adapter neither runs nor declined: size/compose/foo, size/compose/bar. ' +
+      'Native output may be incomplete. Upgrade @radicool/throughline, or report ' +
+      'your Style Dictionary version. (Maintainer repair: add each to ' +
+      "PLATFORMS['android-kotlin'].transforms, or to DECLINED_STOCK_TRANSFORMS " +
+      'with a reason.)',
+  ]);
+});
+
+test('auditStockGroups reports each platform independently', () => {
+  const groups = {
+    'ios-swift': [...REAL_STOCK['ios-swift'], 'size/swift/newThing'],
+    compose: [...REAL_STOCK.compose, 'size/compose/foo'],
+  };
+  const out = auditStockGroups(groups);
+  assert.equal(out.length, 2);
+  assert.ok(out[0].includes('"ios-swift" transform group has 1 transform'));
+  assert.ok(out[0].includes('size/swift/newThing'));
+  assert.ok(out[1].includes('"compose" transform group has 1 transform'));
+  assert.ok(out[1].includes('size/compose/foo'));
+});
+
+test('auditStockGroups is silent on a group holding only declined transforms', () => {
+  const groups = { ...REAL_STOCK, compose: ['size/compose/em', 'size/compose/remToDp'] };
+  assert.deepEqual(auditStockGroups(groups), []);
+});
+
+test('auditStockGroups ignores stock ORDER', () => {
+  const groups = { ...REAL_STOCK, compose: [...REAL_STOCK.compose].reverse() };
+  assert.deepEqual(auditStockGroups(groups), []);
+});
+
+test('auditStockGroups ignores a REMOVED declined transform', () => {
+  const groups = {
+    ...REAL_STOCK,
+    compose: REAL_STOCK.compose.filter((n) => n !== 'size/compose/em'),
+  };
+  assert.deepEqual(auditStockGroups(groups), []);
+});
+
+test('auditStockGroups reports a stock group that is absent entirely', () => {
+  assert.deepEqual(auditStockGroups({ 'ios-swift': REAL_STOCK['ios-swift'] }), [
+    NO_COMPOSE_GROUP,
+  ]);
+});
+
+test('auditStockGroups reports unreadable transformGroups', () => {
+  for (const bad of [undefined, null, 'nope', 42]) {
+    assert.deepEqual(auditStockGroups(bad), [UNREADABLE], `input: ${String(bad)}`);
+  }
+});
+
+test('auditStockGroups treats an array as a readable object with no groups', () => {
+  assert.deepEqual(auditStockGroups([]), [NO_IOS_GROUP, NO_COMPOSE_GROUP]);
 });
