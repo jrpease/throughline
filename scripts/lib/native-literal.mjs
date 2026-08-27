@@ -15,6 +15,28 @@
 // an undefined function still parses.
 
 const IDENT = /^[A-Za-z_][A-Za-z0-9_]*/;
+
+// Swift and Kotlin disagree about numeric literals in OPPOSITE directions, so
+// one shared rule necessarily over-accepts on one platform or false-fails on
+// the other. Both sides measured rather than assumed:
+//
+//   Swift, via `swiftc -parse`: `.5` and `-.5` are rejected — the compiler says
+//   "it must be written '0.5'" — while `0100` and `00` compile.
+//
+//   Kotlin, from the language spec's lexical grammar (no kotlinc available, so
+//   this half is spec-derived, not compile-verified): IntegerLiteral is
+//   `DecDigitNoZero {DecDigitOrSeparator} DecDigit | DecDigit`, so `0100`
+//   cannot parse; DoubleLiteral is `[DecDigits] '.' DecDigits [DoubleExponent]`,
+//   so `.5` can.
+//
+// Hex compiles on both and stays. A leading-zero integer is caught by the
+// trailing-input rule at the end of parseLiteral rather than by the regex:
+// `0100` matches only `0`, leaving `100` unconsumed.
+const NUMBER_SWIFT = /^-?(?:0[xX][0-9a-fA-F]+|\d+(?:\.\d+)?)/;
+const NUMBER_KOTLIN = /^-?(?:0[xX][0-9a-fA-F]+|(?:0|[1-9]\d*)(?:\.\d+)?|\.\d+)/;
+
+// The union of both, for a caller that names no platform. Every real consumer
+// passes a GRAMMAR entry, which overrides this.
 const NUMBER = /^-?(?:0[xX][0-9a-fA-F]+|\d+(?:\.\d+)?|\.\d+)/;
 
 // `escapes` are the characters legal after a backslash inside a string.
@@ -22,11 +44,13 @@ const NUMBER = /^-?(?:0[xX][0-9a-fA-F]+|\d+(?:\.\d+)?|\.\d+)/;
 // so a shared set would over-accept on iOS.
 export const GRAMMAR = {
   'ios-swift': {
+    number: NUMBER_SWIFT,
     suffixes: [],
     units: [],
     escapes: ['0', '\\', 't', 'n', 'r', '"', "'", 'u'],
   },
   'android-kotlin': {
+    number: NUMBER_KOTLIN,
     suffixes: ['f', 'F', 'L'],
     units: ['dp', 'sp', 'em'],
     escapes: ['\\', 't', 'n', 'r', '"', "'", '$', 'u'],
@@ -47,6 +71,7 @@ export function parseLiteral(value, grammar = {}) {
   const suffixes = grammar.suffixes ?? [];
   const units = grammar.units ?? [];
   const escapes = new Set(grammar.escapes ?? []);
+  const numberRe = grammar.number ?? NUMBER;
   let i = 0;
 
   const ws = () => {
@@ -82,7 +107,7 @@ export function parseLiteral(value, grammar = {}) {
   };
 
   const number = () => {
-    const m = s.slice(i).match(NUMBER);
+    const m = s.slice(i).match(numberRe);
     if (!m) return false;
     i += m[0].length;
     if (take(units.map((u) => `.${u}`))) return true;
@@ -101,7 +126,7 @@ export function parseLiteral(value, grammar = {}) {
       i += bool[0].length;
       return true;
     }
-    if (NUMBER.test(rest)) return number();
+    if (numberRe.test(rest)) return number();
 
     const id = rest.match(IDENT);
     if (!id) return false;
