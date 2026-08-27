@@ -1,31 +1,40 @@
-# Two stacked native PRs — handoff
+# Native stack landed, and the e2e evidence audit — handoff
 
 **Date:** 2026-08-27
 **Supersedes:** `2026-08-24-native-backlog-handoff.md`
 
-## Read this first — there is an ordering constraint with a known cost
+## The stacked landing — done, and the trap that is not in the old instructions
 
-Two PRs are open and **stacked**:
+Both PRs landed on 2026-08-27. `main` is at `a8123fe`.
 
-| PR | issue | branch | base |
-|---|---|---|---|
-| [#69](https://github.com/jrpease/throughline/pull/69) | #52 unitless ratios | `fix/52-unitless-dimension` | `main` |
-| [#74](https://github.com/jrpease/throughline/pull/74) | #54 stock transform accounting | `feat/54-stock-transform-accounting` | **`fix/52-unitless-dimension`** |
+| PR | issue | squash commit |
+|---|---|---|
+| [#69](https://github.com/jrpease/throughline/pull/69) | #52 unitless ratios | `509845a` |
+| [#74](https://github.com/jrpease/throughline/pull/74) | #54 stock transform accounting | `a8123fe` |
 
-**#74 must be retargeted to `main` BEFORE #69 merges:**
+The retarget-before-merge ordering worked as written — `gh pr edit 74 --base main`,
+then `gh pr merge 69` **without** `--delete-branch`. #74 stayed open. That part of
+the constraint is settled; it exists because merging a parent with
+`--delete-branch` auto-closes the stacked child, which cannot be reopened once its
+head has been rebased. That cost PR #65 on 2026-08-24.
+
+**What the instructions did not say, and nearly cost a bad merge:** the moment you
+retarget the child while the parent is still open, GitHub reports it
+`MERGEABLE / CLEAN` — with **26 commits**, its own 10 plus the parent's 16.
+Nothing in that status reveals the parent is riding along, and merging there
+would have squashed both PRs into one commit under the child's title. After the
+parent squash-merges, the child does *not* shrink on its own, because the squash
+orphaned its copies of the parent's commits. Rebase explicitly:
 
 ```
-gh pr edit 74 --base main
-gh pr merge 69            # WITHOUT --delete-branch
-git push origin --delete fix/52-unitless-dimension   # by hand, after
+git rebase --onto origin/main <parent-tip> <child-branch>
+git push --force-with-lease
 ```
 
-Merging the parent with `--delete-branch` auto-closes the stacked child, and
-once the child's head has been rebased it **cannot be reopened** — GitHub
-refuses even after the base branch is restored. That cost PR #65 on 2026-08-24
-and its content had to be reopened as #66.
+#74 went 26 → 10 commits and 8 files this way, no conflicts. **Verify the commit
+count after retargeting, not just the mergeable flag.**
 
-Both are stacked rather than parallel because `scripts/lib/sd-native.mjs`
+Both were stacked rather than parallel because `scripts/lib/sd-native.mjs`
 generates `references/native-adapter-config.md` from its whole body, so two
 branches off `main` that both touch it conflict guaranteed.
 
@@ -66,18 +75,27 @@ repo, which declares zero dependencies deliberately.
 
 ## What is unfinished
 
-**Nothing has been released since 0.15.0.** Eight items now sit unreleased:
-#34, #50, #53, #55, #51, #60, #52, #54. A version cut was deferred once already
-on 2026-08-26.
+**Nothing has been released since 0.15.0.** Ten CHANGELOG entries across eight
+issues now sit unreleased: #34, #50, #53, #55, #51, #60, #52, #54. A version cut
+has been deferred twice — 2026-08-26 and again 2026-08-27.
+
+**PR [#76](https://github.com/jrpease/throughline/pull/76) is open** — a
+documentation-only change scoping the #55 e2e procedure to the harness that ran
+it. One commit, green, `MERGEABLE/CLEAN` against `main`.
 
 ## Open questions for the next session
 
-- **#73 — was #55's and #60's e2e evidence vacuous?** Filed 2026-08-26. The
-  #52 cycle found that the documented symlink swap targets `scripts/lib`, while
-  `build.mjs` imports a *different* top-level `lib/` of per-file symlinks —
-  so following the note literally builds "main" from HEAD's code and produces a
-  false byte-identical pass. Whether the earlier runs hit that is unverified.
-  Worth answering before leaning on that harness again.
+- **#73 — was #55's and #60's e2e evidence vacuous?** **Answered and closed
+  2026-08-27: no.** Both runs were sound, neither for the reason the issue
+  assumed. #55 ran at 10:22, before the top-level `lib/` directory existed
+  (born 13:46), so a build importing `./lib/` would have thrown
+  `ERR_MODULE_NOT_FOUND`; both builds recorded `EXIT:0`, so the swap hit the
+  only surface present. #60 ran synthetic fixtures reaching the defect, and
+  those moved across the swap (`20px` → `20.00.dp`) — which a no-op cannot do.
+  What was stale was the *procedure text*, frozen after the harness was
+  restructured and inherited four days later. `2026-08-24-hoist-dual-nodes-e2e.md`
+  now carries a warning ahead of its steps (PR #76), and the general practice is
+  [#77](https://github.com/jrpease/throughline/issues/77).
 - **Which backlog slot is next.** #36 (validator silently drops a token to a key
   collision) is the last of the "instruments" items. The consumption-layer epic
   (#39–#44) has been parked pending a clean native base, which it now has. The
