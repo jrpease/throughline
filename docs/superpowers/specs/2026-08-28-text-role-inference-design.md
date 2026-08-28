@@ -138,6 +138,23 @@ for why those three names and no others. A reader of the doc sees an import
 rather than a literal set — an accepted, small loss against having one
 definition.
 
+**`TEXT_ROLE_UNIT` and `EXT_NS` move with it, by the same rule.**
+`textRoleGraph` needs `TEXT_ROLE_UNIT` for gate 2 and for defining
+`unreferencedSiblings`, and needs `EXT_NS` to skip a token whose source already
+carries a stamp. Both live in `sd-native.mjs` today, and `sd-native.mjs` imports
+`dtcg.mjs` (line 13) — so `dtcg.mjs` reaching back for either would be an import
+**cycle**. All three constants therefore move to `dtcg.mjs`, each keeping its
+explanatory comment at the import site in `sd-native.mjs` so the generated doc
+keeps its rationale. `sd-native.mjs` **re-exports `EXT_NS`**, which is already
+part of its public surface: the transforms and their tests address the same key.
+
+This is also what keeps the validator's install footprint unchanged.
+`dtcg.mjs`'s own header records that it is copied alongside
+`validate-token-output.mjs`, while `sd-native.mjs` installs separately. Putting
+`EXT_NS` in `dtcg.mjs` lets the advisory read the stamp without
+`validate-token-output.mjs` acquiring a new install-time sibling — which would
+otherwise be a real consequence of a decision that looks purely cosmetic.
+
 New order inside `preprocess`:
 
 ```
@@ -147,11 +164,64 @@ resolveInPlace → classifyTextUnits → applyTextRoleGraph → hoistDualNodes
 **Before the hoist**, because the hoist rewrites `text.xs.lineHeight` to
 `text.xsLineHeight` and the edge paths are written in pre-hoist names.
 
-**Idempotency holds without new machinery.** On a second `preprocess` the values
-are already resolved, so there are no whole-value references, so the graph is
-empty and no new stamps appear; the stamps from the first pass survive
-`structuredClone`. This is the same argument `classifyTextUnits` already relies
-on, and `preprocess(preprocess(x))` stays `deepEqual` to `preprocess(x)`.
+**Idempotency holds — but not for the obvious reason, and the obvious reason is
+false.** It is tempting to say a second `preprocess` finds every value resolved
+and so collects no edges. That is not quite true: `resolveInPlace` deliberately
+leaves an **unresolvable** reference in place (`sd-native.mjs:103-105`) for Style
+Dictionary to report, and such a value still looks like a whole-value reference
+on a second pass. The edge set is not necessarily empty.
+
+It holds for a narrower reason. An unresolvable reference names a path that does
+not exist, so there is no referent node to stamp. **`applyTextRoleGraph` must
+therefore tolerate an edge whose referent is missing and skip it rather than
+throw** — on the first pass as much as the second. Given that, every stamp a
+second pass could apply is one the first already applied, gate 3 declines to
+overwrite it, the stamps survive `structuredClone`, and
+`preprocess(preprocess(x))` stays `deepEqual` to `preprocess(x)`.
+
+### 4.1 Files touched, and what the doc gate requires
+
+| file | change |
+|---|---|
+| `scripts/lib/dtcg.mjs` | `textRoleGraph`, `mergeDtcg`, the three moved constants |
+| `scripts/lib/sd-native.mjs` | `applyTextRoleGraph` in `preprocess`; imports the constants, re-exports `EXT_NS` |
+| `scripts/validate-token-output.mjs` | the source-side advisory pass |
+| `scripts/build-native-adapter-config.mjs` | `platform` prose (below) |
+| `references/native-adapter-config.md` | regenerated, never hand-edited |
+| `scripts/lib/dtcg.test.mjs`, `scripts/lib/sd-native.test.mjs`, `scripts/validate-token-output.test.mjs` | §7 |
+| `CHANGELOG.md` | a `Breaking` entry |
+
+`scripts/lib/sd-native.mjs` is gated by
+`node scripts/build-native-adapter-config.mjs --check`, which regenerates
+`references/native-adapter-config.md` from the module's own source between
+`@doc-section` markers, interleaved with prose held in the generator. **Every
+line of the module must fall inside a `@doc-section` pair, and every section
+needs a matching prose entry** — the generator throws otherwise. So the new code
+goes inside the existing `preprocess` section, and the gate is re-run and the
+regenerated doc committed in the same change. `references/` ships in the
+published tarball, so a stale doc here reaches consumers.
+
+**This change falsifies two documented claims. Correcting them is part of the
+work, not a follow-up:**
+
+1. `scripts/lib/sd-native.mjs:330-332` — "A scale primitive carries no role.
+   `text.base: "16px"` is a font size only to a human, so it emits as dp."
+   No longer true of a referenced primitive.
+2. `scripts/build-native-adapter-config.mjs:126` — "no nominal or structural
+   signal marks it." The structural signal is exactly what this design adds.
+
+Neither should simply be deleted. Both must state the new rule **and** its
+remaining gap — the unreferenced tail of §1 — or the doc will overclaim in the
+opposite direction.
+
+**A third claim in the same comment is already stale, before this change.**
+`sd-native.mjs:333-334` says an em-valued letterSpacing "is filtered out of
+native output entirely, rather than emitted as Compose's `.em` TextUnit." #64
+made that false for a **stamped** em value; it holds only for a role-less one.
+The generator's own prose already reflects #64 and this comment does not. It is
+corrected here rather than filed separately, because this change rewrites the
+same bullet list and makes the bullet wronger — three more tokens become
+stamped.
 
 ## 5. The advisory
 
@@ -173,6 +243,24 @@ filter drops it. So this advisory cannot ride the declaration loop and needs a
 `a.symbol` exists; these advisories carry a token path and may carry no symbol
 at all. Both are new shape rather than a tweak, and are the part of this work
 most likely to be got subtly wrong.
+
+**A token whose source already stamps `nativeUnit` is excluded from
+`unreferencedSiblings`** — it is closed already, and naming it would be noise.
+This is why `textRoleGraph` needs `EXT_NS`, and why §4 moves it.
+
+**Which tree the graph runs on.** `preprocess` receives one dict. `validate`
+receives `sources` as an **array**, and today only ever flattens them
+(`Object.assign` over `flattenDtcg` results), which destroys the group structure
+`unreferencedSiblings` needs. So `dtcg.mjs` also gains **`mergeDtcg(dicts)`**: a
+deep merge, later source winning — matching both the later-wins semantics
+`validate` already applies to values and the single merged dict Style Dictionary
+hands `preprocess`. The validator merges first, then calls `textRoleGraph` once.
+
+Deliberately a merge and **not** a union of per-source graphs. §1 is itself a
+demonstration that the two differ. The advisory exists to describe the build that
+was actually run, and a build merges; a union would report a token as reached
+when the build did not reach it, under-reporting the gap in the one direction
+that matters.
 
 ## 6. What changes in emitted output
 
@@ -215,8 +303,19 @@ stamp.
 the escape hatch and the opt-out both work. The last two work today by accident
 of a guard nobody tests; this pins them.
 
+**Unit, on `textRoleGraph`, for the cases §4 and §5 forced** — an edge whose
+referent does not exist (must skip, not throw); a token already carrying a
+source `nativeUnit` stamp (excluded from `unreferencedSiblings`); and
+`mergeDtcg` over two mode files that disagree, with the graph computed on the
+merged result, asserting the §1 behaviour that a later file's overwrite can
+remove a referrer.
+
 **Unit, on `validate`** — both advisories, including the case that matters most:
 an advisory for a token that has **no emitted symbol**.
+
+**The doc gate** — `node scripts/build-native-adapter-config.mjs --check` passes
+after regeneration, and the regenerated `references/native-adapter-config.md` is
+committed alongside. Per §4.1 this is a gate, not a nicety.
 
 **e2e against zygarden's real source** — build both platforms, run
 `ci/compile-native-output.mjs` on the output, and diff declaration counts and
@@ -240,6 +339,12 @@ a number to edit.
 - **Whole-value references only.** A role-less token holding an interpolated
   expression that embeds a reference contributes no edge. `resolveInPlace`
   handles those for resolution; they are not evidence of a role.
+- **A group-level `$type` is not seen.** The propagation gate mirrors
+  `classifyTextUnits`'s direct `val.$type === 'dimension'` check, so a source
+  declaring `$type` once on the group and not on each token is unreachable by
+  the inference. This is a pre-existing property of `classifyTextUnits` rather
+  than something introduced here, and zygarden declares `$type` on every token
+  node — but it is a real limit and this list claims to be complete.
 - **The inference is only as good as the source's naming.** It rests entirely on
   DTCG §9.8's three member names, exactly as #51 does. A source naming its font
   size `typography.body.size` is reached by neither, and stamps `$extensions`
