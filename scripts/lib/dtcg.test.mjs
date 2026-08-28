@@ -8,6 +8,8 @@ import {
   TEXT_UNIT_NAMES,
   TEXT_ROLE_UNIT,
   EXT_NS,
+  textRoleGraph,
+  mergeDtcg,
 } from './dtcg.mjs';
 
 // text.sm is a DUAL-NODE token: it carries its own $value AND a child.
@@ -149,4 +151,93 @@ test('the shared text-role constants live here, so textRoleGraph and sd-native c
   assert.equal(EXT_NS, 'com.radicool.throughline');
   for (const ok of ['16px', '1.5rem', '-0.03em', '.5px']) assert.ok(TEXT_ROLE_UNIT.test(ok), ok);
   for (const no of ['1.5', '16', '100%', '16dp', '']) assert.ok(!TEXT_ROLE_UNIT.test(no), no);
+});
+
+const graphFixture = () => ({
+  text: {
+    base: { $type: 'dimension', $value: '16px' },
+    huge: { $type: 'dimension', $value: '96px' },
+    stamped: { $type: 'dimension', $value: '72px', $extensions: { [EXT_NS]: { nativeUnit: 'text' } } },
+    ratio: { $type: 'dimension', $value: '1.5' },
+  },
+  space: { md: { $type: 'dimension', $value: '8px' } },
+  typography: {
+    body: {
+      fontSize: { $type: 'dimension', $value: '{text.base}' },
+      lineHeight: { $type: 'dimension', $value: '{text.base}' },
+    },
+    gutter: { $type: 'dimension', $value: '{space.md}' },
+  },
+});
+
+test('a referent whose referrers are all typographic is inferred typographic', () => {
+  const g = textRoleGraph(graphFixture());
+  assert.ok(g.typographic.has('text.base'));
+  assert.ok(!g.typographic.has('space.md'), 'a gutter referrer states no typographic role');
+  assert.deepEqual(g.ambiguous, []);
+});
+
+test('a referent with referrers on both sides is ambiguous, not inferred', () => {
+  const dict = graphFixture();
+  dict.space.pad = { $type: 'dimension', $value: '{text.base}' };
+  const g = textRoleGraph(dict);
+  assert.ok(!g.typographic.has('text.base'), 'counter-evidence declines the stamp');
+  assert.equal(g.ambiguous.length, 1);
+  assert.equal(g.ambiguous[0].path, 'text.base');
+  assert.deepEqual(g.ambiguous[0].textLeaves.sort(), ['fontSize', 'lineHeight']);
+  assert.deepEqual(g.ambiguous[0].otherLeaves, ['pad']);
+});
+
+test('an unreferenced sibling of an inferred token is advised, not inferred', () => {
+  const g = textRoleGraph(graphFixture());
+  const paths = g.unreferencedSiblings.map((u) => u.path);
+  assert.ok(paths.includes('text.huge'), 'nothing references it, but its siblings are typographic');
+  assert.ok(!paths.includes('text.stamped'), 'already closed by a source stamp');
+  assert.ok(!paths.includes('text.ratio'), 'unitless — no size transform would claim it anyway');
+  assert.ok(!paths.includes('space.md'), 'it has a referrer (typography.gutter), so it was never a candidate');
+  assert.equal(g.unreferencedSiblings.find((u) => u.path === 'text.huge').group, 'text');
+});
+
+test('an edge to a path that does not exist is collected, not thrown on', () => {
+  const g = textRoleGraph({
+    typography: { body: { fontSize: { $type: 'dimension', $value: '{nope.missing}' } } },
+  });
+  assert.ok(g.typographic.has('nope.missing'), 'the graph reports the edge; the applier skips it');
+  assert.deepEqual(g.unreferencedSiblings, []);
+});
+
+test('a chain through a role-less intermediate is declined at the second hop', () => {
+  const g = textRoleGraph({
+    text: { base: { $type: 'dimension', $value: '16px' } },
+    alias: { x: { $type: 'dimension', $value: '{text.base}' } },
+    typography: { body: { fontSize: { $type: 'dimension', $value: '{alias.x}' } } },
+  });
+  assert.ok(g.typographic.has('alias.x'));
+  assert.ok(!g.typographic.has('text.base'), 'the intermediate leaf name states no role');
+});
+
+test('a dual node is reached at its own path, before any hoist', () => {
+  const g = textRoleGraph({
+    text: { sm: { $type: 'dimension', $value: '14px', lineHeight: { $type: 'dimension', $value: '20px' } } },
+    typography: { body: { fontSize: { $type: 'dimension', $value: '{text.sm}' } } },
+  });
+  assert.ok(g.typographic.has('text.sm'));
+});
+
+test('mergeDtcg lets a later source win and leaves its inputs alone', () => {
+  const a = { typography: { body: { fontSize: { $value: '{text.sm}' } } }, keep: { x: { $value: '1px' } } };
+  const b = { typography: { body: { fontSize: { $value: '{text.lg}' } } } };
+  const merged = mergeDtcg([a, b]);
+  assert.equal(merged.typography.body.fontSize.$value, '{text.lg}');
+  assert.equal(merged.keep.x.$value, '1px');
+  assert.equal(a.typography.body.fontSize.$value, '{text.sm}', 'inputs must not be mutated');
+});
+
+test('a merge can remove a referrer a union would have kept', () => {
+  const desktop = { typography: { body: { fontSize: { $type: 'dimension', $value: '{text.lg}' } } } };
+  const mobile = { typography: { body: { fontSize: { $type: 'dimension', $value: '{text.sm}' } } } };
+  const base = { text: { lg: { $type: 'dimension', $value: '18px' }, sm: { $type: 'dimension', $value: '14px' } } };
+  const g = textRoleGraph(mergeDtcg([base, desktop, mobile]));
+  assert.ok(g.typographic.has('text.sm'));
+  assert.ok(!g.typographic.has('text.lg'), 'the mobile file overwrote the only referrer to text.lg');
 });
