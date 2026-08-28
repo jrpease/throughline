@@ -21,11 +21,14 @@ Measured on zygarden's real source (`libs/shared/util-tokens/src/tokens/`,
 15 files), not reasoned about. Measured **twice**, because the first measurement
 was wrong in a way worth recording.
 
-Merging the 15 files as a build merges them — later file wins on a colliding
-path — gives 101 edges and reports `text.6xl` as unreferenced. Taking the
-**union** of edges across all 15 files gives **194 edges**, and `text.6xl` has a
-referrer after all: it lives in `typography-semantic.desktop.json`, which
-`typography-semantic.mobile.json` overwrote in the merge.
+Merging all 15 files with the later-file-wins rule a real build applies to a
+colliding path — though no real build could take all 15 at once; a 15-file
+source list collides both mode axes at once, and `nativeSources()` rejects
+that as a mode collision — gives 101 edges and reports `text.6xl` as
+unreferenced. Taking the **union** of edges across all 15 files gives **194
+edges**, and `text.6xl` has a referrer after all: it lives in
+`typography-semantic.desktop.json`, which `typography-semantic.mobile.json`
+overwrote in the merge.
 
 | token group | tokens | reached (**union**) | unreferenced |
 |---|--:|--:|--:|

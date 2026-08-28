@@ -18,8 +18,14 @@ to [Semantic Versioning](https://semver.org).
   system**, and *which* nine depends on the mode set the build includes — the
   inference reads the reference graph of the files in that build, so a primitive
   referenced only from a desktop typography file is typographic in a desktop
-  build and not in a mobile one. Swift is unchanged, byte for byte; the sp/dp
-  distinction is Compose-only.
+  build and not in a mobile one, and the reverse holds too: on the same source,
+  `text.lg` is referenced only from the mobile file and `text.6xl` only from the
+  desktop one, a straight swap rather than one stray token, and the count of
+  nine is identical on both pins even though the set is not. Swift is unchanged,
+  byte for byte; the sp/dp distinction is Compose-only. To decline the
+  inference for a specific token, stamp
+  `$extensions["com.radicool.throughline"].nativeUnit` to `"device"` (or any
+  value other than `"text"`) on it in source.
 
 ### Fixed
 

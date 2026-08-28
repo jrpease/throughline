@@ -77,9 +77,12 @@ not exercise. The `dp`/`sp` split itself is no longer among them: font sizes and
 line heights whose role a DTCG source states — the `fontSize`, `letterSpacing`
 and `lineHeight` member names of §9.8's typography composite — now emit as
 `sp`. What remains is narrower and documented in
-`${CLAUDE_PLUGIN_ROOT}/references/native-adapter-config.md`: a bare scale
-primitive carries no role and stays `dp`, and an `em` letterSpacing is
-filtered out rather than emitted as `.em`.
+`${CLAUDE_PLUGIN_ROOT}/references/native-adapter-config.md`: a scale primitive
+**nothing references** carries no role and stays `dp`, named by a
+`tokens:validate-output` `unreferenced-text-sibling` advisory; and an `em`
+letterSpacing reaches Compose as a real `.em` TextUnit but is excluded from
+Swift deliberately, since letter spacing there needs a font size no constant
+Swift value could carry.
 `tokens:validate-output` remains what decides whether any adapter can be
 trusted, and re-promotion is available to any adapter that passes it against a
 real source.

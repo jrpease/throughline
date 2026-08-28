@@ -288,7 +288,7 @@ export function formatReport(r) {
     for (const a of r.advisories) {
       if (a.rule === 'unreferenced-text-sibling') {
         lines.push(
-          `  - [${a.rule}] ${a.token}: nothing references it, so no typographic role could be inferred — but tokens in "${a.group}" were. It emits as a length, or is dropped entirely if its unit is em. Stamp $extensions["${EXT_NS}"].nativeUnit = "text" on it in source to settle it, or leave it if it is not a text value.`,
+          `  - [${a.rule}] ${a.token}: nothing references it, so no typographic role could be inferred — but tokens in "${a.group}" were. It emits as a length, or is dropped entirely if its unit is em. On Compose, stamping $extensions["${EXT_NS}"].nativeUnit = "text" on it in source settles it; on Swift there is no sp/dp distinction to settle, and a stamped em still would not emit there. Leave it as is if it is not a text value.`,
         );
         continue;
       }

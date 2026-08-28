@@ -504,19 +504,24 @@ dependency on it.
 // That last one is fixed for tokens whose role a DTCG source actually states:
 // classifyTextUnits stamps fontSize, letterSpacing and lineHeight members, and
 // the sp transform gates on the stamp rather than on a $type DTCG never emits.
-// Two limits remain, both Android-only and both measured rather than
-// theoretical — see docs/superpowers/notes/2026-08-21-native-config-e2e-results.md:
+// Two limits remain, one Android-only and one affecting both platforms, both
+// measured rather than theoretical — see
+// docs/superpowers/notes/2026-08-28-text-role-inference-e2e.md:
 //
 //   - A scale primitive states no role, so #63 infers one from the reference
 //     graph: a dimension referenced only by fontSize, letterSpacing or
 //     lineHeight members is itself typographic. text.base: "16px" is stamped
-//     because a fontSize references it. What remains is the primitive NOTHING
-//     references — no structural signal exists for it, so it is not inferred,
-//     and tokens:validate-output raises an unreferenced-text-sibling advisory
-//     naming it rather than leaving the gap silent.
+//     because a fontSize references it. A primitive NOTHING references stays
+//     dp on Android — no structural signal exists for it, so it is not
+//     inferred, and tokens:validate-output raises an unreferenced-text-sibling
+//     advisory naming it rather than leaving the gap silent. This is not the
+//     complete list of remaining limits (spec §8 names five more); the one a
+//     consumer is likeliest to hit is mode dependence — the same token can
+//     emit sp in one build and dp in another, because the graph only sees the
+//     files that build includes.
 //   - An em-valued letterSpacing reaches Compose as a real .em TextUnit since
 //     #64, but only where the text role is stamped. A role-less em value is
-//     still filtered out of native output entirely.
+//     still filtered out of native output entirely, on both platforms.
 //
 // The third — a unitless ratio emitting as dp — is fixed by #52: no size
 // transform claims a unitless value, so it emits bare on both platforms, and

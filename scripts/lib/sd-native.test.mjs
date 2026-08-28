@@ -926,6 +926,21 @@ test('preprocess stamps a dual-node child before the hoist consumes its name', (
   assert.equal(roleOf(out.text.xs), undefined);
 });
 
+// applyTextRoleGraph must ALSO run before hoistDualNodes, for the same reason
+// as classifyTextUnits above: the graph is built from resolveInPlace's
+// PRE-hoist paths ("text.sm.cap"), and hoistDualNodes renames that child to
+// "text.smCap" — a name the graph never wrote down. Reversing the two calls
+// in preprocess leaves this child unstamped and a 12px font size silently
+// emits 12.00.dp.
+test('preprocess stamps a dual-node child reached only via the reference graph, before the hoist renames it', () => {
+  const out = preprocess({
+    text: { sm: { $type: 'dimension', $value: '14px', cap: { $type: 'dimension', $value: '12px' } } },
+    typography: { body: { fontSize: { $type: 'dimension', $value: '{text.sm.cap}' } } },
+  });
+  assert.equal(out.text.smCap.$value, '12px');
+  assert.equal(roleOf(out.text.smCap), 'text');
+});
+
 // magnitude() reads a bare number as a ratio. Stamping one would emit
 // 1.50.sp — which compiles and renders 1.5sp text, trading a loud failure for
 // a silent one. leading.normal stays the separate defect it already is.
@@ -1328,7 +1343,7 @@ const emSpacing = () => ({
 // applyTextRoleGraph stamps it. What still isn't reached is a primitive
 // NOTHING references — on a real source, typography.letterSpacing.widest —
 // because no structural signal, nominal or referential, exists for it.
-test('classifyTextUnits stamps an em letterSpacing, not only px and rem', () => {
+test('preprocess stamps a direct em letterSpacing, and applyTextRoleGraph reaches one only the reference graph connects', () => {
   const out = preprocess({
     typography: {
       letterSpacing: { tight: { $type: 'dimension', $value: '-0.03em' } },
