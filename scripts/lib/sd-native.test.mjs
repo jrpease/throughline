@@ -1320,11 +1320,14 @@ const emSpacing = () => ({
 });
 
 // The role comes from the LEAF name, so this reaches the 13
-// typography.textStyle.*.letterSpacing tokens — which is where a consumer
-// should reach anyway. It does not reach the four
-// typography.letterSpacing.{tight,normal,wide,widest} primitives, whose leaf
-// names are tight/normal/wide/widest and which therefore state no role. That
-// is the same documented limit as a bare scale primitive (#63), not a new one.
+// typography.textStyle.*.letterSpacing tokens directly — which is where a
+// consumer should reach anyway. Since #63, the reference graph reaches
+// further: typography.letterSpacing.tight is referenced by
+// textStyle.h1.letterSpacing, and that referrer's own leaf name is
+// typographic, so the graph infers tight is typographic too and
+// applyTextRoleGraph stamps it. What still isn't reached is a primitive
+// NOTHING references — on a real source, typography.letterSpacing.widest —
+// because no structural signal, nominal or referential, exists for it.
 test('classifyTextUnits stamps an em letterSpacing, not only px and rem', () => {
   const out = preprocess({
     typography: {
@@ -1337,7 +1340,11 @@ test('classifyTextUnits stamps an em letterSpacing, not only px and rem', () => 
   });
   assert.equal(roleOf(out.typography.textStyle.h1.letterSpacing), 'text', 'resolved alias');
   assert.equal(roleOf(out.typography.textStyle.h2.letterSpacing), 'text', 'authored directly');
-  assert.equal(roleOf(out.typography.letterSpacing.tight), undefined, 'primitive states no role');
+  assert.equal(
+    roleOf(out.typography.letterSpacing.tight),
+    'text',
+    'the reference graph reaches it: textStyle.h1.letterSpacing references it, and letterSpacing is a typographic leaf name (#63)',
+  );
 });
 
 test('nativeFilter keeps a text-role em on Compose and drops it on Swift', () => {
