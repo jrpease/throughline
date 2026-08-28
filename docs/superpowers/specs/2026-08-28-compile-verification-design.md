@@ -139,6 +139,34 @@ committed token fixture, before any toolchain question arises.
 | 5 | `ci/README.md` — runner entry + the §7 decision | edit |
 | 6 | `docs/superpowers/notes/2026-08-28-compile-verification-e2e.md` | new note |
 
+### 3.1 The stub source, as measured
+
+Recorded here rather than left to re-derivation, because a spec arguing for
+measured artifacts over reconstructable prose should not make its own stubs
+reconstructable prose. This exact pair compiled zygarden's real output to
+bytecode during design.
+
+`ci/stubs/compose-unit.kt`:
+
+```kotlin
+package androidx.compose.ui.unit
+class Dp(val value: Double)
+class TextUnit(val value: Double)
+val Double.dp: Dp get() = Dp(this)
+val Double.sp: TextUnit get() = TextUnit(this)
+val Double.em: TextUnit get() = TextUnit(this)
+```
+
+`ci/stubs/compose-graphics.kt`:
+
+```kotlin
+package androidx.compose.ui.graphics
+class Color(val value: Long)
+```
+
+`Long`, not `Int` or `ULong`: `0xffffffff` is 4294967295, past `Int.MAX_VALUE`,
+so Kotlin types the literal `Long` and the constructor must accept one.
+
 `ci/` is the correct home: its README already states these are "**Not** copied
 into user repos — unlike `scripts/`, these guard *this plugin's* own structure",
 and `package.json`'s `files` omits `ci/` entirely. Nothing here reaches the
@@ -151,9 +179,11 @@ published tarball.
 Takes a directory holding `Tokens.kt` and/or `Tokens.swift`. For each file
 present:
 
-- **Kotlin** — `kotlinc ci/stubs/compose-unit.kt ci/stubs/compose-graphics.kt
-  <dir>/Tokens.kt -d <tmp>`. Passes only if the exit status is 0 **and** a
-  `Tokens.class` exists under `<tmp>`.
+- **Kotlin** — `kotlinc <stubs> <dir>/Tokens.kt -d <tmp>`. Passes only if the
+  exit status is 0 **and** a `Tokens.class` exists under `<tmp>`. **The stub
+  paths resolve relative to the runner module, not the working directory** —
+  via `import.meta.url` — because the intended caller is an e2e harness in a
+  scratchpad, where a cwd-relative `ci/stubs/...` resolves to nothing.
 - **Swift** — `swiftc -parse <dir>/Tokens.swift`. Passes on exit status 0.
 
 Rules:
@@ -167,6 +197,11 @@ Rules:
   was written about. `--allow-missing` downgrades it to a reported skip that does
   not affect the exit status — for a machine that genuinely has only one
   toolchain. It must be passed deliberately; it is never the default.
+- **A run in which nothing actually compiled fails, `--allow-missing`
+  notwithstanding.** At least one platform must have been really compiled for
+  the run to pass. Without this rule the flag produces a green run that verified
+  nothing, which is the same vacuous pass as §2.2 — the flag exists to tolerate
+  *one* absent toolchain, not to excuse the absence of both.
 - **An absent `Tokens.swift` is neither pass nor fail** — it is reported as not
   present. Absence of a file is not evidence about it.
 - **The compiler's own stderr is surfaced verbatim** on failure. #81's third
@@ -196,6 +231,12 @@ cover the runner's decision logic with an injected fake exec:
 Node 24 and nothing else; `node --test` has to stay green there with zero
 dependencies.
 
+This relies on bare `node --test` from the repo root discovering
+`ci/compile-native-output.test.mjs`, as it already discovers every other
+`ci/*.test.mjs`. Stated because it is load-bearing and `ci/README.md` records
+that discovery here has misfired before: the invocation is **bare `node --test`
+from the repo root**, never `node --test ci/`, which errors on Node >= 21.
+
 ## 6. The four note corrections
 
 Each of these carries one occurrence of the stale claim:
@@ -211,11 +252,19 @@ did not compile anything, and that part of the record is accurate. What changes
 is the false implication that compiling was impossible:
 
 > **Nothing was compiled in this run.** No `swiftc` or `kotlinc` ran; the
-> declaration counts are `grep`-based, not a compiler's verdict. Both compilers
-> were in fact available when this run happened — `swiftc` at `/usr/bin/swiftc`
-> via the Xcode command line tools throughout, `kotlinc` from 2026-08-27 — and
-> this run did not use them. Later runs compile: see
-> `ci/compile-native-output.mjs` (#81).
+> declaration counts are `grep`-based, not a compiler's verdict. `swiftc` was
+> nonetheless available at `/usr/bin/swiftc` via the Xcode command line tools
+> when this run happened, and went unused — the Swift half of this limitation
+> was self-imposed. `kotlinc` was not: it was installed on 2026-08-27, after
+> this run. Later runs compile both: see `ci/compile-native-output.mjs` (#81).
+
+**The two compilers must not be scoped identically, and getting this wrong was
+caught in review.** `kotlinc` was installed 2026-08-27 22:59; the four notes are
+dated 08-21 through 08-26, so it existed on the machine for none of them. A
+correction claiming "both compilers were available" would replace a false
+implication with a false statement — the exact defect this spec exists to
+prevent. #81's own text draws the distinction correctly; any edit that loses it
+is wrong.
 
 ## 7. The decision: not a CI gate
 
@@ -239,6 +288,51 @@ The e2e harness survived at
 token files in `../tokens`, and its `lib/*` symlinks pointing at this checkout.
 It is being reaped — several directories were emptied at 2026-08-28 00:00 — so
 this run also establishes whether it still works while it still does.
+
+### 8.1 If the harness is gone, rebuild it from this section
+
+Everything needed was captured during design, so §8 does not depend on a
+scratchpad surviving. Verified 2026-08-28:
+
+- **Style Dictionary 4.4.0**, installed locally in the harness directory. Not a
+  repo dependency and must not become one (§2.3).
+- **Token source:** `/Users/jordansstudio/Dev/zygarden-frontend` at
+  `libs/shared/util-tokens/src/tokens` — 15 `.json` files. Copy them out; do not
+  build inside the zygarden checkout. (The branch has moved since earlier runs —
+  it is `feature/new-home-page` now, not the `feature/apply-brandguide-styles`
+  named in the #52 spec. The 15 filenames still match.)
+- **Axis filter:** the build drops any filename containing `desktop` or `dark`,
+  leaving the light + mobile axes. This is why the baseline is one flat pair of
+  files and not four.
+- **`packageName`:** `com.zygarden.tokens`.
+- **The module under test is reached through `./lib/*.mjs`** — three per-file
+  symlinks to `dtcg.mjs`, `native-literal.mjs`, `sd-native.mjs` in this
+  checkout's `scripts/lib/`. **Not `scripts/lib`**, which `build.mjs` never
+  reads; repointing that is the no-op #73 was filed over (`ee95020`).
+
+`build.mjs` in full:
+
+```js
+import StyleDictionary from 'style-dictionary';
+import { registerNativeTransforms, nativePlatform, nativeSources } from './lib/sd-native.mjs';
+import { readdirSync } from 'node:fs';
+const TOK = process.argv[2];
+const OUT = process.argv[3];
+const files = readdirSync(TOK).filter(f => f.endsWith('.json') && !f.includes('desktop') && !f.includes('dark')).map(f => `${TOK}/${f}`);
+registerNativeTransforms(StyleDictionary);
+const sd = new StyleDictionary({
+  source: nativeSources(files),
+  preprocessors: ['dtcg/resolve-dual-node'],
+  platforms: {
+    kt: nativePlatform({ platform: 'android-kotlin', buildPath: `${OUT}/`, packageName: 'com.zygarden.tokens' }),
+    swift: nativePlatform({ platform: 'ios-swift', buildPath: `${OUT}/` }),
+  },
+});
+await sd.buildAllPlatforms();
+```
+
+Rebuilding is a fallback, not a fresh baseline: a rebuilt harness proves the same
+thing only if the declaration counts in §8's table still hold.
 
 Build zygarden at `main`, compile both outputs, record in the new note.
 Prediction, to be checked against actual bytes rather than reasoning:
@@ -269,8 +363,8 @@ broken run regardless of what the baseline reported.
   wrong `UIColor` initialiser arity, an `Int` where `CGFloat` is required — will
   pass. Only syntax is asserted. Closing this needs an iOS SDK and a real
   destination target, which is out of proportion here.
-- **The Kotlin stubs are not Compose.** They are five declarations with matching
-  names and shapes. Real `Dp` is a value class with operators and real `Color` a
+- **The Kotlin stubs are not Compose.** They are six declarations with matching
+  names and shapes — `Dp`, `TextUnit`, `.dp`, `.sp`, `.em`, `Color` (§3.1). Real `Dp` is a value class with operators and real `Color` a
   `ULong` wrapper; behaviour differences beyond "this expression resolves and
   typechecks" are not covered.
 - **Neither compiler validates semantics.** `2.dp` where `2.sp` was meant
