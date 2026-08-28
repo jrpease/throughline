@@ -7,7 +7,15 @@
 import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
-import { flattenDtcg, flattenDtcgTypes, resolveValue, findModeCollisions } from './lib/dtcg.mjs';
+import {
+  flattenDtcg,
+  flattenDtcgTypes,
+  resolveValue,
+  findModeCollisions,
+  textRoleGraph,
+  mergeDtcg,
+  EXT_NS,
+} from './lib/dtcg.mjs';
 import { parseLiteral, isValidLiteral, GRAMMAR } from './lib/native-literal.mjs';
 
 // Re-exported so consumers (and the test file) keep one import surface.
@@ -209,6 +217,24 @@ export function validate({ sources, output, platform, minMatch = 0.5 }) {
     }
   }
 
+  // A SOURCE-side pass, deliberately not part of the loop above. That loop
+  // iterates emitted declarations, and the token this advisory exists for is
+  // the one that was never emitted at all — an em letterSpacing whose role
+  // nothing states is filtered out of native output, so it has no symbol to
+  // hang a note on.
+  //
+  // Merged rather than unioned across sources: the graph must describe the
+  // build that actually ran, and a build merges with the later source winning.
+  // A union would call a token referenced when this build did not reach it,
+  // under-reporting the gap in the one direction that matters.
+  const graph = textRoleGraph(mergeDtcg(sources.map((s) => s.dtcg)));
+  for (const { path, group } of graph.unreferencedSiblings) {
+    advisories.push({ rule: 'unreferenced-text-sibling', token: path, group });
+  }
+  for (const { path, textLeaves, otherLeaves } of graph.ambiguous) {
+    advisories.push({ rule: 'ambiguous-text-role', token: path, textLeaves, otherLeaves });
+  }
+
   const matchRate = decls.length ? matched / decls.length : 0;
   const ok = failures.length === 0 && collisions.length === 0 && matched > 0 && matchRate >= minMatch;
 
@@ -260,6 +286,18 @@ export function formatReport(r) {
   if (r.advisories?.length) {
     lines.push(`\n${r.advisories.length} advisory note(s) — reported, not gating:`);
     for (const a of r.advisories) {
+      if (a.rule === 'unreferenced-text-sibling') {
+        lines.push(
+          `  - [${a.rule}] ${a.token}: nothing references it, so no typographic role could be inferred — but tokens in "${a.group}" were. It emits as a length, or is dropped entirely if its unit is em. Stamp $extensions["${EXT_NS}"].nativeUnit = "text" on it in source to settle it, or leave it if it is not a text value.`,
+        );
+        continue;
+      }
+      if (a.rule === 'ambiguous-text-role') {
+        lines.push(
+          `  - [${a.rule}] ${a.token}: referenced both by typographic member(s) [${a.textLeaves.join(', ')}] and by [${a.otherLeaves.join(', ')}], so no role was inferred rather than a role being guessed. Stamp $extensions["${EXT_NS}"].nativeUnit in source to settle it.`,
+        );
+        continue;
+      }
       lines.push(
         `  - [${a.rule}] ${a.symbol}: source ${JSON.stringify(a.source)} for ${a.token} is a dimension with no unit, which DTCG §8.2.1 does not permit. It emitted ${a.emitted}, read as a ratio. If it is a ratio, type it "number" (§8.7); if it is a measurement, add the unit you meant.`,
       );
