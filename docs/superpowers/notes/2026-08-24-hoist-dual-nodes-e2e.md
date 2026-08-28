@@ -169,9 +169,14 @@ this source, and matches identically between HEAD and `main`.
   collides, so this e2e run does **not** validate either fix — synthetic unit
   fixtures do (see Tasks 1 and 2's test suites). Proving *nothing moved* is
   this run's entire job, and is the only thing it claims to have proven.
-- **Nothing was compiled.** No `swiftc` or `kotlinc` ran. `decls`/`broken` are
-  `grep`-based counts, not a compiler's verdict, and `diff -r` establishes
-  byte-identity, not correctness of what those bytes mean.
+- **Nothing was compiled in this run.** No `swiftc` or `kotlinc` ran.
+  `decls`/`broken` are `grep`-based counts, not a compiler's verdict, and
+  `diff -r` establishes byte-identity, not correctness of what those bytes
+  mean. `swiftc` was nonetheless available at `/usr/bin/swiftc` via the Xcode
+  command line tools when this run happened, and went unused — the Swift
+  half of this limitation was self-imposed. `kotlinc` was not available: it
+  was installed on 2026-08-27, after this run. Later runs compile both, via
+  `ci/compile-native-output.mjs` (#81).
 - **The two widenings recorded in the spec (`#52` and `#51`) are unreachable
   in this source for the same reason.** `#52` (untyped unitless literal child
   under a `dimension` dual node emitting `dp`) and `#51` (untyped `fontSize`
