@@ -57,6 +57,12 @@ $ grep -c 'public static let' "$H/out-81-baseline/Tokens.swift"
 195
 ```
 
+> **The Kotlin `[PASS]` lines in Steps 3 and 5 predate a later wording change.**
+> The post-review fix pass amended the Kotlin verdict string to `typechecked to
+> bytecode (against ci/stubs, not real Compose)`, so the runner no longer prints
+> the shorter form these two transcripts show. Verdicts, exit codes and
+> declaration counts are unaffected — only the disclosure text changed.
+
 ### Step 3 — baseline compile
 
 ```
