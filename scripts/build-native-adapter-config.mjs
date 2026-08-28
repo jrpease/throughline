@@ -123,10 +123,14 @@ now emit \`sp\`, with the Swift output byte-identical.
 
 What remains:
 
-- **A bare scale primitive emits as \`dp\`.** \`text.base: "16px"\` is a font size
-  only to a human — no nominal or structural signal marks it — so it is not
-  stamped. The semantic tokens that reference it are, and those are what a
-  consumer should reach for.
+- **A scale primitive nothing references emits as \`dp\`.** \`text.base: "16px"\`
+  is a font size only to a human, so #63 takes the role from the reference
+  graph instead: a dimension referenced only by \`fontSize\`, \`letterSpacing\` or
+  \`lineHeight\` members is stamped typographic too. That is structural rather
+  than nominal, so it needs no path convention. A primitive **nothing**
+  references has no signal at all and is not inferred —
+  \`tokens:validate-output\` names it with an \`unreferenced-text-sibling\`
+  advisory, and a source-side \`nativeUnit\` stamp settles it.
 - **An \`em\` letter spacing reaches Compose but not Swift.** \`size/unit-aware/compose-em\`
   emits it as a real \`.em\` TextUnit, parenthesised — \`(-0.03).em\` — because
   \`-0.03.em\` parses as \`-(0.03.em)\` and needs an \`unaryMinus\` operator, while

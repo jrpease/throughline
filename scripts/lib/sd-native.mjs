@@ -17,6 +17,7 @@ import {
   TEXT_UNIT_NAMES,
   TEXT_ROLE_UNIT,
   EXT_NS,
+  textRoleGraph,
 } from './dtcg.mjs';
 import { isValidLiteral, GRAMMAR, CSS_CONSTRUCT } from './native-literal.mjs';
 // @doc-section-end imports
@@ -297,10 +298,47 @@ function classifyTextUnits(node) {
   return node;
 }
 
+// Runs AFTER classifyTextUnits and BEFORE hoistDualNodes, on the SAME two
+// grounds that pass gives: after, so a role the source or the member name
+// already stated wins; before, because the hoist rewrites text.xs.lineHeight to
+// text.xsLineHeight and the graph's paths are written in pre-hoist names.
+//
+// The three gates are classifyTextUnits's, verbatim — a dimension, a value with
+// a unit, and no role already recorded. A unitless value is never stamped: no
+// size transform claims one since #52, and stamping a ratio as text would still
+// be a claim the source never made.
+//
+// A path may name no node at all. resolveInPlace deliberately leaves an
+// unresolvable reference in place for Style Dictionary to report, so the graph
+// can hold an edge to a token that does not exist. Skip it. This is also what
+// keeps the second preprocess pass from throwing, and idempotency with it.
+function applyTextRoleGraph(node, typographic) {
+  for (const path of typographic) {
+    let target = node;
+    for (const segment of path.split('.')) {
+      target = target && typeof target === 'object' ? target[segment] : undefined;
+    }
+    if (!target || typeof target !== 'object' || !('$value' in target)) continue;
+    if (target.$type !== 'dimension') continue;
+    if (!TEXT_ROLE_UNIT.test(String(target.$value).trim())) continue;
+    target.$extensions ??= {};
+    target.$extensions[EXT_NS] ??= {};
+    const ns = target.$extensions[EXT_NS];
+    if (!('nativeUnit' in ns)) ns.nativeUnit = 'text';
+  }
+  return node;
+}
+
 export function preprocess(dict) {
   const collisions = [];
+  // Read from the UNRESOLVED dict, before resolveInPlace flattens the aliases
+  // the graph is made of.
+  const { typographic } = textRoleGraph(dict);
   const out = hoistDualNodes(
-    classifyTextUnits(resolveInPlace(structuredClone(dict), flattenDtcg(dict))),
+    applyTextRoleGraph(
+      classifyTextUnits(resolveInPlace(structuredClone(dict), flattenDtcg(dict))),
+      typographic,
+    ),
     collisions,
   );
   if (collisions.length) {
@@ -341,11 +379,16 @@ export function preprocess(dict) {
 // Two limits remain, both Android-only and both measured rather than
 // theoretical — see docs/superpowers/notes/2026-08-21-native-config-e2e-results.md:
 //
-//   - A scale primitive carries no role. text.base: "16px" is a font size only
-//     to a human, so it emits as dp. The semantic tokens referencing it are
-//     correct, and those are what a consumer should reach for.
-//   - An em-valued letterSpacing is filtered out of native output entirely,
-//     rather than emitted as Compose's .em TextUnit.
+//   - A scale primitive states no role, so #63 infers one from the reference
+//     graph: a dimension referenced only by fontSize, letterSpacing or
+//     lineHeight members is itself typographic. text.base: "16px" is stamped
+//     because a fontSize references it. What remains is the primitive NOTHING
+//     references — no structural signal exists for it, so it is not inferred,
+//     and tokens:validate-output raises an unreferenced-text-sibling advisory
+//     naming it rather than leaving the gap silent.
+//   - An em-valued letterSpacing reaches Compose as a real .em TextUnit since
+//     #64, but only where the text role is stamped. A role-less em value is
+//     still filtered out of native output entirely.
 //
 // The third — a unitless ratio emitting as dp — is fixed by #52: no size
 // transform claims a unitless value, so it emits bare on both platforms, and

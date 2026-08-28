@@ -1401,3 +1401,60 @@ test('the emitted em value is a valid Kotlin literal by our own grammar', () => 
   const v = collectTransforms().get('size/unit-aware/compose-em').transform(emSpacing());
   assert.equal(hasNativeForm({ $value: v }, 'android-kotlin'), true);
 });
+
+const roleDict = () => ({
+  text: { base: { $type: 'dimension', $value: '16px' }, huge: { $type: 'dimension', $value: '96px' } },
+  space: { md: { $type: 'dimension', $value: '8px' } },
+  typography: {
+    body: { fontSize: { $type: 'dimension', $value: '{text.base}' } },
+    gutter: { $type: 'dimension', $value: '{space.md}' },
+  },
+});
+const stampOf = (node) => node.$extensions?.[EXT_NS]?.nativeUnit;
+
+test('a primitive referenced only by a fontSize is stamped as text', () => {
+  const out = preprocess(roleDict());
+  assert.equal(stampOf(out.text.base), 'text');
+});
+
+test('a primitive referenced by a role-less member is left alone', () => {
+  const out = preprocess(roleDict());
+  assert.equal(stampOf(out.space.md), undefined);
+  assert.equal(stampOf(out.text.huge), undefined, 'nothing references it');
+});
+
+test('inference does not overwrite a role the source stated', () => {
+  const dict = roleDict();
+  dict.text.base.$extensions = { [EXT_NS]: { nativeUnit: 'length' } };
+  const out = preprocess(dict);
+  assert.equal(stampOf(out.text.base), 'length', 'a source opt-out survives the inference');
+});
+
+test('inference never stamps a unitless value', () => {
+  const dict = roleDict();
+  dict.text.base.$value = '1.5';
+  const out = preprocess(dict);
+  assert.equal(stampOf(out.text.base), undefined, 'a ratio is not a text-role dimension');
+});
+
+test('an unresolvable reference does not throw the inference', () => {
+  const dict = { typography: { body: { fontSize: { $type: 'dimension', $value: '{nope.missing}' } } } };
+  const out = preprocess(dict);
+  assert.equal(out.typography.body.fontSize.$value, '{nope.missing}', 'left in place for SD to report');
+});
+
+test('preprocess stays idempotent with the inference in place', () => {
+  const once = preprocess(roleDict());
+  assert.deepEqual(preprocess(once), once);
+});
+
+test('an em letterSpacing primitive reaches Compose once the graph stamps it', () => {
+  const dict = {
+    tracking: { tight: { $type: 'dimension', $value: '-0.03em' } },
+    typography: { body: { letterSpacing: { $type: 'dimension', $value: '{tracking.tight}' } } },
+  };
+  const out = preprocess(dict);
+  assert.equal(stampOf(out.tracking.tight), 'text');
+  const asToken = (n) => ({ ...n, original: { $value: n.$value } });
+  assert.equal(nativeFilter(asToken(out.tracking.tight), 'android-kotlin'), true);
+});
