@@ -59,7 +59,10 @@ export function compileNativeOutput(dir, { allowMissing = false, env } = {}) {
   }
   const compiled = results.filter((r) => r.status === 'pass').length;
   const failed = results.filter((r) => r.status === 'fail').length;
-  return { results, exitCode: failed > 0 ? 1 : 0, compiled, failed };
+  // A run that compiled nothing fails, whatever --allow-missing said. The flag
+  // tolerates one absent toolchain; it does not excuse the absence of both,
+  // which would be a green run that verified nothing.
+  return { results, exitCode: failed > 0 || compiled === 0 ? 1 : 0, compiled, failed };
 }
 
 const LABEL = { pass: 'PASS', fail: 'FAIL', absent: '----', skipped: 'SKIP' };

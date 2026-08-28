@@ -82,3 +82,35 @@ test('stub paths resolve relative to the module, not the working directory', () 
 test('PLATFORMS names the two files the emitter writes', () => {
   assert.deepEqual(PLATFORMS.map((p) => p.file), ['Tokens.kt', 'Tokens.swift']);
 });
+
+test('a missing compiler fails the run by default', () => {
+  const out = compileNativeOutput('/out', { env: fakeEnv({ commands: ['swiftc'] }) });
+  assert.equal(byId(out.results, 'kotlin').status, 'fail');
+  assert.match(byId(out.results, 'kotlin').detail, /kotlinc not found/);
+  assert.equal(out.exitCode, 1);
+});
+
+test('--allow-missing downgrades one absent toolchain to a skip', () => {
+  const out = compileNativeOutput('/out', {
+    allowMissing: true,
+    env: fakeEnv({ commands: ['swiftc'] }),
+  });
+  assert.equal(byId(out.results, 'kotlin').status, 'skipped');
+  assert.equal(byId(out.results, 'swift').status, 'pass');
+  assert.equal(out.exitCode, 0, 'swift really compiled, so the run is meaningful');
+});
+
+test('--allow-missing does not excuse a run in which nothing compiled', () => {
+  const out = compileNativeOutput('/out', {
+    allowMissing: true,
+    env: fakeEnv({ commands: [] }),
+  });
+  assert.equal(out.compiled, 0);
+  assert.equal(out.exitCode, 1, 'a green run that verified nothing is the vacuous pass');
+});
+
+test('a directory holding neither output file fails rather than passing empty', () => {
+  const out = compileNativeOutput('/out', { env: fakeEnv({ present: [] }) });
+  assert.equal(out.compiled, 0);
+  assert.equal(out.exitCode, 1);
+});
