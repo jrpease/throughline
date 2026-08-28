@@ -1,6 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { flattenDtcg, flattenDtcgTypes, resolveValue, findModeCollisions } from './dtcg.mjs';
+import {
+  flattenDtcg,
+  flattenDtcgTypes,
+  resolveValue,
+  findModeCollisions,
+  TEXT_UNIT_NAMES,
+  TEXT_ROLE_UNIT,
+  EXT_NS,
+} from './dtcg.mjs';
 
 // text.sm is a DUAL-NODE token: it carries its own $value AND a child.
 const dtcg = {
@@ -134,4 +142,11 @@ test('flattenDtcgTypes lets an own $type beat an inherited one', () => {
 test('flattenDtcgTypes returns undefined where nothing supplies a type', () => {
   const types = flattenDtcgTypes({ g: { a: { $value: '1.5' } } });
   assert.equal(types['g.a'], undefined);
+});
+
+test('the shared text-role constants live here, so textRoleGraph and sd-native cannot drift', () => {
+  assert.deepEqual([...TEXT_UNIT_NAMES].sort(), ['fontSize', 'letterSpacing', 'lineHeight']);
+  assert.equal(EXT_NS, 'com.radicool.throughline');
+  for (const ok of ['16px', '1.5rem', '-0.03em', '.5px']) assert.ok(TEXT_ROLE_UNIT.test(ok), ok);
+  for (const no of ['1.5', '16', '100%', '16dp', '']) assert.ok(!TEXT_ROLE_UNIT.test(no), no);
 });

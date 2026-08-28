@@ -52,7 +52,14 @@ consumer's repo.
 
 ```js
 import { readFileSync } from 'node:fs';
-import { flattenDtcg, resolveValue, findModeCollisions } from './dtcg.mjs';
+import {
+  flattenDtcg,
+  resolveValue,
+  findModeCollisions,
+  TEXT_UNIT_NAMES,
+  TEXT_ROLE_UNIT,
+  EXT_NS,
+} from './dtcg.mjs';
 import { isValidLiteral, GRAMMAR, CSS_CONSTRUCT } from './native-literal.mjs';
 ```
 
@@ -295,11 +302,16 @@ function hoistDualNodes(node, collisions, prefix = [], groupType = undefined) {
 // sibling tokens in a group. Reading them there mirrors the spec's vocabulary;
 // it is not a guarantee the spec makes. A source naming its font size
 // typography.body.size sets $extensions itself and is honoured below.
-const TEXT_UNIT_NAMES = new Set(['fontSize', 'letterSpacing', 'lineHeight']);
+//
+// Defined in lib/dtcg.mjs and imported above, so textRoleGraph applies the
+// identical set. Two definitions of this set would drift.
 
 // Reverse-DNS, per DTCG's $extensions convention. Exported because the
 // transforms and their tests address the same key.
-export const EXT_NS = 'com.radicool.throughline';
+//
+// Defined in lib/dtcg.mjs and re-exported here: the transforms and their tests
+// address this key through sd-native.mjs, and that surface does not move.
+export { EXT_NS };
 
 // px and rem only. magnitude() reads a bare number as an unscaled ratio, so a
 // lineHeight authored "1.5" would otherwise be stamped and emit 1.50.sp —
@@ -313,7 +325,9 @@ export const EXT_NS = 'com.radicool.throughline';
 // em-valued letterSpacing is a text-role dimension like any other. It is still
 // a unit — the gate's job is to exclude the UNITLESS value, whose role the
 // source never stated.
-const TEXT_ROLE_UNIT = /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em)$/;
+//
+// Defined in lib/dtcg.mjs and imported above, for the same reason as
+// TEXT_UNIT_NAMES: textRoleGraph gates on it too.
 
 // Runs AFTER resolveInPlace and BEFORE hoistDualNodes. Both halves matter.
 //

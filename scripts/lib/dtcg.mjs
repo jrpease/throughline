@@ -4,6 +4,18 @@
 
 const REF = /^\{([^}]+)\}$/;
 
+// The typographic member names DTCG §9.8 fixes at MUST level, the unit gate a
+// text-role dimension must pass, and this project's $extensions namespace.
+//
+// They live here rather than in sd-native.mjs because textRoleGraph below and
+// sd-native.mjs's preprocess apply the identical rules, and sd-native.mjs
+// already imports this file — so the reverse import would be a cycle. Their
+// full rationale stays at the point of use in sd-native.mjs, which is what the
+// generated references/native-adapter-config.md renders.
+export const TEXT_UNIT_NAMES = new Set(['fontSize', 'letterSpacing', 'lineHeight']);
+export const TEXT_ROLE_UNIT = /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em)$/;
+export const EXT_NS = 'com.radicool.throughline';
+
 // Flatten nested DTCG groups into { "dot.path": rawValue }. Skips $-prefixed meta keys.
 //
 // A node carrying BOTH a $value and children yields its own value AND is descended
