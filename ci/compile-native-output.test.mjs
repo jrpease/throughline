@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   compileNativeOutput,
+  expectedKotlinClassName,
   formatCompileReport,
   PLATFORMS,
   STUB_DIR,
@@ -72,6 +73,35 @@ test('the report states the Kotlin/Swift asymmetry on every run', () => {
   assert.match(text, /typechecked to bytecode/);
   assert.match(text, /parsed only/);
   assert.match(text, /UIKit/);
+});
+
+test('a report in which nothing compiled says so, in the report itself', () => {
+  const out = compileNativeOutput('/out', { allowMissing: true, env: fakeEnv({ commands: [] }) });
+  const text = formatCompileReport(out).join('\n');
+  assert.match(text, /NOTHING COMPILED/);
+  assert.match(text, /verified nothing — reason enough on its own for exit 1/);
+});
+
+test('a passing report does not claim nothing was compiled', () => {
+  const text = formatCompileReport(compileNativeOutput('/out', { env: fakeEnv() })).join('\n');
+  assert.doesNotMatch(text, /NOTHING COMPILED/);
+});
+
+test('the printed Kotlin verdict discloses that the stubs are not real Compose', () => {
+  const out = compileNativeOutput('/out', { env: fakeEnv() });
+  assert.match(formatCompileReport(out).join('\n'), /not real Compose/);
+});
+
+test('the expected Kotlin class name comes from the default object declaration', () => {
+  assert.equal(expectedKotlinClassName('package p\n\nobject Tokens {\n  val x = 1.dp\n}\n'), 'Tokens');
+});
+
+test('a non-default className is read from the source, not assumed to be Tokens', () => {
+  assert.equal(expectedKotlinClassName('package p\n\nobject Brand {\n  val x = 1.dp\n}\n'), 'Brand');
+});
+
+test('source with no object declaration yields no expected class name', () => {
+  assert.equal(expectedKotlinClassName('package p\n\nval x = 1.dp\n'), null);
 });
 
 test('stub paths resolve relative to the module, not the working directory', () => {

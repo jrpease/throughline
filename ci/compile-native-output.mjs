@@ -6,7 +6,7 @@
 // Runs at e2e time, NOT in CI — see ci/README.md for that decision (#81).
 // Pure functions + CLI.
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { tmpdir } from 'node:os';
@@ -18,7 +18,7 @@ export const PLATFORMS = [
     id: 'kotlin',
     file: 'Tokens.kt',
     compiler: 'kotlinc',
-    strength: 'typechecked to bytecode',
+    strength: 'typechecked to bytecode (against ci/stubs, not real Compose)',
   },
   {
     id: 'swift',
@@ -51,7 +51,7 @@ export function compileNativeOutput(dir, { allowMissing = false, env } = {}) {
       results.push({
         id: platform.id,
         status: 'fail',
-        detail: 'kotlinc exited 0 but produced no Tokens.class',
+        detail: `kotlinc exited 0 but produced no ${run.className ?? 'Tokens'}.class`,
       });
     } else {
       results.push({ id: platform.id, status: 'pass', detail: platform.strength });
@@ -67,10 +67,19 @@ export function compileNativeOutput(dir, { allowMissing = false, env } = {}) {
 
 const LABEL = { pass: 'PASS', fail: 'FAIL', absent: '----', skipped: 'SKIP' };
 
-export function formatCompileReport({ results }) {
+export function formatCompileReport({ results, compiled }) {
   const lines = ['compile-native-output — do the emitted native tokens build?', ''];
   for (const r of results) {
     lines.push(`  [${LABEL[r.status]}] ${r.id}: ${r.detail}`);
+  }
+  // Without this, a run in which nothing compiled prints only SKIP/---- lines
+  // and exits 1 — a transcript that reads as benign unless you also kept $?.
+  if (compiled === 0) {
+    lines.push(
+      '',
+      '  NOTHING COMPILED. Not one emitted file was successfully compiled, so',
+      '  this run verified nothing — reason enough on its own for exit 1.',
+    );
   }
   lines.push(
     '',
@@ -93,6 +102,16 @@ function findFile(dir, name) {
   return false;
 }
 
+// The emitted object is named by nativePlatform's `className` option, which is
+// public and defaults to 'Tokens', while the destination stays Tokens.kt — so
+// the class to look for must come from the source, not from the file name.
+// Deliberately narrow: "any *.class exists" would always be true, because the
+// stubs compile, and would destroy the exited-0-but-emitted-nothing guard.
+export function expectedKotlinClassName(source) {
+  const match = source.match(/^\s*(?:(?:public|internal|private)\s+)?object\s+([A-Za-z_]\w*)/m);
+  return match ? match[1] : null;
+}
+
 export function realEnv() {
   return {
     fileExists: (path) => existsSync(path),
@@ -107,16 +126,31 @@ export function realEnv() {
     runKotlin(source) {
       const outDir = mkdtempSync(join(tmpdir(), 'tl-kotlinc-'));
       const stubs = [join(STUB_DIR, 'compose-unit.kt'), join(STUB_DIR, 'compose-graphics.kt')];
+      const className = expectedKotlinClassName(readFileSync(source, 'utf8'));
       try {
-        // execFileSync throws on a non-zero exit and carries stderr on the
-        // error. No shell, no pipe — a pipeline would report the wrong status.
-        execFileSync('kotlinc', [...stubs, source, '-d', outDir], {
-          stdio: ['ignore', 'pipe', 'pipe'],
-        });
-      } catch (err) {
-        return { code: err.status ?? 1, stderr: String(err.stderr ?? err.message).trim(), classProduced: false };
+        try {
+          // execFileSync throws on a non-zero exit and carries stderr on the
+          // error. No shell, no pipe — a pipeline would report the wrong status.
+          execFileSync('kotlinc', [...stubs, source, '-d', outDir], {
+            stdio: ['ignore', 'pipe', 'pipe'],
+          });
+        } catch (err) {
+          return {
+            code: err.status ?? 1,
+            stderr: String(err.stderr ?? err.message).trim(),
+            classProduced: false,
+            className,
+          };
+        }
+        return {
+          code: 0,
+          stderr: '',
+          classProduced: className !== null && findFile(outDir, `${className}.class`),
+          className,
+        };
+      } finally {
+        rmSync(outDir, { recursive: true, force: true });
       }
-      return { code: 0, stderr: '', classProduced: findFile(outDir, 'Tokens.class') };
     },
     runSwift(source) {
       try {

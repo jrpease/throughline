@@ -114,26 +114,60 @@ compile-native-output — do the emitted native tokens build?
 exit=0
 ```
 
+### Step 6 — a Swift control, which must also fail
+
+Steps 4-5 exercise Kotlin only. Recorded later the same day, during the
+post-review fix pass, so the runner prints the then-new "NOTHING COMPILED" line.
+
+```
+$ mkdir -p /tmp/tl-swift-control
+$ echo 'public enum A { public static let x = CGFloat(.5) }' > /tmp/tl-swift-control/Tokens.swift
+$ node ci/compile-native-output.mjs /tmp/tl-swift-control --allow-missing; echo "exit=$?"
+compile-native-output — do the emitted native tokens build?
+
+  [----] kotlin: Tokens.kt not present
+  [FAIL] swift: /tmp/tl-swift-control/Tokens.swift:1:47: error: '.5' is not a valid floating point literal; it must be written '0.5'
+1 | public enum A { public static let x = CGFloat(.5) }
+  |                                               `- error: '.5' is not a valid floating point literal; it must be written '0.5'
+2 |
+
+  NOTHING COMPILED. Not one emitted file was successfully compiled, so
+  this run verified nothing — reason enough on its own for exit 1.
+
+  Kotlin is typechecked to bytecode; Swift is parsed only. swiftc -typecheck
+  cannot run here: Tokens.swift imports UIKit, which is unavailable on the
+  macOS command line. Swift syntax is asserted; Swift types are not.
+exit=1
+```
+
 ## Prediction vs. actual
 
 | Prediction | Actual |
 |---|---|
-| `Tokens.kt` compiles, exit 0, `Tokens.class` produced | [x] |
-| `Tokens.swift` parses, exit 0 | [x] |
-| 208 Kotlin declarations / 195 Swift | [x] |
-| `-0.03.em` FAILS with `unresolved reference 'unaryMinus'` | [x] |
-| `(-0.03).em` passes | [x] |
+| `Tokens.kt` compiles, exit 0, `Tokens.class` produced | `[PASS] kotlin`, exit 0 (Step 3) |
+| `Tokens.swift` parses, exit 0 | `[PASS] swift`, exit 0 (Step 3) |
+| 208 Kotlin declarations / 195 Swift | 208 `val` / 195 `public static let` (Step 2) |
+| `-0.03.em` FAILS with `unresolved reference 'unaryMinus'` | `[FAIL] kotlin: ... unresolved reference 'unaryMinus'`, exit 1 (Step 4) |
+| `(-0.03).em` passes | `[PASS] kotlin`, exit 0 (Step 5) |
 
 ## What this run does NOT establish
 
 - **Swift is parsed, never typechecked.** `Tokens.swift` imports `UIKit`, which
   is unavailable on the macOS command line, so `swiftc -typecheck` cannot run. A
   Swift type error — a wrong `UIColor` initialiser arity, an `Int` where
-  `CGFloat` is required — passes this check. Only syntax is asserted.
+  `CGFloat` is required — passes this check. It is not only type errors: two
+  `public static let` declarations with the *same* name pass (the camel-join
+  collision class), and so does a `Tokens.swift` with no `import UIKit` at all.
+  One file carrying both was run through the checker and exited 0. Only syntax
+  is asserted.
 - **The Kotlin stubs are not Compose.** They are six declarations with matching
   names and shapes (`Dp`, `TextUnit`, `.dp`, `.sp`, `.em`, `Color`). Real `Dp`
   is a value class and real `Color` wraps a `ULong`; nothing beyond "this
   expression resolves and typechecks" is covered.
+- **An emitter that dropped every token still passes.** `object Tokens {}`
+  compiles and produces `Tokens.class`, so the class guard catches an empty
+  *output directory*, not an empty *object*. Declaration counts (Step 2) are
+  what stand between this check and a silently emptied build.
 - **Neither compiler validates semantics.** `2.dp` where `2.sp` was meant
   compiles. This closes the gap between "well-formed literal" and "compiles",
   which is narrower than "correct" — `tokens:validate-output` and the e2e diff

@@ -24,7 +24,13 @@ node --test                  # all tests
 node ci/validate-plugin.mjs  # guard plugin manifests
 node ci/validate-skills.mjs  # guard skill/command/manifest-doc structure
 node ci/compile-native-output.mjs <dir>  # compile generated Tokens.kt/.swift (not a CI gate)
+node ci/compile-native-output.mjs <dir> --allow-missing  # tolerate one absent toolchain
 ```
+
+`--allow-missing` downgrades a compiler that is not on `PATH` from a failure to
+a skip. It does not excuse a run in which *nothing* compiled: with neither
+toolchain present the run still exits 1, because a green run that verified
+nothing is the vacuous pass this module exists to prevent.
 
 ## Compile verification is not a CI gate
 
@@ -47,6 +53,7 @@ zygarden source, which is stronger evidence than that fixture would be.
 
 Reopen this deliberately if the tradeoff changes. Do not let it drift.
 
-Unlike the validators above, this module is **not** run by `node --test` against
-a real compiler: the test suite injects a fake environment, so the suite stays
-green on a runner with neither toolchain installed.
+This module's logic tests *do* run under `node --test`, like the validators above — but
+never against a real compiler. The suite injects a fake environment, so it stays
+green on a runner with neither toolchain installed. Only the CLI invocations
+above reach `kotlinc` and `swiftc`.
