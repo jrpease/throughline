@@ -2,10 +2,12 @@
 
 **Date:** 2026-08-28
 **Gate for:** #63, the changelog entry that follows it
-**Verdict:** PASS on three of §6's four rows, and a **finding on the fourth**.
-The predicted "nine or ten Kotlin symbols change type, mode-dependent" is
-**nine in both viewport pins** — but a *different* nine. Ten is not reachable by
-any single build. Detail under "Where the measurement disagrees with the spec".
+**Verdict:** PASS. All four rows of §6's table landed exactly, and the compile
+step is green on all eight builds. One **finding against §6's prose**: the
+predicted "nine or ten Kotlin symbols change type, mode-dependent" is **nine in
+both viewport pins** — but a *different* nine, and ten is not reachable by any
+single build. The spec has been corrected on that measurement; detail under
+"Where the measurement disagrees with the spec".
 
 Unit tests prove `textRoleGraph`, `preprocess` and the two advisories behave.
 This run proves Style Dictionary *consumes* them: eight real builds from
@@ -28,7 +30,7 @@ zygarden's DTCG source — before and after, × two viewport pins, × light and 
   (`git show main:…`). Both were built against the identical 15 files, so every
   delta below is the branch's, not a source or harness difference.
 
-### The install list was stale — a four-file list, not three
+### Finding 1 — the install list is stale: four files, not three
 
 The 2026-08-21 note records the install list as exactly three files. **It is now
 four.** Both `sd-native.mjs` and `validate-token-output.mjs` statically import a
@@ -42,11 +44,14 @@ imported from …/scripts/lib/sd-native.mjs
 
 That was reproduced deliberately by removing the file from a working install.
 
-**This is a stale *note*, not a stale shipping instruction.** The generated,
-CI-gated `references/native-adapter-config.md` already names
-`lib/native-literal.mjs` as a required sibling (lines 21 and 48), so a consumer
-following the shipped docs installs the right set. The three-file list in the
-2026-08-21 note predates #70 and should not be copied forward again.
+**This misleads the next e2e run, not any consumer.** The generated, CI-gated
+`references/native-adapter-config.md` — the doc a consumer actually follows —
+already names `lib/native-literal.mjs` as a required sibling (lines 21 and 48),
+so the **shipped** instruction is correct and no user is affected. What is wrong
+is the three-file list in the 2026-08-21 e2e note, which predates #70. Anyone
+rebuilding this harness from that note gets `ERR_MODULE_NOT_FOUND` and has to
+rediscover the fourth file, as this run did. It should not be copied forward
+again.
 
 The staleness is **not** this branch's: this branch's new code lives entirely in
 `scripts/lib/dtcg.mjs`, `scripts/lib/sd-native.mjs` and
@@ -54,11 +59,13 @@ The staleness is **not** this branch's: this branch's new code lives entirely in
 module. The four-file list is complete for this branch — no other import outside
 `node:*` exists in any of the four.
 
-### `ci/compile-native-output.mjs` is not on this branch
+### Finding 2 — `ci/compile-native-output.mjs` is not on this branch, or on `main`
 
-The compile checker (#81) is **not merged**. It exists only on
-`feat/81-compile-verification`, which has not landed on `main`. It was extracted
-read-only for this run, exactly as the zygarden source was:
+**Do not go looking for this file in the repo — it is not there.** The compile
+checker (#81, PR **#82**) is **not merged**. It exists only on the branch
+`feat/81-compile-verification` (tip `7271bed`), which has landed on neither
+`main` nor `feat/63-text-role-inference`. It was extracted read-only for this
+run, exactly as the zygarden source was:
 
 ```bash
 git show feat/81-compile-verification:ci/compile-native-output.mjs
@@ -67,8 +74,9 @@ git show feat/81-compile-verification:ci/stubs/compose-graphics.kt
 ```
 
 Anyone re-running this e2e from `main` or from `feat/63-text-role-inference`
-alone will not find that file. Nothing in the repo was changed to accommodate
-it.
+alone will not find that file, and must extract it the same way or wait for #82
+to merge. Nothing in this repo was changed to accommodate it — no file was
+copied in, and no gate was pointed at it.
 
 **Toolchains present:** `kotlinc` 2.4.10 (JRE 26.0.2.1), `swiftc` 6.3.2
 (`/usr/bin/swiftc`, Xcode CLT). Neither was stubbed or skipped.
@@ -178,21 +186,28 @@ The nine symbols that changed, verbatim from `diff`ing the before and after
 |---|---|
 | `textXs textSm textBase textLg textXl text2xl text3xl text4xl text5xl` | `textXs textSm textBase textXl text2xl text3xl text4xl text5xl text6xl` |
 
-`text.lg` ↔ `text.6xl` is a straight swap. §8 names the `text.6xl` half of this
-correctly — its only referrer is in the desktop file. **What §8 does not name is
+`text.lg` ↔ `text.6xl` is a straight swap. §8 as written named the `text.6xl`
+half correctly — its only referrer is in the desktop file — and **did not name
 the mirror case**: `text.lg`'s only referrer is in the *mobile* file, so a
-desktop build leaves `text.lg` as `18.00.dp` and files an advisory for it.
+desktop build leaves `text.lg` as `18.00.dp` and files an advisory for it. That
+omission made the limitation read as one stray token rather than a symmetric
+swap; §8 has since been corrected.
 
 §1's table ("`text.*`: 10 reached, `xs`–`6xl`") is a **union across all 15
 files**, which §1 itself says. It is not a per-build figure, and §6 read it as
-one. §6's "or ten" should read "nine in each of zygarden's two viewport pins,
-ten only in the union no build sees".
+one. §6 has since been corrected to say so.
 
 **This does not change the shipped behaviour, only the claim about it.** The
 inference is working exactly as §8 describes; the arithmetic in §6 assumed the
-union rather than a build. The changelog below quotes nine, not "nine or ten".
+union rather than a build. The changelog quotes nine, not "nine or ten".
 
-Nothing else disagreed. §6's other three rows landed exactly.
+**Resolved in the spec.** On this measurement the spec was corrected rather than
+the number: §6 now states nine in any single build and that ten is unreachable
+by one, §1's table is labelled as a union, and §8's bullet names the
+`text.lg` ↔ `text.6xl` swap and records that the count is stable across pins
+even though the set is not.
+
+Nothing else disagreed. All four rows of §6's table landed exactly.
 
 ## Compile verification
 
@@ -326,7 +341,7 @@ merge this build performs matches the one §1 measured.
 8. **One Style Dictionary version.** `4.4.0` only. ThroughLine declares no
    dependency on Style Dictionary, so the version a consumer runs stays
    invisible to this evidence either way.
-9. **The compile checker was borrowed from an unmerged branch.** If #81 lands
+9. **The compile checker was borrowed from an unmerged branch.** If #82 lands
    changed, this run's compile evidence was produced by
    `feat/81-compile-verification` at `7271bed`, not by whatever merges.
 

@@ -27,11 +27,16 @@ path — gives 101 edges and reports `text.6xl` as unreferenced. Taking the
 referrer after all: it lives in `typography-semantic.desktop.json`, which
 `typography-semantic.mobile.json` overwrote in the merge.
 
-| token group | tokens | reached | unreferenced |
+| token group | tokens | reached (**union**) | unreferenced |
 |---|--:|--:|--:|
 | `text.*` | 13 | 10 (`xs`–`6xl`) | 3 (`7xl`–`9xl`) |
 | `typography.letterSpacing.*` | 4 | 3 | 1 (`widest`) |
 | **total** | **17** | **13** | **4** |
+
+**"Reached" here is the union across all 15 files, not what any one build
+sees.** No single build reaches 10 `text.*` tokens, because the viewport axis
+must be pinned and each pin drops a different referrer — see §6 and §8. Read
+this table as the ceiling the source could support, never as a per-build count.
 
 Every one of the 13 is referenced **only** by leaf names in
 `{fontSize, letterSpacing, lineHeight}`. **Zero mixed cases** across the whole
@@ -278,11 +283,16 @@ output**, not a claim:
 
 - `letterSpacing.{tight,normal,wide}` stop being filtered out of Compose output
   and emit as `.em` TextUnits — the three new declarations.
-- `text.xs`–`text.5xl` change from `16.00.dp` (type `Dp`) to `16.00.sp` (type
-  `TextUnit`), and `text.6xl` joins them in a build whose mode set includes the
-  desktop typography file. **Nine or ten Kotlin symbols change type**, which of
-  the two being mode-dependent per §8 — so the e2e records the mode set it built
-  rather than reporting a bare number. A consumer using `Tokens.textBase` at a
+- **Nine Kotlin symbols change type** from `Dp` to `TextUnit` — `16.00.dp`
+  becomes `16.00.sp` — in *any* single build, on either viewport pin. **Ten is
+  unreachable by any single build.** The two pins reach nine each and it is not
+  the same nine: `typography-semantic.mobile.json` references
+  `text.{xs,sm,base,lg,xl,2xl,3xl,4xl,5xl}` and
+  `typography-semantic.desktop.json` references
+  `text.{xs,sm,base,xl,2xl,3xl,4xl,5xl,6xl}` — a straight `text.lg` ↔ `text.6xl`
+  swap. Ten is the union across both files (§1), which no build merges. So the
+  e2e records the mode set it built, because the *set* is mode-dependent even
+  though the *count* is not. A consumer using `Tokens.textBase` at a
   `Modifier.padding` site stops compiling. That is the break, and it is the
   correct one: those symbols were always font sizes.
 - Swift is untouched. The `sp`/`dp` distinction is Compose-only, and iOS letter
@@ -326,14 +336,20 @@ a number to edit.
 
 - **Four tokens remain unfixed** on this source, and any source's unreferenced
   primitives will too. They are named by an advisory, not silently skipped.
-- **The inference is mode-dependent.** `textRoleGraph` sees the dict the build
-  merged, so a primitive referenced only from the desktop typography set is
-  inferred typographic in a desktop build and not in a mobile one — the same
-  token emitting `sp` in one and `dp` in the other. `text.6xl` is exactly this
-  case on zygarden. This follows from inferring anything from a reference graph
-  at all and is not separately fixable; the `unreferenced-text-sibling` advisory
-  is what makes it visible, and a source-side stamp is what settles it. The e2e
-  must record which mode set it built, or its counts cannot be reproduced.
+- **The inference is mode-dependent, and symmetrically so.** `textRoleGraph`
+  sees the dict the build merged, so a primitive referenced only from one
+  viewport's typography set is inferred typographic in that build and not in the
+  other — the same token emitting `sp` in one and `dp` in the other. On zygarden
+  this is a **swap, not one stray token**: `text.6xl` is referenced only from
+  `typography-semantic.desktop.json`, and `text.lg` only from
+  `typography-semantic.mobile.json`. Each pin therefore stamps nine and files an
+  advisory for the one it lost. **The count is stable across pins even though
+  the set is not**, which is what makes this easy to miss: comparing bare totals
+  between two mode sets shows no difference at all. This follows from inferring
+  anything from a reference graph and is not separately fixable; the
+  `unreferenced-text-sibling` advisory is what makes it visible, and a
+  source-side stamp is what settles it. The e2e must record which mode set it
+  built, or its counts cannot be reproduced.
 - **No transitive inference.** A reference chain through a role-less
   intermediate is declined.
 - **Whole-value references only.** A role-less token holding an interpolated
