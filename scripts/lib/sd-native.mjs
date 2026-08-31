@@ -546,7 +546,14 @@ const DECLINED_STOCK_TRANSFORMS = {
 // Order is never compared: our lists are hand-ordered for our own reasons and
 // do not inherit stock order. Removals are never reported: a declined name
 // disappearing is a non-event.
-export function auditStockGroups(transformGroups) {
+// `platforms` and `declined` are parameters with the shipped config as their
+// default, so the contradiction branch below is reachable from a test. The
+// single caller passes neither; the audit's contract is unchanged.
+export function auditStockGroups(
+  transformGroups,
+  platforms = PLATFORMS,
+  declined = DECLINED_STOCK_TRANSFORMS,
+) {
   if (typeof transformGroups !== 'object' || transformGroups === null) {
     return [
       "throughline: could not read Style Dictionary's stock transform groups " +
@@ -555,7 +562,29 @@ export function auditStockGroups(transformGroups) {
     ];
   }
   const warnings = [];
-  for (const [platform, preset] of Object.entries(PLATFORMS)) {
+  for (const [platform, preset] of Object.entries(platforms)) {
+    // A name in BOTH lists is a contradiction the unaccounted filter below
+    // cannot see, because either membership alone suppresses the warning (#75).
+    // The config would be saying "we run this" and "we deliberately do not" at
+    // once, and whichever is wrong is silently the loser: if the decline is
+    // right the transform still runs, and if the run is right the decline is a
+    // lie the next maintainer will read as settled. Reported here rather than
+    // guarded at the definition, so it travels with the rest of the audit.
+    //
+    // Checked before stockGroup, because this is wrong regardless of whether
+    // Style Dictionary still has the group to compare against.
+    if (Array.isArray(preset.transforms)) {
+      const contradictory = preset.transforms.filter((name) => Object.hasOwn(declined, name));
+      if (contradictory.length) {
+        warnings.push(
+          `throughline: PLATFORMS['${platform}'] both runs and declines ` +
+            `${contradictory.join(', ')}. A transform cannot be in transforms and in ` +
+            'DECLINED_STOCK_TRANSFORMS at once — one of the two is wrong, and the ' +
+            'audit cannot tell which. This is a throughline packaging defect — ' +
+            'please report it.',
+        );
+      }
+    }
     const group = preset.stockGroup;
     if (!group || !Array.isArray(preset.transforms)) {
       warnings.push(
@@ -579,7 +608,7 @@ export function auditStockGroups(transformGroups) {
     const unaccounted = stock.filter(
       (name) =>
         !preset.transforms.includes(name) &&
-        !Object.hasOwn(DECLINED_STOCK_TRANSFORMS, name),
+        !Object.hasOwn(declined, name),
     );
     if (unaccounted.length) {
       const n = unaccounted.length;

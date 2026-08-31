@@ -1421,6 +1421,38 @@ const NO_IOS_GROUP =
   'or removed. Upgrade @radicool/throughline, or report your Style Dictionary ' +
   'version.';
 
+// #75. A name in both transforms and DECLINED_STOCK_TRANSFORMS is a
+// contradiction the unaccounted filter cannot see: either membership alone
+// suppresses the warning. The config would say "we run this" and "we
+// deliberately do not" at once, and whichever is wrong loses silently.
+test('auditStockGroups reports a transform that is both run and declined', () => {
+  const out = auditStockGroups(
+    { compose: ['size/compose/remToDp'] },
+    { 'android-kotlin': { stockGroup: 'compose', transforms: ['size/compose/remToDp'] } },
+    { 'size/compose/remToDp': 'rem-assuming' },
+  );
+  assert.equal(out.length, 1);
+  assert.match(out[0], /both runs and declines size\/compose\/remToDp/);
+  assert.match(out[0], /packaging defect/);
+});
+
+// It is wrong regardless of whether Style Dictionary still has the group, so it
+// is checked before the stockGroup lookup rather than after it.
+test('the run-and-declined report does not depend on the stock group existing', () => {
+  const out = auditStockGroups(
+    {},
+    { 'android-kotlin': { stockGroup: 'compose', transforms: ['size/compose/remToDp'] } },
+    { 'size/compose/remToDp': 'rem-assuming' },
+  );
+  assert.equal(out.length, 2, 'the contradiction and the missing group are both reported');
+  assert.match(out[0], /both runs and declines/);
+});
+
+// The guard that matters most: the SHIPPED config must never contain one.
+test('the shipped config runs nothing it also declines', () => {
+  assert.deepEqual(auditStockGroups(REAL_STOCK), []);
+});
+
 test('auditStockGroups is silent on the real stock groups', () => {
   assert.deepEqual(auditStockGroups(REAL_STOCK), []);
 });

@@ -21,6 +21,13 @@ to [Semantic Versioning](https://semver.org).
 
 ### Fixed
 
+- **The stock-transform audit reports a transform that is both run and
+  declined.** A name in a platform's `transforms` list *and* in
+  `DECLINED_STOCK_TRANSFORMS` is a contradiction the audit could not see, because
+  either membership on its own suppressed the warning. The config would be saying
+  "we run this" and "we deliberately do not" at once, and whichever half is wrong
+  loses silently. Maintainer-facing; the shipped config contains no such name and
+  a test now keeps it that way.
 - **A `$extensions` namespace holding a primitive names the token instead of
   crashing.** A DTCG `$extensions` namespace key may hold any JSON value, so
   `$extensions: { "com.radicool.throughline": "text" }` is **conformant input**
