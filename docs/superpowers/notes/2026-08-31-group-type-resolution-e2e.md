@@ -3,8 +3,12 @@
 **Date:** 2026-08-31
 **Gate for:** the #85 fix — routing all three text-role gates through DTCG 5.2.2
 resolved types instead of each token's own literal `$type`.
-**Verdict:** PASS. The fix makes two legal encodings of the same source emit
-**byte-identical** output. Released 0.17.0 does not: it loses 12 symbols.
+**Verdict:** PASS, with a scope correction the first draft of this note got
+wrong. The fix makes two legal encodings of the same source emit
+**byte-identical** output. Released 0.17.0 does not — but only on one of the two
+documented preprocessor wirings, and this run originally varied the token
+encoding while holding that wiring fixed without saying so. Twelve symbols
+differ: nine present-but-mistyped, three absent.
 
 ## Why this run exists
 
@@ -32,16 +36,31 @@ were gone while the directory tree survived. Anyone reading a note that says
   and a rebuild from it fails at import. This run is direct evidence for #87.
 - **Branch:** `fix/85-group-type-resolution`; the "main" column is `a349453`,
   which is 0.17.0 as published.
+- **Preprocessor wiring — the input that decides the whole result, and the one
+  the first draft of this note failed to record.** Two wirings are documented.
+  `build.mjs` declares `dtcg/resolve-dual-node` at **top level** *and* gets it
+  again from `nativePlatform`; `build-platform-only.mjs` omits the top-level
+  line. Style Dictionary 4.4.0 runs global preprocessors, then `typeDtcgDelegate`
+  — its own implementation of 5.2.2 — then platform preprocessors
+  (`StyleDictionary.js:340`, `:348`, `:440`). So the platform-only wiring has
+  already had group types delegated onto its tokens before our pass runs, and
+  never saw the defect.
 
 ## The fixture, and why it is legal rather than contrived
 
 `group-type.mjs` re-encodes the source so `$type` sits on the **group** instead
 of on each token, wherever a group's direct token children all agree on one
-type. It moved `$type` off **167 of 322 tokens**.
+type. It moved `$type` off **167 tokens**.
+
+**Denominator, corrected:** this source holds **318** `$value` entries across
+its 15 files, and **211** under the light+mobile pin the build uses. The "322"
+that appears throughout this repo's notes belongs to
+`libs/shared/util-tokens/src/tokens/`, a path that no longer exists; the figure
+was carried forward without being recounted.
 
 This is not a mutation of meaning. DTCG 5.2.2 says a token's own `$type` wins,
 otherwise the nearest ancestor group's — so both encodings describe the same
-322 tokens, and a correct pipeline **must** emit the same bytes for both. That
+211 tokens, and a correct pipeline **must** emit the same bytes for both. That
 is the discriminating property #77 asks for: the PASS condition is not an empty
 diff against nothing, it is agreement between two encodings that are required to
 agree.
@@ -65,6 +84,21 @@ No regression on the validation target, which is also why no previous e2e caught
 this bug.
 
 ## Result — the group-typed encoding
+
+### The wiring decides whether the bug exists at all
+
+| wiring | main (0.17.0) | with the fix |
+|---|---|---|
+| `nativePlatform` only | 208 decls / 48 `sp` | 208 / 48 — **identical** |
+| + top-level `preprocessors` | 205 / 39 | 208 / 48 |
+
+A consumer wired only through `nativePlatform` was never affected: Style
+Dictionary's own `typeDtcgDelegate` had already done 5.2.2 for them. The wiring
+that breaks is the one our usage snippet teaches, which is why the fix is still
+needed — but "every consumer is affected" was never true, and the first draft of
+this note implied it.
+
+### On the affected wiring
 
 | | main (0.17.0 as released) | with the fix |
 |---|---|---|
@@ -127,7 +161,32 @@ exit=0
   by this run.
 - **The issue's severity ranking is right for the wrong reason.** It is not that
   more tokens are affected than expected — it is that everything 0.17.0 shipped
-  four days ago is undone by a re-encoding the spec explicitly permits.
+  four days ago is undone by a re-encoding the spec explicitly permits, on the
+  wiring the docs teach.
+- **"Zero `sp`" is not covered by a unit test, as an earlier draft of this note
+  claimed.** No test in this repo runs Style Dictionary — `fakeStyleDictionary`
+  is a registration spy — so no test measures emitted `sp` at all. The tests
+  assert the `$extensions` stamp; the step from "no stamp" to "no `sp`" also
+  depends on the transform filters. Stated correctly: the *stamp* half is unit
+  tested, the *emission* half is only ever measured by a run like this one.
+
+## A second defect this run surfaced, pre-existing
+
+`preprocess` is **not idempotent** where the hoist invents a typographic name.
+`a.font` with a child `size` camel-joins to `a.fontSize`: pass 1 correctly
+declines (`size` is not a typographic member name, and classification runs
+before the hoist), and pass 2 sees a key named `fontSize` the source never
+authored and stamps it.
+
+**This predates #85** — verified against `a349453`, where it fires whenever the
+hoisted child carries its own `$type`. The #85 change *widens* it, since the
+group's type now also reaches such a child. It changes no emitted output in
+either wiring, because `typeDtcgDelegate` types the hoisted child between the
+two passes anyway. Pinned in both directions by test and filed, rather than
+repaired here: the repair belongs with the hoist, not with type resolution.
+
+Worth noting because idempotency is asserted unconditionally in four comments
+that ship through `references/native-adapter-config.md`.
 
 ## Open question this run did not settle
 
@@ -145,7 +204,8 @@ under cover of #85 — which is the mistake #63 was careful not to make here.
 ```
 $ cd <harness>
 $ node group-type.mjs tokens tokens-grouped     # moved $type off 167 tokens
-$ node build.mjs tokens        out-85-head
+$ node build.mjs tokens        out-85-head        # top-level + platform wiring
 $ node build.mjs tokens-grouped out-85g-head
 $ diff out-85-head/Tokens.kt out-85g-head/Tokens.kt   # empty, with the fix
+$ node build-platform-only.mjs tokens-grouped out-85p-main   # unaffected wiring
 ```

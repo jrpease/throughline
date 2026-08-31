@@ -1013,6 +1013,34 @@ test('a dual-node child typed by an enclosing group is stamped', () => {
   assert.equal(roleOf(out.text.smLineHeight), 'text');
 });
 
+// preprocess is NOT idempotent where the hoist invents a typographic name, and
+// was not before #85 either. `a.font` + child `size` camel-join to `a.fontSize`:
+// pass 1 correctly declines, because `size` is not a typographic member name and
+// classification runs before the hoist. Pass 2 sees a key named `fontSize` that
+// the source never authored, and stamps it.
+//
+// Pinned in BOTH directions because #85 widened the hole rather than opening it.
+// On main the second pass fired wherever the hoisted child carried its own
+// $type; resolving the group's type means it now also fires where the child
+// inherits one. Neither changes emitted output in the documented wiring, where
+// Style Dictionary's typeDtcgDelegate runs between the two passes and types the
+// hoisted child anyway. Filed rather than fixed here: the repair belongs with
+// the hoist, not with #85's type resolution.
+test('preprocess is not idempotent where the hoist invents a typographic name', () => {
+  const own = () => ({
+    a: { font: { $value: '2px', $type: 'dimension', size: { $value: '16px', $type: 'dimension' } } },
+  });
+  const onceOwn = preprocess(own());
+  assert.equal(roleOf(onceOwn.a.fontSize), undefined, 'pass 1 declines the authored name "size"');
+  assert.equal(roleOf(preprocess(structuredClone(onceOwn)).a.fontSize), 'text', 'pass 2 stamps it');
+
+  // The same shape, typed by the group instead — the half #85 added.
+  const inherited = () => ({ a: { $type: 'dimension', font: { $value: '2px', size: { $value: '16px' } } } });
+  const onceInherited = preprocess(inherited());
+  assert.equal(roleOf(onceInherited.a.fontSize), undefined);
+  assert.equal(roleOf(preprocess(structuredClone(onceInherited)).a.fontSize), 'text');
+});
+
 // The interaction #85 said a fix had to decide rather than assume. Where NO
 // enclosing group supplies a type, DTCG determines none for this child, and the
 // only thing that types it is hoistDualNodes' carry — which runs AFTER

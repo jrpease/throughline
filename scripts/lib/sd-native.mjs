@@ -277,10 +277,21 @@ export { EXT_NS };
 //
 // The type comes from `types`, a DTCG 5.2.2 resolution of the whole tree, not
 // from the token's own literal $type. Reading val.$type made this pass blind to
-// a source that declares $type once on the group — legal DTCG, and on it the
-// pass stamped nothing, so Android emitted no sp at all and no advisory said so
-// (#85). A token's own $type still wins; the group's applies only where the
-// token states none.
+// a source that declares $type once on the group — legal DTCG, and on such a
+// source the reference-graph inference stamped nothing at all (#85). A token's
+// own $type still wins; the group's applies only where the token states none.
+//
+// WHERE THIS MATTERS, measured rather than assumed. Style Dictionary runs
+// global preprocessors, THEN its own typeDtcgDelegate — which is 5.2.2, pushing
+// each group's $type onto its descendants — then platform preprocessors
+// (StyleDictionary.js:340, :348, :440 in 4.4.0). nativePlatform registers this
+// preprocessor at PLATFORM level, downstream of that delegation, so a build
+// wired only through nativePlatform never saw the defect: on a group-typed
+// re-encoding of a real system it emits the same 208 declarations and 48 sp
+// either way. The defect reaches the build that ALSO declares this preprocessor
+// at top level, which is the wiring the usage snippet above shows — there the
+// first pass runs before any delegation. Resolving the type here makes both
+// wirings agree instead of depending on which one a consumer copied.
 function classifyTextUnits(node, types, prefix = []) {
   for (const [key, val] of Object.entries(node)) {
     if (key.startsWith('$') || !val || typeof val !== 'object') continue;
