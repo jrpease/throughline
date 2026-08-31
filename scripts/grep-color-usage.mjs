@@ -6,10 +6,17 @@
 // Usage:
 //   node grep-color-usage.mjs --root <dir> [--config <patterns.json>] [--out <counts.json>]
 //     patterns.json: { "<category>": { "files": "<regex>", "pattern": "<regex with g flag>" }, ... }
-import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { relative } from 'node:path';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
+import { walk, DEFAULT_EXCLUDES, SOURCE_EXT } from './lib/source-scan.mjs';
+
+// This script has exported `walk` and DEFAULT_EXCLUDES since it was written;
+// keep that surface intact now that both live one file over. SOURCE_EXT is not
+// re-exported because it was never exported from here — import it from
+// lib/source-scan.mjs. `walk`'s second parameter is now an options object.
+export { walk, DEFAULT_EXCLUDES };
 
 // The five categories from the case study. Each: which files it applies to, and the
 // (global) match pattern. Tuned defaults — design-system-audit may override per repo.
@@ -36,33 +43,6 @@ export const DEFAULT_CATEGORIES = {
   },
 };
 
-export const DEFAULT_EXCLUDES = [
-  /(^|\/)node_modules(\/|$)/,
-  /(^|\/)generated(\/|$)/,
-  /\.generated\./,
-  /\.test\./,
-  /\.spec\./,
-  /(^|\/)__tests__(\/|$)/,
-  /(^|\/)dist(\/|$)/,
-  /(^|\/)\.next(\/|$)/,
-];
-
-// Source extensions worth opening at all (union of every category's `files`).
-const SOURCE_EXT = /\.(scss|sass|css|tsx?|jsx?|mjs|cjs|vue|svelte|html|svg)$/;
-
-export function* walk(root, excludes = DEFAULT_EXCLUDES) {
-  for (const entry of readdirSync(root)) {
-    const full = join(root, entry);
-    if (excludes.some((re) => re.test(full))) continue;
-    const st = statSync(full);
-    if (st.isDirectory()) {
-      yield* walk(full, excludes);
-    } else if (SOURCE_EXT.test(full)) {
-      yield full;
-    }
-  }
-}
-
 // Count matches per category in one file. A category contributes only if its `files`
 // regex matches this path. Returns { <category>: count } for every category key.
 export function scanFile(path, categories) {
@@ -82,7 +62,7 @@ export function grepColorUsage(root, categories = DEFAULT_CATEGORIES, excludes =
   const counts = {};
   for (const key of Object.keys(categories)) counts[key] = 0;
   const byFile = [];
-  for (const file of walk(root, excludes)) {
+  for (const file of walk(root, { excludes, fileFilter: SOURCE_EXT })) {
     const fileCounts = scanFile(file, categories);
     const total = Object.values(fileCounts).reduce((a, b) => a + b, 0);
     if (total > 0) {

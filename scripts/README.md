@@ -11,6 +11,7 @@ tested here; copied verbatim by `token-crosswalk-builder` into the user's
 | `build-reverse-index.mjs` | Emit a `codeToken -> newToken` map from the crosswalk to semi-automate SCSS/Tailwind swaps. | `tokens:reverse-index` |
 | `guard-token-removal.mjs` | Grep `.ts/.tsx` (minus generated + tests) for about-to-be-deleted symbols; blocks cleanup until zero references remain. | run during the cleanup phase |
 | `validate-token-output.mjs` | Assert generated native token output matches its DTCG source: authored-unit fidelity, no leaked CSS syntax, no bare unit literals, no mode collisions. Fails when no emitted symbol matches a source token, and reports match rate, unparsed lines, and unemitted tokens on every run. | `tokens:validate-output` |
+| `lib/source-scan.mjs` | Shared source-tree walker (`walk`, `DEFAULT_EXCLUDES`, `SOURCE_EXT`) plus `normalizeName`, the display-name-to-code-identifier fold. Every gate that scans a consumer's repo reads it from here rather than carrying its own copy. | copied alongside `guard-token-removal.mjs` |
 | `lib/crosswalk.mjs` | Shared loader + structural validation for `crosswalk.json` (used by the validator and reverse-index). | copied alongside |
 | `lib/dtcg.mjs` | Shared DTCG flatten + `{alias}` resolution. Dual-node aware: a node carrying both a `$value` and children yields its own value **and** is descended into. Used by `validate-crosswalk.mjs` and `validate-token-output.mjs`. | copied alongside both |
 | `lib/sd-native.mjs` | The Style Dictionary native configuration as code: unit-aware dimension transforms, `color-mix` computation, dual-node preprocessing, platform assembly, and a per-mode source guard. Style Dictionary is a parameter, never an import. | copied alongside `validate-token-output.mjs` |
@@ -60,7 +61,8 @@ conflict, or remaining reference), `2` bad CLI arguments.
 ## How the skill installs these
 
 `token-crosswalk-builder` copies `lib/crosswalk.mjs`, `lib/dtcg.mjs`,
-`validate-crosswalk.mjs`, `build-reverse-index.mjs`, `guard-token-removal.mjs`, and
+`lib/source-scan.mjs`, `validate-crosswalk.mjs`, `build-reverse-index.mjs`,
+`guard-token-removal.mjs`, and
 `crosswalk.schema.json` into the user's `packages/tokens/scripts/` (schema beside `crosswalk.json`), then
 wires `packages/tokens/package.json`:
 

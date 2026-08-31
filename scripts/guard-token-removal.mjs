@@ -7,34 +7,16 @@
 // Usage:
 //   node guard-token-removal.mjs --root <dir> --symbols <symbols.txt>
 //     symbols file: one symbol per line (blank lines and # comments ignored)
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { relative } from 'node:path';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
+import { walk, DEFAULT_EXCLUDES } from './lib/source-scan.mjs';
 
-export const DEFAULT_EXCLUDES = [
-  /(^|\/)node_modules(\/|$)/,
-  /(^|\/)generated(\/|$)/,
-  /\.generated\./,
-  /\.test\./,
-  /\.spec\./,
-  /(^|\/)__tests__(\/|$)/,
-  /(^|\/)dist(\/|$)/,
-  /(^|\/)\.next(\/|$)/,
-];
-
-export function* walk(root, excludes = DEFAULT_EXCLUDES) {
-  for (const entry of readdirSync(root)) {
-    const full = join(root, entry);
-    if (excludes.some((re) => re.test(full))) continue;
-    const st = statSync(full);
-    if (st.isDirectory()) {
-      yield* walk(full, excludes);
-    } else if (/\.tsx?$/.test(full)) {
-      yield full;
-    }
-  }
-}
+// This script has exported `walk` and DEFAULT_EXCLUDES since it was written;
+// keep that surface intact now that both live one file over. `walk`'s second
+// parameter is now an options object.
+export { walk, DEFAULT_EXCLUDES };
 
 export function scanFile(path, symbols) {
   const lines = readFileSync(path, 'utf8').split('\n');
@@ -51,7 +33,9 @@ export function scanFile(path, symbols) {
 
 export function guard(root, symbols, excludes = DEFAULT_EXCLUDES) {
   const findings = [];
-  for (const file of walk(root, excludes)) {
+  // .ts/.tsx is this guard's own contract, so the filter stays here rather
+  // than moving into the shared walker's default.
+  for (const file of walk(root, { excludes, fileFilter: /\.tsx?$/ })) {
     for (const hit of scanFile(file, symbols)) {
       findings.push({ file: relative(root, file), ...hit });
     }
