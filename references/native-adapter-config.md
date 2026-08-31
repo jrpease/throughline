@@ -264,8 +264,17 @@ function hoistDualNodes(node, collisions, prefix = [], groupType = undefined) {
         // type suits the child badly, because the hoist is not entitled to
         // improve on what the source says; but the carry firing at all is the
         // hoist saying something the source did not.
+        //
+        // A GROUP child is excluded (#67). The carry's premise is that the dual
+        // node was the child's closest $type-bearing ancestor as authored, and
+        // the hoist took that away. For a group child the premise never held:
+        // 5.2.2 inherits from the closest parent GROUP, the dual node is not
+        // one, so it was never that group's inheritance source and the hoist
+        // removed nothing. Carrying there does not repair, it invents — and it
+        // invents for every token beneath the group, not just one node.
         if (
           !('$type' in childVal) &&
+          '$value' in childVal &&
           '$type' in val &&
           !WAS_REF.has(childVal) &&
           inherited === undefined
