@@ -8,6 +8,22 @@ to [Semantic Versioning](https://semver.org).
 
 ### Fixed
 
+- **`unitless-dimension` now sees the hoist's `$type` carry.** A unitless,
+  untyped child of a dimension-typed dual node was a `dimension` to the build and
+  a nothing to the gate, so it emitted a bare `1.5` — a `Double` where Compose
+  wants a `Dp` — and passed every rule clean. That is the silent case this rule
+  most exists to catch. The gate still reads the **raw source**, which is the
+  property that made this hard to fix: it models the carry rather than running
+  against a preprocessed tree, so it continues to check emitted output against
+  what the author actually wrote.
+- **A unitless base token behind a typed alias is reported again.** Skipping any
+  whole-value reference stopped the advisory double-firing, which is right when
+  the base carries its own `$type`. Where it does not, the base never fired
+  (untyped) and the alias was skipped (a reference), so a genuine unitless
+  dimension was reported **nowhere**. The skip is now conditional on the referent
+  being dimension-typed in its own right, and the advisory names the referent —
+  the token whose `$type` or unit you actually have to change — rather than the
+  alias, whose value is a reference with no unit to add.
 - **A line height typed only by the hoist's `$type` carry now emits `sp`.** A
   dual node is a token, not a group, so DTCG gives an untyped child of one no
   type at all; the hoist stamps the dual node's type onto it as a repair for the

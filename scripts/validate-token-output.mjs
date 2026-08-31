@@ -10,6 +10,7 @@ import { pathToFileURL } from 'node:url';
 import {
   flattenDtcg,
   flattenDtcgTypes,
+  flattenPipelineTypes,
   resolveValue,
   findModeCollisions,
   textRoleGraph,
@@ -145,6 +146,18 @@ const DIMENSIONAL = new Set(['dimension', 'fontSize']);
 // alone would flag both the alias and its referent for the same problem.
 const WHOLE_REF = /^\{[^}]+\}$/;
 
+// Follow whole-value references to the token an advisory's fix belongs on.
+// Stops at the first path that is not a whole-value reference, at an
+// unresolvable one, and on a cycle — this reports, so it must never throw.
+function referentOf(path, flat, seen = new Set()) {
+  const raw = String(flat[path] ?? '').trim();
+  if (!WHOLE_REF.test(raw)) return path;
+  const next = raw.slice(1, -1);
+  if (seen.has(path) || !(next in flat)) return path;
+  seen.add(path);
+  return referentOf(next, flat, seen);
+}
+
 // Lines that are obviously not a would-be token declaration: braces-only,
 // comments, imports/package/annotations, or the container declarations
 // (enum/object/class) themselves. Anything else that DECL failed to match is
@@ -177,7 +190,18 @@ export function validate({ sources, output, platform, minMatch = 0.5 }) {
   for (const { dtcg } of sources) Object.assign(flat, flattenDtcg(dtcg));
 
   const types = {};
-  for (const { dtcg } of sources) Object.assign(types, flattenDtcgTypes(dtcg));
+  // The PIPELINE's types, not the spec's alone (#71). flattenDtcgTypes reads the
+  // raw source, where hoistDualNodes' $type carry has not run — so a unitless,
+  // untyped child of a dimension-typed dual node was a dimension to the build
+  // and a nothing to this gate, which is the silent case this rule most exists
+  // to catch.
+  //
+  // The issue framed the only fix as running this gate against the PREPROCESSED
+  // tree, and rejected it, because the gate would stop checking emitted output
+  // against what the author actually wrote. flattenPipelineTypes is a third
+  // option that keeps that property: it reads the raw source and MODELS the
+  // carry rather than applying it. The gate still reads what the author wrote.
+  for (const { dtcg } of sources) Object.assign(types, flattenPipelineTypes(dtcg));
 
   // Collided keys are deliberately LEFT OUT of byKey. A symbol whose key is
   // ambiguous then matches nothing, so it falls through to `continue` before any
@@ -237,12 +261,22 @@ export function validate({ sources, output, platform, minMatch = 0.5 }) {
     // Advisory, not a failure: the emitted value is correct under the ratio
     // reading this build applies, so it compiles and its magnitude matches.
     // What is wrong is the SOURCE's $type, which only the author can settle.
+    //
+    // An alias is skipped only when its REFERENT is itself dimension-typed, so
+    // the referent's own symbol reports it — that is #69's de-duplication, kept.
+    // A blanket skip on any whole-value reference (#72) meant an untyped base
+    // behind a typed alias was reported nowhere: the base is not dimension-typed
+    // so it never fires, and the alias was skipped for being a reference. The
+    // advisory is attributed to the referent either way, because that is the
+    // token whose $type or unit the author has to change.
+    const aliased = WHOLE_REF.test(String(flat[path]).trim());
+    const target = aliased ? referentOf(path, flat) : path;
     if (
       UNITLESS.test(String(source).trim()) &&
       DIMENSIONAL.has(types[path]) &&
-      !WHOLE_REF.test(String(flat[path]).trim())
+      !(aliased && DIMENSIONAL.has(types[target]))
     ) {
-      advisories.push({ rule: 'unitless-dimension', symbol, token: path, source, emitted: value });
+      advisories.push({ rule: 'unitless-dimension', symbol, token: target, source, emitted: value });
     }
 
     const expected = expectedMagnitude(source);
