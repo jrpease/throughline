@@ -279,8 +279,13 @@ $ grep -n '\.sp\b' out/light/android/Tokens.kt | head -3
    by name only and are checked by no rule** — and nothing checks that any of
    it compiles. Any public claim built on this run must say that, not "196
    correct symbols".
-4. **Nothing was compiled.** No `swiftc` or `kotlinc` ran; correctness here is
-   value fidelity as measured by `tokens:validate-output` only.
+4. **Nothing was compiled in this run.** No `swiftc` or `kotlinc` ran;
+   correctness here is value fidelity as measured by `tokens:validate-output`
+   only. `swiftc` was nonetheless available at `/usr/bin/swiftc` via the Xcode
+   command line tools when this run happened, and went unused — the Swift
+   half of this limitation was self-imposed. `kotlinc` was not available: it
+   was installed on 2026-08-27, after this run. Later runs compile both, via
+   `ci/compile-native-output.mjs` (#81).
 5. **The desktop viewport axis was not built.** Only the mobile axis was.
 6. **Unitless ratios emit as `dp` on Android.** `leading.*` is authored
    unitless (`"1.5"`, typed `dimension`) and emits `val leadingNormal = 1.50.dp`

@@ -229,10 +229,15 @@ Every clause of the prediction held. Nothing was adjusted to fit.
 
 ## What this run does NOT establish
 
-- **Nothing was compiled.** No `swiftc` or `kotlinc` ran; the declaration and
-  `.sp`/`.dp` counts are `grep`-based, and the advisory/diff checks are
-  textual, not a compiler's verdict on whether the bare `Int`/`Double`
-  literals actually satisfy whatever consumes them downstream.
+- **Nothing was compiled in this run.** No `swiftc` or `kotlinc` ran; the
+  declaration and `.sp`/`.dp` counts are `grep`-based, and the advisory/diff
+  checks are textual, not a compiler's verdict on whether the bare
+  `Int`/`Double` literals actually satisfy whatever consumes them downstream.
+  `swiftc` was nonetheless available at `/usr/bin/swiftc` via the Xcode
+  command line tools when this run happened, and went unused — the Swift
+  half of this limitation was self-imposed. `kotlinc` was not available: it
+  was installed on 2026-08-27, after this run. Later runs compile both, via
+  `ci/compile-native-output.mjs` (#81).
 - **The harness's `scripts/lib` symlink is unused by this build path.** It
   was left pointed at the live repo throughout (as found), but `build.mjs`
   never reads it — see the correction above. Anyone reusing this harness for

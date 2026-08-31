@@ -226,12 +226,17 @@ literal syntax, not numeric magnitude.
 
 ## What this run does NOT establish
 
-1. **Nothing was compiled.** No `swiftc` or `kotlinc` ran. "Valid literal"
-   here means `parseLiteral`/`isValidLiteral` (Task 1's grammar) accepts the
-   emitted text as a syntactically well-formed Swift or Kotlin literal — not
-   that the surrounding declaration, type, or file compiles. A type mismatch
-   or a reference to an undefined symbol elsewhere in the file would still
-   pass every check made here.
+1. **Nothing was compiled in this run.** No `swiftc` or `kotlinc` ran. "Valid
+   literal" here means `parseLiteral`/`isValidLiteral` (Task 1's grammar)
+   accepts the emitted text as a syntactically well-formed Swift or Kotlin
+   literal — not that the surrounding declaration, type, or file compiles. A
+   type mismatch or a reference to an undefined symbol elsewhere in the file
+   would still pass every check made here. `swiftc` was nonetheless available
+   at `/usr/bin/swiftc` via the Xcode command line tools when this run
+   happened, and went unused — the Swift half of this limitation was
+   self-imposed. `kotlinc` was not available: it was installed on 2026-08-27,
+   after this run. Later runs compile both, via `ci/compile-native-output.mjs`
+   (#81).
 2. **Colour values are still matched by name only and checked by no rule.**
    As in the 2026-08-21 native-config run, `matched` counts name resolution
    in `tokens:validate-output`, not value agreement. `invalid-literal` checks
