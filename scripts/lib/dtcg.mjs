@@ -18,6 +18,42 @@ export const TEXT_UNIT_NAMES = new Set(['fontSize', 'letterSpacing', 'lineHeight
 export const TEXT_ROLE_UNIT = /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em)$/;
 export const EXT_NS = 'com.radicool.throughline';
 
+// Read this project's $extensions namespace off a node, refusing a shape that
+// cannot hold one.
+//
+// A DTCG $extensions namespace key may hold ANY JSON value, so a source that
+// authored ours as a string is CONFORMANT input this module does not handle —
+// not malformed input. That distinction is why it gets a diagnostic rather than
+// a shrug: the module's contract is that it consumes conformant DTCG.
+//
+// Before #62 the three places that read this namespace all hit the `in`
+// operator on a primitive and threw a bare TypeError naming no token, no path
+// and no value — out of step with every other diagnostic here. nativeSources
+// names the colliding path and both files; the hoist-collision throw names both
+// paths and the value it would overwrite; nativePlatform names the unknown
+// platform and the expected set.
+export function extNamespace(node, path) {
+  const ext = node.$extensions;
+  if (ext === undefined) return undefined;
+  if (!isPlainObject(ext)) {
+    throw new Error(
+      `token "${path}" has a $extensions that is ${JSON.stringify(ext)}, not an object.\n` +
+        'DTCG 5.4 makes $extensions a map of namespace keys. Remove it, or give it the shape ' +
+        `{ "${EXT_NS}": { "nativeUnit": "text" } }.`,
+    );
+  }
+  const ns = ext[EXT_NS];
+  if (ns === undefined) return undefined;
+  if (!isPlainObject(ns)) {
+    throw new Error(
+      `token "${path}" has $extensions["${EXT_NS}"] set to ${JSON.stringify(ns)}, not an object.\n` +
+        `The namespace holds named settings, so a bare value cannot be read. Write ` +
+        `{ "nativeUnit": ${JSON.stringify(ns)} } if that is the setting you meant.`,
+    );
+  }
+  return ns;
+}
+
 // Flatten nested DTCG groups into { "dot.path": rawValue }. Skips $-prefixed meta keys.
 //
 // A node carrying BOTH a $value and children yields its own value AND is descended
@@ -278,7 +314,7 @@ export function textRoleGraph(dict) {
         types[dotted] === 'dimension' &&
         TEXT_ROLE_UNIT.test(String(val.$value).trim()) &&
         !referrers.has(dotted) &&
-        !('nativeUnit' in (val.$extensions?.[EXT_NS] ?? {})) &&
+        !('nativeUnit' in (extNamespace(val, dotted) ?? {})) &&
         inferredGroups.has(group)
       ) {
         unreferencedSiblings.push({ path: dotted, group });

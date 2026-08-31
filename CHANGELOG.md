@@ -21,6 +21,14 @@ to [Semantic Versioning](https://semver.org).
 
 ### Fixed
 
+- **A `$extensions` namespace holding a primitive names the token instead of
+  crashing.** A DTCG `$extensions` namespace key may hold any JSON value, so
+  `$extensions: { "com.radicool.throughline": "text" }` is **conformant input**
+  this tool did not handle — not malformed input. It died on the `in` operator
+  with a bare `TypeError` naming no token, no path and no value, alone among this
+  module's diagnostics. It now names the token and the offending value, and says
+  what shape it expected. Three read sites shared the defect; the issue found
+  two.
 - **A token dropped for having no native form is now named, not just counted.**
   The report said "3 source token(s) had no matching emitted symbol" and stopped
   there. It now names them. On a real system those three turn out to be a
