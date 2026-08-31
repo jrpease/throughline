@@ -6,6 +6,65 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.19.0] — 2026-08-31
+
+### Corrected
+
+- **"322-token system" is wrong wherever it appears in 0.16.0, 0.17.0 and
+  0.18.0.** The source those releases were measured against holds **318**
+  `$value` entries across its 15 files, and **211** under the light+mobile mode
+  pin every build in this project uses. 322 belonged to an earlier source
+  directory that no longer exists, and the figure was carried forward without
+  being recounted. Recorded here rather than edited into published release notes,
+  which would erase the fact that it went stale unnoticed. Every measurement
+  those entries describe — the symbol counts, the declaration counts, the
+  byte-identical comparisons — was re-run against the real source and stands; only
+  the denominator was wrong.
+
+### Breaking
+
+Two rules that used to pass now fail. In both cases the output they were
+passing does not compile, so no working build breaks — but a green run can
+go red on upgrade. Read these two before upgrading.
+
+- **The dual-node hoist no longer carries a `$type` onto a hoisted group.** The
+  carry exists to repair what the hoist costs a *token* child: the dual node was
+  that child's closest `$type`-bearing ancestor as authored, and the hoist makes
+  it a sibling. A **group** child was never in that position — DTCG 5.2.2
+  inherits from the closest parent *group*, and a dual node is a token (6.1) — so
+  nothing was taken away and there is nothing to repair. Carrying there invented
+  a type for every token beneath that group.
+
+  **This can turn a green build red**, and that is the intended direction. Where
+  the invented type was usable, `text.sm.heights.line` emitted `20.00.dp` and now
+  emits a bare `20px`, which does not compile. That follows the same rule a
+  unitless dimension already follows: a value whose type the source never stated
+  is declined rather than guessed at, and `no-bare-units` plus
+  `unverifiable-dimension` name the exact symbol. The repair is to type the token
+  in source, which DTCG 8.2.1 requires of a dimension anyway. Output against a
+  real system is byte-identical — the shape needs a dual node with a group child,
+  and Figma-derived dual nodes have token children only.
+- **`tokens:validate-output` fails on two source paths that reduce to one symbol
+  name.** `color.bg.canvas` and `colorBg.canvas` both normalize to
+  `colorbgcanvas`, and the second silently overwrote the first — so the loser was
+  never checked, and every emitted symbol on that key was compared against
+  whichever path happened to sort last. Both directions measured: with only the
+  winner's symbol in the output the run was **green with a token unverified**;
+  with both symbols present it reported a **`unit-fidelity` failure naming a
+  token that was correct**, which is worse, because a confident wrong diagnosis
+  sends you to the wrong file.
+
+  This gates rather than advises because it is not only a matching problem.
+  Style Dictionary does not dedupe the two paths: the build emits
+  `val colorBgCanvas` **twice**, and `kotlinc` rejects the file with "conflicting
+  declarations". The source is ambiguous for native output and the generated file
+  is broken. Rename either side in source.
+
+  A build with no such collision is unaffected, which is every build we can
+  measure — the real system this is validated against (318 source tokens, 211
+  under the mode pin the build uses) has none, an assumption the original spec
+  accepted on fixture evidence and that is now checked on every run.
+
 ### Added
 
 - **`tokens:validate-output` reports a node carrying both a `$value` and child
@@ -103,50 +162,6 @@ to [Semantic Versioning](https://semver.org).
   than the type the tree happens to hold at that moment. The ordering is
   unchanged; only the visibility is. Output against a real system is
   byte-identical — every dual-node child there carries its own `$type`.
-
-### Breaking
-
-- **The dual-node hoist no longer carries a `$type` onto a hoisted group.** The
-  carry exists to repair what the hoist costs a *token* child: the dual node was
-  that child's closest `$type`-bearing ancestor as authored, and the hoist makes
-  it a sibling. A **group** child was never in that position — DTCG 5.2.2
-  inherits from the closest parent *group*, and a dual node is a token (6.1) — so
-  nothing was taken away and there is nothing to repair. Carrying there invented
-  a type for every token beneath that group.
-
-  **This can turn a green build red**, and that is the intended direction. Where
-  the invented type was usable, `text.sm.heights.line` emitted `20.00.dp` and now
-  emits a bare `20px`, which does not compile. That follows the same rule a
-  unitless dimension already follows: a value whose type the source never stated
-  is declined rather than guessed at, and `no-bare-units` plus
-  `unverifiable-dimension` name the exact symbol. The repair is to type the token
-  in source, which DTCG 8.2.1 requires of a dimension anyway. Output against a
-  real system is byte-identical — the shape needs a dual node with a group child,
-  and Figma-derived dual nodes have token children only.
-
-- **`tokens:validate-output` fails on two source paths that reduce to one symbol
-  name.** `color.bg.canvas` and `colorBg.canvas` both normalize to
-  `colorbgcanvas`, and the second silently overwrote the first — so the loser was
-  never checked, and every emitted symbol on that key was compared against
-  whichever path happened to sort last. Both directions measured: with only the
-  winner's symbol in the output the run was **green with a token unverified**;
-  with both symbols present it reported a **`unit-fidelity` failure naming a
-  token that was correct**, which is worse, because a confident wrong diagnosis
-  sends you to the wrong file.
-
-  This gates rather than advises because it is not only a matching problem.
-  Style Dictionary does not dedupe the two paths: the build emits
-  `val colorBgCanvas` **twice**, and `kotlinc` rejects the file with "conflicting
-  declarations". The source is ambiguous for native output and the generated file
-  is broken. Rename either side in source.
-
-  A build with no such collision is unaffected, which is every build we can
-  measure — the real system this is validated against (318 source tokens, 211
-  under the mode pin the build uses) has none, an assumption the original spec
-  accepted on fixture evidence and that is now checked on every run.
-
-### Fixed
-
 - **The "naming convention does not line up" diagnosis no longer fires when a
   collision is the real cause.** Excluded tokens can drop the match count to
   zero, and the old message confidently blamed the adapter. It now names the
@@ -1078,7 +1093,8 @@ components → Storybook on a pnpm + Turborepo + Next.js 16 + Tailwind v4 monore
 - Reference docs for coding level, manifest schema, sync adapters, Figma
   component standards, and brainstorm-before-build.
 
-[Unreleased]: https://github.com/jrpease/throughline/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/jrpease/throughline/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/jrpease/throughline/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/jrpease/throughline/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/jrpease/throughline/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/jrpease/throughline/compare/v0.15.0...v0.16.0
