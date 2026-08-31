@@ -78,6 +78,38 @@ symbol. An invented type that happens to be right is still a guess.
 `Tokens.swift` **byte-identical** before and after. The shape needs a dual node
 with a group child, and zygarden's nine dual nodes have token children only.
 
+## Results, appended as the cluster is fixed
+
+One document for the whole release rather than one note per PR — the point of
+batching this work is that the pieces are read together.
+
+### #67 — carry restricted to token children
+
+Output byte-identical on zygarden. On the usable-carried-type shape,
+`20.00.dp` → bare `20px`, which does not compile, by design (see above).
+
+### #89 — the carry is now modelled ahead of the hoist
+
+```
+main:   val textSmLineHeight = 20.00.dp
+fixed:  val textSmLineHeight = 20.00.sp
+```
+
+Compile-verified: `kotlinc` typechecks to bytecode. Zygarden byte-identical in
+both `Tokens.kt` and `Tokens.swift`.
+
+The mechanism worth recording, because it generalises: the ordering did **not**
+change. Classification still runs before the hoist, because the hoist consumes
+the leaf name it matches on. What changed is that the carry is now *computed
+ahead of time* from the raw tree by `flattenPipelineTypes`, so classification
+reads the type the pipeline is going to apply rather than the type the tree
+happens to hold at that instant. A rule that runs later can be modelled earlier
+as long as its inputs are all present earlier — and the carry's are.
+
+That is also why the map must be built on the **raw** dict: the carry's last
+condition asks whether a value *was* a whole-value reference, and `resolveInPlace`
+has already rewritten it to a literal by the time the resolved clone exists.
+
 ## Reproduce
 
 ```

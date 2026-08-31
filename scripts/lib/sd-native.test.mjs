@@ -1074,20 +1074,45 @@ test('preprocess is not idempotent where the hoist invents a typographic name', 
   assert.equal(roleOf(preprocess(structuredClone(onceInherited)).a.fontSize), 'text');
 });
 
-// The interaction #85 said a fix had to decide rather than assume. Where NO
-// enclosing group supplies a type, DTCG determines none for this child, and the
-// only thing that types it is hoistDualNodes' carry — which runs AFTER
-// classification, because classification must run before the hoist consumes the
-// leaf name it matches on. So a child typed only by the carry is not stamped.
-// Unchanged by #85 and left that way on purpose: the carry is the hoist
-// repairing what the hoist broke, not a reading of the source, and stamping on
-// an invented type would be a claim the source never made. Filed separately.
-test('a child typed only by the hoist carry is not stamped as text', () => {
+// #89, and the test #85 left pinned in the other direction. Where NO enclosing
+// group supplies a type, DTCG determines none for this child and the only thing
+// that types it is hoistDualNodes' carry — which runs AFTER classification,
+// because classification must run before the hoist consumes the leaf name it
+// matches on. Classification therefore could not see it, and a 20px line height
+// emitted 20.00.dp: compiles, renders at a fixed size, ignores the user's font
+// scale, and nothing reported it.
+//
+// The ordering is unchanged. What changed is that the carry is now MODELLED —
+// flattenPipelineTypes computes it from the raw tree ahead of time, so
+// classification reads the type the pipeline is going to apply rather than the
+// type the tree happens to hold at that instant.
+test('a child typed only by the hoist carry is stamped as text', () => {
   const out = preprocess({
     text: { sm: { $value: '14px', $type: 'dimension', lineHeight: { $value: '20px' } } },
   });
   assert.equal(out.text.smLineHeight.$type, 'dimension', 'the carry supplies the type');
-  assert.equal(roleOf(out.text.smLineHeight), undefined, 'but classification already ran');
+  assert.equal(roleOf(out.text.smLineHeight), 'text', 'and classification now sees it coming');
+});
+
+// The carry's own conditions still bound it. An enclosing group type means the
+// carry never fires, so there is nothing extra to model and 5.2.2 alone decides.
+test('no carry is modelled where an enclosing group supplies the type', () => {
+  const out = preprocess({
+    text: { $type: 'color', sm: { $value: '14px', $type: 'dimension', lineHeight: { $value: '20px' } } },
+  });
+  assert.equal('$type' in out.text.smLineHeight, false, 'the group wins, and it is not dimension');
+  assert.equal(roleOf(out.text.smLineHeight), undefined);
+});
+
+// A reference-valued child already carries its referent's resolved type, which
+// 5.2.2 rule 1 ranks above inheritance, so the hoist does not carry onto it and
+// neither does the model.
+test('no carry is modelled onto a reference-valued child', () => {
+  const out = preprocess({
+    other: { lh: { $value: '20px', $type: 'dimension' } },
+    text: { sm: { $value: '14px', $type: 'dimension', lineHeight: { $value: '{other.lh}' } } },
+  });
+  assert.equal(roleOf(out.text.smLineHeight), undefined, 'the referent states the role, not the hoist');
 });
 
 // The override, and the reason this design needs no new config parameter.

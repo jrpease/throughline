@@ -12,7 +12,7 @@
 import { readFileSync } from 'node:fs';
 import {
   flattenDtcg,
-  flattenDtcgTypes,
+  flattenPipelineTypes,
   resolveValue,
   findModeCollisions,
   TEXT_UNIT_NAMES,
@@ -366,14 +366,16 @@ export function preprocess(dict) {
   // the graph is made of.
   const { typographic } = textRoleGraph(dict);
   const resolved = resolveInPlace(structuredClone(dict), flattenDtcg(dict));
-  // DTCG 5.2.2 types for the whole tree, walked once and shared by both passes
-  // below. Neither writes $type or moves a node, so one map is correct for
-  // both, and sharing it is what makes them agree by construction rather than
-  // by two copies of the same rule staying in step (#85).
+  // Types for the whole tree, walked once and shared by both passes below.
+  // Neither writes $type or moves a node, so one map is correct for both, and
+  // sharing it is what makes them agree by construction rather than by two
+  // copies of the same rule staying in step (#85).
   //
-  // Computed on the RESOLVED clone, which is the tree both passes read.
-  // resolveInPlace rewrites $value strings only, so the types are the source's.
-  const types = flattenDtcgTypes(resolved);
+  // Computed on the RAW dict, not the resolved clone. resolveInPlace only
+  // rewrites $value strings, so paths and types are identical between the two —
+  // except for the carry, whose rule asks whether a value WAS a whole-value
+  // reference, and resolution has already destroyed that (#89).
+  const types = flattenPipelineTypes(dict);
   const out = hoistDualNodes(
     applyTextRoleGraph(classifyTextUnits(resolved, types), typographic, types),
     collisions,

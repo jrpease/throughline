@@ -6,6 +6,21 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Fixed
+
+- **A line height typed only by the hoist's `$type` carry now emits `sp`.** A
+  dual node is a token, not a group, so DTCG gives an untyped child of one no
+  type at all; the hoist stamps the dual node's type onto it as a repair for the
+  relationship the hoist itself destroys. That repair ran *after* classification,
+  which has to come first because the hoist consumes the leaf name classification
+  matches on — so `text.sm.lineHeight` emitted `20.00.dp`. It compiled, it
+  rendered at a fixed size that ignores the user's font-scale setting, and no
+  rule reported it. The carry is now computed ahead of the hoist from the raw
+  source, so classification reads the type the pipeline is going to apply rather
+  than the type the tree happens to hold at that moment. The ordering is
+  unchanged; only the visibility is. Output against a real system is
+  byte-identical — every dual-node child there carries its own `$type`.
+
 ### Breaking
 
 - **The dual-node hoist no longer carries a `$type` onto a hoisted group.** The
