@@ -27,9 +27,12 @@ system). Wire it to consume `packages/tokens` output so stories render with the
 real design tokens (import the generated CSS/theme). Checkpoint: confirm
 Storybook runs and shows the token-themed canvas.
 
-Install the documentation scripts alongside the token scripts: copy the five
-files and register the three npm scripts listed under **Documentation scripts —
-install as a set** in `.throughline/scripts/README.md`. That table is
+Install the documentation scripts alongside the token scripts: copy the seven
+files and register the four npm scripts listed under **Documentation scripts —
+install as a set** in `.throughline/scripts/README.md`. `adherence:check`
+needs the repo's own values substituted in — the UI package's specifier for
+`--package`, and paths for `--root`/`--system` that match this repo's layout;
+registering it with the table's placeholders leaves a script that cannot run. That table is
 the single source of truth for what a consuming repo gets; do not restate the
 list here.
 

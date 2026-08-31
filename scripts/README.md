@@ -11,6 +11,7 @@ tested here; copied verbatim by `token-crosswalk-builder` into the user's
 | `build-reverse-index.mjs` | Emit a `codeToken -> newToken` map from the crosswalk to semi-automate SCSS/Tailwind swaps. | `tokens:reverse-index` |
 | `guard-token-removal.mjs` | Grep `.ts/.tsx` (minus generated + tests) for about-to-be-deleted symbols; blocks cleanup until zero references remain. | run during the cleanup phase |
 | `validate-token-output.mjs` | Assert generated native token output matches its DTCG source: authored-unit fidelity, no leaked CSS syntax, no bare unit literals, no mode collisions. Fails when no emitted symbol matches a source token, and reports match rate, unparsed lines, and unemitted tokens on every run. | `tokens:validate-output` |
+| `validate-adherence.mjs` | Assert the code *consuming* a design system still adheres to it: every referenced component exists, every literal variant value is one the system declares, and no colour literal duplicates a token that already holds that value. Fails when an enabled rule had nothing to check, so a green run always means something was verified. | `adherence:check` |
 | `lib/source-scan.mjs` | Shared source-tree walker (`walk`, `DEFAULT_EXCLUDES`, `SOURCE_EXT`) plus `normalizeName`, the display-name-to-code-identifier fold. Every gate that scans a consumer's repo reads it from here rather than carrying its own copy. | copied alongside `guard-token-removal.mjs` |
 | `lib/crosswalk.mjs` | Shared loader + structural validation for `crosswalk.json` (used by the validator and reverse-index). | copied alongside |
 | `lib/dtcg.mjs` | Shared DTCG flatten + `{alias}` resolution. Dual-node aware: a node carrying both a `$value` and children yields its own value **and** is descended into. Used by `validate-crosswalk.mjs` and `validate-token-output.mjs`. | copied alongside both |
@@ -30,7 +31,7 @@ tested here; copied verbatim by `token-crosswalk-builder` into the user's
 registering them leaves a repo with a script on disk and no entry point, which
 is how a stale `docs:check` went unnoticed for a full release. Both
 `storybook-chromatic-builder` (first-time setup) and `/document-component`
-(freshness refresh) install the same five files and register the same three
+(freshness refresh) install the same seven files and register the same four
 scripts:
 
 | File | npm script |
@@ -40,9 +41,11 @@ scripts:
 | `docs-lint.mjs` | `"docs:lint": "node scripts/docs-lint.mjs"` |
 | `lib/doc-record.mjs` | — (imported by the above) |
 | `lib/doc-card-plan.mjs` | — (imported by the above) |
+| `validate-adherence.mjs` | `"adherence:check": "node scripts/validate-adherence.mjs --root ../../apps --system ../.. --package <specifier> --tokens dtcg/tokens.json"` |
+| `lib/source-scan.mjs` | — (imported by the above) |
 
 A refresh that adds a file must also add its npm script; check `package.json`
-for all three every time, not just the file that changed.
+for all four every time, not just the file that changed.
 
 The crosswalk contract is documented in
 `${CLAUDE_PLUGIN_ROOT}/references/crosswalk-schema.md`.
@@ -53,7 +56,16 @@ The crosswalk contract is documented in
 node validate-crosswalk.mjs --crosswalk crosswalk.json --tokens dtcg/tokens.json
 node build-reverse-index.mjs --crosswalk crosswalk.json --out crosswalk.reverse.json
 node guard-token-removal.mjs --root . --symbols symbols-to-remove.txt
+node validate-adherence.mjs --root ../../apps --system ../.. --package @acme/ui --tokens dtcg/tokens.json
 ```
+
+`validate-adherence.mjs` takes every path explicitly because cwd is the package
+holding the script, not the repo root. `--system` has no default: defaulting it
+to `--root` resolves to a path that does not exist. `--tokens` is repeatable, so
+a system whose values span mode files passes each one. `--skip <rule>` switches a
+rule off entirely — a skipped rule is absent rather than inert, which is the
+supported answer for a repo the rule cannot apply to (a Vue or Svelte app has no
+JSX for the component rules to read).
 
 Exit codes: `0` success, `1` validation/guard failure (mismatch, missing token,
 conflict, or remaining reference), `2` bad CLI arguments.
