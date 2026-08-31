@@ -55,6 +55,7 @@ import { readFileSync } from 'node:fs';
 import {
   flattenDtcg,
   flattenPipelineTypes,
+  extNamespace,
   resolveValue,
   findModeCollisions,
   TEXT_UNIT_NAMES,
@@ -403,6 +404,9 @@ function classifyTextUnits(node, types, prefix = []) {
       types[path.join('.')] === 'dimension' &&
       TEXT_ROLE_UNIT.test(String(val.$value).trim())
     ) {
+      // extNamespace throws with the token path if the source authored either
+      // level as a primitive — legal DTCG this module does not handle (#62).
+      extNamespace(val, path.join('.'));
       val.$extensions ??= {};
       val.$extensions[EXT_NS] ??= {};
       const ns = val.$extensions[EXT_NS];
@@ -447,6 +451,7 @@ function applyTextRoleGraph(node, typographic, types) {
     if (!target || typeof target !== 'object' || !('$value' in target)) continue;
     if (types[path] !== 'dimension') continue;
     if (!TEXT_ROLE_UNIT.test(String(target.$value).trim())) continue;
+    extNamespace(target, path);
     target.$extensions ??= {};
     target.$extensions[EXT_NS] ??= {};
     const ns = target.$extensions[EXT_NS];

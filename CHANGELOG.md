@@ -21,6 +21,33 @@ to [Semantic Versioning](https://semver.org).
 
 ### Fixed
 
+- **A `$extensions` namespace holding a primitive names the token instead of
+  crashing.** A DTCG `$extensions` namespace key may hold any JSON value, so
+  `$extensions: { "com.radicool.throughline": "text" }` is **conformant input**
+  this tool did not handle — not malformed input. It died on the `in` operator
+  with a bare `TypeError` naming no token, no path and no value, alone among this
+  module's diagnostics. It now names the token and the offending value, and says
+  what shape it expected. Three read sites shared the defect; the issue found
+  two.
+- **A token dropped for having no native form is now named, not just counted.**
+  The report said "3 source token(s) had no matching emitted symbol" and stopped
+  there. It now names them. On a real system those three turn out to be a
+  gradient, a `max()` width and an unreferenced letter-spacing — none obvious
+  from a number.
+- **The output filter and the `no-foreign-syntax` rule read one list of CSS
+  construct names.** `native-literal.mjs` said they were kept together "so the
+  build and the gate cannot drift apart", and the gate held its own independent
+  copy of the same alternation. Adding a fourth name would have taught the filter
+  to keep a construct the gate had never been taught to name — the same
+  unreachable-rule defect that was fixed once already. One list now, with the
+  build's anchored form and the gate's unanchored form derived from it. The
+  asymmetry is deliberate and now documented: a construct nested inside another
+  function is dropped rather than kept, because nothing here can tell a rescuable
+  outer function from `linear-gradient(...)`.
+- **A value with foreign syntax no longer also reports `unverifiable-dimension`.**
+  `no-foreign-syntax` already names the cause; "the token was never actually
+  compared" beside it points at the symptom and reads as a second, unrelated
+  defect.
 - **The claim that `preprocess` is idempotent is now stated no wider than it
   holds.** Four comments asserted it without qualification, one of them
   load-bearing advice — that declaring the preprocessor at top level *as well as*

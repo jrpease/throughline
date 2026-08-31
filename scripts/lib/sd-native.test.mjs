@@ -1171,6 +1171,34 @@ test('preprocess honours a nativeUnit the source already set', () => {
   assert.equal(roleOf(out.t.size), 'text');
 });
 
+// #62. A $extensions namespace key may hold ANY JSON value, so this is
+// conformant DTCG the module does not handle — not malformed input. It used to
+// die on the `in` operator with a bare TypeError naming no token, no path and no
+// value, alone among this module's diagnostics.
+test('a primitive in our $extensions namespace names the token', () => {
+  assert.throws(
+    () => preprocess({ t: { fontSize: { $value: '30px', $type: 'dimension', $extensions: { [EXT_NS]: 'text' } } } }),
+    (err) => {
+      assert.ok(!(err instanceof TypeError), 'not a bare TypeError');
+      assert.match(err.message, /t\.fontSize/);
+      assert.match(err.message, /"text"/, 'and the offending value');
+      return true;
+    },
+  );
+});
+
+test('a primitive $extensions itself names the token', () => {
+  assert.throws(
+    () => preprocess({ t: { fontSize: { $value: '30px', $type: 'dimension', $extensions: 'x' } } }),
+    (err) => {
+      assert.ok(!(err instanceof TypeError));
+      assert.match(err.message, /t\.fontSize/);
+      assert.match(err.message, /DTCG 5\.4/, 'and says what the shape should be');
+      return true;
+    },
+  );
+});
+
 test('preprocess leaves an unrelated $extensions namespace untouched', () => {
   const out = preprocess({
     t: {

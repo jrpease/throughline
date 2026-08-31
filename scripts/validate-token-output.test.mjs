@@ -328,6 +328,54 @@ test('unitless-dimension sees the hoist carry', () => {
 // $root is the sanctioned spelling. Advisory and never gating: every
 // Figma-derived source has dozens, so failing would make the gate useless on day
 // one for exactly the people this targets.
+// #57.1. native-literal.mjs promised the build and the gate could not drift
+// apart, and the gate held an independent copy of the same alternation. The
+// promise is now enforced: one list, two anchorings derived from it, so adding a
+// construct name cannot teach the filter something the gate does not know.
+test('the gate and the build read one list of CSS construct names', () => {
+  assert.equal(
+    CSS_CONSTRUCT_ANYWHERE.source.includes(CSS_CONSTRUCT_NAMES.join('|')),
+    true,
+    'the unanchored form is built from the shared list',
+  );
+  assert.equal(CSS_CONSTRUCT.source, `^(?:${CSS_CONSTRUCT_NAMES.join('|')})\\s*\\(`);
+});
+
+// #57.2. The build's exemption is anchored and the gate's is not, deliberately:
+// a nested construct cannot be told apart from one inside linear-gradient(),
+// which has no native form at any depth. So it is dropped — but NAMED, which is
+// what changed. Before, the only trace was a count.
+test('a token dropped for having no native form is named, not just counted', () => {
+  const sources = [{ file: 't.json', dtcg: {
+    brand: {
+      lead: { $value: 'color-mix(in srgb, #fff 50%, #000)', $type: 'color' },
+      nested: { $value: 'rgba(var(--brand), 0.5)', $type: 'color' },
+    },
+  } }];
+  const r = validate({
+    sources,
+    output: 'object Tokens {\n  val brandLead = color-mix(in srgb, #fff 50%, #000)\n}\n',
+    platform: 'android-kotlin',
+    minMatch: 0,
+  });
+  assert.deepEqual(r.unemittedPaths, ['brand.nested']);
+  assert.match(formatReport(r).join('\n'), /brand\.nested/);
+});
+
+// #57.4. no-foreign-syntax already names the cause. "The token was never
+// actually compared" beside it points at the symptom and reads as a second,
+// unrelated defect.
+test('a foreign-syntax value does not also report unverifiable-dimension', () => {
+  const sources = [{ file: 't.json', dtcg: { space: { four: { $value: '1rem', $type: 'dimension' } } } }];
+  const r = validate({
+    sources,
+    output: 'object Tokens {\n  val spaceFour = calc(1rem + 2px)\n}\n',
+    platform: 'android-kotlin',
+    minMatch: 0,
+  });
+  assert.deepEqual(r.failures.map((f) => f.rule), ['no-foreign-syntax']);
+});
+
 test('a dual node is reported as non-conforming, without failing the run', () => {
   const sources = [{ file: 't.json', dtcg: {
     text: { sm: { $value: '14px', $type: 'dimension', lineHeight: { $value: '20px', $type: 'dimension' } } },
@@ -538,6 +586,7 @@ test('a clean matched run reports neither unparsedLines nor unemittedTokens', ()
 });
 
 import { formatReport } from './validate-token-output.mjs';
+import { CSS_CONSTRUCT, CSS_CONSTRUCT_ANYWHERE, CSS_CONSTRUCT_NAMES } from './lib/native-literal.mjs';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

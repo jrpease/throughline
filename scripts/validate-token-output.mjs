@@ -18,7 +18,7 @@ import {
   mergeDtcg,
   EXT_NS,
 } from './lib/dtcg.mjs';
-import { parseLiteral, isValidLiteral, GRAMMAR } from './lib/native-literal.mjs';
+import { parseLiteral, isValidLiteral, GRAMMAR, CSS_CONSTRUCT_ANYWHERE } from './lib/native-literal.mjs';
 
 // Re-exported so consumers (and the test file) keep one import surface.
 export { flattenDtcg, flattenDtcgTypes, resolveValue, findModeCollisions };
@@ -131,7 +131,21 @@ export function expectedMagnitude(sourceValue) {
 // "var(" (e.g. a $type: string value describing CSS) would also match. The
 // isValidLiteral gate below is what tells those apart: a value the grammar
 // accepts as a literal is not foreign syntax, whatever text it contains.
-const FOREIGN = /(?:color-mix|calc|var)\s*\(/;
+//
+// That holds for Swift. It does NOT hold unconditionally for Kotlin (#57):
+// `${...}` inside a Kotlin string is executable code, and the grammar accepts an
+// unescaped `$`, so `"${calc(1)}"` parses as a valid literal and is exempted
+// here. The exemption also covers a small set of values that are well-formed
+// literals AND named-foreign — calc(2), var(1), and on Kotlin calc(2.dp) — which
+// are kept, pass every rule, and do not compile. None is producible CSS, and
+// this was shipped knowingly when the gate was added; it is written down so the
+// next person meets it as a decision rather than a surprise.
+// Imported, not redeclared (#57). This was an independent copy of the same
+// alternation, while native-literal.mjs's comment promised the build and the
+// gate could not drift apart. Adding a fourth construct name there would have
+// taught the output filter to keep something this rule had never been taught to
+// name — recreating exactly the unreachable-rule defect #56 fixed.
+const FOREIGN = CSS_CONSTRUCT_ANYWHERE;
 const BARE_UNIT = /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em|%)$/;
 
 // #52. A unitless value is a ratio, not a measurement: DTCG 8.2.1 requires a
@@ -284,7 +298,13 @@ export function validate({ sources, output, platform, minMatch = 0.5 }) {
     if (expected.skip) continue;
     const actual = magnitudeOf(value);
     if (actual === null) {
-      failures.push({ rule: 'unverifiable-dimension', symbol, token: path, source, emitted: value });
+      // no-foreign-syntax already explains why the magnitude could not be read,
+      // and names the actual cause. "The token was never actually compared" beside
+      // it is a red herring pointing at the symptom (#57). Same suppression the
+      // three literal rules already apply to each other.
+      if (!foreign) {
+        failures.push({ rule: 'unverifiable-dimension', symbol, token: path, source, emitted: value });
+      }
       continue;
     }
     if (Math.abs(actual - expected.magnitude) > 0.001) {
@@ -337,11 +357,18 @@ export function validate({ sources, output, platform, minMatch = 0.5 }) {
     matchRate >= minMatch;
 
   const unparsedLines = countUnparsedLines(output, DECL[platform]);
+  // NAMED, not just counted (#57). A token with no native form is filtered out
+  // of native output, and a nested construct like rgba(var(--brand), 0.5) is one
+  // of them — the filter's exemption is anchored, deliberately, because the
+  // module cannot tell a rescuable outer function from linear-gradient(). Before
+  // this the only trace such a token left was a number, which is the same
+  // silence this release exists to remove everywhere else.
   const emittedKeys = new Set(decls.map((d) => normalizeKey(d.symbol)));
-  let unemittedTokens = 0;
-  for (const key of byKey.keys()) if (!emittedKeys.has(key)) unemittedTokens += 1;
+  const unemittedPaths = [];
+  for (const [key, path] of byKey) if (!emittedKeys.has(key)) unemittedPaths.push(path);
+  const unemittedTokens = unemittedPaths.length;
 
-  return { total: decls.length, matched, matchRate, failures, advisories, collisions, normalizationCollisions, minMatch, ok, unparsedLines, unemittedTokens };
+  return { total: decls.length, matched, matchRate, failures, advisories, collisions, normalizationCollisions, minMatch, ok, unparsedLines, unemittedTokens, unemittedPaths };
 }
 
 export function formatReport(r) {
@@ -431,7 +458,13 @@ export function formatReport(r) {
     }
   }
   if (r.unemittedTokens) {
-    lines.push(`\n${r.unemittedTokens} source token(s) had no matching emitted symbol.`);
+    const paths = r.unemittedPaths ?? [];
+    const shown = paths.slice(0, 10).join(', ');
+    const more = paths.length > 10 ? `, ...and ${paths.length - 10} more` : '';
+    lines.push(
+      `\n${r.unemittedTokens} source token(s) had no matching emitted symbol${paths.length ? `: ${shown}${more}` : ''}.` +
+        ' A value with no native form is filtered out of native output rather than emitted broken — a CSS construct nested inside another function is the common case.',
+    );
   }
   return lines;
 }
