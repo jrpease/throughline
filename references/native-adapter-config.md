@@ -152,9 +152,12 @@ Both are fixed before Style Dictionary sees the tree.
 // Marks a node whose AUTHORED $value was a whole-value reference, so the hoist
 // can decline to override the type DTCG 5.2.2 rule 1 already determined from the
 // referent. A WeakSet keyed on the node object, rather than a property written
-// onto it, holds structural idempotency exactly: structuredClone drops the
-// membership along with the rest of the identity, so preprocess(preprocess(x))
-// is deepEqual to preprocess(x) with no leak question to manage.
+// onto it, keeps this mechanism from leaking across calls: structuredClone
+// drops the membership along with the rest of the identity, so a second pass
+// starts clean rather than inheriting the first pass's marks. That is exactly
+// what a property written onto the node would get wrong. It is not on its own a
+// guarantee that preprocess is idempotent — see the limit recorded at
+// nativePlatform's preprocessors line (#90).
 const WAS_REF = new WeakSet();
 
 // The path the AUTHOR wrote for a node the hoist has moved. hoistDualNodes
@@ -408,7 +411,9 @@ function classifyTextUnits(node, types, prefix = []) {
       // one, so a unitless value is declined by every size transform regardless
       // of what is stamped here (see isRatio, #52). Declining to overwrite IS
       // the feature: it costs no configuration parameter, and it is what makes
-      // the pass idempotent.
+      // STAMPING idempotent — a second pass never rewrites a role a first pass
+      // set. What it does not settle is whether a second pass finds the same
+      // candidates; the hoist can rename a node between the two (#90).
       if (!('nativeUnit' in ns)) ns.nativeUnit = 'text';
     }
     classifyTextUnits(val, types, path);
@@ -431,7 +436,8 @@ function classifyTextUnits(node, types, prefix = []) {
 // A path may name no node at all. resolveInPlace deliberately leaves an
 // unresolvable reference in place for Style Dictionary to report, so the graph
 // can hold an edge to a token that does not exist. Skip it. This is also what
-// keeps the second preprocess pass from throwing, and idempotency with it.
+// keeps the second preprocess pass from throwing — which is a precondition for
+// idempotency, not the whole of it (#90).
 function applyTextRoleGraph(node, typographic, types) {
   for (const path of typographic) {
     let target = node;
@@ -798,8 +804,21 @@ export function nativePlatform({ platform, buildPath, className = 'Tokens', pack
     // Carried here, not left to the caller: authored() reads the ORIGINAL
     // $value, so without this preprocessor every aliased dimension still holds
     // an unresolved {spacing.space.4}, no size transform fires, and the build
-    // emits bare px literals. preprocess is idempotent, so a project that also
-    // declares it at top level is harmless.
+    // emits bare px literals.
+    //
+    // A project that ALSO declares this preprocessor at top level runs it twice,
+    // which is harmless in every shape measured — and is the wiring our own
+    // usage snippet shows, so it is the common case rather than a corner.
+    //
+    // Stated no wider than it holds (#90): preprocess is idempotent except where
+    // the hoist invents a name the second pass then classifies. `a.font` with a
+    // child `size` camel-joins to `a.fontSize`; the first pass correctly declines
+    // `size`, and the second sees a typographic member name the source never
+    // authored. It changes no emitted output — Style Dictionary runs
+    // typeDtcgDelegate between the two passes and types that child anyway, so
+    // both passes reach the same file — and the repair belongs with the hoist,
+    // which has no way to record the names it invented. Pinned by test rather
+    // than papered over.
     preprocessors: ['dtcg/resolve-dual-node'],
     buildPath,
     options: { outputReferences: false },

@@ -1087,8 +1087,14 @@ test('a dual-node child typed by an enclosing group is stamped', () => {
 // $type; resolving the group's type means it now also fires where the child
 // inherits one. Neither changes emitted output in the documented wiring, where
 // Style Dictionary's typeDtcgDelegate runs between the two passes and types the
-// hoisted child anyway. Filed rather than fixed here: the repair belongs with
-// the hoist, not with #85's type resolution.
+// hoisted child anyway.
+//
+// #90 closed on this measurement rather than on a repair. The repair belongs
+// with the hoist, which has no carrier for the names it invents, and the cost of
+// giving it one is not paid for by a defect that changes no output. The four
+// comments that asserted idempotency without qualification now state the limit
+// instead — see nativePlatform's preprocessors line. This test is what keeps the
+// limit honest: if the behaviour ever changes, it fails rather than drifting.
 test('preprocess is not idempotent where the hoist invents a typographic name', () => {
   const own = () => ({
     a: { font: { $value: '2px', $type: 'dimension', size: { $value: '16px', $type: 'dimension' } } },
