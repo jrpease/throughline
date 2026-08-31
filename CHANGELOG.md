@@ -6,6 +6,45 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Breaking
+
+- **A scale primitive referenced only by typographic members now emits `sp`, not
+  `dp`.** `text.base: "16px"` was a font size only to a human; its role is now
+  taken from the reference graph. On Android the symbol's type changes from `Dp`
+  to `TextUnit`, so a use site like `Modifier.padding(Tokens.textBase)` stops
+  compiling — verified with `kotlinc`, which accepts that line against the old
+  output and rejects it against the new one. That is the point: those symbols
+  were always font sizes. **Nine Kotlin symbols changed on a real 322-token
+  system**, and *which* nine depends on the mode set the build includes — the
+  inference reads the reference graph of the files in that build, so a primitive
+  referenced only from a desktop typography file is typographic in a desktop
+  build and not in a mobile one, and the reverse holds too: on the same source,
+  `text.lg` is referenced only from the mobile file and `text.6xl` only from the
+  desktop one, a straight swap rather than one stray token, and the count of
+  nine is identical on both pins even though the set is not. Swift is unchanged,
+  byte for byte; the sp/dp distinction is Compose-only. To decline the
+  inference for a specific token, stamp
+  `$extensions["com.radicool.throughline"].nativeUnit` to `"device"` (or any
+  value other than `"text"`) on it in source.
+
+### Fixed
+
+- **An `em` letter-spacing primitive reaches Compose instead of being dropped.**
+  #64 made `em` emit as a real `.em` TextUnit but only where the role was
+  stamped, which reached the `typography.textStyle.*` members and not the
+  primitives they reference. The graph now reaches those too — three new Kotlin
+  declarations, and Android unmatched source tokens fall from 6 to 3 on the same
+  system.
+
+### Added
+
+- **`tokens:validate-output` names the primitives the graph could not reach.**
+  A dimension nothing references has no structural signal, so no role is
+  inferred — `unreferenced-text-sibling` names it and points at the
+  `$extensions` stamp that settles it. `ambiguous-text-role` names a token
+  referenced by both a typographic and a non-typographic member, which is
+  declined rather than guessed. Both are advisories: reported, never gating.
+
 ## [0.16.0] — 2026-08-27
 
 ### Breaking

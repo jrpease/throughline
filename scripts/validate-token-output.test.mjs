@@ -562,3 +562,75 @@ test('formatReport renders an invalid-literal failure with the stop position', (
   assert.match(lines, /offset 7/);
   assert.match(lines, /quoted/);
 });
+
+const roleSources = () => [
+  {
+    file: 'tokens.json',
+    dtcg: {
+      text: { base: { $type: 'dimension', $value: '16px' }, huge: { $type: 'dimension', $value: '96px' } },
+      tracking: { widest: { $type: 'dimension', $value: '0.15em' }, tight: { $type: 'dimension', $value: '-0.03em' } },
+      typography: {
+        body: {
+          fontSize: { $type: 'dimension', $value: '{text.base}' },
+          letterSpacing: { $type: 'dimension', $value: '{tracking.tight}' },
+        },
+      },
+    },
+  },
+];
+
+test('an unreferenced sibling is advised even though nothing emitted it', () => {
+  const r = validate({
+    sources: roleSources(),
+    output: 'object Tokens {\n  val textBase = 16.00.sp\n}\n',
+    platform: 'android-kotlin',
+    minMatch: 0,
+  });
+  const advised = r.advisories.filter((a) => a.rule === 'unreferenced-text-sibling').map((a) => a.token);
+  assert.ok(advised.includes('tracking.widest'), 'dropped from output entirely — the case that matters');
+  assert.ok(advised.includes('text.huge'));
+  assert.ok(
+    r.advisories.every((a) => a.rule !== 'unreferenced-text-sibling' || !('symbol' in a)),
+    'these advisories name a token path, not a symbol',
+  );
+});
+
+test('an advisory is never a failure', () => {
+  const r = validate({
+    sources: roleSources(),
+    output: 'object Tokens {\n  val textBase = 16.00.sp\n}\n',
+    platform: 'android-kotlin',
+    minMatch: 0,
+  });
+  assert.ok(r.advisories.length > 0, 'the fixture must actually produce advisories');
+  assert.deepEqual(r.failures, [], 'advisories are reported, not gating');
+  // Asserted on failures rather than on r.ok: ok also folds in the match rate,
+  // so a green assertion there could be green for an unrelated reason.
+});
+
+test('a token referenced by both roles is advised as ambiguous', () => {
+  const sources = roleSources();
+  sources[0].dtcg.space = { pad: { $type: 'dimension', $value: '{text.base}' } };
+  const r = validate({
+    sources,
+    output: 'object Tokens {\n  val textBase = 16.00.dp\n}\n',
+    platform: 'android-kotlin',
+    minMatch: 0,
+  });
+  const a = r.advisories.find((x) => x.rule === 'ambiguous-text-role');
+  assert.ok(a, 'both-roles is reported, not silently declined');
+  assert.equal(a.token, 'text.base');
+  assert.deepEqual(a.otherLeaves, ['pad']);
+});
+
+test('formatReport renders a symbol-less advisory without printing undefined', () => {
+  const r = validate({
+    sources: roleSources(),
+    output: 'object Tokens {\n  val textBase = 16.00.sp\n}\n',
+    platform: 'android-kotlin',
+    minMatch: 0,
+  });
+  const text = formatReport(r).join('\n');
+  assert.ok(text.includes('tracking.widest'));
+  assert.ok(!/undefined/.test(text), 'a missing symbol must never reach the report');
+});

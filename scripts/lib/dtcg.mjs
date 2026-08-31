@@ -4,6 +4,18 @@
 
 const REF = /^\{([^}]+)\}$/;
 
+// The typographic member names DTCG §9.8 fixes at MUST level, the unit gate a
+// text-role dimension must pass, and this project's $extensions namespace.
+//
+// They live here rather than in sd-native.mjs because textRoleGraph below and
+// sd-native.mjs's preprocess apply the identical rules, and sd-native.mjs
+// already imports this file — so the reverse import would be a cycle. Their
+// full rationale stays at the point of use in sd-native.mjs, which is what the
+// generated references/native-adapter-config.md renders.
+export const TEXT_UNIT_NAMES = new Set(['fontSize', 'letterSpacing', 'lineHeight']);
+export const TEXT_ROLE_UNIT = /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em)$/;
+export const EXT_NS = 'com.radicool.throughline';
+
 // Flatten nested DTCG groups into { "dot.path": rawValue }. Skips $-prefixed meta keys.
 //
 // A node carrying BOTH a $value and children yields its own value AND is descended
@@ -84,4 +96,108 @@ export function findModeCollisions(sources) {
     if (defs.length > 1 && distinct.size > 1) collisions.push({ path, defs });
   }
   return collisions;
+}
+
+// Deep merge in list order, later source winning — the same later-wins rule
+// validate-token-output.mjs already applies when it flattens a source list, and
+// what Style Dictionary hands preprocess as one dict.
+//
+// Each source is cloned on the way in. Merging the caller's own objects would
+// mutate the token trees it still holds, and the validator reads them again.
+const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+function mergeInto(target, src) {
+  for (const [key, val] of Object.entries(src)) {
+    if (isPlainObject(val) && isPlainObject(target[key])) mergeInto(target[key], val);
+    else target[key] = val;
+  }
+  return target;
+}
+
+export function mergeDtcg(dicts) {
+  const out = {};
+  for (const dict of dicts) mergeInto(out, structuredClone(dict));
+  return out;
+}
+
+// A dimension primitive states no typographic role: text.base: "16px" is a font
+// size only to a human, so it emitted as dp, and an em letterSpacing primitive
+// was dropped from native output entirely. #51 sources the role from the member
+// names DTCG §9.8 fixes, which reaches the semantic tokens and not the
+// primitives they reference. This reaches the primitives, structurally.
+//
+// Reads the UNRESOLVED tree: preprocess resolves aliases in place, so by
+// transform time the graph is gone. Nothing needs carrying, because the
+// inference is applied during preprocessing and only the $extensions stamp
+// survives — see sd-native.mjs's applyTextRoleGraph.
+//
+// A referrer whose leaf name is NOT typographic is counter-evidence, not
+// neutral. A dimension referenced by something that is not a typographic member
+// is a length, which is exactly what the dp default already asserts about it.
+// Treating it as neutral would let one stray fontSize reference convert a whole
+// spacing ramp.
+//
+// Single-pass and deliberately not transitive: a chain through an intermediate
+// whose own leaf name states no role is declined at the second hop, because
+// that intermediate is itself counter-evidence. Only whole-value references
+// count; a reference embedded in an expression is resolved by resolveInPlace
+// but is not evidence of a role.
+export function textRoleGraph(dict) {
+  const edges = [];
+  (function walk(node, prefix) {
+    for (const [key, val] of Object.entries(node)) {
+      if (key.startsWith('$') || !isPlainObject(val)) continue;
+      const path = [...prefix, key];
+      if (typeof val.$value === 'string') {
+        const m = REF.exec(val.$value.trim());
+        if (m) edges.push({ to: m[1], leaf: key });
+      }
+      walk(val, path);
+    }
+  })(dict, []);
+
+  const referrers = new Map();
+  for (const edge of edges) {
+    if (!referrers.has(edge.to)) referrers.set(edge.to, []);
+    referrers.get(edge.to).push(edge);
+  }
+
+  const typographic = new Set();
+  const ambiguous = [];
+  for (const [path, rs] of referrers) {
+    const textLeaves = [...new Set(rs.filter((r) => TEXT_UNIT_NAMES.has(r.leaf)).map((r) => r.leaf))];
+    if (textLeaves.length === 0) continue;
+    const otherLeaves = [...new Set(rs.filter((r) => !TEXT_UNIT_NAMES.has(r.leaf)).map((r) => r.leaf))];
+    if (otherLeaves.length) ambiguous.push({ path, textLeaves, otherLeaves });
+    else typographic.add(path);
+  }
+
+  // A primitive nothing references has no structural signal at all, so it is
+  // never inferred. Reported instead, where its group holds one that was: that
+  // is the strongest hint available without guessing, and a silent gap is the
+  // failure this module exists to prevent. A token whose source already stamps
+  // nativeUnit is closed and is not reported.
+  const inferredGroups = new Set([...typographic].map((p) => p.split('.').slice(0, -1).join('.')));
+  const unreferencedSiblings = [];
+  (function walk(node, prefix) {
+    for (const [key, val] of Object.entries(node)) {
+      if (key.startsWith('$') || !isPlainObject(val)) continue;
+      const path = [...prefix, key];
+      const dotted = path.join('.');
+      const group = prefix.join('.');
+      if (
+        '$value' in val &&
+        val.$type === 'dimension' &&
+        TEXT_ROLE_UNIT.test(String(val.$value).trim()) &&
+        !referrers.has(dotted) &&
+        !('nativeUnit' in (val.$extensions?.[EXT_NS] ?? {})) &&
+        inferredGroups.has(group)
+      ) {
+        unreferencedSiblings.push({ path: dotted, group });
+      }
+      walk(val, path);
+    }
+  })(dict, []);
+
+  return { typographic, ambiguous, unreferencedSiblings };
 }

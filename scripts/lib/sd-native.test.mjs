@@ -926,6 +926,21 @@ test('preprocess stamps a dual-node child before the hoist consumes its name', (
   assert.equal(roleOf(out.text.xs), undefined);
 });
 
+// applyTextRoleGraph must ALSO run before hoistDualNodes, for the same reason
+// as classifyTextUnits above: the graph is built from resolveInPlace's
+// PRE-hoist paths ("text.sm.cap"), and hoistDualNodes renames that child to
+// "text.smCap" — a name the graph never wrote down. Reversing the two calls
+// in preprocess leaves this child unstamped and a 12px font size silently
+// emits 12.00.dp.
+test('preprocess stamps a dual-node child reached only via the reference graph, before the hoist renames it', () => {
+  const out = preprocess({
+    text: { sm: { $type: 'dimension', $value: '14px', cap: { $type: 'dimension', $value: '12px' } } },
+    typography: { body: { fontSize: { $type: 'dimension', $value: '{text.sm.cap}' } } },
+  });
+  assert.equal(out.text.smCap.$value, '12px');
+  assert.equal(roleOf(out.text.smCap), 'text');
+});
+
 // magnitude() reads a bare number as a ratio. Stamping one would emit
 // 1.50.sp — which compiles and renders 1.5sp text, trading a loud failure for
 // a silent one. leading.normal stays the separate defect it already is.
@@ -1320,12 +1335,15 @@ const emSpacing = () => ({
 });
 
 // The role comes from the LEAF name, so this reaches the 13
-// typography.textStyle.*.letterSpacing tokens — which is where a consumer
-// should reach anyway. It does not reach the four
-// typography.letterSpacing.{tight,normal,wide,widest} primitives, whose leaf
-// names are tight/normal/wide/widest and which therefore state no role. That
-// is the same documented limit as a bare scale primitive (#63), not a new one.
-test('classifyTextUnits stamps an em letterSpacing, not only px and rem', () => {
+// typography.textStyle.*.letterSpacing tokens directly — which is where a
+// consumer should reach anyway. Since #63, the reference graph reaches
+// further: typography.letterSpacing.tight is referenced by
+// textStyle.h1.letterSpacing, and that referrer's own leaf name is
+// typographic, so the graph infers tight is typographic too and
+// applyTextRoleGraph stamps it. What still isn't reached is a primitive
+// NOTHING references — on a real source, typography.letterSpacing.widest —
+// because no structural signal, nominal or referential, exists for it.
+test('preprocess stamps a direct em letterSpacing, and applyTextRoleGraph reaches one only the reference graph connects', () => {
   const out = preprocess({
     typography: {
       letterSpacing: { tight: { $type: 'dimension', $value: '-0.03em' } },
@@ -1337,7 +1355,11 @@ test('classifyTextUnits stamps an em letterSpacing, not only px and rem', () => 
   });
   assert.equal(roleOf(out.typography.textStyle.h1.letterSpacing), 'text', 'resolved alias');
   assert.equal(roleOf(out.typography.textStyle.h2.letterSpacing), 'text', 'authored directly');
-  assert.equal(roleOf(out.typography.letterSpacing.tight), undefined, 'primitive states no role');
+  assert.equal(
+    roleOf(out.typography.letterSpacing.tight),
+    'text',
+    'the reference graph reaches it: textStyle.h1.letterSpacing references it, and letterSpacing is a typographic leaf name (#63)',
+  );
 });
 
 test('nativeFilter keeps a text-role em on Compose and drops it on Swift', () => {
@@ -1400,4 +1422,61 @@ test('the Compose preset runs the em transform', () => {
 test('the emitted em value is a valid Kotlin literal by our own grammar', () => {
   const v = collectTransforms().get('size/unit-aware/compose-em').transform(emSpacing());
   assert.equal(hasNativeForm({ $value: v }, 'android-kotlin'), true);
+});
+
+const roleDict = () => ({
+  text: { base: { $type: 'dimension', $value: '16px' }, huge: { $type: 'dimension', $value: '96px' } },
+  space: { md: { $type: 'dimension', $value: '8px' } },
+  typography: {
+    body: { fontSize: { $type: 'dimension', $value: '{text.base}' } },
+    gutter: { $type: 'dimension', $value: '{space.md}' },
+  },
+});
+const stampOf = (node) => node.$extensions?.[EXT_NS]?.nativeUnit;
+
+test('a primitive referenced only by a fontSize is stamped as text', () => {
+  const out = preprocess(roleDict());
+  assert.equal(stampOf(out.text.base), 'text');
+});
+
+test('a primitive referenced by a role-less member is left alone', () => {
+  const out = preprocess(roleDict());
+  assert.equal(stampOf(out.space.md), undefined);
+  assert.equal(stampOf(out.text.huge), undefined, 'nothing references it');
+});
+
+test('inference does not overwrite a role the source stated', () => {
+  const dict = roleDict();
+  dict.text.base.$extensions = { [EXT_NS]: { nativeUnit: 'length' } };
+  const out = preprocess(dict);
+  assert.equal(stampOf(out.text.base), 'length', 'a source opt-out survives the inference');
+});
+
+test('inference never stamps a unitless value', () => {
+  const dict = roleDict();
+  dict.text.base.$value = '1.5';
+  const out = preprocess(dict);
+  assert.equal(stampOf(out.text.base), undefined, 'a ratio is not a text-role dimension');
+});
+
+test('an unresolvable reference does not throw the inference', () => {
+  const dict = { typography: { body: { fontSize: { $type: 'dimension', $value: '{nope.missing}' } } } };
+  const out = preprocess(dict);
+  assert.equal(out.typography.body.fontSize.$value, '{nope.missing}', 'left in place for SD to report');
+});
+
+test('preprocess stays idempotent with the inference in place', () => {
+  const once = preprocess(roleDict());
+  assert.deepEqual(preprocess(once), once);
+});
+
+test('an em letterSpacing primitive reaches Compose once the graph stamps it', () => {
+  const dict = {
+    tracking: { tight: { $type: 'dimension', $value: '-0.03em' } },
+    typography: { body: { letterSpacing: { $type: 'dimension', $value: '{tracking.tight}' } } },
+  };
+  const out = preprocess(dict);
+  assert.equal(stampOf(out.tracking.tight), 'text');
+  const asToken = (n) => ({ ...n, original: { $value: n.$value } });
+  assert.equal(nativeFilter(asToken(out.tracking.tight), 'android-kotlin'), true);
 });
