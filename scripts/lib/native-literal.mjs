@@ -64,8 +64,28 @@ export const GRAMMAR = {
 // `var` are valid identifiers, and `color-mix` has a rescue in sd-native.mjs
 // that merely did not match this variant. So they must reach the output and
 // fail loudly under no-foreign-syntax, never be silently dropped by a filter.
-// Kept here, beside the grammar, so the build and the gate cannot drift apart.
-export const CSS_CONSTRUCT = /^(?:color-mix|calc|var)\s*\(/;
+// Kept here, beside the grammar, so the build and the gate cannot drift apart —
+// which until #57 was a promise this file made and did not keep. The gate
+// defined its own independent copy of the same alternation, so adding a fourth
+// name here would have taught the filter to keep a construct the gate had never
+// been taught to name. One list now, two anchorings derived from it.
+//
+// The BUILD anchors: only a construct that LEADS the value is exempt from the
+// output filter, because only then is the whole value the unimplemented rescue.
+// The GATE does not anchor: it names the construct wherever it appears.
+//
+// The asymmetry is deliberate and it is a stated limit, not a closed class.
+// `rgba(var(--brand), 0.5)` is dropped by the filter rather than kept, because
+// the module cannot tell an unimplemented rescue nested inside a rescuable
+// function from one nested inside `linear-gradient(...)`, which has no native
+// form at any depth. Closing that needs a notion of which outer functions are
+// rescuable, which does not exist here. What #57 does instead is make the drop
+// NAMED rather than counted — see the unemitted-token report in
+// validate-token-output.mjs.
+export const CSS_CONSTRUCT_NAMES = ['color-mix', 'calc', 'var'];
+const CSS_CONSTRUCT_ALT = CSS_CONSTRUCT_NAMES.join('|');
+export const CSS_CONSTRUCT = new RegExp(`^(?:${CSS_CONSTRUCT_ALT})\\s*\\(`);
+export const CSS_CONSTRUCT_ANYWHERE = new RegExp(`(?:${CSS_CONSTRUCT_ALT})\\s*\\(`);
 
 export function parseLiteral(value, grammar = {}) {
   const s = String(value);
