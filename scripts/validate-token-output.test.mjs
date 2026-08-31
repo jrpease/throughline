@@ -88,7 +88,7 @@ test('magnitudeOf returns null for non-dimension values', () => {
   assert.equal(magnitudeOf('24px'), null);
 });
 
-import { normalizeKey, expectedMagnitude, findModeCollisions, validate } from './validate-token-output.mjs';
+import { normalizeKey, expectedMagnitude, findModeCollisions, findNormalizationCollisions, validate } from './validate-token-output.mjs';
 
 test('normalizeKey collapses camelCase, snake_case, kebab-case, and dot paths', () => {
   assert.equal(normalizeKey('color.bg.canvas'), 'colorbgcanvas');
@@ -107,6 +107,100 @@ test('expectedMagnitude skips units with no native equivalent', () => {
   assert.ok(expectedMagnitude('100%').skip);
   assert.ok(expectedMagnitude('-0.03em').skip);
   assert.ok(expectedMagnitude('#ffffff').skip);
+});
+
+// #36. Two distinct source paths reducing to one symbol name is not merely a
+// matching problem. Measured through Style Dictionary on this exact pair: the
+// build emits `val colorBgCanvas` twice and kotlinc rejects the file with
+// "conflicting declarations". Before this, the second path silently overwrote
+// the first, so the loser went unchecked AND every symbol on that key was
+// compared against whichever path sorted last — which reported a unit-fidelity
+// failure naming a token that was correct.
+const COLLIDING = [
+  {
+    file: 'a',
+    dtcg: {
+      color: { bg: { canvas: { $value: '4px', $type: 'dimension' } } },
+      colorBg: { canvas: { $value: '9px', $type: 'dimension' } },
+    },
+  },
+];
+
+test('findNormalizationCollisions groups paths that reduce to one key', () => {
+  const c = findNormalizationCollisions(['color.bg.canvas', 'colorBg.canvas', 'space.md']);
+  assert.equal(c.length, 1);
+  assert.equal(c[0].key, 'colorbgcanvas');
+  assert.deepEqual(c[0].paths, ['color.bg.canvas', 'colorBg.canvas']);
+});
+
+test('findNormalizationCollisions is quiet on paths that stay distinct', () => {
+  assert.deepEqual(findNormalizationCollisions(['color.bg.canvas', 'color.bg.raised']), []);
+});
+
+test('a name collision fails the run instead of misreporting a correct token', () => {
+  const r = validate({
+    sources: COLLIDING,
+    output: 'object Tokens {\n  val colorBgCanvas = 4.00.dp\n  val colorBgCanvas = 9.00.dp\n}\n',
+    platform: 'android-kotlin',
+    minMatch: 0,
+  });
+  assert.equal(r.ok, false, 'the emitted file declares one name twice and will not compile');
+  assert.equal(r.normalizationCollisions.length, 1);
+  assert.deepEqual(r.normalizationCollisions[0].paths, ['color.bg.canvas', 'colorBg.canvas']);
+  assert.deepEqual(
+    r.failures.filter((f) => f.rule === 'unit-fidelity'),
+    [],
+    'the old code reported unit-fidelity here, naming color.bg.canvas, which is correct at 4px',
+  );
+  assert.equal(r.matched, 0, 'an ambiguous key matches no determinate token');
+});
+
+// The silent direction, and the one the issue was filed for. When the output
+// carries only the winner's symbol, main matched it, checked it, passed, and
+// never looked at color.bg.canvas at all — a green run with a token unverified.
+// Measured on a349453: ok true, matched 1, zero failures.
+test('a collision is not a green run with one token quietly unchecked', () => {
+  const r = validate({
+    sources: COLLIDING,
+    output: 'object Tokens {\n  val colorBgCanvas = 9.00.dp\n}\n',
+    platform: 'android-kotlin',
+    minMatch: 0,
+  });
+  assert.equal(r.ok, false, 'was true before #36, with color.bg.canvas never checked');
+  assert.equal(r.failures.length, 0, 'the collision is the finding, not a rule failure');
+  assert.equal(r.normalizationCollisions.length, 1);
+});
+
+test('the collision report does not blame the naming convention', () => {
+  const r = validate({
+    sources: COLLIDING,
+    output: 'object Tokens {\n  val colorBgCanvas = 4.00.dp\n}\n',
+    platform: 'android-kotlin',
+    minMatch: 0,
+  });
+  const text = formatReport(r).join('\n');
+  assert.match(text, /name collision/);
+  assert.doesNotMatch(text, /naming convention does not line up/);
+});
+
+test('a collision does not disturb the tokens around it', () => {
+  const r = validate({
+    sources: [
+      {
+        file: 'a',
+        dtcg: {
+          color: { bg: { canvas: { $value: '4px', $type: 'dimension' } } },
+          colorBg: { canvas: { $value: '9px', $type: 'dimension' } },
+          space: { md: { $value: '8px', $type: 'dimension' } },
+        },
+      },
+    ],
+    output: 'object Tokens {\n  val colorBgCanvas = 4.00.dp\n  val spaceMd = 8.00.dp\n}\n',
+    platform: 'android-kotlin',
+    minMatch: 0,
+  });
+  assert.equal(r.matched, 1, 'space.md still matches and is still checked');
+  assert.equal(r.normalizationCollisions.length, 1);
 });
 
 test('findModeCollisions flags a path defined twice with different values', () => {

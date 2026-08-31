@@ -6,6 +6,36 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Breaking
+
+- **`tokens:validate-output` fails on two source paths that reduce to one symbol
+  name.** `color.bg.canvas` and `colorBg.canvas` both normalize to
+  `colorbgcanvas`, and the second silently overwrote the first — so the loser was
+  never checked, and every emitted symbol on that key was compared against
+  whichever path happened to sort last. Both directions measured: with only the
+  winner's symbol in the output the run was **green with a token unverified**;
+  with both symbols present it reported a **`unit-fidelity` failure naming a
+  token that was correct**, which is worse, because a confident wrong diagnosis
+  sends you to the wrong file.
+
+  This gates rather than advises because it is not only a matching problem.
+  Style Dictionary does not dedupe the two paths: the build emits
+  `val colorBgCanvas` **twice**, and `kotlinc` rejects the file with "conflicting
+  declarations". The source is ambiguous for native output and the generated file
+  is broken. Rename either side in source.
+
+  A build with no such collision is unaffected, which is every build we can
+  measure — the real 322-token system this is validated against has none, an
+  assumption the original spec accepted on fixture evidence and that is now
+  checked on every run.
+
+### Fixed
+
+- **The "naming convention does not line up" diagnosis no longer fires when a
+  collision is the real cause.** Excluded tokens can drop the match count to
+  zero, and the old message confidently blamed the adapter. It now names the
+  collisions instead.
+
 ## [0.18.0] — 2026-08-31
 
 ### Breaking

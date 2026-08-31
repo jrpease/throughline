@@ -68,6 +68,34 @@ export function normalizeKey(s) {
   return String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
+// Two source paths that normalize to one key, e.g. color.bg.canvas and
+// colorBg.canvas -> colorbgcanvas. Same map-and-compare shape as
+// findModeCollisions, keyed on the normalized form instead of the raw path.
+//
+// This is not only a matching problem, which is why it gates rather than
+// advises. Measured through Style Dictionary on that exact pair: the build
+// emits `val colorBgCanvas` TWICE and kotlinc rejects the file with
+// "conflicting declarations". The source is ambiguous for native output, and
+// the emitted file does not compile.
+//
+// Before this, the second path silently overwrote the first in byKey, with a
+// consequence in each direction: the loser was never checked at all, and every
+// emitted symbol sharing the key was compared against whichever path happened
+// to sort last — which reported a unit-fidelity failure naming a token that was
+// correct. A wrong diagnosis is worse than none, because it sends the author to
+// the wrong file.
+export function findNormalizationCollisions(paths) {
+  const byKey = new Map();
+  for (const path of paths) {
+    const key = normalizeKey(path);
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(path);
+  }
+  return [...byKey]
+    .filter(([, ps]) => ps.length > 1)
+    .map(([key, ps]) => ({ key, paths: ps }));
+}
+
 const UNIT = /^(-?(?:\d+(?:\.\d+)?|\.\d+))([a-z%]*)$/;
 
 // Expected native magnitude for an authored source value. iOS points and Android
@@ -151,8 +179,20 @@ export function validate({ sources, output, platform, minMatch = 0.5 }) {
   const types = {};
   for (const { dtcg } of sources) Object.assign(types, flattenDtcgTypes(dtcg));
 
+  // Collided keys are deliberately LEFT OUT of byKey. A symbol whose key is
+  // ambiguous then matches nothing, so it falls through to `continue` before any
+  // source comparison and is not counted as matched — which is the truth: it did
+  // not match a determinate token. That removes the false unit-fidelity failure
+  // without a special case in the loop below. The literal, foreign-syntax and
+  // bare-unit rules still run on it, because none of them reads the source.
+  const normalizationCollisions = findNormalizationCollisions(Object.keys(flat));
+  const collided = new Set(normalizationCollisions.map((c) => c.key));
+
   const byKey = new Map();
-  for (const path of Object.keys(flat)) byKey.set(normalizeKey(path), path);
+  for (const path of Object.keys(flat)) {
+    const key = normalizeKey(path);
+    if (!collided.has(key)) byKey.set(key, path);
+  }
 
   const decls = extractDeclarations(output, platform);
   const failures = [];
@@ -236,14 +276,19 @@ export function validate({ sources, output, platform, minMatch = 0.5 }) {
   }
 
   const matchRate = decls.length ? matched / decls.length : 0;
-  const ok = failures.length === 0 && collisions.length === 0 && matched > 0 && matchRate >= minMatch;
+  const ok =
+    failures.length === 0 &&
+    collisions.length === 0 &&
+    normalizationCollisions.length === 0 &&
+    matched > 0 &&
+    matchRate >= minMatch;
 
   const unparsedLines = countUnparsedLines(output, DECL[platform]);
   const emittedKeys = new Set(decls.map((d) => normalizeKey(d.symbol)));
   let unemittedTokens = 0;
   for (const key of byKey.keys()) if (!emittedKeys.has(key)) unemittedTokens += 1;
 
-  return { total: decls.length, matched, matchRate, failures, advisories, collisions, minMatch, ok, unparsedLines, unemittedTokens };
+  return { total: decls.length, matched, matchRate, failures, advisories, collisions, normalizationCollisions, minMatch, ok, unparsedLines, unemittedTokens };
 }
 
 export function formatReport(r) {
@@ -255,6 +300,17 @@ export function formatReport(r) {
     for (const c of r.collisions) {
       lines.push(`  - ${c.path}: ${c.defs.map((d) => `${d.file}=${JSON.stringify(d.value)}`).join(', ')}`);
     }
+  }
+  if (r.normalizationCollisions?.length) {
+    lines.push(
+      `\n${r.normalizationCollisions.length} name collision(s) — distinct source paths that reduce to one symbol name:`,
+    );
+    for (const c of r.normalizationCollisions) {
+      lines.push(`  - ${c.key}: ${c.paths.join(' vs ')}`);
+    }
+    lines.push(
+      `\nThese emit the same symbol name, so the generated file declares it more than once and will not compile. They are also excluded from matching above, because there is no way to tell which source token an emitted symbol came from. Rename one side in source.`,
+    );
   }
   if (r.failures.length) {
     lines.push(`\n${r.failures.length} rule failure(s):`);
@@ -275,10 +331,20 @@ export function formatReport(r) {
       );
     }
   }
+  // The naming-convention diagnosis is wrong when collisions are what removed
+  // the tokens, and a confident wrong cause sends the author to the wrong file.
+  // Name the collisions instead, and only then fall back to the convention.
+  const collisionNote = r.normalizationCollisions?.length
+    ? ` The ${r.normalizationCollisions.length} name collision(s) above were excluded from matching, which may be the whole of it — resolve those first.`
+    : '';
   if (r.matched === 0) {
-    lines.push(`\nNo emitted symbol matched any source token — the adapter's naming convention does not line up, so nothing was actually verified. A likely cause is a declaration form the DECL pattern does not match (e.g. a different accessControl such as "internal static let ...").`);
+    lines.push(
+      r.normalizationCollisions?.length
+        ? `\nNo emitted symbol matched any source token, so nothing was actually verified.${collisionNote}`
+        : `\nNo emitted symbol matched any source token — the adapter's naming convention does not line up, so nothing was actually verified. A likely cause is a declaration form the DECL pattern does not match (e.g. a different accessControl such as "internal static let ...").`,
+    );
   } else if (r.matchRate < r.minMatch) {
-    lines.push(`\nMatch rate ${pct}% is below the ${(r.minMatch * 100).toFixed(0)}% floor — most output went unchecked.`);
+    lines.push(`\nMatch rate ${pct}% is below the ${(r.minMatch * 100).toFixed(0)}% floor — most output went unchecked.${collisionNote}`);
   }
   if (r.unparsedLines) {
     lines.push(`\n${r.unparsedLines} unparsed line(s) — declaration-shaped lines the extractor could not read; they count in neither the numerator nor the denominator above.`);
