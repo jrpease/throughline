@@ -4,6 +4,8 @@
 
 const REF = /^\{([^}]+)\}$/;
 
+const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
 // The typographic member names DTCG §9.8 fixes at MUST level, the unit gate a
 // text-role dimension must pass, and this project's $extensions namespace.
 //
@@ -63,6 +65,53 @@ export function flattenDtcgTypes(obj, prefix = [], out = {}, groupType = undefin
   return out;
 }
 
+// DTCG 5.2.2 PLUS the one repair this pipeline applies on top of it, so that
+// anything reasoning about what the build emits reads the same types the build
+// used. flattenDtcgTypes is the spec; this is the spec as this build resolves it.
+//
+// The repair is hoistDualNodes' $type carry. A dual node is a token, not a group
+// (DTCG 6.1), so it is not its children's inheritance source and 5.2.2 gives an
+// untyped child of one no type at all. The hoist then makes that child a sibling
+// of the dual node, which destroys the last relationship it had — so where NO
+// enclosing group supplies a type, the hoist stamps the dual node's own. That is
+// a repair for what the hoist broke, not a reading of the source, which is why
+// it does not belong in flattenDtcgTypes.
+//
+// It has to be modelled somewhere, though, because two things that reason about
+// types could not see it: classification, which runs before the hoist and so
+// declined a child the pipeline goes on to type (#89), and the unitless-dimension
+// advisory, which reads the raw source (#71). Both were silent on shapes the
+// build handles.
+//
+// The conditions mirror hoistDualNodes exactly — an untyped TOKEN child (#67
+// restricted it to those), a dual node that has a $type, no enclosing group type,
+// and a value that is not a whole-value reference. That last one is why this must
+// run on the RAW tree: resolveInPlace rewrites a reference to its literal, and
+// the WeakSet the hoist consults for it does not survive into a fresh call.
+//
+// Keyed on pre-hoist paths, like flattenDtcgTypes, because every consumer of this
+// map runs before the hoist or reports against source paths.
+export function flattenPipelineTypes(dict) {
+  const types = flattenDtcgTypes(dict);
+  (function walk(node, prefix, groupType) {
+    const inherited = '$value' in node ? groupType : (node.$type ?? groupType);
+    for (const [key, val] of Object.entries(node)) {
+      if (key.startsWith('$') || !isPlainObject(val)) continue;
+      const path = [...prefix, key];
+      if ('$value' in val && '$type' in val && inherited === undefined) {
+        for (const [childKey, childVal] of Object.entries(val)) {
+          if (childKey.startsWith('$') || !isPlainObject(childVal)) continue;
+          if ('$value' in childVal && !('$type' in childVal) && !REF.test(String(childVal.$value).trim())) {
+            types[[...path, childKey].join('.')] = val.$type;
+          }
+        }
+      }
+      walk(val, path, inherited);
+    }
+  })(dict, [], undefined);
+  return types;
+}
+
 // Follow {alias} chains to a leaf literal. Throws on missing or circular refs.
 export function resolveValue(name, flat, seen = new Set()) {
   if (!(name in flat)) throw new Error(`token "${name}" not found in DTCG source`);
@@ -104,7 +153,6 @@ export function findModeCollisions(sources) {
 //
 // Each source is cloned on the way in. Merging the caller's own objects would
 // mutate the token trees it still holds, and the validator reads them again.
-const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
 function mergeInto(target, src) {
   for (const [key, val] of Object.entries(src)) {
