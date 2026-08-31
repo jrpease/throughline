@@ -18,7 +18,19 @@ source, each validated with `tokens:validate-output`.
   directory, nothing from the throughline repo's own tree).
 - **Installed by copy, not symlink** — proving the Task 6 install list is
   complete: `scripts/lib/sd-native.mjs`, `scripts/lib/dtcg.mjs`,
-  `scripts/validate-token-output.mjs`. Nothing else was needed.
+  `scripts/validate-token-output.mjs`. Nothing else was needed **on this date**.
+
+  > **Correction (2026-08-31, #87).** The list has been **four** files since
+  > #70, which made `sd-native.mjs` import `scripts/lib/native-literal.mjs`;
+  > `validate-token-output.mjs` imports it too. Rebuilding the harness from the
+  > three-file list above fails at module resolution, which is how this was
+  > found — by an `ENOENT`, not by reading. Add
+  > `scripts/lib/native-literal.mjs`. The three-file list was accurate when
+  > written and is left in place, because this note is a dated record of what
+  > ran, not a live install guide. The **shipped** guide in
+  > `references/native-adapter-config.md` and the `token-sync-layer` skill were
+  > never wrong: both say "all four files, as a set" and warn that copying any
+  > without the others breaks at import. No consumer was affected.
 - **Source:** `zygarden-frontend`, branch `feature/apply-brandguide-styles`,
   `libs/shared/util-tokens/src/tokens/` — **15 JSON files, 322 `$value`
   entries**, extracted read-only with `git -C … show <branch>:<path>`. That
@@ -310,7 +322,8 @@ this is what the re-run measured.
 extracted zygarden token files, same `build.mjs`. The three installed module
 files (`scripts/lib/sd-native.mjs`, `scripts/lib/dtcg.mjs`,
 `scripts/validate-token-output.mjs`) were re-copied from the repo first, so the
-fixed code is what ran. `out/` was deleted before building.
+fixed code is what ran. `out/` was deleted before building. (Four files today —
+see the correction under **Harness** above.)
 
 ```
 $ node build.mjs
