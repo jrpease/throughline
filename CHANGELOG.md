@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org).
 
 ### Fixed
 
+- **The hoist-collision error names the path you actually wrote.** The hoist
+  recurses depth-first, so an outer frame already held names an inner frame had
+  synthesised, and a nested dual node's collision reported `x.y.zW` — a path
+  appearing nowhere in the source. It now reports `x.y.z.w`. The `onto` path was
+  always genuine; only the path being complained about was invented.
+- **An array-valued sibling is no longer called "a group" in that error.** An
+  array carries no `$value`, so the group predicate claimed it. It is neither a
+  token nor a group, and an array in that position is not valid DTCG — the
+  message now says so instead of sending you to look for a group.
+
 - **`unitless-dimension` now sees the hoist's `$type` carry.** A unitless,
   untyped child of a dimension-typed dual node was a `dimension` to the build and
   a nothing to the gate, so it emitted a bare `1.5` — a `Double` where Compose

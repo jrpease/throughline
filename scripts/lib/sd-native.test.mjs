@@ -486,6 +486,36 @@ test('a fontFamily containing a parenthesized suffix is quoted and kept, not mis
 
 // A dual node's child is renamed to a camel-joined sibling. If that name is
 // already taken, the pre-fix code overwrote it and a token vanished with no
+// #61.1. hoistDualNodes recurses depth-first, so an outer frame's
+// Object.entries already contains names the inner frame synthesised. The
+// collision then named x.y.zW — a path appearing nowhere in the author's file.
+// The onto path was always genuine; only the from path was invented.
+test('a nested dual node collision names the authored path, not a synthesised one', () => {
+  assert.throws(
+    () => preprocess({ x: { y: { $value: '1', z: { $value: '2', w: { $value: '3' } } }, yZW: { $value: '9' } } }),
+    (err) => {
+      assert.match(err.message, /x\.y\.z\.w -> x\.yZW/, 'the path the author wrote');
+      assert.doesNotMatch(err.message, /x\.y\.zW /, 'not the intermediate the hoist invented');
+      return true;
+    },
+  );
+});
+
+// #61.2. An array has no $value, so the group predicate claimed it. It is
+// neither a token nor a group, and an array at this position is malformed DTCG —
+// naming it "a group" sends the author looking for something that is not there.
+test('an array-valued sibling is not labelled a group', () => {
+  assert.throws(
+    () => preprocess({ text: { sm: { $value: '14px', lineHeight: { $value: '20px' } }, smLineHeight: [1, 2, 3] } }),
+    (err) => {
+      assert.match(err.message, /an array/);
+      assert.doesNotMatch(err.message, /\(a group\)/);
+      assert.doesNotMatch(err.message, /overwrite undefined/, 'and it does not fall through to the token branch');
+      return true;
+    },
+  );
+});
+
 // diagnostic — the same class as the mode collision nativeSources guards.
 test('preprocess throws when a hoisted name collides with an authored token', () => {
   assert.throws(
