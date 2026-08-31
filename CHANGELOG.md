@@ -6,6 +6,58 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Added
+
+- **`scripts/validate-adherence.mjs` — a code adherence gate (#39).** Reads a
+  design system's own records and fails a build when consuming code has drifted
+  from it: a component that is not in `design-system.json`'s `components.built`,
+  a literal variant value outside the set the docs index declares, or a colour
+  literal that a token already holds the exact value for. Installed as
+  `adherence:check` alongside the documentation scripts.
+
+  **It is not wired into any existing script automatically.** Nothing runs it
+  unless a repo registers it, and the registration in `scripts/README.md` carries
+  placeholders — the UI package's specifier for `--package`, and `--root` /
+  `--system` paths matching the repo's layout — that must be substituted before
+  it can run.
+
+  Three things worth knowing before switching it on:
+
+  - **A system whose records and code disagree about axis names will see
+    `variant-rule-inert`, and should read the report rather than skip the rule.**
+    That failure means the rule verified nothing, which is not the same as
+    passing. `--skip unknown-variant-value` is the supported answer only for a
+    system whose axes are genuinely conceptual.
+  - **A run that scans nothing fails.** Pointed at a directory with no matching
+    source, or given a `--package` specifier the app does not import under, the
+    gate reports `nothing-scanned` rather than a clean pass. Every enabled rule
+    must have had something to check.
+  - **Only hex colours are compared.** A token authored `rgb()` or `hsl()`, or a
+    literal written that way, is left alone rather than normalised into a guess,
+    and a literal with no matching token is never reported at all.
+
+  Advisories — expressions the regex cannot read, props matching no declared
+  axis, built components with no doc record — are printed on every run and never
+  gate. The proportion of attributes that could not be read is in the headline,
+  so the blind spot is visible rather than implied.
+
+- **`scripts/lib/source-scan.mjs` — one source-tree walker for every gate that
+  scans a consumer's repo.** `grep-color-usage.mjs` and `guard-token-removal.mjs`
+  each carried a byte-identical copy of the excludes and the walk; both now read
+  it from here, and it ships to consumer repos alongside `guard-token-removal.mjs`.
+
+### Changed
+
+- **`walk`'s second parameter is now an options object** (`{ excludes,
+  fileFilter }`) in both `grep-color-usage.mjs` and `guard-token-removal.mjs`.
+  The positional `walk(root, excludes)` is gone. Both scripts still export `walk`
+  and `DEFAULT_EXCLUDES`; `SOURCE_EXT` is available from `lib/source-scan.mjs`.
+  Output is unchanged — verified byte-identical against the previous release on a
+  real repo, 2083 colour matches across 58 files and 216 guard findings.
+
+- **`token-crosswalk-builder` now copies `lib/source-scan.mjs`.** A repo that
+  refreshes `guard-token-removal.mjs` without it gets an import error.
+
 ## [0.19.0] — 2026-08-31
 
 ### Corrected
