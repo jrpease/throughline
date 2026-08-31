@@ -110,6 +110,29 @@ That is also why the map must be built on the **raw** dict: the carry's last
 condition asks whether a value *was* a whole-value reference, and `resolveInPlace`
 has already rewritten it to a literal by the time the resolved clone exists.
 
+### #71 + #72 — the advisory's type resolution
+
+Both fire, both attributed to the token that needs changing:
+
+```
+#71  [unitless-dimension] carrySmLineHeight: source "1.5" for carry.sm.lineHeight ...
+#72  [unitless-dimension] aliasRatio:        source "1.5" for base.ratio ...
+```
+
+Note #72's attribution: the **symbol** is `aliasRatio`, the **token named** is
+`base.ratio`. The alias's own value is a reference with no unit to add, so
+telling the author to "add the unit you meant" about the alias was advice they
+could not act on.
+
+**#71's stated obstacle turned out to be a false choice.** The issue said fixing
+it meant running the gate against the preprocessed tree, and rejected that
+because the gate would stop checking output against what the author wrote.
+`flattenPipelineTypes` is a third option: read the raw source and *model* the
+carry rather than applying it. The property the issue was protecting is intact.
+
+**Regression control:** zygarden unchanged at 208/208, 10 advisories, 5 of them
+`unitless-dimension` — identical to before.
+
 ## Reproduce
 
 ```

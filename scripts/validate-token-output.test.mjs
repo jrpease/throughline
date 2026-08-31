@@ -298,19 +298,75 @@ test('unitless-dimension does not double-fire on a typed alias — only the refe
   assert.equal(r.advisories[0].token, 'spacing.space4');
 });
 
-// §6.2: flattenDtcgTypes reads the RAW source, where hoistDualNodes' $type
-// carry has not run yet. A unitless, untyped child of a dimension-typed dual
-// node with no enclosing group $type is flipped from N.dp to bare by the
-// size transforms (§5), but flattenDtcgTypes returns undefined for it here,
-// so DIMENSIONAL.has(undefined) is false and the advisory does not fire.
-// Recorded as a documented limit (spec §6.2), not desired behaviour — a
-// future fix should flip this test rather than go unnoticed.
-test('unitless-dimension misses the hoist carry — documented §6.2 limit', () => {
+// #71, and the §6.2 limit this test was left pinned to record. The gate read
+// the raw source, where hoistDualNodes' $type carry has not run — so a
+// unitless, untyped child of a dimension-typed dual node was a dimension to the
+// build and a nothing here. It emitted a bare 1.5, a Double where a Dp belongs,
+// and passed every rule clean.
+//
+// The issue framed the only fix as pointing the gate at the PREPROCESSED tree,
+// and rejected it: the gate would stop checking output against what the author
+// actually wrote. flattenPipelineTypes keeps that property — it reads the raw
+// source and MODELS the carry instead of applying it.
+test('unitless-dimension sees the hoist carry', () => {
   const sources = [{ file: 't.json', dtcg: {
     leading: { base: { $value: '16px', $type: 'dimension', normal: { $value: '1.5' } } },
   } }];
   const r = validate({ sources, output: 'static let leadingBaseNormal = 1.5', platform: 'ios-swift' });
-  assert.deepEqual(r.advisories, []);
+  assert.deepEqual(r.advisories.map((a) => a.token), ['leading.base.normal']);
+});
+
+// #72. #69 stopped the advisory double-firing by skipping any whole-value
+// reference, which is right when the base carries its own $type. Where it does
+// not, the base never fires (untyped) and the alias was skipped (a reference),
+// so a genuine unitless dimension was reported NOWHERE. The skip is now
+// conditional on the referent being dimension-typed in its own right.
+test('an untyped base behind a typed alias is reported, on the base', () => {
+  const sources = [{ file: 't.json', dtcg: {
+    base: { ratio: { $value: '1.5' } },
+    alias: { ratio: { $value: '{base.ratio}', $type: 'dimension' } },
+  } }];
+  const r = validate({ sources, output: 'static let aliasRatio = 1.5', platform: 'ios-swift' });
+  assert.deepEqual(
+    r.advisories.map((a) => a.token),
+    ['base.ratio'],
+    'attributed to the token whose $type the author has to change',
+  );
+});
+
+// #69's de-duplication, kept: where the referent IS dimension-typed it reports
+// on its own symbol, so the alias stays silent rather than doubling it.
+test('a typed base behind a typed alias is still reported only once', () => {
+  const sources = [{ file: 't.json', dtcg: {
+    base: { ratio: { $value: '1.5', $type: 'dimension' } },
+    alias: { ratio: { $value: '{base.ratio}', $type: 'dimension' } },
+  } }];
+  const r = validate({
+    sources,
+    output: 'static let aliasRatio = 1.5\nstatic let baseRatio = 1.5',
+    platform: 'ios-swift',
+  });
+  assert.deepEqual(r.advisories.map((a) => a.token), ['base.ratio']);
+});
+
+test('a reference chain is followed to the token that needs fixing', () => {
+  const sources = [{ file: 't.json', dtcg: {
+    base: { ratio: { $value: '1.5' } },
+    mid: { ratio: { $value: '{base.ratio}' } },
+    alias: { ratio: { $value: '{mid.ratio}', $type: 'dimension' } },
+  } }];
+  const r = validate({ sources, output: 'static let aliasRatio = 1.5', platform: 'ios-swift' });
+  assert.deepEqual(r.advisories.map((a) => a.token), ['base.ratio']);
+});
+
+test('a circular reference is survived rather than thrown on', () => {
+  const sources = [{ file: 't.json', dtcg: {
+    a: { x: { $value: '{b.y}', $type: 'dimension' } },
+    b: { y: { $value: '{a.x}' } },
+  } }];
+  assert.doesNotThrow(() =>
+    validate({ sources, output: 'static let aX = 1.5', platform: 'ios-swift' }),
+  );
 });
 
 test('formatReport renders the advisory and names the fix', () => {
