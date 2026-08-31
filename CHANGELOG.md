@@ -6,6 +6,19 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Added
+
+- **`tokens:validate-output` reports a node carrying both a `$value` and child
+  tokens.** That shape is invalid DTCG — §6.1 says an object cannot be both a
+  token and a group, and §6.2 defines `$root` as the sanctioned way for a group
+  to carry a base value alongside children — and nothing told you. **Advisory,
+  never gating, and that is deliberate**: every Figma-derived source has dozens
+  of them, so failing would make the gate useless on day one for exactly the
+  people this tool targets. The build handles the shape and keeps handling it;
+  the advisory exists so someone hand-authoring a source can learn that `$root`
+  is the spelling the spec blesses. One note for the whole finding, listing the
+  paths, rather than one per node.
+
 ### Fixed
 
 - **The claim that `preprocess` is idempotent is now stated no wider than it
@@ -19,7 +32,6 @@ to [Semantic Versioning](https://semver.org).
   output, because Style Dictionary types that child between the two passes
   anyway. A repair belongs with the hoist, which has no way to record the names
   it invents, and that is not paid for by a defect with no output consequence.
-
 - **The hoist-collision error names the path you actually wrote.** The hoist
   recurses depth-first, so an outer frame already held names an inner frame had
   synthesised, and a nested dual node's collision reported `x.y.zW` — a path
@@ -29,7 +41,6 @@ to [Semantic Versioning](https://semver.org).
   array carries no `$value`, so the group predicate claimed it. It is neither a
   token nor a group, and an array in that position is not valid DTCG — the
   message now says so instead of sending you to look for a group.
-
 - **`unitless-dimension` now sees the hoist's `$type` carry.** A unitless,
   untyped child of a dimension-typed dual node was a `dimension` to the build and
   a nothing to the gate, so it emitted a bare `1.5` — a `Double` where Compose
@@ -78,7 +89,6 @@ to [Semantic Versioning](https://semver.org).
   in source, which DTCG 8.2.1 requires of a dimension anyway. Output against a
   real system is byte-identical — the shape needs a dual node with a group child,
   and Figma-derived dual nodes have token children only.
-
 
 - **`tokens:validate-output` fails on two source paths that reduce to one symbol
   name.** `color.bg.canvas` and `colorBg.canvas` both normalize to

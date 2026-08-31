@@ -313,7 +313,10 @@ test('unitless-dimension sees the hoist carry', () => {
     leading: { base: { $value: '16px', $type: 'dimension', normal: { $value: '1.5' } } },
   } }];
   const r = validate({ sources, output: 'static let leadingBaseNormal = 1.5', platform: 'ios-swift' });
-  assert.deepEqual(r.advisories.map((a) => a.token), ['leading.base.normal']);
+  assert.deepEqual(
+    r.advisories.filter((a) => a.rule === 'unitless-dimension').map((a) => a.token),
+    ['leading.base.normal'],
+  );
 });
 
 // #72. #69 stopped the advisory double-firing by skipping any whole-value
@@ -321,6 +324,37 @@ test('unitless-dimension sees the hoist carry', () => {
 // not, the base never fires (untyped) and the alias was skipped (a reference),
 // so a genuine unitless dimension was reported NOWHERE. The skip is now
 // conditional on the referent being dimension-typed in its own right.
+// #58. A node with both a $value and children is invalid DTCG (§6.1); §6.2's
+// $root is the sanctioned spelling. Advisory and never gating: every
+// Figma-derived source has dozens, so failing would make the gate useless on day
+// one for exactly the people this targets.
+test('a dual node is reported as non-conforming, without failing the run', () => {
+  const sources = [{ file: 't.json', dtcg: {
+    text: { sm: { $value: '14px', $type: 'dimension', lineHeight: { $value: '20px', $type: 'dimension' } } },
+  } }];
+  const r = validate({ sources, output: 'static let textSm = 14', platform: 'ios-swift', minMatch: 0 });
+  const dual = r.advisories.filter((a) => a.rule === 'dual-node');
+  assert.equal(dual.length, 1, 'one advisory for the finding, not one per node');
+  assert.deepEqual(dual[0].paths, ['text.sm']);
+  assert.equal(r.failures.length, 0, 'the build still handles this shape');
+});
+
+test('a source with no dual node says nothing about them', () => {
+  const sources = [{ file: 't.json', dtcg: { text: { sm: { $value: '14px', $type: 'dimension' } } } }];
+  const r = validate({ sources, output: 'static let textSm = 14', platform: 'ios-swift', minMatch: 0 });
+  assert.deepEqual(r.advisories.filter((a) => a.rule === 'dual-node'), []);
+});
+
+test('the dual-node advisory names $root and says the build still works', () => {
+  const sources = [{ file: 't.json', dtcg: {
+    text: { sm: { $value: '14px', $type: 'dimension', lineHeight: { $value: '20px', $type: 'dimension' } } },
+  } }];
+  const r = validate({ sources, output: 'static let textSm = 14', platform: 'ios-swift', minMatch: 0 });
+  const text = formatReport(r).join('\n');
+  assert.match(text, /\$root/);
+  assert.match(text, /keep handling it/);
+});
+
 test('an untyped base behind a typed alias is reported, on the base', () => {
   const sources = [{ file: 't.json', dtcg: {
     base: { ratio: { $value: '1.5' } },
