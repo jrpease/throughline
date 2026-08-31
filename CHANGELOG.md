@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.17.0] — 2026-08-31
+
 ### Breaking
 
 - **A scale primitive referenced only by typographic members now emits `sp`, not
@@ -890,7 +892,12 @@ components → Storybook on a pnpm + Turborepo + Next.js 16 + Tailwind v4 monore
 - Reference docs for coding level, manifest schema, sync adapters, Figma
   component standards, and brainstorm-before-build.
 
-[Unreleased]: https://github.com/jrpease/throughline/compare/v0.12.1...HEAD
+[Unreleased]: https://github.com/jrpease/throughline/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/jrpease/throughline/compare/v0.16.0...v0.17.0
+[0.16.0]: https://github.com/jrpease/throughline/compare/v0.15.0...v0.16.0
+[0.15.0]: https://github.com/jrpease/throughline/compare/v0.14.0...v0.15.0
+[0.14.0]: https://github.com/jrpease/throughline/compare/v0.13.0...v0.14.0
+[0.13.0]: https://github.com/jrpease/throughline/compare/v0.12.1...v0.13.0
 [0.12.1]: https://github.com/jrpease/throughline/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/jrpease/throughline/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/jrpease/throughline/compare/v0.10.0...v0.11.0

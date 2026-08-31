@@ -70,6 +70,13 @@ no native form at all — a CSS `linear-gradient(...)` — is filtered out of na
 output rather than emitted broken. That drop is reported as an unemitted token,
 not hidden.
 
+Since 0.17.0 that gap is measured rather than assumed on ThroughLine's side:
+this project's end-to-end runs compile what they generate — `kotlinc` typechecks
+`Tokens.kt` against Compose stubs, `swiftc -parse` checks `Tokens.swift` —
+against a real 322-token system. That is evidence about the adapter shipped to
+you, not a gate on your build, and it does not widen what the badge asserts
+about your output.
+
 `android-kotlin` uses the same module and stays Tier 2: its remaining unknowns
 are on the consumption side — Compose `dp`/`sp` behaviour against a real Compose
 app, resource-qualifier conventions, package layout — which building tokens does
