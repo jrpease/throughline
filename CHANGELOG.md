@@ -6,6 +6,30 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Breaking
+
+- **A `$type` declared on the group now reaches the text-role pipeline.** DTCG
+  5.2.2 says a token's own `$type` wins, otherwise the nearest ancestor group's.
+  Both stamping passes read the token's own literal `$type` instead, so a source
+  that declares `$type` once per group — entirely legal DTCG — was invisible to
+  them. On such a source the pipeline was **a silent no-op with a green build**:
+  no `sp`, no `em` letter spacing, and no advisory saying so, because the
+  advisory that exists to report a silent gap gated on own-`$type` too. All
+  three now resolve the type properly. Measured by re-encoding a real 322-token
+  system so `$type` sits on the group — the same tokens, legally rewritten, which
+  a correct pipeline must emit identically: **it now does, byte for byte, and
+  before this it did not.** Twelve Kotlin symbols move. Nine font sizes go back
+  from `dp` to `sp`, so a use site like `Modifier.padding(Tokens.textBase)` stops
+  compiling — the same breakage 0.17.0 described, now reaching the sources 0.17.0
+  could not see. Three `em` letterSpacing symbols reappear that were being
+  dropped from Compose output entirely, taking the file from 205 declarations to
+  208. Swift is unchanged, byte for byte. The per-token opt-out is unchanged:
+  stamp `$extensions["com.radicool.throughline"].nativeUnit` to `"device"`.
+
+  A source that types every token node — which is what Figma-derived extracts
+  emit, and what our validation target does — is **byte-identical** before and
+  after. If your build does not change, this is why.
+
 ## [0.17.0] — 2026-08-31
 
 ### Breaking
