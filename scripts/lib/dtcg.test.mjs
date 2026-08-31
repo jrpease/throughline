@@ -198,6 +198,29 @@ test('an unreferenced sibling of an inferred token is advised, not inferred', ()
   assert.equal(g.unreferencedSiblings.find((u) => u.path === 'text.huge').group, 'text');
 });
 
+// #85. DTCG 5.2.2 lets a source declare $type once on the group. This walk gated
+// on the token's own literal $type, so on such a source it named nothing — the
+// advisory that exists to report a silent gap was itself silent on the one shape
+// where the whole text-role pipeline goes quiet.
+test('an unreferenced sibling is advised where the group supplies the $type', () => {
+  const g = textRoleGraph({
+    text: { $type: 'dimension', base: { $value: '16px' }, huge: { $value: '96px' } },
+    typography: { body: { fontSize: { $type: 'dimension', $value: '{text.base}' } } },
+  });
+  assert.deepEqual(
+    g.unreferencedSiblings.map((u) => u.path),
+    ['text.huge'],
+  );
+});
+
+test('a token own $type still beats the group $type in the sibling walk', () => {
+  const g = textRoleGraph({
+    text: { $type: 'dimension', base: { $value: '16px' }, huge: { $value: '96px', $type: 'string' } },
+    typography: { body: { fontSize: { $type: 'dimension', $value: '{text.base}' } } },
+  });
+  assert.deepEqual(g.unreferencedSiblings, [], 'huge is a string, whatever its group says');
+});
+
 test('an edge to a path that does not exist is collected, not thrown on', () => {
   const g = textRoleGraph({
     typography: { body: { fontSize: { $type: 'dimension', $value: '{nope.missing}' } } },

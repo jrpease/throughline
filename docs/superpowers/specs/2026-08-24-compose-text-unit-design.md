@@ -282,13 +282,20 @@ twice and none falls through the partition. Transitive re-runs are harmless
 regardless, because `authored()` reads `original.$value` rather than the
 running value.
 
-**Stated limit — the `$type` check reads the token's own key.** A typeless
-child that would inherit `dimension` from its parent is not classified,
-because `hoistDualNodes` copies the parent's `$type` down *after*
-classification has run. §4 puts classification before the hoist for an
-unrelated and stronger reason — the leaf name — and this limit is the price of
-that ordering. zygarden's dual-node children all carry their own `$type`, so
-the §7.1 prediction is unaffected. This is the same class of limit as §3.2's naming
+**Stated limit — narrowed by #85, not removed.** As written this said "the
+`$type` check reads the token's own key", which stopped being true when #85
+routed classification through a DTCG 5.2.2 resolution: a child that inherits
+`dimension` from an enclosing **group** is now classified.
+
+What survives is the narrower half this paragraph was really about. A typeless
+child of a **dual node** with no enclosing group type is still not classified,
+because DTCG gives it no type at all — a node carrying a `$value` is a token,
+not an inheritance source (6.1) — and the only thing that types it is
+`hoistDualNodes` copying the parent's `$type` down *after* classification has
+run. §4 puts classification before the hoist for an unrelated and stronger
+reason — the leaf name — and this limit is the price of that ordering.
+zygarden's dual-node children all carry their own `$type`, so the §7.1
+prediction is unaffected. This is the same class of limit as §3.2's naming
 caveat: narrow, real, and documented rather than papered over.
 
 **The override is trusted, and only partly guarded.** Requirement 1 applies to

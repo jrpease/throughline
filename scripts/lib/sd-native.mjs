@@ -12,6 +12,7 @@
 import { readFileSync } from 'node:fs';
 import {
   flattenDtcg,
+  flattenDtcgTypes,
   resolveValue,
   findModeCollisions,
   TEXT_UNIT_NAMES,
@@ -273,13 +274,32 @@ export { EXT_NS };
 // on is gone. Matching a suffix against the camel-joined name instead would
 // couple the rule to the hoist's naming scheme, and case-insensitively it
 // false-positives on names like baselineHeight.
-function classifyTextUnits(node) {
+//
+// The type comes from `types`, a DTCG 5.2.2 resolution of the whole tree, not
+// from the token's own literal $type. Reading val.$type made this pass blind to
+// a source that declares $type once on the group — legal DTCG, and on such a
+// source the reference-graph inference stamped nothing at all (#85). A token's
+// own $type still wins; the group's applies only where the token states none.
+//
+// WHERE THIS MATTERS, measured rather than assumed. Style Dictionary runs
+// global preprocessors, THEN its own typeDtcgDelegate — which is 5.2.2, pushing
+// each group's $type onto its descendants — then platform preprocessors
+// (StyleDictionary.js:340, :348, :440 in 4.4.0). nativePlatform registers this
+// preprocessor at PLATFORM level, downstream of that delegation, so a build
+// wired only through nativePlatform never saw the defect: on a group-typed
+// re-encoding of a real system it emits the same 208 declarations and 48 sp
+// either way. The defect reaches the build that ALSO declares this preprocessor
+// at top level, which is the wiring the usage snippet above shows — there the
+// first pass runs before any delegation. Resolving the type here makes both
+// wirings agree instead of depending on which one a consumer copied.
+function classifyTextUnits(node, types, prefix = []) {
   for (const [key, val] of Object.entries(node)) {
     if (key.startsWith('$') || !val || typeof val !== 'object') continue;
+    const path = [...prefix, key];
     if (
       TEXT_UNIT_NAMES.has(key) &&
       '$value' in val &&
-      val.$type === 'dimension' &&
+      types[path.join('.')] === 'dimension' &&
       TEXT_ROLE_UNIT.test(String(val.$value).trim())
     ) {
       val.$extensions ??= {};
@@ -293,7 +313,7 @@ function classifyTextUnits(node) {
       // the pass idempotent.
       if (!('nativeUnit' in ns)) ns.nativeUnit = 'text';
     }
-    classifyTextUnits(val);
+    classifyTextUnits(val, types, path);
   }
   return node;
 }
@@ -304,7 +324,9 @@ function classifyTextUnits(node) {
 // text.xsLineHeight and the graph's paths are written in pre-hoist names.
 //
 // The three gates are classifyTextUnits's, verbatim — a dimension, a value with
-// a unit, and no role already recorded. A unitless value is never stamped: no
+// a unit, and no role already recorded. Both passes read the SAME resolved-type
+// map, which is what makes them agree by construction rather than by two copies
+// of DTCG 5.2.2 staying in step. A unitless value is never stamped: no
 // size transform claims one since #52, and stamping a ratio as text would still
 // be a claim the source never made.
 //
@@ -312,14 +334,14 @@ function classifyTextUnits(node) {
 // unresolvable reference in place for Style Dictionary to report, so the graph
 // can hold an edge to a token that does not exist. Skip it. This is also what
 // keeps the second preprocess pass from throwing, and idempotency with it.
-function applyTextRoleGraph(node, typographic) {
+function applyTextRoleGraph(node, typographic, types) {
   for (const path of typographic) {
     let target = node;
     for (const segment of path.split('.')) {
       target = target && typeof target === 'object' ? target[segment] : undefined;
     }
     if (!target || typeof target !== 'object' || !('$value' in target)) continue;
-    if (target.$type !== 'dimension') continue;
+    if (types[path] !== 'dimension') continue;
     if (!TEXT_ROLE_UNIT.test(String(target.$value).trim())) continue;
     target.$extensions ??= {};
     target.$extensions[EXT_NS] ??= {};
@@ -334,11 +356,17 @@ export function preprocess(dict) {
   // Read from the UNRESOLVED dict, before resolveInPlace flattens the aliases
   // the graph is made of.
   const { typographic } = textRoleGraph(dict);
+  const resolved = resolveInPlace(structuredClone(dict), flattenDtcg(dict));
+  // DTCG 5.2.2 types for the whole tree, walked once and shared by both passes
+  // below. Neither writes $type or moves a node, so one map is correct for
+  // both, and sharing it is what makes them agree by construction rather than
+  // by two copies of the same rule staying in step (#85).
+  //
+  // Computed on the RESOLVED clone, which is the tree both passes read.
+  // resolveInPlace rewrites $value strings only, so the types are the source's.
+  const types = flattenDtcgTypes(resolved);
   const out = hoistDualNodes(
-    applyTextRoleGraph(
-      classifyTextUnits(resolveInPlace(structuredClone(dict), flattenDtcg(dict))),
-      typographic,
-    ),
+    applyTextRoleGraph(classifyTextUnits(resolved, types), typographic, types),
     collisions,
   );
   if (collisions.length) {

@@ -178,6 +178,12 @@ export function textRoleGraph(dict) {
   // failure this module exists to prevent. A token whose source already stamps
   // nativeUnit is closed and is not reported.
   const inferredGroups = new Set([...typographic].map((p) => p.split('.').slice(0, -1).join('.')));
+  // DTCG 5.2.2, not the token's own literal $type: a source that declares
+  // $type once on the group and not on each token is legal DTCG, and gating on
+  // val.$type made this walk blind to it — so the advisory that exists to name
+  // a silent gap was itself silent on the shape where the whole pipeline goes
+  // quiet (#85).
+  const types = flattenDtcgTypes(dict);
   const unreferencedSiblings = [];
   (function walk(node, prefix) {
     for (const [key, val] of Object.entries(node)) {
@@ -187,7 +193,7 @@ export function textRoleGraph(dict) {
       const group = prefix.join('.');
       if (
         '$value' in val &&
-        val.$type === 'dimension' &&
+        types[dotted] === 'dimension' &&
         TEXT_ROLE_UNIT.test(String(val.$value).trim()) &&
         !referrers.has(dotted) &&
         !('nativeUnit' in (val.$extensions?.[EXT_NS] ?? {})) &&

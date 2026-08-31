@@ -969,11 +969,92 @@ test('preprocess stamps rem as well as px', () => {
   assert.equal(roleOf(out.t.fontSize), 'text');
 });
 
-// The $type check reads the token's OWN key, so a fontSize typed something
-// else is not swept in.
+// A token's OWN $type wins over one it inherits (DTCG 5.2.2), so a fontSize
+// typed something else is not swept in — including where the enclosing group
+// types everything around it dimension.
 test('preprocess does not stamp a fontSize that is not dimension-typed', () => {
   const out = preprocess({ t: { fontSize: { $value: '30px', $type: 'string' } } });
   assert.equal(roleOf(out.t.fontSize), undefined);
+  const under = preprocess({ t: { $type: 'dimension', fontSize: { $value: '30px', $type: 'string' } } });
+  assert.equal(roleOf(under.t.fontSize), undefined, 'own $type beats the group');
+});
+
+// #85. A source that declares $type once on the group and not on each token is
+// legal DTCG, and both stamping passes gated on the token's own literal $type —
+// so on such a source NOTHING was stamped: Android emitted zero sp, every font
+// size rendered as dp ignoring the user's system font-size setting, and no
+// advisory fired. #51's accessibility fix, silently un-applied, on a shape no
+// gate could see. Unrealised on zygarden, which types every token node, which is
+// why no e2e caught it.
+test('preprocess stamps a fontSize whose $type comes from the enclosing group', () => {
+  const out = preprocess({
+    typography: { $type: 'dimension', h1: { fontSize: { $value: '30px' } } },
+  });
+  assert.equal(roleOf(out.typography.h1.fontSize), 'text');
+});
+
+// The graph half of the same gap. applyTextRoleGraph mirrored classifyTextUnits'
+// own-$type check deliberately (#63), so the inference 0.17.0 shipped was a
+// no-op on exactly the sources the classifier could not read either.
+test('preprocess stamps a graph-inferred primitive whose $type comes from the group', () => {
+  const out = preprocess({
+    text: { $type: 'dimension', base: { $value: '16px' } },
+    typography: { body: { fontSize: { $type: 'dimension', $value: '{text.base}' } } },
+  });
+  assert.equal(roleOf(out.text.base), 'text');
+});
+
+// A dual node is a token, not a group (DTCG 6.1), so it is not its child's
+// inheritance source — the enclosing GROUP is, before and after the hoist.
+test('a dual-node child typed by an enclosing group is stamped', () => {
+  const out = preprocess({
+    text: { $type: 'dimension', sm: { $value: '14px', lineHeight: { $value: '20px' } } },
+  });
+  assert.equal(roleOf(out.text.smLineHeight), 'text');
+});
+
+// preprocess is NOT idempotent where the hoist invents a typographic name, and
+// was not before #85 either. `a.font` + child `size` camel-join to `a.fontSize`:
+// pass 1 correctly declines, because `size` is not a typographic member name and
+// classification runs before the hoist. Pass 2 sees a key named `fontSize` that
+// the source never authored, and stamps it.
+//
+// Pinned in BOTH directions because #85 widened the hole rather than opening it.
+// On main the second pass fired wherever the hoisted child carried its own
+// $type; resolving the group's type means it now also fires where the child
+// inherits one. Neither changes emitted output in the documented wiring, where
+// Style Dictionary's typeDtcgDelegate runs between the two passes and types the
+// hoisted child anyway. Filed rather than fixed here: the repair belongs with
+// the hoist, not with #85's type resolution.
+test('preprocess is not idempotent where the hoist invents a typographic name', () => {
+  const own = () => ({
+    a: { font: { $value: '2px', $type: 'dimension', size: { $value: '16px', $type: 'dimension' } } },
+  });
+  const onceOwn = preprocess(own());
+  assert.equal(roleOf(onceOwn.a.fontSize), undefined, 'pass 1 declines the authored name "size"');
+  assert.equal(roleOf(preprocess(structuredClone(onceOwn)).a.fontSize), 'text', 'pass 2 stamps it');
+
+  // The same shape, typed by the group instead — the half #85 added.
+  const inherited = () => ({ a: { $type: 'dimension', font: { $value: '2px', size: { $value: '16px' } } } });
+  const onceInherited = preprocess(inherited());
+  assert.equal(roleOf(onceInherited.a.fontSize), undefined);
+  assert.equal(roleOf(preprocess(structuredClone(onceInherited)).a.fontSize), 'text');
+});
+
+// The interaction #85 said a fix had to decide rather than assume. Where NO
+// enclosing group supplies a type, DTCG determines none for this child, and the
+// only thing that types it is hoistDualNodes' carry — which runs AFTER
+// classification, because classification must run before the hoist consumes the
+// leaf name it matches on. So a child typed only by the carry is not stamped.
+// Unchanged by #85 and left that way on purpose: the carry is the hoist
+// repairing what the hoist broke, not a reading of the source, and stamping on
+// an invented type would be a claim the source never made. Filed separately.
+test('a child typed only by the hoist carry is not stamped as text', () => {
+  const out = preprocess({
+    text: { sm: { $value: '14px', $type: 'dimension', lineHeight: { $value: '20px' } } },
+  });
+  assert.equal(out.text.smLineHeight.$type, 'dimension', 'the carry supplies the type');
+  assert.equal(roleOf(out.text.smLineHeight), undefined, 'but classification already ran');
 });
 
 // The override, and the reason this design needs no new config parameter.

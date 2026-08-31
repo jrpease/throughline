@@ -6,6 +6,44 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Breaking
+
+- **A `$type` declared on the group now reaches the text-role pipeline.** DTCG
+  5.2.2 says a token's own `$type` wins, otherwise the nearest ancestor group's.
+  Both stamping passes and the advisory that reports their gaps read the token's
+  own literal `$type` instead, so a source that declares `$type` once per group —
+  entirely legal DTCG — was invisible to all three at once. All three now resolve
+  the type properly.
+
+  **Whether this changes your build depends on how you wire the preprocessor,
+  and most builds will not change.** Style Dictionary runs global preprocessors,
+  then its own `typeDtcgDelegate` — which is 5.2.2, pushing each group's `$type`
+  onto its descendants — then platform preprocessors. `nativePlatform` registers
+  ours at platform level, downstream of that delegation, so **a build wired only
+  through `nativePlatform` never had this defect and is byte-identical.** The
+  build affected is the one that *also* declares `dtcg/resolve-dual-node` at top
+  level, which is the wiring our own usage snippet shows: there the first pass
+  runs before any delegation, and the group's `$type` is not yet visible.
+
+  On that wiring, measured against a real system re-encoded so `$type` sits on
+  the group — the same tokens said a second legal way, which a correct pipeline
+  must emit identically: **it now does, byte for byte, and before this it did
+  not.** Twelve Kotlin symbols move. Nine font sizes go from `dp` back to `sp`,
+  so a use site like `Modifier.padding(Tokens.textBase)` stops compiling — the
+  same breakage 0.17.0 described, now reaching sources 0.17.0 could not see.
+  Three `em` letterSpacing symbols reappear that were being dropped from Compose
+  output entirely, taking the file from 205 declarations to 208. Swift is
+  unchanged, byte for byte. The per-token opt-out is unchanged: stamp
+  `$extensions["com.radicool.throughline"].nativeUnit` to `"device"`.
+
+  Not a total no-op even on the affected wiring, though it was reported as one:
+  the member-name pass keeps working wherever the typographic members carry
+  their own `$type`, so that build still emitted 39 `sp`. What was completely
+  undone is the reference-graph inference — everything 0.17.0 added.
+
+  A source that types every token node — which is what Figma-derived extracts
+  emit — is byte-identical on either wiring.
+
 ## [0.17.0] — 2026-08-31
 
 ### Breaking
