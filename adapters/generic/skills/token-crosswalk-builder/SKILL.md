@@ -67,6 +67,8 @@ Copy these from `.throughline/scripts/` into the user's repo **verbatim**
 - `lib/crosswalk.mjs` → `packages/tokens/scripts/lib/crosswalk.mjs`
 - `lib/dtcg.mjs` → `packages/tokens/scripts/lib/dtcg.mjs` (required by
   `validate-crosswalk.mjs` — copying the validator without it breaks the gate at import)
+- `lib/source-scan.mjs` → `packages/tokens/scripts/lib/source-scan.mjs` (required by
+  `guard-token-removal.mjs` — copying the guard without it breaks it at import)
 - `validate-crosswalk.mjs` → `packages/tokens/scripts/validate-crosswalk.mjs`
 - `build-reverse-index.mjs` → `packages/tokens/scripts/build-reverse-index.mjs`
 - `guard-token-removal.mjs` → `packages/tokens/scripts/guard-token-removal.mjs`
