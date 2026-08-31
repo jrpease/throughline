@@ -112,6 +112,40 @@ export function flattenPipelineTypes(dict) {
   return types;
 }
 
+// Collect nodes carrying BOTH a $value and child tokens or groups.
+//
+// This shape is invalid DTCG. Format Module, Draft Community Group Report of
+// 30 July 2026, §6.1: "The presence of a $value property definitively identifies
+// an object as a token. If an object contains both $value and child
+// tokens/groups, this creates an invalid structure where the object cannot be
+// both a token and a group simultaneously. Tools MUST report this as an error."
+// The prohibition is deliberate rather than an oversight — §6.2 defines $root as
+// the sanctioned way for a group to carry a base value alongside children, which
+// is exactly what a dual node is reaching for.
+//
+// Collecting them is NOT a step towards rejecting them. Figma-derived sources
+// emit dual nodes by the dozen, hoistDualNodes exists precisely to handle them,
+// and refusing them would make this tool useless against the sources it targets.
+// That behaviour is unchanged. What was missing is telling the author their
+// source is non-conforming, which nothing did — so someone hand-authoring
+// text.sm with both a value and a lineHeight child had no way to learn that
+// $root is the blessed spelling.
+//
+// Lives here because flattenDtcg already walks this tree and already descends
+// into dual nodes on purpose, so the knowledge is present and only the reporting
+// was absent.
+export function findDualNodes(obj, prefix = [], out = []) {
+  for (const [key, val] of Object.entries(obj)) {
+    if (key.startsWith('$') || !isPlainObject(val)) continue;
+    const path = [...prefix, key];
+    if ('$value' in val && Object.entries(val).some(([k, v]) => !k.startsWith('$') && isPlainObject(v))) {
+      out.push(path.join('.'));
+    }
+    findDualNodes(val, path, out);
+  }
+  return out;
+}
+
 // Follow {alias} chains to a leaf literal. Throws on missing or circular refs.
 export function resolveValue(name, flat, seen = new Set()) {
   if (!(name in flat)) throw new Error(`token "${name}" not found in DTCG source`);

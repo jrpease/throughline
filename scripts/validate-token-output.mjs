@@ -11,6 +11,7 @@ import {
   flattenDtcg,
   flattenDtcgTypes,
   flattenPipelineTypes,
+  findDualNodes,
   resolveValue,
   findModeCollisions,
   textRoleGraph,
@@ -301,6 +302,24 @@ export function validate({ sources, output, platform, minMatch = 0.5 }) {
   // build that actually ran, and a build merges with the later source winning.
   // A union would call a token referenced when this build did not reach it,
   // under-reporting the gap in the one direction that matters.
+  // #58. A node carrying both a $value and children is invalid DTCG (§6.1, and
+  // §6.2 defines $root as the sanctioned spelling), and nothing told the author
+  // so. ADVISORY, not a failure, and deliberately: every Figma-derived source
+  // has dozens — the real one this is validated against has 13 — so failing on
+  // it would make the gate useless on day one for exactly the people this tool
+  // targets. The build keeps handling them; the author now learns the shape is
+  // non-conforming and what to write instead.
+  //
+  // One advisory for the whole finding rather than one per node. It is a single
+  // structural fact about the source, and thirteen near-identical lines would
+  // bury the rest of the report.
+  //
+  // Read per source file, not from the merged dict: a merge can conceal a dual
+  // node whose children come from one file and whose $value comes from another,
+  // and the author fixes this file by file.
+  const dualNodes = [...new Set(sources.flatMap((s) => findDualNodes(s.dtcg)))];
+  if (dualNodes.length) advisories.push({ rule: 'dual-node', paths: dualNodes });
+
   const graph = textRoleGraph(mergeDtcg(sources.map((s) => s.dtcg)));
   for (const { path, group } of graph.unreferencedSiblings) {
     advisories.push({ rule: 'unreferenced-text-sibling', token: path, group });
@@ -389,6 +408,14 @@ export function formatReport(r) {
       if (a.rule === 'unreferenced-text-sibling') {
         lines.push(
           `  - [${a.rule}] ${a.token}: nothing references it, so no typographic role could be inferred — but tokens in "${a.group}" were. It emits as a length, or is dropped entirely if its unit is em. On Compose, stamping $extensions["${EXT_NS}"].nativeUnit = "text" on it in source settles it; on Swift there is no sp/dp distinction to settle, and a stamped em still would not emit there. Leave it as is if it is not a text value.`,
+        );
+        continue;
+      }
+      if (a.rule === 'dual-node') {
+        const shown = a.paths.slice(0, 5).join(', ');
+        const more = a.paths.length > 5 ? `, ...and ${a.paths.length - 5} more` : '';
+        lines.push(
+          `  - [${a.rule}] ${a.paths.length} node(s) carry both a $value and child tokens: ${shown}${more}. DTCG §6.1 makes that invalid — an object cannot be both a token and a group — and §6.2 defines $root as the way a group carries a base value alongside children. The build handles this shape and will keep handling it; nothing here is broken. Rewrite them as $root only if you want the source to conform.`,
         );
         continue;
       }
