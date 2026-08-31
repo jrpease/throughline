@@ -12,10 +12,16 @@
 > **Revision note.** A critic review found the first draft's narrowing had
 > quietly reduced the gate to one working rule while its prose still claimed
 > four, and that its own worked example contradicted the schema it quoted three
-> sections earlier. That is now stated rather than smoothed over: **the colour
-> rule is this gate's value in v1**, and the variant rule is scoped, measured and
-> floored rather than advertised. Six other findings are resolved inline and
-> marked ⟨rev⟩.
+> sections earlier. Six other findings are resolved inline and marked ⟨rev⟩.
+>
+> **Then the narrowing was measured rather than argued** — see
+> `docs/superpowers/notes/2026-08-31-adherence-convention-measurement.md`. Both
+> the first draft's fear and the review's inference were wrong: in a
+> ThroughLine-generated system the axis convention holds **exactly**, names and
+> values, across 14 components with zero mismatches. It degrades in
+> hand-authored systems, and the measurement found one real counter-example. The
+> variant rule stays in v1 on that evidence. Measurement findings are marked
+> ⟨measured⟩.
 
 ## 1. What the issue assumes, and what the records hold
 
@@ -45,14 +51,33 @@ declared set.
 "variant matrices (type/size/state) become the component's props/variants" — and
 no record, manifest field or check enforces it.
 
-⟨rev⟩ **This is worse than "a limitation", and the first draft hid it.** The
-schema's own example names the axis `type`. React components conventionally take
-`variant`. So #39's headline case — `variant="tertiary"` on a Button whose axis
-is `type` — does not match any axis, and a gate that only checks matched axes
-says nothing about it. The first draft's §6 sample output even printed
-`declared values for "variant"`, which contradicts the schema quoted above.
+⟨measured⟩ **The convention was then measured, and it holds where ThroughLine
+generated both sides.** The schema's example names the axis `type`, and both the
+first draft and the review reasoned from that to "the axis name will not be the
+prop name". Real records disagree. Across 14 components in a generated system,
+every axis name and every declared value matches the code exactly:
 
-Decision 2 is the response, and it is a demotion, not a repair.
+| record | declared values | code (`cva`) |
+|---|---|---|
+| `Button.variant` | default, secondary, destructive, outline, ghost, link | identical |
+| `Badge.variant` | default, secondary, destructive, outline | identical |
+| `Card.variant` | default, elevated | identical |
+| `Button.size`, `Input.size`, `Avatar.size` | sm, md, lg | identical |
+
+Zero mismatches. The record and the component are derived from the same Figma
+variant matrix, so they agree by construction. `variant="tertiary"` on that
+Button is caught.
+
+⟨measured⟩ **It degrades in hand-authored systems, and there is a real
+counter-example.** A retrofitted repo's only record declares an axis `state` with
+values `static` / `collapsed`, and its prose reads *"Code: accordion=false
+(expanded is ignored)"*. That axis is not a prop — it names a conceptual state
+that maps to a **combination** of two props, and the mapping exists only in
+English. No gate can check that, and none should try.
+
+So the rule is worth building, and Decision 2's coverage floor earns its place
+for a better reason than the one it was added for: it detects **which kind of
+system the gate is pointed at**, at run time, instead of assuming.
 
 ## 2. Problem
 
@@ -84,6 +109,20 @@ component a hard failure on correct code — the fastest possible route to this
 gate being switched off. A built component with no doc record is an **advisory**
 (`undocumented-component`), not a failure.
 
+⟨measured⟩ **Names are normalised before matching, and this is not optional.**
+`components.built` holds **display names**, not code identifiers — a real
+manifest contains `"Select Menu"` and `"Select Menu Item"` while the code exports
+and uses `<SelectMenu>`. Matching JSX element names against `built` verbatim
+reports `<SelectMenu>` as an unknown component: a hard failure on entirely
+correct code, in the only sample system that exists. Both sides go through the
+same normalisation `validate-token-output.mjs` already uses for the same class of
+problem — lowercase, strip every non-alphanumeric — so `Select Menu`,
+`SelectMenu` and `select_menu` compare equal.
+
+Nothing in the schema says `name` is a code identifier, and nothing should be
+changed to make it one: a display name is the right thing for a doc surface to
+carry. The gate normalises.
+
 **2. The variant rule is scoped to matched axis names, measured, and floored —
 and it is not what makes this gate worth shipping.** Given §1, `unknown-variant-value`
 can only fire where an attribute name equals a declared axis name. That is a
@@ -104,8 +143,19 @@ Three consequences, all stated rather than discovered:
 component package types its props, `variant="tertiary"` is already a compile
 error. This rule's incremental value is confined to JavaScript consumers, props
 typed as bare `string`, and repos where the design system is consumed across a
-package boundary without types. **That is not the case for this gate.** The
-colour rule is, and it is redundant with nothing.
+package boundary without types.
+
+⟨measured⟩ **The floor is what makes this rule safe to ship rather than a
+guess.** Measurement says the convention holds exactly in generated systems and
+breaks in hand-authored ones, so the rule's worth is a property of the repo it
+is pointed at — not something a spec can settle in advance. The coverage line
+reports which situation the user is in, and `variant-rule-inert` fails the run
+rather than passing green when the answer is "neither rule half applies here".
+`--skip unknown-variant-value` is the escape for a system whose axes are
+deliberately conceptual.
+
+**The colour rule remains the one that is redundant with nothing**, works in any
+framework, and needs no convention to hold.
 
 **3. Flag a literal only where the system has a token for that exact value.**
 `#3B82F6` where `color.brand.primary` resolves to `#3B82F6` is unambiguous drift
@@ -263,8 +313,9 @@ absent from the `ok` expression, as it is there.
 ```
 tokens:validate-adherence — 47 usages, 118 colour literals, 12 files
   components: 9 of 11 built components referenced, 2 undocumented
-  variant axes: 3 of 31 attributes matched a declared axis
-  colour: 402 token values comparable, 6 skipped as non-hex
+  variant axes: 3 of 17 literal attributes matched a declared axis
+  not read:    16 of 33 attributes are expressions, not literals (48%)
+  colour:      402 token values comparable, 6 skipped as non-hex
 
 2 rule failure(s):
   - [token-exists-for-literal] #3b82f6 at app/hero.tsx:12 — color.brand.primary
@@ -278,8 +329,16 @@ tokens:validate-adherence — 47 usages, 118 colour literals, 12 files
 ```
 
 ⟨rev⟩ That last advisory is the honest rendering of §1's problem, and the
-coverage line above it (`3 of 31`) is what tells a maintainer their records and
-their code disagree about names.
+coverage line above it is what tells a maintainer their records and their code
+disagree about names.
+
+⟨measured⟩ **The `not read` line is in the headline, not buried in advisories,
+because it is the gate's largest blind spot.** Measured on a real app, **48% of
+attributes on known components were expressions rather than literals** —
+`variant={x}`. A maintainer reading "3 of 17 matched" without also seeing that
+half the attributes were never legible would draw the wrong conclusion about
+coverage. `dynamic-value` still lists them individually; the headline carries the
+proportion.
 
 ## 7. Install and wiring
 
@@ -336,6 +395,9 @@ Unit tests in the house style — pure functions, fixtures inline:
 - ⟨rev⟩ an unresolvable or circular token reference is **skipped and counted**,
   and does not throw
 - ⟨rev⟩ a built component with no doc record is an advisory, not a failure
+- ⟨measured⟩ **`<SelectMenu>` matches a `components.built` entry of `"Select
+  Menu"`** — the display-name case that would otherwise fail correct code
+- ⟨measured⟩ an axis that names no prop simply never fires, and does not error
 - **no `index.json` exits non-zero**, naming `docs:digest`
 - ⟨rev⟩ **no comparable token value exits non-zero** (`colour-rule-inert`)
 - ⟨rev⟩ **known components found and zero axis matches exits non-zero**
@@ -374,10 +436,20 @@ computed values, and components rendered through a variable will not be seen. Th
 `dynamic-value` advisory reports the size of that blind spot instead of implying
 full coverage.
 
-⟨rev⟩ **The variant rule may be worth nothing in a given repo, and the gate now
-says so instead of hoping.** If the axis-naming convention does not hold, the
-coverage line reads `0 of N` and the run fails as `variant-rule-inert`. That is
-the intended behaviour: loud and answerable, not silently green.
+⟨measured⟩ **The variant rule's worth is a property of the repo, and the gate
+reports which repo it is in.** In a ThroughLine-generated system the convention
+held exactly across 14 components. In a hand-authored one it did not, because an
+axis there named a conceptual state mapping to two props. If the convention does
+not hold, the coverage line reads `0 of N` and the run fails as
+`variant-rule-inert` — loud and answerable, not silently green — and
+`--skip unknown-variant-value` is the deliberate opt-out.
+
+⟨measured⟩ **Retrofitted systems are the weak case, and that is the wrong way
+round.** The convention holds where ThroughLine generated both the record and the
+component, and degrades exactly where a human wrote a record for a component they
+did not generate. That is also where drift is most likely, so the rule is
+weakest where it would be most useful. The colour rule does not share this
+property, which is a further reason it carries v1.
 
 **A repo with no doc records gets no variant coverage.** Decision 7 makes it
 loud. The deeper answer is that this gate's usefulness is bounded by
