@@ -156,6 +156,18 @@ Both are fixed before Style Dictionary sees the tree.
 // membership along with the rest of the identity, so preprocess(preprocess(x))
 // is deepEqual to preprocess(x) with no leak question to manage.
 const WAS_REF = new WeakSet();
+
+// The path the AUTHOR wrote for a node the hoist has moved. hoistDualNodes
+// recurses depth-first, so by the time an outer frame takes Object.entries it
+// already contains names the inner frame synthesised — and a collision reported
+// from that frame named a path appearing nowhere in the source (#61). Recording
+// the authored path when a node is hoisted lets the outer frame report what the
+// author can actually search for.
+//
+// Keyed on node identity, like WAS_REF, and safe across calls for the same
+// reason: preprocess structuredClones its input, so every call works on fresh
+// objects.
+const AUTHORED_PATH = new WeakMap();
 const WHOLE_REF = /^\{[^}]+\}$/;
 
 function interpolate(value, flat) {
@@ -228,20 +240,27 @@ function hoistDualNodes(node, collisions, prefix = [], groupType = undefined) {
       for (const [childKey, childVal] of Object.entries(val)) {
         if (childKey.startsWith('$') || !childVal || typeof childVal !== 'object') continue;
         const hoisted = key + childKey[0].toUpperCase() + childKey.slice(1);
-        const from = [...prefix, key, childKey].join('.');
+        const from = AUTHORED_PATH.get(childVal) ?? [...prefix, key, childKey].join('.');
         if (Object.hasOwn(node, hoisted)) {
           const existingNode = node[hoisted];
-          const isGroup = existingNode !== null && typeof existingNode === 'object' && !('$value' in existingNode);
+          // An array has no $value either, and was therefore labelled "(a group)"
+          // (#61). It is neither — an array at this position is malformed DTCG.
+          // Say so, rather than naming a shape the author will go looking for.
+          const isArray = Array.isArray(existingNode);
+          const isGroup =
+            existingNode !== null && typeof existingNode === 'object' && !isArray && !('$value' in existingNode);
           collisions.push({
             from,
             onto: [...prefix, hoisted].join('.'),
             isGroup,
+            isArray,
             claimant: claimedBy.get(hoisted),
-            existing: isGroup
-              ? undefined
-              : existingNode && typeof existingNode === 'object'
-                ? existingNode.$value
-                : existingNode,
+            existing:
+              isGroup || isArray
+                ? undefined
+                : existingNode && typeof existingNode === 'object'
+                  ? existingNode.$value
+                  : existingNode,
           });
           continue;
         }
@@ -282,6 +301,7 @@ function hoistDualNodes(node, collisions, prefix = [], groupType = undefined) {
           childVal.$type = val.$type;
         }
         node[hoisted] = childVal;
+        AUTHORED_PATH.set(childVal, from);
         delete val[childKey];
         claimedBy.set(hoisted, from);
       }
@@ -454,6 +474,9 @@ export function preprocess(dict) {
       .slice(0, 5)
       .map((c) => {
         const line = `  ${c.from} -> ${c.onto}`;
+        if (c.isArray) {
+          return line + ' (an array — neither a token nor a group, and not valid DTCG here)';
+        }
         if (c.isGroup) {
           return line + (c.claimant ? ` (a group, already claimed by the hoist of ${c.claimant})` : ' (a group)');
         }
