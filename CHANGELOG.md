@@ -8,6 +8,25 @@ to [Semantic Versioning](https://semver.org).
 
 ### Breaking
 
+- **The dual-node hoist no longer carries a `$type` onto a hoisted group.** The
+  carry exists to repair what the hoist costs a *token* child: the dual node was
+  that child's closest `$type`-bearing ancestor as authored, and the hoist makes
+  it a sibling. A **group** child was never in that position — DTCG 5.2.2
+  inherits from the closest parent *group*, and a dual node is a token (6.1) — so
+  nothing was taken away and there is nothing to repair. Carrying there invented
+  a type for every token beneath that group.
+
+  **This can turn a green build red**, and that is the intended direction. Where
+  the invented type was usable, `text.sm.heights.line` emitted `20.00.dp` and now
+  emits a bare `20px`, which does not compile. That follows the same rule a
+  unitless dimension already follows: a value whose type the source never stated
+  is declined rather than guessed at, and `no-bare-units` plus
+  `unverifiable-dimension` name the exact symbol. The repair is to type the token
+  in source, which DTCG 8.2.1 requires of a dimension anyway. Output against a
+  real system is byte-identical — the shape needs a dual node with a group child,
+  and Figma-derived dual nodes have token children only.
+
+
 - **`tokens:validate-output` fails on two source paths that reduce to one symbol
   name.** `color.bg.canvas` and `colorBg.canvas` both normalize to
   `colorbgcanvas`, and the second silently overwrote the first — so the loser was
@@ -25,9 +44,9 @@ to [Semantic Versioning](https://semver.org).
   is broken. Rename either side in source.
 
   A build with no such collision is unaffected, which is every build we can
-  measure — the real 322-token system this is validated against has none, an
-  assumption the original spec accepted on fixture evidence and that is now
-  checked on every run.
+  measure — the real system this is validated against (318 source tokens, 211
+  under the mode pin the build uses) has none, an assumption the original spec
+  accepted on fixture evidence and that is now checked on every run.
 
 ### Fixed
 

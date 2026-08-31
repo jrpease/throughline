@@ -749,6 +749,39 @@ test('an enclosing group wins even where its $type suits the child badly', () =>
 // that decides b's carry has a as its node, and a is a dual node — the guard
 // has to look through it to g, or the two-level case keeps the shadowing the
 // single-level case just lost.
+// #67. The carry repairs what the hoist costs a TOKEN child. A group child was
+// never the dual node's dependant — 5.2.2 inherits from the closest parent
+// group, and a dual node is a token (6.1) — so there is nothing to repair, and
+// carrying types every token beneath that group with something the source never
+// said.
+test('the carry does not fire onto a hoisted group', () => {
+  const out = preprocess({
+    text: { sm: { $value: '#ffffff', $type: 'color', heights: { line: { $value: '20px' } } } },
+  });
+  assert.equal('$type' in out.text.smHeights, false, 'the group stays untyped');
+  assert.equal('$type' in out.text.smHeights.line, false, 'and so does every token under it');
+});
+
+test('the carry still fires onto a hoisted token', () => {
+  const out = preprocess({
+    text: { sm: { $value: '14px', $type: 'dimension', lineHeight: { $value: '20px' } } },
+  });
+  assert.equal(out.text.smLineHeight.$type, 'dimension', 'a token child is what the carry is for');
+});
+
+// The cost of #67, measured through Style Dictionary rather than argued:
+// where the carried type was USABLE, output changes from `20.00.dp` (compiles)
+// to a bare `20px` (does not). That is the #52 precedent applied — decline to
+// invent, emit raw, and let no-bare-units and unverifiable-dimension name it —
+// rather than a regression nobody noticed. The source is under-specified: DTCG
+// 8.2.1 requires a dimension to carry a $type, and this one does not.
+test('a group child with a usable carried type now emits untyped, loudly', () => {
+  const out = preprocess({
+    text: { sm: { $value: '14px', $type: 'dimension', heights: { line: { $value: '20px' } } } },
+  });
+  assert.equal('$type' in out.text.smHeights.line, false);
+});
+
 test('the group guard reaches a child hoisted through two levels', () => {
   const out = preprocess({
     text: {
