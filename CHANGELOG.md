@@ -8,6 +8,18 @@ to [Semantic Versioning](https://semver.org).
 
 ### Fixed
 
+- **The claim that `preprocess` is idempotent is now stated no wider than it
+  holds.** Four comments asserted it without qualification, one of them
+  load-bearing advice — that declaring the preprocessor at top level *as well as*
+  through `nativePlatform` is harmless. Running it twice is still harmless in
+  every shape measured, and it is the wiring our own usage snippet shows. The
+  exception, now written down: where the hoist invents a name the second pass
+  then classifies (`a.font` with a child `size` camel-joins to `a.fontSize`), the
+  second pass stamps a token the first correctly declined. It changes no emitted
+  output, because Style Dictionary types that child between the two passes
+  anyway. A repair belongs with the hoist, which has no way to record the names
+  it invents, and that is not paid for by a defect with no output consequence.
+
 - **The hoist-collision error names the path you actually wrote.** The hoist
   recurses depth-first, so an outer frame already held names an inner frame had
   synthesised, and a nested dual node's collision reported `x.y.zW` — a path
