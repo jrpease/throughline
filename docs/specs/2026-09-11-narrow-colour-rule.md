@@ -76,7 +76,7 @@ lost.
   `storybook-static` to `DEFAULT_EXCLUDES` in `lib/source-scan.mjs`, or leave it.
   **I'd recommend a follow-up issue, not this build.** It changes the walker
   that `grep-color-usage.mjs` and `guard-token-removal.mjs` share, and it's a
-  build-output class, not a colour-rule class. Unresolved.
+  build-output class, not a colour-rule class. Unresolved; filed as #124.
 - **`mask-image` and friends** — `mask-image: linear-gradient(#000, transparent)`
   is a common fade idiom and would flag the same way. Neither app has a hex
   inside one. The only `mask-image` gradient in zygarden uses `rgba()`, so hex
