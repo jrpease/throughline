@@ -8,6 +8,7 @@
 // Spec: docs/superpowers/specs/2026-08-31-code-adherence-gate-design.md
 // Colour-rule narrowing (#123): docs/specs/2026-09-11-narrow-colour-rule.md
 // Dimension rules (#39): docs/specs/2026-09-11-dimension-rules.md
+// Component-rule narrowing (#120): docs/specs/2026-09-11-narrow-component-rule.md
 import { readFileSync, realpathSync, existsSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
@@ -17,8 +18,10 @@ import { flattenDtcg, flattenDtcgTypes, resolveValue } from './lib/dtcg.mjs';
 
 // Named imports from one package, alias included: `{ Card as Panel }`.
 const IMPORT = /import\s*\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g;
-// An opening JSX tag on a capitalised name, with its attribute text.
-const ELEMENT = /<([A-Z][A-Za-z0-9]*)\b([^>]*?)\/?>/g;
+// An opening JSX tag on a capitalised name, with an optional `.Member` chain
+// and its attribute text, where a `<` straight after an identifier character
+// is a type argument (`useState<Variant>`), not a tag.
+const ELEMENT = /(?<![\w$.])<([A-Z][A-Za-z0-9]*)((?:\.[A-Za-z][A-Za-z0-9]*)*)\b([^>]*?)\/?>/g;
 // One attribute: name="literal" or name={expression}. The capture is undefined
 // for the expression form, which is how a blind spot stays visible.
 const ATTR = /([a-zA-Z][a-zA-Z0-9_-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|\{)/g;
@@ -180,8 +183,10 @@ export function rgbToHex(value) {
 }
 
 export function extract(text, pkg, path = '') {
+  const code = blankComments(text, path);
+
   const imported = new Map();
-  for (const m of text.matchAll(IMPORT)) {
+  for (const m of code.matchAll(IMPORT)) {
     if (m[2] !== pkg) continue;
     for (const part of m[1].split(',')) {
       const [declared, local] = part.trim().split(/\s+as\s+/);
@@ -189,19 +194,24 @@ export function extract(text, pkg, path = '') {
     }
   }
 
+  const elements = [];
   const usages = [];
-  for (const el of text.matchAll(ELEMENT)) {
+  for (const el of code.matchAll(ELEMENT)) {
     const declared = imported.get(el[1]);
     if (!declared) continue;
-    const line = lineOf(text, el.index);
-    for (const a of el[2].matchAll(ATTR)) {
+    // <Icons.Folder> is a member of something the system exports and is left
+    // alone (#120).
+    if (el[2]) continue;
+    const line = lineOf(code, el.index);
+    elements.push({ component: declared, line });
+    for (const a of el[3].matchAll(ATTR)) {
       usages.push({ component: declared, attr: a[1], value: a[2] ?? a[3] ?? null, line });
     }
   }
 
-  // Import and element extraction read the original; only hex reads the
-  // blanked text, which keeps this narrowing inside the colour rule.
-  const colourText = blankMasks(blankComments(text, path), path);
+  // Import, element and hex extraction all read comment-blanked text, and
+  // only hex also has masks blanked.
+  const colourText = blankMasks(code, path);
   const literals = [];
   for (const h of colourText.matchAll(HEX)) {
     const value = normalizeHex(h[0]);
@@ -212,7 +222,7 @@ export function extract(text, pkg, path = '') {
     if (value) literals.push({ value, line: lineOf(colourText, m.index) });
   }
 
-  return { imported, usages, literals, dimensions: extractDimensions(text, path) };
+  return { imported, elements, usages, literals, dimensions: extractDimensions(text, path) };
 }
 
 // value -> the token paths that hold it. Repeatable --tokens, because a real
@@ -425,6 +435,26 @@ export function tokenPackageDirs(tokenFiles, root) {
   return [...dirs];
 }
 
+// Component-rule narrowing (#120): docs/specs/2026-09-11-narrow-component-rule.md.
+// `CardTitle` belongs to `Card`, and so does `ButtonX` — a part name only has to
+// start with a built component's name and continue with another capital letter;
+// it is not required to spell out a real word after it. The longest matching
+// built name wins, so `ButtonGroupText` belongs to `ButtonGroup`, not `Button`.
+export function partOwner(name, built) {
+  if (!/^[A-Za-z0-9]+$/.test(name)) return null;
+  const key = normalizeName(name);
+  let best = null;
+  let bestKey = '';
+  for (const b of built) {
+    const k = normalizeName(b);
+    if (k === '' || k.length >= key.length || !key.startsWith(k) || !/[A-Z]/.test(name[k.length])) continue;
+    if (k.length <= bestKey.length) continue;
+    best = b;
+    bestKey = k;
+  }
+  return best;
+}
+
 export function validate({
   built = [],
   index = { components: [] },
@@ -442,9 +472,11 @@ export function validate({
   const failures = [];
   const advisories = [];
   const stats = {
+    elements: 0,
     usages: 0,
     literals: 0,
     dimensions: 0,
+    parts: new Map(),
     dimensionTokens: Object.fromEntries(
       DIMENSION_CATEGORIES.map((c) => [
         c,
@@ -459,18 +491,26 @@ export function validate({
     undocumented: new Set(),
   };
 
-  for (const { path, usages, literals, dimensions = [] } of files) {
+  for (const { path, elements = [], usages, literals, dimensions = [] } of files) {
+    for (const e of elements) {
+      stats.elements += 1;
+      if (off.has('unknown-component') || builtKeys.has(normalizeName(e.component))) continue;
+      const owner = partOwner(e.component, built);
+      if (owner) {
+        if (!stats.parts.has(e.component)) stats.parts.set(e.component, owner);
+        continue;
+      }
+      failures.push({ rule: 'unknown-component', component: e.component, file: path, line: e.line });
+    }
+
     for (const u of usages) {
       stats.usages += 1;
       const key = normalizeName(u.component);
       const declaredName = builtKeys.get(key);
 
-      if (!declaredName) {
-        if (!off.has('unknown-component')) {
-          failures.push({ rule: 'unknown-component', component: u.component, file: path, line: u.line });
-        }
-        continue;
-      }
+      // Existence is checked once per tag, above. An attribute on an unknown
+      // component or a part is counted and nothing more.
+      if (!declaredName) continue;
       stats.knownComponents.add(declaredName);
 
       const record = records.get(key);
@@ -549,7 +589,7 @@ export function validate({
   // --package specifier the app does not import under, an app directory that is
   // empty. That run reported a clean pass having read nothing, which is the
   // green light every other rule here exists to prevent.
-  if (stats.usages === 0 && stats.literals === 0 && stats.dimensions === 0) {
+  if (stats.elements === 0 && stats.literals === 0 && stats.dimensions === 0) {
     failures.push({ rule: 'nothing-scanned', files: stats.files });
   }
 
@@ -582,12 +622,19 @@ export function formatReport(r) {
   const s = r.stats;
   const dimensionTotal = DIMENSION_CATEGORIES.reduce((n, c) => n + s.dimensionTokens[c], 0);
   const lines = [
-    `tokens:validate-adherence — ${s.usages} usages, ${s.literals} colour literals, ${s.dimensions} dimension literals, ${s.files} files`,
+    `tokens:validate-adherence — ${s.elements} component references, ${s.literals} colour literals, ${s.dimensions} dimension literals, ${s.files} files`,
     `  components:   ${s.knownComponents.size} referenced, ${s.undocumented.size} undocumented`,
+  ];
+  if (s.parts.size > 0) {
+    lines.push(
+      `  parts:        ${[...s.parts].map(([p, o]) => `${p} (${o})`).join(', ')} — not in components.built, read as part of the built component each name starts with`,
+    );
+  }
+  lines.push(
     `  variant axes: ${s.axisMatched} of ${s.axisMatched + s.axisUnmatched} literal attributes matched a declared axis`,
     `  not read:     ${s.dynamic} of ${s.usages} attributes are expressions, not literals`,
     `  dimensions:   ${dimensionTotal} token values comparable — ${DIMENSION_CATEGORIES.map((c) => `${c} ${s.dimensionTokens[c]}`).join(', ')}`,
-  ];
+  );
   for (const e of r.excluded) {
     lines.push(`  excluded:     ${e.files} file(s) in ${e.dir}, the package that owns --tokens`);
   }
@@ -727,8 +774,10 @@ function main() {
     .map(([dir, n]) => ({ dir: join(values.root, relative(realRoot, dir)), files: n }));
 
   for (const path of scanned) {
-    const { usages, literals, dimensions } = extract(readFileSync(path, 'utf8'), values.package, path);
-    if (usages.length || literals.length || dimensions.length) files.push({ path, usages, literals, dimensions });
+    const { elements, usages, literals, dimensions } = extract(readFileSync(path, 'utf8'), values.package, path);
+    if (elements.length || usages.length || literals.length || dimensions.length) {
+      files.push({ path, elements, usages, literals, dimensions });
+    }
   }
 
   const r = validate({

@@ -66,7 +66,10 @@ holding the script, not the repo root. `--system` has no default: defaulting it
 to `--root` resolves to a path that does not exist. `--tokens` is repeatable, so
 a system whose values span mode files passes each one. Files inside the package
 that owns a `--tokens` file are not scanned when that package sits beneath
-`--root`, and the report prints an `excluded:` line naming it. `--skip <rule>`
+`--root`, and the report prints an `excluded:` line naming it. A tag whose name
+starts with a built component's name and continues with a capital letter
+(`CardTitle` for `Card`) is read as part of that component, and the report lists
+each one on a `parts:` line. `--skip <rule>`
 switches a rule off entirely — a skipped rule is absent rather than inert, which
 is the supported answer for a repo the rule cannot apply to (a Vue or Svelte app
 has no JSX for the component rules to read). `--skip token-exists-for-dimension`
