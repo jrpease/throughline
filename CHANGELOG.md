@@ -31,7 +31,9 @@ to [Semantic Versioning](https://semver.org).
   - **A run that scans nothing fails.** Pointed at a directory with no matching
     source, or given a `--package` specifier the app does not import under, the
     gate reports `nothing-scanned` rather than a clean pass. Every enabled rule
-    must have had something to check.
+    must have had something to check. The report says how many files it walked,
+    so a wrong `--root` (none) reads differently from a `--package` the app never
+    imports (plenty, none of them using it).
   - **Only hex colours are compared.** A token authored `rgb()` or `hsl()`, or a
     literal written that way, is left alone rather than normalised into a guess,
     and a literal with no matching token is never reported at all.

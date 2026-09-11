@@ -1,5 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   extract,
   normalizeHex,
@@ -275,6 +279,52 @@ test('a run that scanned no code at all fails rather than passing', () => {
 test('nothing-scanned fires on files that yielded neither usage nor literal', () => {
   const r = validate({ built: BUILT, index: INDEX, tokenValues: TOKENS, files: file() });
   assert.ok(r.failures.some((f) => f.rule === 'nothing-scanned'));
+});
+
+test('nothing-scanned reports the files walked, not the files that yielded', () => {
+  const r = validate({ built: BUILT, index: INDEX, tokenValues: TOKENS, files: [], walked: 12 });
+  const failure = r.failures.find((f) => f.rule === 'nothing-scanned');
+  assert.equal(failure.files, 12, 'the count is the walk, not the yield');
+  const text = formatReport(r).join('\n');
+  assert.match(text, /12 file\(s\) yielded no component reference/);
+  assert.match(text, /0 usages, 0 colour literals, 12 files/);
+});
+
+test('the CLI prints the number of files it walked when nothing-scanned fires', () => {
+  const root = mkdtempSync(join(tmpdir(), 'adherence-root-'));
+  const system = mkdtempSync(join(tmpdir(), 'adherence-system-'));
+  for (const name of ['a.tsx', 'b.tsx', 'c.tsx']) {
+    writeFileSync(join(root, name), 'export const value = 1;\n');
+  }
+  mkdirSync(join(system, 'design-system', 'docs'), { recursive: true });
+  writeFileSync(
+    join(system, 'design-system.json'),
+    JSON.stringify({ components: { built: [] } }),
+  );
+  writeFileSync(
+    join(system, 'design-system', 'docs', 'index.json'),
+    JSON.stringify({ components: [] }),
+  );
+
+  let out = '';
+  let code = 0;
+  try {
+    out = execFileSync(
+      'node',
+      [
+        'scripts/validate-adherence.mjs',
+        '--root', root,
+        '--system', system,
+        '--package', '@acme/ui',
+      ],
+      { encoding: 'utf8' },
+    );
+  } catch (e) {
+    code = e.status;
+    out = e.stdout ?? '';
+  }
+  assert.equal(code, 1, 'a run that verified nothing exits non-zero');
+  assert.match(out, /3 file\(s\) yielded no component reference/);
 });
 
 test('nothing-scanned is silent as soon as anything was read', () => {
