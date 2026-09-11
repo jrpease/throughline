@@ -130,7 +130,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   });
   if (process.argv.includes('--check')) {
     let onDisk = null;
-    try { onDisk = readFileSync(OUT, 'utf8'); } catch (e) { /* missing counts as drift */ }
+    try { onDisk = readFileSync(OUT, 'utf8'); } catch { /* missing counts as drift */ }
     if (onDisk !== result) {
       console.error('✗ references/doc-card-builder.md out of date; run: node scripts/build-doc-card-builder.mjs');
       process.exit(1);

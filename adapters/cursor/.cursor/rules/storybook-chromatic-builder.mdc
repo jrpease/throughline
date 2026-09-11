@@ -31,7 +31,7 @@ system). Wire it to consume `packages/tokens` output so stories render with the
 real design tokens (import the generated CSS/theme). Checkpoint: confirm
 Storybook runs and shows the token-themed canvas.
 
-Install the documentation scripts alongside the token scripts: copy the seven
+Install the documentation scripts alongside the token scripts: copy the eight
 files and register the four npm scripts listed under **Documentation scripts —
 install as a set** in `.throughline/scripts/README.md`. `adherence:check`
 needs the repo's own values substituted in — the UI package's specifier for
