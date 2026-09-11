@@ -158,7 +158,7 @@ separate from drift. That is the honest floor for a zero-parser gate.
   of `Card`, and `components.built` lists only `Card`. The rule also fires once
   per attribute rather than once per element, so a three-attribute tag fails three
   times, and a tag with no attributes is never checked at all. Not the colour
-  rule; the same §11 applies to it.
+  rule; the same §11 applies to it. Filed as #120.
 - **The report never says how many token values it skipped.** Spec §6 shows a
   `colour: N token values comparable, M skipped as non-hex` line. It is not
   implemented. Here it would have said 23 of 56 colour tokens skipped for
@@ -168,7 +168,7 @@ separate from drift. That is the honest floor for a zero-parser gate.
   `buildTokenValues` cannot follow because it resolves each file alone, and 22
   `color-mix()` values. The practical cost today is naming: findings cite a
   primitive where a semantic token is the better fix. Nothing was missed, since
-  every skipped alias points at a primitive the gate did compare.
+  every skipped alias points at a primitive the gate did compare. Filed as #121.
 - **Angular templates are never read.** The gate scans no `.html`. zygarden's
   135 templates hold 242 hex literals, **83 of which match a token** (51 in one
   SVG helper). Per spec §4 this is out of scope; it is the largest thing the
