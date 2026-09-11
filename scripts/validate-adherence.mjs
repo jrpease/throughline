@@ -7,12 +7,13 @@
 //
 // Spec: docs/superpowers/specs/2026-08-31-code-adherence-gate-design.md
 // Colour-rule narrowing (#123): docs/specs/2026-09-11-narrow-colour-rule.md
+// Dimension rules (#39): docs/specs/2026-09-11-dimension-rules.md
 import { readFileSync, realpathSync, existsSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
 import { join, dirname, relative, sep } from 'node:path';
 import { walk, normalizeName } from './lib/source-scan.mjs';
-import { flattenDtcg, resolveValue } from './lib/dtcg.mjs';
+import { flattenDtcg, flattenDtcgTypes, resolveValue } from './lib/dtcg.mjs';
 
 // Named imports from one package, alias included: `{ Card as Panel }`.
 const IMPORT = /import\s*\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g;
@@ -143,6 +144,133 @@ export function buildTokenValues(dicts) {
       if (!hex) continue;
       if (!out.has(hex)) out.set(hex, []);
       out.get(hex).push(path);
+    }
+  }
+  return out;
+}
+
+// Dimension rules (#39): docs/specs/2026-09-11-dimension-rules.md. Same shape
+// as buildTokenValues, one layer over: a token's category comes from the words
+// in its path (DTCG's `dimension` type doesn't say what a length is for), and
+// its raw value is canonicalised to a comparable string within that category
+// before values across dicts are pooled.
+export const DIMENSION_CATEGORIES = [
+  'spacing',
+  'radius',
+  'font-size',
+  'line-height',
+  'letter-spacing',
+  'font-weight',
+];
+
+// space/spacing/gap/inset/stack/gutter/padding/margin -> spacing; radius/rounded/
+// corner -> radius; fontsize/text -> font-size; lineheight/leading -> line-height;
+// letterspacing/tracking -> letter-spacing; fontweight -> font-weight. `size` and
+// `weight` are ambiguous on their own — a typographic qualifier earlier in the
+// path decides them, or they decide nothing.
+const DIMENSION_WORDS = {
+  space: 'spacing',
+  spacing: 'spacing',
+  gap: 'spacing',
+  inset: 'spacing',
+  stack: 'spacing',
+  gutter: 'spacing',
+  padding: 'spacing',
+  margin: 'spacing',
+  radius: 'radius',
+  rounded: 'radius',
+  corner: 'radius',
+  fontsize: 'font-size',
+  text: 'font-size',
+  lineheight: 'line-height',
+  leading: 'line-height',
+  letterspacing: 'letter-spacing',
+  tracking: 'letter-spacing',
+  fontweight: 'font-weight',
+};
+const TYPOGRAPHIC_QUALIFIERS = new Set(['font', 'text', 'typography', 'type']);
+
+export function dimensionCategory(path, type) {
+  if (type !== undefined && type !== 'dimension' && type !== 'number' && type !== 'fontWeight') return null;
+  if (type === 'fontWeight') return 'font-weight';
+
+  const words = path
+    .split('.')
+    .flatMap((s) => s.toLowerCase().split(/[-_]/))
+    .filter(Boolean);
+
+  for (let i = words.length - 1; i >= 0; i--) {
+    const word = words[i];
+    if (word === 'size' || word === 'weight') {
+      const qualified = words.slice(0, i).some((w) => TYPOGRAPHIC_QUALIFIERS.has(w));
+      return qualified ? (word === 'size' ? 'font-size' : 'font-weight') : null;
+    }
+    if (word in DIMENSION_WORDS) return DIMENSION_WORDS[word];
+  }
+  return null;
+}
+
+// A dimension is comparable only within its own category, in one canonical
+// unit per category: px (rem folds in at 16px per rem, per the system's own
+// build), em standing alone, unitless line-height, and a whole-number
+// font-weight string. `unitless` says what a bare number means for a length
+// category — 'px' for a literal read from a script file's inline style, null
+// everywhere else. Zero and percentages are never comparable, on either side.
+export function canonicalDimension(raw, category, unitless) {
+  let n;
+  let unit;
+  if (typeof raw === 'number') {
+    n = raw;
+    unit = '';
+  } else if (typeof raw === 'string') {
+    const m = raw.trim().match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))(px|rem|em|%)?$/);
+    if (!m) return null;
+    n = Number(m[1]);
+    unit = m[2] ?? '';
+  } else {
+    return null;
+  }
+
+  if (!Number.isFinite(n) || n === 0 || unit === '%') return null;
+  const r3 = (x) => {
+    const rounded = Math.round(x * 1000) / 1000;
+    return rounded === 0 ? 0 : rounded;
+  };
+
+  if (category === 'font-weight') {
+    return unit === '' && Number.isInteger(n) && n > 0 && n <= 1000 ? String(n) : null;
+  }
+  if (category === 'line-height' && unit === '') return String(r3(n));
+  if (unit === 'em') return `${r3(n)}em`;
+  if (unit === 'rem') return `${r3(n * 16)}px`;
+  if (unit === 'px') return `${r3(n)}px`;
+  return unitless === 'px' ? `${r3(n)}px` : null;
+}
+
+// Same shape as buildTokenValues: every dict contributes, a value maps to the
+// token paths that hold it, and a token that cannot be resolved is skipped
+// rather than thrown on. One category per token — matching within a category
+// only is the point, per the spec's measurement.
+export function buildDimensionValues(dicts) {
+  const out = new Map();
+  for (const dict of dicts) {
+    const flat = flattenDtcg(dict);
+    const types = flattenDtcgTypes(dict);
+    for (const path of Object.keys(flat)) {
+      const category = dimensionCategory(path, types[path]);
+      if (!category) continue;
+      let resolved;
+      try {
+        resolved = resolveValue(path, flat);
+      } catch {
+        continue;
+      }
+      const value = canonicalDimension(resolved, category, 'px');
+      if (!value) continue;
+      if (!out.has(category)) out.set(category, new Map());
+      const inner = out.get(category);
+      if (!inner.has(value)) inner.set(value, []);
+      inner.get(value).push(path);
     }
   }
   return out;

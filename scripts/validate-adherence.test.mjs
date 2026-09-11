@@ -12,6 +12,9 @@ import {
   buildTokenValues,
   formatReport,
   tokenPackageDirs,
+  dimensionCategory,
+  canonicalDimension,
+  buildDimensionValues,
 } from './validate-adherence.mjs';
 
 const SRC = `
@@ -664,4 +667,122 @@ test('a run that excluded everything still says what it excluded', () => {
   const text = formatReport(r).join('\n');
   assert.match(text, /nothing-scanned/);
   assert.match(text, /excluded:     3 file\(s\) in x\/tokens/);
+});
+
+// #39: dimension rules. dimensionCategory sorts the three real naming shapes.
+test('dimensionCategory reads spacing from the path', () => {
+  for (const path of ['space.4', 'spacing-primitive.space.16', 'spacing-semantic.inline.lg', 'space.inset.sm']) {
+    assert.equal(dimensionCategory(path, 'dimension'), 'spacing', path);
+  }
+  assert.equal(dimensionCategory('space.4', undefined), 'spacing');
+});
+
+test('dimensionCategory reads radius from the path', () => {
+  for (const path of ['radius.md', 'radius-semantic.card', 'border.radius.sm']) {
+    assert.equal(dimensionCategory(path, 'dimension'), 'radius', path);
+  }
+});
+
+test('dimensionCategory reads font-size from the path', () => {
+  for (const path of ['font.size.200', 'typography-primitive.size.11', 'text.xs', 'typography.textStyle.displayLg.fontSize']) {
+    assert.equal(dimensionCategory(path, 'dimension'), 'font-size', path);
+  }
+});
+
+test('dimensionCategory reads line-height from the path', () => {
+  assert.equal(dimensionCategory('text.xs.lineHeight', 'dimension'), 'line-height');
+  assert.equal(dimensionCategory('leading.tight', 'dimension'), 'line-height');
+  assert.equal(dimensionCategory('font.lineHeight.tight', 'number'), 'line-height');
+});
+
+test('dimensionCategory reads letter-spacing from the path', () => {
+  assert.equal(dimensionCategory('typography.letterSpacing.tight', 'dimension'), 'letter-spacing');
+  assert.equal(dimensionCategory('typography-primitive.tracking.h1', 'dimension'), 'letter-spacing');
+});
+
+test('dimensionCategory reads font-weight from its $type, not its path', () => {
+  assert.equal(dimensionCategory('font.weight.bold', 'fontWeight'), 'font-weight');
+  assert.equal(dimensionCategory('typography.fontWeight.regular', 'fontWeight'), 'font-weight');
+});
+
+test('dimensionCategory returns null for a path or $type outside the six categories', () => {
+  for (const path of ['stroke.weight.thin', 'spacing-primitive.size.icon.lg', 'border-semantic.width.default', 'focus.ringWidth']) {
+    assert.equal(dimensionCategory(path, 'dimension'), null, path);
+  }
+  assert.equal(dimensionCategory('opacity-primitive.opacity.40', 'number'), null);
+  assert.equal(dimensionCategory('color.text.primary', 'color'), null);
+  assert.equal(dimensionCategory('typography-primitive.family.display', 'string'), null);
+});
+
+test('canonicalDimension folds px and rem into one comparable value', () => {
+  assert.equal(canonicalDimension(16, 'spacing', 'px'), '16px');
+  assert.equal(canonicalDimension('16px', 'spacing', null), '16px');
+  assert.equal(canonicalDimension('1rem', 'spacing', null), '16px');
+  assert.equal(canonicalDimension('1.0rem', 'spacing', null), '16px');
+  assert.equal(canonicalDimension('0.6875rem', 'font-size', null), '11px');
+});
+
+test('canonicalDimension treats a bare number as px only when told to', () => {
+  assert.equal(canonicalDimension('16', 'spacing', null), null);
+  assert.equal(canonicalDimension('16', 'spacing', 'px'), '16px');
+});
+
+test('canonicalDimension declines zero and percentages on either side', () => {
+  assert.equal(canonicalDimension(0, 'spacing', 'px'), null);
+  assert.equal(canonicalDimension('0px', 'spacing', null), null);
+  assert.equal(canonicalDimension('-0px', 'spacing', null), null);
+  assert.equal(canonicalDimension('50%', 'radius', null), null);
+});
+
+test('canonicalDimension keeps em standing alone', () => {
+  assert.equal(canonicalDimension('-0.03em', 'letter-spacing', null), '-0.03em');
+  assert.equal(canonicalDimension('0.025em', 'letter-spacing', null), '0.025em');
+  assert.equal(canonicalDimension('-2', 'letter-spacing', 'px'), '-2px');
+});
+
+test('canonicalDimension rounds line-height to 3 places and compares unitless with unitless, px with px', () => {
+  assert.equal(canonicalDimension(1.7000000476837158, 'line-height', 'px'), '1.7');
+  assert.equal(canonicalDimension('1.5', 'line-height', null), '1.5');
+  assert.equal(canonicalDimension('20px', 'line-height', null), '20px');
+});
+
+test('canonicalDimension accepts a whole-number font-weight only', () => {
+  assert.equal(canonicalDimension(400, 'font-weight', 'px'), '400');
+  assert.equal(canonicalDimension('400', 'font-weight', null), '400');
+  assert.equal(canonicalDimension('bold', 'font-weight', null), null);
+  assert.equal(canonicalDimension('400px', 'font-weight', null), null);
+});
+
+test('canonicalDimension declines a shape it cannot parse', () => {
+  assert.equal(canonicalDimension({ value: 16, unit: 'px' }, 'spacing', 'px'), null);
+  assert.equal(canonicalDimension('calc(1rem + 2px)', 'spacing', null), null);
+  assert.equal(canonicalDimension('16vh', 'spacing', null), null);
+});
+
+test('buildDimensionValues pools resolved values per category, and drops zero', () => {
+  const dims = buildDimensionValues([
+    {
+      space: { $type: 'dimension', 4: { $value: '16px' } },
+      inset: { md: { $value: '{space.4}', $type: 'dimension' } },
+      radius: { lg: { $value: 16, $type: 'dimension' } },
+      font: { size: { base: { $value: '1rem', $type: 'dimension' } } },
+      zero: { space: { 0: { $value: '0px', $type: 'dimension' } } },
+    },
+  ]);
+  assert.deepEqual(dims.get('spacing').get('16px'), ['space.4', 'inset.md']);
+  assert.deepEqual(dims.get('radius').get('16px'), ['radius.lg']);
+  assert.deepEqual(dims.get('font-size').get('16px'), ['font.size.base']);
+  assert.equal(dims.get('spacing').size, 1, 'the zero token is absent');
+});
+
+test('buildDimensionValues does not throw on an unknown reference or a cycle', () => {
+  assert.doesNotThrow(() =>
+    buildDimensionValues([
+      {
+        a: { x: { $value: '{nope.missing}', $type: 'dimension' } },
+        b: { y: { $value: '{c.z}', $type: 'dimension' } },
+        c: { z: { $value: '{b.y}', $type: 'dimension' } },
+      },
+    ]),
+  );
 });
