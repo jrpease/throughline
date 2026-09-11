@@ -1164,3 +1164,83 @@ test('platform mui throws rather than being read as native or web', () => {
     /mui is not supported/,
   );
 });
+
+// Step 5. formatReport reads `web = r.platform in WEB_PLATFORMS`; every
+// pre-existing test above builds a result with no `platform` field, so `web`
+// is false there and those lines stay byte-identical.
+test('formatReport renders a web result: headline, aliases, all six rule failures, and advisories', () => {
+  const r = {
+    platform: 'shadcn',
+    block: ':root',
+    total: 5,
+    aliases: 1,
+    matched: 4,
+    matchRate: 1,
+    minMatch: 1,
+    ok: false,
+    collisions: [],
+    normalizationCollisions: [],
+    unparsedLines: 1,
+    unemittedTokens: 1,
+    unemittedPaths: ['c.x'],
+    failures: [
+      { rule: 'unit-fidelity', symbol: '--space-4', token: 'space.4', source: '16px', emitted: '16rem' },
+      {
+        rule: 'reference-fidelity',
+        symbol: '--gap-md',
+        token: 'gap.md',
+        source: '{space.4}',
+        emitted: 'var(--space-8)',
+      },
+      { rule: 'dangling-reference', symbol: '--gap-md', reference: '--space-4' },
+      { rule: 'no-unresolved-reference', symbol: '--t-lh', emitted: '{text.xs.lineHeight}' },
+      { rule: 'invalid-value', symbol: '--shadow-card', emitted: '[object Object]' },
+      {
+        rule: 'unverifiable-dimension',
+        symbol: '--weird',
+        token: 'weird.token',
+        source: '14px',
+        emitted: 'someUnknownWrapper(14)',
+      },
+    ],
+    advisories: [
+      { rule: 'dual-node', paths: ['text.xs'] },
+      { rule: 'unitless-dimension', symbol: '--lh', token: 'lh', source: '1.5', emitted: '1.5' },
+    ],
+  };
+  const text = formatReport(r).join('\n');
+  assert.doesNotMatch(text, /undefined/);
+  assert.match(text, /4\/4 declarations in :root matched a source token \(100%\)/);
+  assert.match(text, /1 alias declaration/);
+  assert.match(text, /\[unit-fidelity\]/);
+  assert.match(text, /\[reference-fidelity\]/);
+  assert.match(text, /\[dangling-reference\]/);
+  assert.match(text, /\[no-unresolved-reference\]/);
+  assert.match(text, /\[invalid-value\]/);
+  assert.match(text, /\[unverifiable-dimension\]/);
+  assert.match(text, /which no --output declares/);
+  assert.match(text, /no shorthand transform/);
+  assert.match(text, /Stock Style Dictionary does not descend/);
+  assert.match(text, /1 declaration\(s\) that are not custom properties/);
+  assert.match(text, /declared nowhere in the output: c\.x/);
+  assert.doesNotMatch(text, /compile/);
+});
+
+test('formatReport on a web zero-match result names the name/kebab transform', () => {
+  const r = {
+    platform: 'shadcn',
+    block: ':root',
+    total: 3,
+    aliases: 0,
+    matched: 0,
+    matchRate: 0,
+    minMatch: 0.5,
+    ok: false,
+    collisions: [],
+    normalizationCollisions: [],
+    failures: [],
+    advisories: [],
+  };
+  const text = formatReport(r).join('\n');
+  assert.match(text, /name\/kebab/);
+});

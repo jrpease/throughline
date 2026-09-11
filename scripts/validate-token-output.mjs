@@ -698,8 +698,24 @@ export function validate({ sources, output, platform, minMatch = 0.5, block }) {
 
 export function formatReport(r) {
   const lines = [];
+  // Step 5 (docs/specs/2026-09-11-web-token-output-validation.md). Native
+  // results carry no `platform` field at all, so `web` is false for every
+  // pre-existing caller and every line below stays on its original,
+  // byte-identical branch.
+  const web = r.platform in WEB_PLATFORMS;
   const pct = (r.matchRate * 100).toFixed(0);
-  lines.push(`tokens:validate-output — ${r.matched}/${r.total} emitted symbols matched a source token (${pct}%)`);
+  if (web) {
+    lines.push(
+      `tokens:validate-output — ${r.matched}/${r.total - r.aliases} declarations in ${r.block ?? 'the output'} matched a source token (${pct}%)`,
+    );
+    if (r.aliases) {
+      lines.push(
+        `\n${r.aliases} alias declaration(s) with no source token — each is a var() to a variable the output declares, so they are left out of the match rate.`,
+      );
+    }
+  } else {
+    lines.push(`tokens:validate-output — ${r.matched}/${r.total} emitted symbols matched a source token (${pct}%)`);
+  }
   if (r.collisions.length) {
     lines.push(`\n${r.collisions.length} mode collision(s) — the source list spans modes:`);
     for (const c of r.collisions) {
@@ -714,26 +730,54 @@ export function formatReport(r) {
       lines.push(`  - ${c.key}: ${c.paths.join(' vs ')}`);
     }
     lines.push(
-      `\nThese emit the same symbol name, so the generated file declares it more than once and will not compile. They are also excluded from matching above, because there is no way to tell which source token an emitted symbol came from. Rename one side in source.`,
+      web
+        ? `\nThese reduce to the same variable name, so the output declares it twice and the later one silently wins. They are also excluded from matching above, because there is no way to tell which source token a declaration came from. Rename one side in source.`
+        : `\nThese emit the same symbol name, so the generated file declares it more than once and will not compile. They are also excluded from matching above, because there is no way to tell which source token an emitted symbol came from. Rename one side in source.`,
     );
   }
   if (r.failures.length) {
     lines.push(`\n${r.failures.length} rule failure(s):`);
     for (const f of r.failures) {
       lines.push(
-        f.rule === 'invalid-literal'
-          ? `  - [${f.rule}] ${f.symbol}: emitted \`${f.emitted}\` is not a valid ${f.platform} literal — parsing stopped at offset ${f.offset} (${JSON.stringify(f.rest.slice(0, 30))})`
-          : f.rule === 'unit-fidelity'
-            ? `  - [${f.rule}] ${f.symbol}: source ${f.source} expects ${f.expected}, emitted ${f.emitted} (${f.actual})`
-            : f.rule === 'unverifiable-dimension'
-              ? `  - [${f.rule}] ${f.symbol}: source ${f.source} has a dimension magnitude but emitted ${f.emitted} could not be read — the token was never actually compared`
-              : `  - [${f.rule}] ${f.symbol}: ${f.emitted}`,
+        web
+          ? f.rule === 'unit-fidelity'
+            ? `  - [unit-fidelity] ${f.symbol}: source ${f.source} for ${f.token}, emitted ${f.emitted}`
+            : f.rule === 'reference-fidelity'
+              ? `  - [reference-fidelity] ${f.symbol}: source ${f.source} for ${f.token}, emitted ${f.emitted} — its var() references don't name the tokens the source references`
+              : f.rule === 'dangling-reference'
+                ? `  - [dangling-reference] ${f.symbol}: references ${f.reference}, which no --output declares`
+                : f.rule === 'no-unresolved-reference'
+                  ? `  - [no-unresolved-reference] ${f.symbol}: ${f.emitted} — a {reference} reached the output unresolved`
+                  : f.rule === 'invalid-value'
+                    ? `  - [invalid-value] ${f.symbol}: ${f.emitted} — a JavaScript value was written into the CSS`
+                    : f.rule === 'unverifiable-dimension'
+                      ? `  - [${f.rule}] ${f.symbol}: source ${f.source} has a dimension magnitude but emitted ${f.emitted} could not be read — the token was never actually compared`
+                      : `  - [${f.rule}] ${f.symbol}: ${f.emitted}`
+          : f.rule === 'invalid-literal'
+            ? `  - [${f.rule}] ${f.symbol}: emitted \`${f.emitted}\` is not a valid ${f.platform} literal — parsing stopped at offset ${f.offset} (${JSON.stringify(f.rest.slice(0, 30))})`
+            : f.rule === 'unit-fidelity'
+              ? `  - [${f.rule}] ${f.symbol}: source ${f.source} expects ${f.expected}, emitted ${f.emitted} (${f.actual})`
+              : f.rule === 'unverifiable-dimension'
+                ? `  - [${f.rule}] ${f.symbol}: source ${f.source} has a dimension magnitude but emitted ${f.emitted} could not be read — the token was never actually compared`
+                : `  - [${f.rule}] ${f.symbol}: ${f.emitted}`,
       );
     }
-    if (r.failures.some((f) => f.rule === 'invalid-literal')) {
+    if (!web && r.failures.some((f) => f.rule === 'invalid-literal')) {
       lines.push(
         `\nAn invalid-literal value will not compile. A string value must be quoted — add its $type to the quoting transform in lib/sd-native.mjs. A CSS construct such as linear-gradient() has no native form and should be filtered out of native builds instead.`,
       );
+    }
+    if (web) {
+      if (r.failures.some((f) => f.rule === 'no-unresolved-reference' || f.rule === 'dangling-reference')) {
+        lines.push(
+          `\nA {reference} left in the output, or a var() to a variable nothing declares, usually means the build did not reach a token that is a child of a node carrying its own $value. A build split across files must pass each file it ships as another --output.`,
+        );
+      }
+      if (r.failures.some((f) => f.rule === 'invalid-value')) {
+        lines.push(
+          `\nAn [object Object] value is a composite token, such as typography or a shadow, with no shorthand transform registered for this platform.`,
+        );
+      }
     }
   }
   // The naming-convention diagnosis is wrong when collisions are what removed
@@ -746,13 +790,19 @@ export function formatReport(r) {
     lines.push(
       r.normalizationCollisions?.length
         ? `\nNo emitted symbol matched any source token, so nothing was actually verified.${collisionNote}`
-        : `\nNo emitted symbol matched any source token — the adapter's naming convention does not line up, so nothing was actually verified. A likely cause is a declaration form the DECL pattern does not match (e.g. a different accessControl such as "internal static let ...").`,
+        : web
+          ? `\nNo declaration matched any source token, so nothing was verified. The variable names don't line up with the source token paths — a likely cause is a name transform that doesn't build the name from the whole path, as Style Dictionary's name/kebab does. A JavaScript theme file has no custom properties to read at all.`
+          : `\nNo emitted symbol matched any source token — the adapter's naming convention does not line up, so nothing was actually verified. A likely cause is a declaration form the DECL pattern does not match (e.g. a different accessControl such as "internal static let ...").`,
     );
   } else if (r.matchRate < r.minMatch) {
     lines.push(`\nMatch rate ${pct}% is below the ${(r.minMatch * 100).toFixed(0)}% floor — most output went unchecked.${collisionNote}`);
   }
   if (r.unparsedLines) {
-    lines.push(`\n${r.unparsedLines} unparsed line(s) — declaration-shaped lines the extractor could not read; they count in neither the numerator nor the denominator above.`);
+    lines.push(
+      web
+        ? `\n${r.unparsedLines} declaration(s) that are not custom properties — not checked, and not counted above.`
+        : `\n${r.unparsedLines} unparsed line(s) — declaration-shaped lines the extractor could not read; they count in neither the numerator nor the denominator above.`,
+    );
   }
   if (r.advisories?.length) {
     lines.push(`\n${r.advisories.length} advisory note(s) — reported, not gating:`);
@@ -767,7 +817,9 @@ export function formatReport(r) {
         const shown = a.paths.slice(0, 5).join(', ');
         const more = a.paths.length > 5 ? `, ...and ${a.paths.length - 5} more` : '';
         lines.push(
-          `  - [${a.rule}] ${a.paths.length} node(s) carry both a $value and child tokens: ${shown}${more}. DTCG §6.1 makes that invalid — an object cannot be both a token and a group — and §6.2 defines $root as the way a group carries a base value alongside children. The build handles this shape and will keep handling it; nothing here is broken. Rewrite them as $root only if you want the source to conform.`,
+          web
+            ? `  - [${a.rule}] ${a.paths.length} node(s) carry both a $value and child tokens: ${shown}${more}. DTCG §6.1 makes that invalid, and §6.2 defines $root as the way a group carries a base value alongside children. Stock Style Dictionary does not descend into these nodes, so their children can be missing from web output — a no-unresolved-reference or dangling-reference failure above is that happening.`
+            : `  - [${a.rule}] ${a.paths.length} node(s) carry both a $value and child tokens: ${shown}${more}. DTCG §6.1 makes that invalid — an object cannot be both a token and a group — and §6.2 defines $root as the way a group carries a base value alongside children. The build handles this shape and will keep handling it; nothing here is broken. Rewrite them as $root only if you want the source to conform.`,
         );
         continue;
       }
@@ -778,7 +830,9 @@ export function formatReport(r) {
         continue;
       }
       lines.push(
-        `  - [${a.rule}] ${a.symbol}: source ${JSON.stringify(a.source)} for ${a.token} is a dimension with no unit, which DTCG §8.2.1 does not permit. It emitted ${a.emitted}, read as a ratio. If it is a ratio, type it "number" (§8.7); if it is a measurement, add the unit you meant.`,
+        web
+          ? `  - [${a.rule}] ${a.symbol}: source ${JSON.stringify(a.source)} for ${a.token} is a dimension with no unit, which DTCG §8.2.1 does not permit. It emitted ${a.emitted}. If it is a ratio, type it "number" (§8.7); if it is a measurement, add the unit you meant.`
+          : `  - [${a.rule}] ${a.symbol}: source ${JSON.stringify(a.source)} for ${a.token} is a dimension with no unit, which DTCG §8.2.1 does not permit. It emitted ${a.emitted}, read as a ratio. If it is a ratio, type it "number" (§8.7); if it is a measurement, add the unit you meant.`,
       );
     }
   }
@@ -787,8 +841,10 @@ export function formatReport(r) {
     const shown = paths.slice(0, 10).join(', ');
     const more = paths.length > 10 ? `, ...and ${paths.length - 10} more` : '';
     lines.push(
-      `\n${r.unemittedTokens} source token(s) had no matching emitted symbol${paths.length ? `: ${shown}${more}` : ''}.` +
-        ' A value with no native form is filtered out of native output rather than emitted broken — a CSS construct nested inside another function is the common case.',
+      web
+        ? `\n${r.unemittedTokens} source token(s) are declared nowhere in the output${paths.length ? `: ${shown}${more}` : ''}. A token this build filtered out, or the child of a node carrying its own $value that the build did not reach, shows up here.`
+        : `\n${r.unemittedTokens} source token(s) had no matching emitted symbol${paths.length ? `: ${shown}${more}` : ''}.` +
+            ' A value with no native form is filtered out of native output rather than emitted broken — a CSS construct nested inside another function is the common case.',
     );
   }
   return lines;
