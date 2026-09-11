@@ -111,6 +111,12 @@ After this ships:
   the clause** ("if there is a … failure above, that is this happening"). The
   advisory is right either way. Surfaced by the build (runs 1 and 3).
   Unresolved.
+- **The `scripts/README.md` table row lists native-only rules.** Step 7 kept
+  "no leaked CSS syntax, no bare unit literals" in the row it widened to cover
+  web, and neither rule runs on web. The paragraph under `## Usage` says what
+  web checks, so nothing is wrong, only ambiguous at a glance. **I'd recommend
+  scoping those two clauses to Swift and Kotlin** in the same pass as the
+  README roadmap bullet. Surfaced by the finish review. Unresolved.
 
 ## What shipped
 
@@ -150,6 +156,9 @@ other six CI steps exited 0.
   the same source. Recorded in the note.
 - Nothing else diverged. Steps 1 to 6 recorded no divergence, and their
   commits left the Plan unamended.
+- **Routing.** Steps 2, 4, 5 and 6 went to `implementer`. Steps 1, 3, 7, 8 and
+  9 ran inline. The build recorded no step coming back `BLOCKED`, and none was
+  re-dispatched.
 
 ## Plan
 
