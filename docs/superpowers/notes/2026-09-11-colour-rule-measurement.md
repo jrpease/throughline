@@ -369,3 +369,45 @@ letter passes, and the `parts:` line is where it shows up.
 - **An invented name shaped like a part passes.** `<CardGrid>` proves it. A
   declared-parts field in the manifest would close the gap, and the spec leaves
   that open until a real run shows one slipping through.
+
+## Skipped colour tokens after #121
+
+The same runs at the same commits (`2a9d370`, `ca61ca9a6`), with the gate from
+`fix/121-count-skipped-colour-tokens`. The report now prints a `colour:` line,
+and aliases resolve across every `--tokens` file instead of one file at a time.
+
+| system | colour tokens | compared | unresolvable | non-hex |
+|---|---|---|---|---|
+| `throughline-ds` | 56 | 33 → 33 | 23 → 23 | 0 → 0 |
+| `zygarden` | 112 | 39 → 90 | 51 → 0 | 22 → 22 |
+
+The "before" numbers are the counts this note gave above. Main never printed
+them, which was the bug.
+
+**throughline-ds doesn't move, and that's right.** All 23 are
+collection-relative aliases, like `{canvas}` for `color-primitive.canvas`.
+That's shorthand from the export, not DTCG, so the gate counts them and doesn't
+guess which collection they meant.
+
+**zygarden's 51 aliases resolve now.** They point from
+`color-semantic.dark.json` and `color-semantic.light.json` into
+`color-primitives.json`. The 22 left are `color-mix()`.
+
+**No finding was lost or added.** Each run's `file:line` findings were diffed
+against main (`eb492e5`), and all six lists match: the site's `apps` (47) and
+`packages` (12), zygarden's `apps` (48) and `libs` (29) with every token file,
+and the colour-only form under Reproduce (15 and 3). What changed is the name.
+The brand guide's "don't" red now reads:
+
+```
+#ef4444 at …/_color.scss:199 — color.status.danger.500, color.status.danger.text resolve to exactly this value
+```
+
+**Dimensions got the same fix.** zygarden's comparable dimension tokens went
+from 56 to 160, because its semantic radius, spacing and type files now resolve
+into their primitives. `radius.card` sits beside `radius.3`, and no dimension
+finding moved.
+
+A path that two mode files resolve to the same value is named once in a
+finding. The counts still count each file's token, which is how 112 splits
+into 90 and 22.

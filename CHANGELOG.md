@@ -47,7 +47,12 @@ to [Semantic Versioning](https://semver.org).
     `#a3e622` are the same colour, so they match whichever one the token uses
     and whichever one the code uses. `hsl()` and anything with alpha below 1 are
     left alone rather than guessed at, and a literal with no matching token is
-    never reported at all.
+    never reported at all. Aliases resolve across every `--tokens` file, so a
+    semantic token that points at a primitive in another file gets compared
+    too, and the finding names both. A `colour:` line counts what was compared
+    and what was skipped, split into unresolvable and non-hex. Against zygarden
+    that's 90 compared and 22 `color-mix()` values skipped. Before, 39 were
+    compared and nothing said so.
   - **The colour rule leaves three things alone, and never skips a colour for
     what it is.** Files inside the package that owns a `--tokens` file aren't
     scanned when that package sits beneath `--root`, so a token package walked

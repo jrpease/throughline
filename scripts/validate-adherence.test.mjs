@@ -10,6 +10,7 @@ import {
   rgbToHex,
   validate,
   buildTokenValues,
+  skippedColourTokens,
   formatReport,
   tokenPackageDirs,
   dimensionCategory,
@@ -413,21 +414,77 @@ test('an aliased token resolves through the chain', () => {
   assert.ok(t.get('#3b82f6').includes('brand.primary'));
 });
 
-test('an unresolvable or circular reference is skipped, not thrown on', () => {
-  assert.doesNotThrow(() =>
-    buildTokenValues([
-      {
-        a: { x: { $value: '{nope.missing}', $type: 'color' } },
-        b: { y: { $value: '{c.z}', $type: 'color' } },
-        c: { z: { $value: '{b.y}', $type: 'color' } },
-      },
-    ]),
-  );
+test('an unresolvable or circular reference is skipped and counted, not thrown on', () => {
+  const dicts = [
+    {
+      a: { x: { $value: '{nope.missing}', $type: 'color' } },
+      b: { y: { $value: '{c.z}', $type: 'color' } },
+      c: { z: { $value: '{b.y}', $type: 'color' } },
+    },
+  ];
+  assert.doesNotThrow(() => buildTokenValues(dicts));
+  assert.deepEqual(skippedColourTokens(dicts), { unresolvable: 3, nonHex: 0 });
 });
 
 test('a non-hex token value is counted uncomparable, not compared', () => {
-  const t = buildTokenValues([{ c: { x: { $value: 'hsl(217 91% 60%)', $type: 'color' } } }]);
-  assert.equal(t.size, 0);
+  const dicts = [{ c: { x: { $value: 'hsl(217 91% 60%)', $type: 'color' } } }];
+  assert.equal(buildTokenValues(dicts).size, 0);
+  assert.deepEqual(skippedColourTokens(dicts), { unresolvable: 0, nonHex: 1 });
+});
+
+// #121, measured: zygarden's semantic colour files alias primitives in a third
+// file, and resolving each --tokens file alone skipped 51 of them.
+test('an alias into another --tokens file resolves', () => {
+  const dicts = [
+    { color: { red: { 500: { $value: '#EF4444', $type: 'color' } } } },
+    { color: { danger: { text: { $value: '{color.red.500}', $type: 'color' } } } },
+  ];
+  assert.deepEqual(buildTokenValues(dicts).get('#ef4444'), ['color.red.500', 'color.danger.text']);
+  assert.deepEqual(skippedColourTokens(dicts), { unresolvable: 0, nonHex: 0 });
+});
+
+test('two mode files that define one path differently each resolve their own value', () => {
+  const t = buildTokenValues([
+    { base: { dark: { $value: '#000000', $type: 'color' }, light: { $value: '#ffffff', $type: 'color' } } },
+    { bg: { $value: '{base.dark}', $type: 'color' } },
+    { bg: { $value: '{base.light}', $type: 'color' } },
+  ]);
+  assert.deepEqual(t.get('#000000'), ['base.dark', 'bg']);
+  assert.deepEqual(t.get('#ffffff'), ['base.light', 'bg']);
+});
+
+test('a finding names a path two mode files share only once', () => {
+  const tokenValues = buildTokenValues([
+    { red: { $value: '#EF4444', $type: 'color' } },
+    { danger: { $value: '{red}', $type: 'color' } },
+    { danger: { $value: '{red}', $type: 'color' } },
+  ]);
+  const r = validate({ tokenValues, dimensionValues: DIMS, files: file([], [{ value: '#ef4444', line: 1 }]) });
+  const f = r.failures.find((x) => x.rule === 'token-exists-for-literal');
+  assert.deepEqual(f.tokens, ['red', 'danger']);
+  assert.match(formatReport(r).join('\n'), /red, danger resolve to exactly this value/);
+});
+
+test('a collection-relative alias is counted unresolvable, not guessed at', () => {
+  const dicts = [
+    {
+      'color-primitive': { canvas: { $value: '#FAFAF7', $type: 'color' } },
+      'color-semantic': { bg: { $value: '{canvas}', $type: 'color' } },
+    },
+  ];
+  assert.deepEqual(buildTokenValues(dicts).get('#fafaf7'), ['color-primitive.canvas']);
+  assert.deepEqual(skippedColourTokens(dicts), { unresolvable: 1, nonHex: 0 });
+});
+
+test('a token that is not a colour is never counted as a skipped colour', () => {
+  const dicts = [
+    {
+      font: { family: { $value: 'Inter', $type: 'fontFamily' } },
+      space: { gap: { $value: '{space.missing}', $type: 'dimension' } },
+      loose: { $value: 'hsl(217 91% 60%)' },
+    },
+  ];
+  assert.deepEqual(skippedColourTokens(dicts), { unresolvable: 0, nonHex: 0 });
 });
 
 test('an opaque rgb() token value resolves the same as its hex', () => {
@@ -846,6 +903,12 @@ test('nothing-scanned is silent when only a dimension was read', () => {
   );
 });
 
+test('the report counts comparable colour tokens and the ones it skipped, by reason', () => {
+  const r = validate({ tokenValues: TOKENS, colourSkipped: { unresolvable: 23, nonHex: 2 }, files: file() });
+  const text = formatReport(r).join('\n');
+  assert.match(text, /\n  colour:       1 token values comparable, 23 skipped as unresolvable, 2 skipped as non-hex\n/);
+});
+
 test('the report counts comparable tokens per category', () => {
   const r = validate({ dimensionValues: DIMS, files: file() });
   const text = formatReport(r).join('\n');
@@ -917,6 +980,7 @@ test('the CLI skips the token package, flags the app, and says what it skipped',
   assert.equal(flagged.length, 1, out);
   assert.match(flagged[0], /app\/page\.css:1/);
   assert.match(out, /, 1 files\n/, 'the headline counts files scanned, not files walked');
+  assert.ok(out.includes('colour:       1 token values comparable, 0 skipped as unresolvable, 0 skipped as non-hex'), out);
   assert.ok(out.includes(`excluded:     1 file(s) in ${join(root, 'tokens')}`), out);
 });
 
@@ -1084,6 +1148,14 @@ test('buildDimensionValues pools resolved values per category, and drops zero', 
   assert.deepEqual(dims.get('radius').get('16px'), ['radius.lg']);
   assert.deepEqual(dims.get('font-size').get('16px'), ['font.size.base']);
   assert.equal(dims.get('spacing').size, 1, 'the zero token is absent');
+});
+
+test('buildDimensionValues resolves an alias into another --tokens file', () => {
+  const dims = buildDimensionValues([
+    { radius: { 4: { $value: '16px', $type: 'dimension' } } },
+    { radius: { card: { $value: '{radius.4}', $type: 'dimension' } } },
+  ]);
+  assert.deepEqual(dims.get('radius').get('16px'), ['radius.4', 'radius.card']);
 });
 
 test('buildDimensionValues does not throw on an unknown reference or a cycle', () => {

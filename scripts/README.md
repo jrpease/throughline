@@ -64,7 +64,10 @@ node validate-token-output.mjs --source dtcg/primitives.json --source dtcg/seman
 `validate-adherence.mjs` takes every path explicitly because cwd is the package
 holding the script, not the repo root. `--system` has no default: defaulting it
 to `--root` resolves to a path that does not exist. `--tokens` is repeatable, so
-a system whose values span mode files passes each one. Files inside the package
+a system whose values span mode files passes each one. An alias resolves against
+every `--tokens` file, so a semantic file can point at primitives in another, and
+the report's `colour:` line counts the colour tokens it skipped as unresolvable or
+non-hex. Files inside the package
 that owns a `--tokens` file are not scanned when that package sits beneath
 `--root`, and the report prints an `excluded:` line naming it. A tag whose name
 starts with a built component's name and continues with a capital letter
