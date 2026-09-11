@@ -78,7 +78,8 @@ them — only a baseline assertion can. Before trusting a diff, prove the
 baseline is what you think it is: check that the "before" build actually
 exhibits the pre-fix behaviour. `#52`'s run did this and caught the stale
 procedure before it produced a false result; see
-`2026-08-26-unitless-dimension-e2e.md`.
+`2026-08-26-unitless-dimension-e2e.md`. This lesson is now a hard rule for
+every e2e run: see `ci/README.md` (#77).
 
 ## Procedure
 
