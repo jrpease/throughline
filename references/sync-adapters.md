@@ -57,39 +57,35 @@ The cause was the transform group, not the adapter concept. That configuration
 now ships as tested code at
 `${CLAUDE_PLUGIN_ROOT}/scripts/lib/sd-native.mjs`, is installed into the
 consumer's repo, and is verified end to end against a real source (195 emitted
-symbols matched, zero rule failures under the shipping ruleset, on both light
-and dark builds). The badge is back on that basis.
+symbols matched, 107 of them with their magnitude also checked, zero rule
+failures under the shipping ruleset, on both light and dark builds).
+The badge is back on that basis. What "matched" does and does not check is in
+*Verify, always* in `${CLAUDE_PLUGIN_ROOT}/references/native-adapter-config.md`.
 
 **What the badge does not cover: nothing is compiled.** Every emitted value is
 checked to be a well-formed Swift or Kotlin *literal* — `tokens:validate-output`'s
 `invalid-literal` rule parses each one and fails on anything that is not
 (#53) — but no `swiftc` or `kotlinc` runs, so a type mismatch or a call to an
-undefined symbol would still pass. String-valued tokens (`fontFamily`, `string`,
-keyword `fontWeight`) are quoted by the module's own transforms, and a value with
-no native form at all — a CSS `linear-gradient(...)` — is filtered out of native
-output rather than emitted broken. That drop is reported as an unemitted token,
-not hidden.
+undefined symbol would still pass. Which values the module quotes, and which it
+drops for having no native form, is stated in §4 and §6 of
+`${CLAUDE_PLUGIN_ROOT}/references/native-adapter-config.md`. A dropped token is
+not hidden: `tokens:validate-output` reports it as unemitted — see
+`${CLAUDE_PLUGIN_ROOT}/scripts/README.md`.
 
 Since 0.17.0 that gap is measured rather than assumed on ThroughLine's side:
 this project's end-to-end runs compile what they generate — `kotlinc` typechecks
 `Tokens.kt` against Compose stubs, `swiftc -parse` checks `Tokens.swift` —
-against a real 322-token system. That is evidence about the adapter shipped to
+against a real 318-token system. That is evidence about the adapter shipped to
 you, not a gate on your build, and it does not widen what the badge asserts
 about your output.
 
 `android-kotlin` uses the same module and stays Tier 2: its remaining unknowns
 are on the consumption side — Compose `dp`/`sp` behaviour against a real Compose
 app, resource-qualifier conventions, package layout — which building tokens does
-not exercise. The `dp`/`sp` split itself is no longer among them: font sizes and
-line heights whose role a DTCG source states — the `fontSize`, `letterSpacing`
-and `lineHeight` member names of §9.8's typography composite — now emit as
-`sp`. What remains is narrower and documented in
-`${CLAUDE_PLUGIN_ROOT}/references/native-adapter-config.md`: a scale primitive
-**nothing references** carries no role and stays `dp`, named by a
-`tokens:validate-output` `unreferenced-text-sibling` advisory; and an `em`
-letterSpacing reaches Compose as a real `.em` TextUnit but is excluded from
-Swift deliberately, since letter spacing there needs a font size no constant
-Swift value could carry.
+not exercise. Which tokens emit as `sp`, and the text-unit limits that remain on
+each platform, are stated once, in §4 of
+`${CLAUDE_PLUGIN_ROOT}/references/native-adapter-config.md`, which is generated
+from the module itself.
 `tokens:validate-output` remains what decides whether any adapter can be
 trusted, and re-promotion is available to any adapter that passes it against a
 real source.
@@ -154,45 +150,31 @@ emit as references to primitive vars rather than flattened literals.
 
 ## What the stock configuration gets wrong
 
-These are all legal in a real DTCG source, and a **stock** Style Dictionary
-transform group mishandles every one of them silently — emitting output that
-compiles and is wrong, which is why `tokens:validate-output` exists.
+Real token sources carry all of these, and a **stock** Style Dictionary
+transform group mishandles them silently — emitting output that compiles and is
+wrong, which is why `tokens:validate-output` exists.
 
-**None of these are Style Dictionary limitations.** All four are fixed by
-roughly 80 lines of preprocessor and transform code, which ships as a tested
-module at `${CLAUDE_PLUGIN_ROOT}/scripts/lib/sd-native.mjs` and is documented in
-`${CLAUDE_PLUGIN_ROOT}/references/native-adapter-config.md`. Against a real
-322-token source it emitted 195 symbols that all map to a source token, 107 of
-them with their numeric magnitude additionally verified, with zero rule failures
-— colour and string values are matched by name only and are checked by no rule.
-**Import that module** rather than configuring a native adapter from a stock
-`transformGroup` or transcribing the reference doc.
+The native fixes ship as a tested module at
+`${CLAUDE_PLUGIN_ROOT}/scripts/lib/sd-native.mjs`. **Import that module** rather
+than configuring a native adapter from a stock `transformGroup` or transcribing
+the reference doc. What goes wrong in each case, and exactly what the module does
+about it, is stated once, in
+`${CLAUDE_PLUGIN_ROOT}/references/native-adapter-config.md`, which is generated
+from the module and checked for freshness in CI. This list only points there:
 
-- **CSS expressions in a value** — `color-mix(in srgb, {color.brand.500} 12%,
-  transparent)` is a runtime CSS construct. Style Dictionary does no colour
-  math, so it resolves only the inner reference and leaves the function wrapper
-  in the output. *Fix: a transform that computes the blend to a literal.*
-- **Dual-node tokens** — a node carrying both a `$value` and children (`text.sm`
-  with `$value: "14px"` plus a `text.sm.lineHeight` child). Style Dictionary's
-  resolver will not traverse into one, so every alias to the child fails to
-  resolve and emits as a bare literal; its collector also stops there, so the
-  child is never emitted at all. *Fix: a preprocessor that resolves aliases and
-  hoists the children.*
-- **`%` and `em` dimensions** — parent-relative or container-relative, so there
-  genuinely is no build-time native magnitude. This one is a real limit rather
-  than a configuration gap. *Handling: filter them out of native builds — on the
-  authored value, since a `100%` token may be typed `string`, not `dimension`.*
+- **`px`-authored dimensions** — the stock groups assume `rem` and multiply by
+  16. See §1, *Read the authored unit*.
+- **CSS expressions in a value**, such as `color-mix()` — see §2, *Compute
+  `color-mix()` to a literal*.
+- **Dual-node tokens**, a node carrying both a `$value` and children — see §3,
+  *Resolve aliases and hoist dual-node children*.
+- **`%` and `em` dimensions** — see `nativeFilter` in §4, *Assemble the platform
+  from the stock list*.
 - **A third mode axis** — this reference models theme (`.dark` /
   `[data-theme]`) and brand (`[data-brand]`). A viewport axis carrying its own
   spacing and type scales is common and has no mapping here; on native it is
   size classes and resource qualifiers, resolved by a different mechanism
-  entirely.
-
-**Native dimension transforms must read the authored unit.** The stock
-`ios-swift` and `compose` transform groups assume `rem` input and multiply by
-16. Against a `px`-authored source that silently produces output at sixteen
-times scale which compiles and ships. Emit 1:1 for `px` and unitless ratios;
-×16 only for `rem`.
+  entirely. The module does not address this one.
 
 ## Brownfield value transforms
 

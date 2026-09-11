@@ -84,6 +84,18 @@ to [Semantic Versioning](https://semver.org).
   The write-back now finds the chip under either shape, the same way the builder
   does. When it can't find one, it leaves that card alone and tells you by name
   which cards still show the old status.
+- **`references/sync-adapters.md` points to how native builds behave instead of
+  retelling it (#86).** It had its own copy of what `sd-native.mjs` does, and that
+  copy kept falling behind. Three claims in it were wrong on 0.19.0: every `em`
+  dimension is dropped from native output (an `em` letter spacing reaches Compose
+  since 0.16.0), the module is "roughly 80 lines" (it is nearly 950), and
+  dual-node tokens are legal DTCG (the spec says they are an error). The same page
+  also still said "322-token system" after 0.19.0 corrected it to 318.
+
+  Now it names each problem and links to the section of
+  `references/native-adapter-config.md` that covers it. That file is generated
+  from the module, and CI fails when it goes stale, so there's one version to
+  keep right.
 
 ## [0.19.0] — 2026-08-31
 
