@@ -1,7 +1,7 @@
 # Narrow the colour rule
 
-Status: planned
-Reviewed: 2026-09-11 — needs revision
+Status: built
+Reviewed: 2026-09-11 — ready to build
 Date: 2026-09-11
 Issue: #123 (refs #39)
 Evidence: `docs/superpowers/notes/2026-09-11-colour-rule-measurement.md` (#122)
@@ -84,6 +84,38 @@ lost.
   widening.** Under `mask-mode: luminance`, colour does matter. Unresolved.
 - **Masks outside `.css` / `.scss`** — SFC style blocks, `.sass`, CSS-in-JS.
   **Same recommendation: wait for evidence.** Unresolved.
+
+## What shipped
+
+- `scripts/validate-adherence.mjs`: `blankComments` and `blankMasks` feed hex
+  extraction only. `tokenPackageDirs` finds each `--tokens` file's owning
+  package, and the CLI sets that package's files aside after the walk, counts
+  them, and prints one `excluded:` line per package. The headline and
+  `nothing-scanned` count files scanned.
+- `scripts/validate-adherence.test.mjs`: 15 new tests, plus an `excluded` entry
+  in the render test. Each narrowing was switched off in a scratch copy, and at
+  least one new test failed every time. So did two-pass comment blanking and
+  dropping the `:` guard.
+- `CHANGELOG.md`: a fourth "worth knowing" bullet in the unreleased gate entry.
+- `scripts/README.md`: one sentence on the exclusion under `## Usage`.
+- `docs/superpowers/notes/2026-09-11-colour-rule-measurement.md`: an "After
+  narrowing (#123)" section with the per-run table.
+- **Totals, same commits:** 73 flags → 26. 21 true → 21, 51 false → 4, 1 unclear
+  → 1. The false rate went from 70% to 15%. Every diff is removals only, and
+  exactly the ones in Step 6. The `packages` run went from 34 flags to 0, and it
+  now fails `nothing-scanned`, because with the token package set aside nothing
+  in `packages/` holds a hex or imports the system.
+
+## Where it diverged
+
+- **Step 6's as-shipped outputs** came from running the unchanged gate on this
+  branch before Step 1, not from a `git worktree` of `6ea9a5c`. Nothing under
+  `scripts/` differs between the two. The three saved runs reproduced flag for
+  flag, and that run also supplied the `packages` baseline, which had no saved
+  output.
+- **Step 6's commands ran early,** right after Step 3, as a check before the
+  docs were written. The gate code didn't change after that, so the numbers
+  were recorded from that run once Step 5 passed.
 
 ## Plan
 

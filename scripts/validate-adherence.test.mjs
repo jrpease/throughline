@@ -1,15 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import {
   extract,
   normalizeHex,
   validate,
   buildTokenValues,
   formatReport,
+  tokenPackageDirs,
 } from './validate-adherence.mjs';
 
 const SRC = `
@@ -84,6 +85,72 @@ test('a multi-line tag is read, and reports the line the tag opens on', () => {
       ['size', 'lg', 2],
     ],
   );
+});
+
+// #123, measured: `var(--signal-500); /* #5B7FFF */` in throughline-ds lab.css
+// failed code that already uses the token.
+const hexes = (text, path) => extract(text, '@acme/ui', path).literals;
+
+test('a hex inside a block comment is not a literal', () => {
+  assert.deepEqual(hexes('--x: var(--signal-500); /* #5B7FFF */\n', 'a.css'), []);
+});
+
+test('blanking a comment keeps the line numbers after it', () => {
+  // Line 1 opens the comment, lines 2 and 3 continue and close it, line 4 holds
+  // the hex. Counted by hand.
+  const text = '/* one\n   two\n   three */\n.a { color: #3b82f6; }\n';
+  assert.deepEqual(hexes(text, 'a.css'), [{ value: '#3b82f6', line: 4 }]);
+});
+
+test('a hex after // is not a literal outside plain CSS', () => {
+  assert.deepEqual(hexes('// #3b82f6\n', 'a.scss'), []);
+  assert.deepEqual(hexes('// #3b82f6\n', 'a.ts'), []);
+  assert.deepEqual(hexes('// #3b82f6\n'), []);
+});
+
+test('// is not a comment in plain CSS', () => {
+  assert.deepEqual(hexes('// #3b82f6\n', 'a.css'), [{ value: '#3b82f6', line: 1 }]);
+});
+
+test('// after a colon is a URL, not a comment', () => {
+  const text = "const u = 'https://x.test'; const c = '#3b82f6';\n";
+  assert.deepEqual(hexes(text, 'a.ts'), [{ value: '#3b82f6', line: 1 }]);
+});
+
+test('a /* inside a // comment does not pair with a later */', () => {
+  const text = '// see /*\ncolor: #3b82f6;\n/* note */\n';
+  assert.deepEqual(hexes(text, 'a.scss'), [{ value: '#3b82f6', line: 2 }]);
+});
+
+// #123, measured: the border-gradient idiom in zygarden's
+// account-settings.component.scss, where only alpha matters.
+const MASKED = `.a {
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  color: #fff;
+}
+`;
+
+test('a hex inside a mask declaration is not a literal', () => {
+  // The only literal left is the color on line 8. Counted by hand.
+  assert.deepEqual(hexes(MASKED, 'a.scss'), [{ value: '#ffffff', line: 8 }]);
+  assert.deepEqual(hexes(MASKED, 'a.css'), [{ value: '#ffffff', line: 8 }]);
+});
+
+test('mask-composite, --mask and $mask suppress nothing', () => {
+  const text = '.a {\n  mask-composite: exclude;\n  --mask: #fff;\n}\n$mask: #fff;\n';
+  assert.deepEqual(hexes(text, 'a.scss'), [
+    { value: '#ffffff', line: 3 },
+    { value: '#ffffff', line: 5 },
+  ]);
+});
+
+test('a mask outside CSS and SCSS still yields its literals', () => {
+  assert.equal(hexes(MASKED, 'a.tsx').length, 5);
 });
 
 test('normalizeHex folds the spellings of one colour together', () => {
@@ -462,8 +529,106 @@ test('every rule renders without undefined leaking into the text', () => {
       ],
       [{ value: '#123456', line: 5 }],
     ),
+    excluded: [{ dir: 'packages/tokens', files: 2 }],
   });
   const text = formatReport(r).join('\n');
   assert.equal(text.includes('undefined'), false, text);
   assert.match(text, /skipped:\s+unknown-variant-value/);
+  assert.match(text, /excluded:\s+2 file\(s\) in packages\/tokens/);
+});
+
+// #123, measured: walked from libs/ or packages/, the gate read the token
+// package's own generated css/tokens.css and failed every primitive in it, 41
+// times in zygarden and 34 in throughline-ds.
+const tree = (files) => {
+  const dir = mkdtempSync(join(tmpdir(), 'adherence-tree-'));
+  for (const [path, content] of Object.entries(files)) {
+    mkdirSync(dirname(join(dir, path)), { recursive: true });
+    writeFileSync(join(dir, path), content);
+  }
+  return dir;
+};
+const TOKENS_JSON = JSON.stringify({ c: { $value: '#3B82F6', $type: 'color' } });
+const SYSTEM = {
+  'design-system.json': JSON.stringify({ components: { built: [] } }),
+  'design-system/docs/index.json': JSON.stringify({ components: [] }),
+};
+const runCli = (root, system, tokens) => {
+  try {
+    const out = execFileSync(
+      'node',
+      [
+        'scripts/validate-adherence.mjs',
+        '--root', root,
+        '--system', system,
+        '--package', '@acme/ui',
+        '--tokens', tokens,
+        '--skip', 'unknown-variant-value',
+      ],
+      { encoding: 'utf8' },
+    );
+    return { code: 0, out };
+  } catch (e) {
+    return { code: e.status, out: e.stdout ?? '' };
+  }
+};
+
+test('tokenPackageDirs finds the package that owns a tokens file beneath the root', () => {
+  const root = tree({ 'app/.keep': '', 'tokens/package.json': '{}', 'tokens/dtcg/tokens.json': TOKENS_JSON });
+  assert.deepEqual(tokenPackageDirs([join(root, 'tokens/dtcg/tokens.json')], root), [
+    realpathSync(join(root, 'tokens')),
+  ]);
+});
+
+test('tokenPackageDirs keeps no package that is the root or contains it', () => {
+  const repo = tree({ 'package.json': '{}', 'tokens.json': TOKENS_JSON, 'src/a.css': '' });
+  assert.deepEqual(tokenPackageDirs([join(repo, 'tokens.json')], join(repo, 'src')), []);
+  assert.deepEqual(tokenPackageDirs([join(repo, 'tokens.json')], repo), []);
+});
+
+test('the CLI skips the token package, flags the app, and says what it skipped', () => {
+  const root = tree({
+    'app/page.css': '.a { color: #3b82f6; }\n',
+    'tokens/package.json': '{}',
+    'tokens/tokens.json': TOKENS_JSON,
+    'tokens/css/tokens.css': ':root { --c: #3b82f6; }\n',
+  });
+  const { code, out } = runCli(root, tree(SYSTEM), join(root, 'tokens/tokens.json'));
+  assert.equal(code, 1, out);
+  const flagged = out.split('\n').filter((l) => l.includes('[token-exists-for-literal]'));
+  assert.equal(flagged.length, 1, out);
+  assert.match(flagged[0], /app\/page\.css:1/);
+  assert.match(out, /, 1 files\n/, 'the headline counts files scanned, not files walked');
+  assert.ok(out.includes(`excluded:     1 file(s) in ${join(root, 'tokens')}`), out);
+});
+
+test('the CLI excludes nothing when the token package contains the root', () => {
+  const repo = tree({
+    'package.json': '{}',
+    'tokens.json': TOKENS_JSON,
+    'src/a.css': '.a { color: #3b82f6; }\n',
+  });
+  const { code, out } = runCli(join(repo, 'src'), tree(SYSTEM), join(repo, 'tokens.json'));
+  assert.equal(code, 1, out);
+  assert.match(out, /\[token-exists-for-literal\] #3b82f6 at .*a\.css:1/);
+  assert.equal(out.includes('excluded:'), false, out);
+});
+
+test('a token package with no scannable files prints no excluded line', () => {
+  const root = tree({
+    'app/page.css': '.a { color: #3b82f6; }\n',
+    'tokens/package.json': '{}',
+    'tokens/tokens.json': TOKENS_JSON,
+  });
+  const { code, out } = runCli(root, tree(SYSTEM), join(root, 'tokens/tokens.json'));
+  assert.equal(code, 1, out);
+  assert.match(out, /\[token-exists-for-literal\] #3b82f6 at .*page\.css:1/);
+  assert.equal(out.includes('excluded:'), false, out);
+});
+
+test('a run that excluded everything still says what it excluded', () => {
+  const r = validate({ files: [], walked: 0, excluded: [{ dir: 'x/tokens', files: 3 }] });
+  const text = formatReport(r).join('\n');
+  assert.match(text, /nothing-scanned/);
+  assert.match(text, /excluded:     3 file\(s\) in x\/tokens/);
 });
