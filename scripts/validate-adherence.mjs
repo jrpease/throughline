@@ -101,6 +101,7 @@ export function validate({
   index = { components: [] },
   tokenValues = new Map(),
   files = [],
+  walked = files.length,
   skip = [],
 }) {
   const off = new Set(skip);
@@ -112,7 +113,7 @@ export function validate({
   const stats = {
     usages: 0,
     literals: 0,
-    files: files.length,
+    files: walked,
     axisMatched: 0,
     axisUnmatched: 0,
     dynamic: 0,
@@ -344,6 +345,7 @@ function main() {
     index,
     tokenValues,
     files,
+    walked: walked.length,
     skip: values.skip,
   });
   for (const line of formatReport(r)) console.log(line);

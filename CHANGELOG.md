@@ -46,6 +46,13 @@ to [Semantic Versioning](https://semver.org).
   each carried a byte-identical copy of the excludes and the walk; both now read
   it from here, and it ships to consumer repos alongside `guard-token-removal.mjs`.
 
+### Fixed
+
+- **`validate-adherence.mjs` reports the files it walked when the
+  `nothing-scanned` rule fires**, not the files that yielded a usage or a
+  literal — which was always zero whenever the rule fired. The count now
+  distinguishes a wrong `--root` from a `--package` the app never imports.
+
 ### Changed
 
 - **`walk`'s second parameter is now an options object** (`{ excludes,
