@@ -138,6 +138,8 @@ seven steps pass, with 587 tests.
 
 ## Where it diverged
 
+- **Routing.** Steps 1 to 4 went to `implementer`. Steps 5, 6 and 7 ran inline.
+  None came back BLOCKED.
 - **Step 3 exports two helpers it didn't name as exports.** `blankParens` and
   `blankFontFaces` are exported, beside `blankComments` and `blankMasks`, which
   already were. Nothing imports them yet. Behaviour matches the step.
