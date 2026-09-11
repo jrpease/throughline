@@ -65,6 +65,31 @@ to [Semantic Versioning](https://semver.org).
 - **`token-crosswalk-builder` now copies `lib/source-scan.mjs`.** A repo that
   refreshes `guard-token-removal.mjs` without it gets an import error.
 
+### Fixed
+
+- **The Figma executor checks which file it is about to write to, not just that
+  a bridge is up (#107).** Every write lands in whichever Figma file is active.
+  With two files open, a green status check could still send a component build
+  into the wrong one. Our own reference described the fix and the executor never
+  followed it: it had no way to switch files and never looked at the file key.
+
+  It now reads `figma.fileKey` from `design-system.json` and compares it with the
+  active file before the first write, and again before it replaces an existing
+  component. If they differ, it switches to the target and checks again. It stops
+  with `BLOCKED` only when the manifest has no file key, or the target file does
+  not have the Desktop Bridge plugin open.
+- **Promoting a component to `stable` now reaches doc cards with the legacy
+  header (#108).** Doc cards come in two header shapes. Current cards name their
+  chip `Status` and its text `Status Label`. Older cards carry a `Status Pill`
+  instead. The doc-card builder already handled both. The finalize write-back
+  only looked for the current names, so on an older card the manifest and
+  `.doc.json` said `stable` while the card in Figma still said `draft`, and
+  nothing mentioned it.
+
+  The write-back now finds the chip under either shape, the same way the builder
+  does. When it can't find one, it leaves that card alone and tells you by name
+  which cards still show the old status.
+
 ## [0.19.0] — 2026-08-31
 
 ### Corrected

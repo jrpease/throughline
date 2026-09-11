@@ -279,7 +279,11 @@ the `figma_execute` scripting gotchas — `getNodeByIdAsync` and an explicit
   the component's `.doc.json`, recompute its fingerprint, re-run `docs:digest`, and
   re-render the affected surfaces so `docs:check` stays green.
 - If Figma is connected (per `figma.mechanism`), open the component's doc card and
-  update the `Status Label` text to `stable`, re-bind the `Status` chip fill to
+  locate its status chip under either header shape, as the routine describes: a
+  `Status` chip with a `Status Label` text node on to-spec cards, a `Status Pill`
+  with one text node on legacy cards. If neither is there, don't guess — tell the
+  user that card still shows the old status. Otherwise set the label text to
+  `stable`, re-bind the chip fill to
   the **success** semantic color variable (mode-aware, not a hardcoded hex), then
   re-run the canonical doc-card builder against the same card to refresh the
   header date from the `record.updatedAt` already set above (it locates the date

@@ -14,7 +14,7 @@ tested here; copied verbatim by `token-crosswalk-builder` into the user's
 | `validate-adherence.mjs` | Assert the code *consuming* a design system still adheres to it: every referenced component exists, every literal variant value is one the system declares, and no colour literal duplicates a token that already holds that value. Fails when an enabled rule had nothing to check, so a green run always means something was verified. | `adherence:check` |
 | `lib/source-scan.mjs` | Shared source-tree walker (`walk`, `DEFAULT_EXCLUDES`, `SOURCE_EXT`) plus `normalizeName`, the display-name-to-code-identifier fold. Every gate that scans a consumer's repo reads it from here rather than carrying its own copy. | copied alongside `guard-token-removal.mjs` |
 | `lib/crosswalk.mjs` | Shared loader + structural validation for `crosswalk.json` (used by the validator and reverse-index). | copied alongside |
-| `lib/dtcg.mjs` | Shared DTCG flatten + `{alias}` resolution. Dual-node aware: a node carrying both a `$value` and children yields its own value **and** is descended into. Used by `validate-crosswalk.mjs` and `validate-token-output.mjs`. | copied alongside both |
+| `lib/dtcg.mjs` | Shared DTCG flatten + `{alias}` resolution. Dual-node aware: a node carrying both a `$value` and children yields its own value **and** is descended into. Used by `validate-crosswalk.mjs`, `validate-token-output.mjs`, `validate-adherence.mjs`, and `lib/sd-native.mjs`. | copied alongside each of those |
 | `lib/sd-native.mjs` | The Style Dictionary native configuration as code: unit-aware dimension transforms, `color-mix` computation, dual-node preprocessing, platform assembly, and a per-mode source guard. Style Dictionary is a parameter, never an import. | copied alongside `validate-token-output.mjs` |
 | `lib/native-literal.mjs` | Shared grammar for "is this a well-formed Swift or Kotlin literal": parses rather than pattern-matches, so an unquoted string, a raw CSS function, or any other unanticipated case fails the same way. Used by `sd-native.mjs`'s output filter and by `validate-token-output.mjs`'s invalid-literal rule. | copied alongside `validate-token-output.mjs` and `lib/sd-native.mjs` |
 | `crosswalk.schema.json` | The finalized JSON Schema for `crosswalk.json` (contract + editor support). | copied beside `crosswalk.json` |
@@ -46,7 +46,7 @@ scripts:
 | `lib/dtcg.mjs` | — (imported by the above) |
 
 A refresh that adds a file must also add its npm script; check `package.json`
-for all four every time, not just the file that changed.
+for all four npm scripts every time, not just the file that changed.
 
 The crosswalk contract is documented in
 `${CLAUDE_PLUGIN_ROOT}/references/crosswalk-schema.md`.
@@ -103,7 +103,7 @@ Run the suite from the repo root (no install step — uses only Node built-ins):
 node --test
 ```
 
-This auto-discovers every `**/*.test.mjs` recursively (31 tests). Don't use
+This auto-discovers every `**/*.test.mjs` recursively. Don't use
 `node --test scripts/` — a directory positional is treated as a test name on
 Node >=21 and errors; a `scripts/*.test.mjs` glob silently skips `scripts/lib/`.
 
