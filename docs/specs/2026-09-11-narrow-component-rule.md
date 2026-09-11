@@ -113,9 +113,13 @@ All five steps, on `fix/120-narrow-component-rule`.
   and `<Buttons>` once each, where before it missed the first and failed the
   second three times. `<CardGrid />` passes as a part of `Card`, as Decisions
   says it would.
+- **Re-run before the PR:** all five runs, at the branch head, came out byte for
+  byte the same as the recorded reports. All seven CI steps exit 0.
 
 ## Where it diverged
 
+- **Routing.** Steps 1 and 2 went to `implementer`. Steps 3, 4 and 5 ran inline.
+  Nothing came back BLOCKED.
 - **Steps 1 and 2 landed as one commit** (`15e59c2`). They'd been built and left
   uncommitted, so their Verify was re-run first: 100 tests pass, and the bare
   CLI exits 2 with the usage line.
