@@ -11,8 +11,9 @@ to [Semantic Versioning](https://semver.org).
 - **`scripts/validate-adherence.mjs` — a code adherence gate (#39).** Reads a
   design system's own records and fails a build when consuming code has drifted
   from it: a component that is not in `design-system.json`'s `components.built`,
-  a literal variant value outside the set the docs index declares, or a colour
-  literal that a token already holds the exact value for. Installed as
+  a literal variant value outside the set the docs index declares, a colour
+  literal that a token already holds the exact value for, or a spacing, radius
+  or type literal a token already holds, in the same category. Installed as
   `adherence:check` alongside the documentation scripts.
 
   **It is not wired into any existing script automatically.** Nothing runs it
@@ -21,7 +22,7 @@ to [Semantic Versioning](https://semver.org).
   `--system` paths matching the repo's layout — that must be substituted before
   it can run.
 
-  Four things worth knowing before switching it on:
+  Five things worth knowing before switching it on:
 
   - **A system whose records and code disagree about axis names will see
     `variant-rule-inert`, and should read the report rather than skip the rule.**
@@ -34,9 +35,11 @@ to [Semantic Versioning](https://semver.org).
     must have had something to check. The report says how many files it walked,
     so a wrong `--root` (none) reads differently from a `--package` the app never
     imports (plenty, none of them using it).
-  - **Only hex colours are compared.** A token authored `rgb()` or `hsl()`, or a
-    literal written that way, is left alone rather than normalised into a guess,
-    and a literal with no matching token is never reported at all.
+  - **Hex and opaque `rgb()` colours are compared.** `rgba(163, 230, 34, 1)` and
+    `#a3e622` are the same colour, so they match whichever one the token uses
+    and whichever one the code uses. `hsl()` and anything with alpha below 1 are
+    left alone rather than guessed at, and a literal with no matching token is
+    never reported at all.
   - **The colour rule leaves three things alone, and never skips a colour for
     what it is.** Files inside the package that owns a `--tokens` file aren't
     scanned when that package sits beneath `--root`, so a token package walked
@@ -46,6 +49,15 @@ to [Semantic Versioning](https://semver.org).
     because only alpha matters there. A `#fff` on a toast still fails. Against
     two real apps, this took the rule from 70% wrong to 15% without losing a
     single true positive.
+  - **A spacing, radius or type literal is only compared inside its own
+    category.** `1rem` and `16px` count as the same value, because that's what
+    the token build emits. `font-size: 16px` is checked against font-size tokens,
+    never a 16px radius, and a token's category comes from its name (`space.4`,
+    `radius.md`, `font.size.200`). The report prints how many tokens landed in
+    each category, so a system whose names don't fit shows up as a zero. Numbers
+    inside `calc()`, `clamp()` or a `var()` fallback are left alone, and so are
+    `0` and `@font-face` descriptors. Tailwind step classes like `p-4` aren't
+    read, only arbitrary values like `p-[16px]`.
 
   Advisories — expressions the regex cannot read, props matching no declared
   axis, built components with no doc record — are printed on every run and never
