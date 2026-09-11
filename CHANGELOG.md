@@ -69,6 +69,31 @@ to [Semantic Versioning](https://semver.org).
   each carried a byte-identical copy of the excludes and the walk; both now read
   it from here, and it ships to consumer repos alongside `guard-token-removal.mjs`.
 
+- **`scripts/validate-token-output.mjs` checks web output too (#37).** Until now
+  a web adapter counted as verified when it built, and a build can exit `0` on
+  broken CSS. Run through stock Style Dictionary 4.4.0, a real token source
+  shipped `leading` ratios as `rem` (`1.1` → `1.1rem`, a 17.6px line height) and
+  thirteen raw `{text.5xl.lineHeight}` references. A Figma-shaped source shipped
+  `16` → `16rem`, and `[object Object]` for a composite with no shorthand
+  transform. `--platform shadcn`, `tailwind` and `vanilla-css` now read CSS
+  custom properties and fail on all four, plus a `var()` that names the wrong
+  token and a `var()` to a variable nothing declares. `var()`, `calc()`,
+  `color-mix()` and units never fail for being CSS.
+
+  - **One run is one mode block.** `--block` picks it (`:root`, `.dark`,
+    `@media (min-width: 768px) :root`). A file with several blocks and no
+    `--block` exits `2` and lists them with their declaration counts.
+  - **A build split across files passes every file** as another `--output`, so
+    a `var()` in `_light.css` to a variable `_root.css` declares isn't dangling.
+  - **shadcn and tailwind aliases don't count against the match rate.**
+    `--background: var(--color-bg-canvas)` has no source token by design, so
+    it's reported on its own line instead, and `--min-match 1` still passes
+    correct output.
+
+  `token-sync-layer` now runs the gate for web adapters the same way it does for
+  native ones. A MUI theme is a JavaScript object with no custom properties, so
+  `--platform mui` exits `2` and isn't checked yet (#127).
+
 ### Changed
 
 - **`walk`'s second parameter is now an options object** (`{ excludes,

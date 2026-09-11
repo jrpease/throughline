@@ -10,7 +10,7 @@ tested here; copied verbatim by `token-crosswalk-builder` into the user's
 | `validate-crosswalk.mjs` | Resolve every `newToken` against the DTCG token source; assert resolved value == `newValue`, N/N. The CI gate. | `tokens:validate` |
 | `build-reverse-index.mjs` | Emit a `codeToken -> newToken` map from the crosswalk to semi-automate SCSS/Tailwind swaps. | `tokens:reverse-index` |
 | `guard-token-removal.mjs` | Grep `.ts/.tsx` (minus generated + tests) for about-to-be-deleted symbols; blocks cleanup until zero references remain. | run during the cleanup phase |
-| `validate-token-output.mjs` | Assert generated native token output matches its DTCG source: authored-unit fidelity, no leaked CSS syntax, no bare unit literals, no mode collisions. Fails when no emitted symbol matches a source token, and reports match rate, unparsed lines, and unemitted tokens on every run. | `tokens:validate-output` |
+| `validate-token-output.mjs` | Assert generated token output — Swift, Kotlin, or web CSS custom properties — matches its DTCG source: authored-unit fidelity, no leaked CSS syntax, no bare unit literals, no mode collisions. Fails when no emitted symbol matches a source token, and reports match rate, unparsed lines, and unemitted tokens on every run. | `tokens:validate-output` |
 | `validate-adherence.mjs` | Assert the code *consuming* a design system still adheres to it: every referenced component exists, every literal variant value is one the system declares, and no colour, spacing, radius or type literal duplicates a token that already holds that value. Fails when an enabled rule had nothing to check, so a green run always means something was verified. | `adherence:check` |
 | `lib/source-scan.mjs` | Shared source-tree walker (`walk`, `DEFAULT_EXCLUDES`, `SOURCE_EXT`) plus `normalizeName`, the display-name-to-code-identifier fold. Every gate that scans a consumer's repo reads it from here rather than carrying its own copy. | copied alongside `guard-token-removal.mjs` |
 | `lib/crosswalk.mjs` | Shared loader + structural validation for `crosswalk.json` (used by the validator and reverse-index). | copied alongside |
@@ -58,6 +58,7 @@ node validate-crosswalk.mjs --crosswalk crosswalk.json --tokens dtcg/tokens.json
 node build-reverse-index.mjs --crosswalk crosswalk.json --out crosswalk.reverse.json
 node guard-token-removal.mjs --root . --symbols symbols-to-remove.txt
 node validate-adherence.mjs --root ../../apps --system ../.. --package @acme/ui --tokens dtcg/tokens.json
+node validate-token-output.mjs --source dtcg/primitives.json --source dtcg/semantic.dark.json --output css/tokens.css --platform shadcn --block .dark --min-match 1
 ```
 
 `validate-adherence.mjs` takes every path explicitly because cwd is the package
@@ -71,6 +72,39 @@ is the supported answer for a repo the rule cannot apply to (a Vue or Svelte app
 has no JSX for the component rules to read). `--skip token-exists-for-dimension`
 is the answer for a system with no spacing, radius or type tokens, which
 otherwise fails as `dimension-rule-inert`.
+
+`validate-token-output.mjs` reads web output as CSS custom properties for
+`--platform shadcn`, `tailwind` and `vanilla-css`. `mui` exits `2`: a MUI theme,
+like a Tailwind v3 JavaScript config, has no custom properties to read, and
+isn't checked yet (#127). Web puts every mode in one file, so run the gate once
+per mode block, passing the sources that block was built from. `--block` names
+the block by its enclosing at-rules and selector, joined by single spaces:
+`:root`, `.dark`, `[data-theme="light"]`, `@media (min-width: 768px) :root`,
+`@theme inline`. A file with one block needs no `--block`. A file with several,
+or a `--block` that isn't there, exits `2` and lists every block with its
+declaration count, so the exact key is in the error. A build split across files
+passes each one as another `--output`: everything declared in any of them counts
+as declared, and a token declared in any block counts as emitted. Six rules fail
+a web run:
+
+- `unit-fidelity` — the value changed magnitude, or a ratio gained a unit, or a
+  length lost one (`16` → `16rem`, `1.1` → `1.1rem`, `16px` → `16`). `16` →
+  `1rem` passes.
+- `reference-fidelity` — a declaration's `var()`s don't name the tokens its
+  source references.
+- `dangling-reference` — a `var()` to a variable no `--output` declares, unless
+  the source wrote that `var()` itself.
+- `no-unresolved-reference` — a `{reference}` reached the CSS unresolved.
+- `invalid-value` — `[object Object]`, `NaN` or `undefined` was written into the
+  CSS.
+- `unverifiable-dimension` — a dimension came out in a form the gate can't
+  compare, so it was never checked.
+
+Nothing fails for being CSS: `var()`, `calc()`, `color-mix()` and units are all
+legal output. On `shadcn` and `tailwind`, a declaration with no source token
+whose whole value is a `var()` to a declared variable is an alias layer
+(`--background: var(--color-bg-canvas)`). The report counts aliases on their own
+line and leaves them out of the match rate, so `--min-match 1` still holds.
 
 Exit codes: `0` success, `1` validation/guard failure (mismatch, missing token,
 conflict, or remaining reference), `2` bad CLI arguments.

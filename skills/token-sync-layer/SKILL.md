@@ -187,12 +187,12 @@ list. See `${CLAUDE_PLUGIN_ROOT}/references/native-adapter-config.md`.
 **Execution model — subagent dispatch with model routing.** Generating each
 platform's output is independent and verifiable. If your host supports subagent
 dispatch, dispatch **one `code-executor` per adapter** — each produces its
-platform's files and verifies them (for web: the config builds, the expected
-files appear, references resolve; for native: `tokens:validate-output` passes —
-"the config builds" is not verification, it is the condition under which all
-four known native failure modes ship silently) — then a **`reviewer`**
-to check each before combining. Choose each subagent's model from its role tier
-per `${CLAUDE_PLUGIN_ROOT}/references/agent-routing.md` (`code-executor` → fast,
+platform's files and verifies them (for web and native alike:
+`tokens:validate-output` passes — a clean build is not verification, it is the
+condition under which every known failure mode, web or native, ships silently)
+— then a **`reviewer`** to check each before combining. Choose each subagent's
+model from its role tier per
+`${CLAUDE_PLUGIN_ROOT}/references/agent-routing.md` (`code-executor` → fast,
 `reviewer` → balanced), and only dispatch once each adapter's spec is complete
 enough to transcribe. If your host has no subagent dispatch, generate and verify
 each adapter inline instead. For a single platform, run inline either way. This
@@ -206,8 +206,9 @@ as **build artifacts** — regenerated every sync, never hand-edited. Wire
 `packages/tokens/package.json` to export them so the UI package, Storybook, and
 any future app consume them.
 
-**Install the native token toolkit — all four files, as a set.** Copy these from
-`${CLAUDE_PLUGIN_ROOT}/scripts/` into the user's repo verbatim:
+**Install the token toolkit — all four files, as a set, for web and native
+targets alike.** Copy these from `${CLAUDE_PLUGIN_ROOT}/scripts/` into the
+user's repo verbatim:
 
 - `validate-token-output.mjs` → `packages/tokens/scripts/validate-token-output.mjs`
 - `lib/dtcg.mjs` → `packages/tokens/scripts/lib/dtcg.mjs`
@@ -223,8 +224,12 @@ import. Then register the gate so it stays live on every future sync:
 ```
 
 Invoke it once per native output file, passing the same `--source` list that
-file's build used. `--min-match 1` is what makes it a gate: the flag defaults to
-`0.5`, so without it a 60% match rate exits `0`.
+file's build used. For web output (`shadcn`, `tailwind`, `vanilla-css`), invoke
+it once per mode block instead: name the block with `--block` and pass the
+sources that block was built from. A MUI theme isn't checked yet (#127). The
+full contract is in `${CLAUDE_PLUGIN_ROOT}/scripts/README.md`. `--min-match 1`
+is what makes it a gate: the flag defaults to `0.5`, so without it a 60% match
+rate exits `0`.
 
 ## Step 4.5 — Icon code sync (install check + custom SVGR)
 
