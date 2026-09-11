@@ -37,6 +37,108 @@ const DECL = {
 // inside a string literal must survive untouched.
 const TRAILING_COMMENT = /\s+(\/\*\*?[\s\S]*\*\/|\/\/.*)$/;
 
+// Adapters name blocks differently ("@media (min-width: 768px) :root" vs
+// ":root") but the same block reached two different ways must compare equal —
+// collapse whitespace and normalize the comma spacing a multi-selector block
+// (":root,\n.dark") is written with.
+export function normalizeBlock(s) {
+  return String(s).replace(/\s+/g, ' ').replace(/\s*,\s*/g, ', ').trim();
+}
+
+// Web output for tokens:validate-output (docs/specs/2026-09-11-web-token-output-validation.md),
+// Step 2. A scanner, not a CSS parser: the only structure this needs is which
+// declarations sit inside which selector/at-rule nesting, and a hand-rolled
+// state machine over `stack` models that directly without pulling in a real
+// CSS grammar. A `{` found while `seg` already looks like a custom property's
+// name and colon is kept IN the value rather than opened as a new block — an
+// unresolved reference such as `{text.xs.lineHeight}` (left raw by a broken
+// Style Dictionary build) must stay readable as the value it is, not be
+// misread as a nested block.
+export function extractCustomProperties(text) {
+  const declarations = [];
+  let unparsed = 0;
+  const stack = [];
+  let seg = '';
+
+  function flush() {
+    const s = seg.trim();
+    seg = '';
+    if (!s || stack.length === 0) return;
+    const m = s.match(/^(--[A-Za-z0-9_-]+)\s*:([\s\S]*)$/);
+    if (m) {
+      declarations.push({ block: stack.join(' '), name: m[1], value: m[2].trim() });
+    } else {
+      unparsed += 1;
+    }
+  }
+
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (c === '/' && text[i + 1] === '*') {
+      const end = text.indexOf('*/', i + 2);
+      i = end === -1 ? text.length : end + 2;
+      seg += ' ';
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      const quote = c;
+      seg += c;
+      i += 1;
+      while (i < text.length) {
+        const ch = text[i];
+        seg += ch;
+        if (ch === '\\') {
+          i += 1;
+          if (i < text.length) {
+            seg += text[i];
+            i += 1;
+          }
+          continue;
+        }
+        i += 1;
+        if (ch === quote || ch === '\n') break;
+      }
+      continue;
+    }
+    if (c === '{') {
+      if (/^\s*--[A-Za-z0-9_-]+\s*:/.test(seg)) {
+        let depth = 1;
+        seg += c;
+        i += 1;
+        while (i < text.length && depth > 0) {
+          const ch = text[i];
+          seg += ch;
+          if (ch === '{') depth += 1;
+          else if (ch === '}') depth -= 1;
+          i += 1;
+        }
+        continue;
+      }
+      stack.push(normalizeBlock(seg));
+      seg = '';
+      i += 1;
+      continue;
+    }
+    if (c === '}') {
+      flush();
+      stack.pop();
+      i += 1;
+      continue;
+    }
+    if (c === ';') {
+      flush();
+      i += 1;
+      continue;
+    }
+    seg += c;
+    i += 1;
+  }
+  flush();
+
+  return { declarations, unparsed };
+}
+
 export function extractDeclarations(text, platform) {
   const re = DECL[platform];
   if (!re) throw new Error(`unknown platform "${platform}"`);

@@ -867,3 +867,72 @@ test('formatReport renders a symbol-less advisory without printing undefined', (
   assert.ok(text.includes('tracking.widest'));
   assert.ok(!/undefined/.test(text), 'a missing symbol must never reach the report');
 });
+
+import { normalizeBlock, extractCustomProperties } from './validate-token-output.mjs';
+
+test('extractCustomProperties strips a leading doc comment and a trailing inline comment', () => {
+  const css = '/**\n * Do not edit directly.\n */\n\n:root {\n  --a: 1px;\n  --b: var(--a); /* note */\n}\n';
+  const r = extractCustomProperties(css);
+  assert.deepEqual(r.declarations, [
+    { block: ':root', name: '--a', value: '1px' },
+    { block: ':root', name: '--b', value: 'var(--a)' },
+  ]);
+  assert.equal(r.unparsed, 0);
+});
+
+test('extractCustomProperties reads a plain selector, an attribute selector, and a media-nested block', () => {
+  const css = ':root {\n  --a: 1px;\n}\n[data-theme="light"] {\n  --a: 2px;\n}\n@media (min-width: 768px) {\n  :root {\n    --a: 3px;\n  }\n}\n';
+  const r = extractCustomProperties(css);
+  assert.deepEqual(
+    r.declarations.map((d) => d.block),
+    [':root', '[data-theme="light"]', '@media (min-width: 768px) :root'],
+  );
+});
+
+test('extractCustomProperties joins a multi-selector block under one normalized block name', () => {
+  const css = '@layer base {\n  :root,\n  .light {\n    --x: 2px;\n  }\n}\n';
+  const r = extractCustomProperties(css);
+  assert.equal(r.declarations.length, 1);
+  assert.equal(r.declarations[0].block, '@layer base :root, .light');
+});
+
+test('extractCustomProperties reads a Tailwind @theme block', () => {
+  const css = '@theme inline {\n  --color-bg: var(--background);\n}\n';
+  const r = extractCustomProperties(css);
+  assert.equal(r.declarations[0].block, '@theme inline');
+});
+
+test('extractCustomProperties keeps an unresolved reference brace in the value, not as a nested block', () => {
+  const css = ':root {\n  --lh: {text.xs.lineHeight};\n  --c: red;\n}\n';
+  const r = extractCustomProperties(css);
+  assert.deepEqual(
+    r.declarations.map((d) => d.value),
+    ['{text.xs.lineHeight}', 'red'],
+  );
+});
+
+test('extractCustomProperties reads a quoted string value containing a semicolon and a brace', () => {
+  const css = ':root { --f: "a;b}"; --g: 1px; }';
+  const r = extractCustomProperties(css);
+  assert.deepEqual(
+    r.declarations.map((d) => d.value),
+    ['"a;b}"', '1px'],
+  );
+});
+
+test('extractCustomProperties counts a non-custom-property declaration as unparsed', () => {
+  const css = ':root { color: red; --a: 1px; }';
+  const r = extractCustomProperties(css);
+  assert.equal(r.declarations.length, 1);
+  assert.equal(r.unparsed, 1);
+});
+
+test('extractCustomProperties ignores a declaration outside any block', () => {
+  const r = extractCustomProperties('--a: 1px;\n');
+  assert.deepEqual(r.declarations, []);
+  assert.equal(r.unparsed, 0);
+});
+
+test('normalizeBlock collapses whitespace and normalizes comma spacing', () => {
+  assert.equal(normalizeBlock('  :root ,\n .dark '), ':root, .dark');
+});
