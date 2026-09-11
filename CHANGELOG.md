@@ -71,6 +71,17 @@ to [Semantic Versioning](https://semver.org).
   component. If they differ, it switches to the target and checks again. It stops
   with `BLOCKED` only when the manifest has no file key, or the target file does
   not have the Desktop Bridge plugin open.
+- **Promoting a component to `stable` now reaches doc cards with the legacy
+  header (#108).** Doc cards come in two header shapes. Current cards name their
+  chip `Status` and its text `Status Label`. Older cards carry a `Status Pill`
+  instead. The doc-card builder already handled both. The finalize write-back
+  only looked for the current names, so on an older card the manifest and
+  `.doc.json` said `stable` while the card in Figma still said `draft`, and
+  nothing mentioned it.
+
+  The write-back now finds the chip under either shape, the same way the builder
+  does. When it can't find one, it leaves that card alone and tells you by name
+  which cards still show the old status.
 
 ## [0.19.0] — 2026-08-31
 

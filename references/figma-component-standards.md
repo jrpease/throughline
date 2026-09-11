@@ -372,8 +372,20 @@ re-describing it:
    `${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md` — `getNodeByIdAsync`, and
    an explicit `timeout` since multi-card font-loading writes blow past the default
    ~5s budget), then inside it:
-   - set the `Status Label` text to the new status (e.g. `stable`);
-   - re-bind the `Status` chip fill to the matching semantic color variable
+   - locate the status chip under either header shape, the way the doc-card
+     builder's header guard does: find the header band structurally (the card's
+     child frame that is neither `Usage` nor the specimen nor an ancestor of it),
+     then search its first child, the title row, for a descendant named `Status`
+     (to-spec cards) or `Status Pill` (legacy cards). The chip's label is its
+     `Status Label` text node; a legacy pill has no named label, so use its one
+     TEXT descendant. If no chip is found, or the label doesn't resolve to exactly
+     one text node, **skip that card** without writing anything to it and record
+     its name — catch per card, so one miss never aborts the rest of a multi-card
+     write. After the loop, tell the user by name every card that still shows the
+     old status in Figma — the manifest already says `stable`, so a silent skip
+     leaves the card lying;
+   - set the label text to the new status (e.g. `stable`);
+   - re-bind the chip fill to the matching semantic color variable
      (`stable` → success, `draft`/`beta` → warning, `deprecated` → neutral/danger)
      — re-bind the variable, don't hardcode a hex, so it stays mode-aware.
    Then re-run the canonical doc-card builder
