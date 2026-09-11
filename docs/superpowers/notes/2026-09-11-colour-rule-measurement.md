@@ -244,3 +244,55 @@ the gate's file filter, then `extract(text)` and `buildTokenValues(files)`,
 printing each literal's `file:line`, matched token and source line. Its flagged
 counts match the CLI's on all three runs (14, 11, 48), which is the check that
 it reads what the gate reads.
+
+## After narrowing (#123)
+
+The same commands, against the same commits (`2a9d370`, `ca61ca9a6`), with the
+gate from `fix/123-narrow-colour-rule`. This time it's the change, not the
+prototype. Spec: `docs/specs/2026-09-11-narrow-colour-rule.md`.
+
+| run | files | colour literals | flagged | true | false | unclear | false rate |
+|---|---|---|---|---|---|---|---|
+| `throughline-ds` `--root apps` | 66 → 66 | 65 → 63 | 14 → 12 | 9 → 9 | 5 → 3 | 0 → 0 | 36% → 25% |
+| `zygarden` `--root apps` | 69 → 69 | 29 → 29 | 11 → 11 | 11 → 11 | 0 → 0 | 0 → 0 | 0% → 0% |
+| `zygarden` `--root libs` | 745 → 742 | 62 → 15 | 48 → 3 | 1 → 1 | 46 → 1 | 1 → 1 | 96% → 33% |
+| **total** | 880 → 877 | 156 → 107 | **73 → 26** | **21 → 21** | **51 → 4** | **1 → 1** | **70% → 15%** |
+| `throughline-ds` `--root packages` | 33 → 29 | 37 → 0 | 34 → 0 | 0 → 0 | 34 → 0 | 0 → 0 | 100% → none flagged |
+
+`files` is the headline count, which is now files scanned: files walked minus
+files excluded. The `packages` run was never part of the 73, so it sits outside
+the total, same as above.
+
+**All 21 true positives still fail.** Each run's flag list was diffed against
+the as-shipped list, keeping duplicates, and every diff is removals only.
+Nothing was added. Every removal is one of the false positives named in
+the spec:
+
+- **`throughline-ds` apps:** `lab.css:44` and `lab.css:48`, the two hex values
+  in comments.
+- **`zygarden` apps:** nothing.
+- **`zygarden` libs:** the 41 `libs/shared/util-tokens/css/tokens.css` lines,
+  and the mask at `account-settings.component.scss:24`, `:25`, `:27` and `:28`.
+  Left: `qr-code.helper.ts:21` (false), `global-error-handler.service.ts:85`
+  (true) and `meta-statistics.component.ts:46` (unclear).
+- **`throughline-ds` packages:** all 34 `tokens/shadcn/tokens.css` lines.
+
+The exclusion shows up in the report. The two runs whose root holds the token
+package print:
+
+```
+excluded:     3 file(s) in measure/zygarden-frontend/libs/shared/util-tokens, the package that owns --tokens
+excluded:     4 file(s) in measure/throughline-brand/packages/tokens, the package that owns --tokens
+```
+
+The `apps` runs print no `excluded:` line, because neither token package sits
+beneath `apps/`.
+
+**The `packages` run now fails `nothing-scanned`, and that's right.** With the
+token package set aside, its 29 files hold no hex and import nothing from
+`@throughline-ds/ui`, so the run verified nothing. It used to fail 34 times for
+the wrong reason. Now it fails once for the right one.
+
+The 4 false positives left are classes 4 and 5, the floor this note predicted:
+`daily-cycle-state.ts:32` and `:34`, `node-logos.tsx:111`, and
+`qr-code.helper.ts:21`.

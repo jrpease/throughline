@@ -6,10 +6,11 @@
 // against the system's own records.
 //
 // Spec: docs/superpowers/specs/2026-08-31-code-adherence-gate-design.md
-import { readFileSync } from 'node:fs';
+// Colour-rule narrowing (#123): docs/specs/2026-09-11-narrow-colour-rule.md
+import { readFileSync, realpathSync, existsSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
-import { join } from 'node:path';
+import { join, dirname, relative, sep } from 'node:path';
 import { walk, normalizeName } from './lib/source-scan.mjs';
 import { flattenDtcg, resolveValue } from './lib/dtcg.mjs';
 
@@ -26,6 +27,32 @@ const HEX = /#[0-9a-fA-F]{3,8}\b/g;
 
 const lineOf = (text, index) => text.slice(0, index).split('\n').length;
 
+// Every character but a newline becomes a space, so an index into the blanked
+// text is the same line in the original.
+const spaces = (s) => s.replace(/[^\n]/g, ' ');
+
+// A hex inside a comment is not code: `var(--signal-500); /* #5B7FFF */` already
+// uses the token. One pass, leftmost opener wins, so a `/*` inside a `//`
+// comment cannot pair with a real `*/` lines later. `//` is not a comment in
+// plain CSS, and after a `:` it is a URL. An unterminated `/*` is left alone,
+// which errs toward flagging. Strings are not tracked; that would be a parser.
+export function blankComments(text, path = '') {
+  const re = path.endsWith('.css') ? /\/\*[\s\S]*?\*\//g : /\/\*[\s\S]*?\*\/|(?<!:)\/\/[^\n]*/g;
+  return text.replace(re, spaces);
+}
+
+// In `mask: linear-gradient(#fff 0 0) content-box, ...` only alpha matters, so
+// the value of a `mask` or `-webkit-mask` declaration is not a colour. The
+// lookbehind keeps `--mask`, `$mask` and `.mask` flagging; `mask-image` and the
+// other `mask-*` properties never match. CSS and SCSS only: `.sass` has no `;`
+// to end the value, and in script a value ending at `}` could swallow a sibling
+// property's real hex.
+const MASK = /(?<![\w$@.#-])(?:-webkit-)?mask\s*:([^;{}]*)/g;
+export function blankMasks(text, path = '') {
+  if (!/\.s?css$/.test(path)) return text;
+  return text.replace(MASK, (m, value) => m.slice(0, m.length - value.length) + spaces(value));
+}
+
 // #abc -> #aabbcc; #aabbccff -> #aabbcc (opaque alpha carries no information);
 // a real alpha is kept, because two colours differing only in alpha are two
 // colours. Anything not hex returns null and is never compared.
@@ -39,7 +66,7 @@ export function normalizeHex(value) {
   return '#' + hex;
 }
 
-export function extract(text, pkg) {
+export function extract(text, pkg, path = '') {
   const imported = new Map();
   for (const m of text.matchAll(IMPORT)) {
     if (m[2] !== pkg) continue;
@@ -59,10 +86,13 @@ export function extract(text, pkg) {
     }
   }
 
+  // Import and element extraction read the original; only hex reads the
+  // blanked text, which keeps this narrowing inside the colour rule.
+  const colourText = blankMasks(blankComments(text, path), path);
   const literals = [];
-  for (const h of text.matchAll(HEX)) {
+  for (const h of colourText.matchAll(HEX)) {
     const value = normalizeHex(h[0]);
-    if (value) literals.push({ value, line: lineOf(text, h.index) });
+    if (value) literals.push({ value, line: lineOf(colourText, h.index) });
   }
 
   return { imported, usages, literals };
@@ -96,12 +126,37 @@ export function buildTokenValues(dicts) {
   return out;
 }
 
+// The package that owns a --tokens file is not its own consumer. Walked from
+// libs/ or packages/, the gate otherwise reads the token package's generated
+// css/tokens.css and fails every primitive for duplicating itself. The owner is
+// the nearest directory at or above the file holding a package.json. It is kept
+// only when it sits strictly beneath --root: an owner that is the root, or
+// contains it, is a single-package app, and excluding it would exclude the app.
+export function tokenPackageDirs(tokenFiles, root) {
+  const realRoot = realpathSync(root);
+  const dirs = new Set();
+  for (const file of tokenFiles) {
+    let dir = dirname(realpathSync(file));
+    while (!existsSync(join(dir, 'package.json'))) {
+      const up = dirname(dir);
+      if (up === dir) {
+        dir = null;
+        break;
+      }
+      dir = up;
+    }
+    if (dir && dir.startsWith(realRoot + sep)) dirs.add(dir);
+  }
+  return [...dirs];
+}
+
 export function validate({
   built = [],
   index = { components: [] },
   tokenValues = new Map(),
   files = [],
   walked = files.length,
+  excluded = [],
   skip = [],
 }) {
   const off = new Set(skip);
@@ -217,7 +272,7 @@ export function validate({
     });
   }
 
-  return { ok: failures.length === 0, failures, advisories, stats, skipped: [...off] };
+  return { ok: failures.length === 0, failures, advisories, stats, skipped: [...off], excluded };
 }
 
 export function formatReport(r) {
@@ -228,6 +283,9 @@ export function formatReport(r) {
     `  variant axes: ${s.axisMatched} of ${s.axisMatched + s.axisUnmatched} literal attributes matched a declared axis`,
     `  not read:     ${s.dynamic} of ${s.usages} attributes are expressions, not literals`,
   ];
+  for (const e of r.excluded) {
+    lines.push(`  excluded:     ${e.files} file(s) in ${e.dir}, the package that owns --tokens`);
+  }
   if (r.skipped.length) lines.push(`  skipped:      ${r.skipped.join(', ')}`);
 
   if (r.failures.length) {
@@ -335,8 +393,26 @@ function main() {
     console.error(`cannot scan --root ${values.root}: ${e.message}`);
     process.exit(2);
   }
+
+  // Partitioned here rather than passed to walk, so the report can count what it
+  // set aside. Paths are compared in real form: tmpdir and a symlinked checkout
+  // would otherwise never match the realpath'd package dirs.
+  const realRoot = realpathSync(values.root);
+  const ownerDirs = tokenPackageDirs(values.tokens ?? [], values.root);
+  const excludedCounts = new Map(ownerDirs.map((d) => [d, 0]));
+  const scanned = [];
   for (const path of walked) {
-    const { usages, literals } = extract(readFileSync(path, 'utf8'), values.package);
+    const real = join(realRoot, relative(values.root, path));
+    const owner = ownerDirs.find((d) => real.startsWith(d + sep));
+    if (owner) excludedCounts.set(owner, excludedCounts.get(owner) + 1);
+    else scanned.push(path);
+  }
+  const excluded = [...excludedCounts]
+    .filter(([, n]) => n > 0)
+    .map(([dir, n]) => ({ dir: join(values.root, relative(realRoot, dir)), files: n }));
+
+  for (const path of scanned) {
+    const { usages, literals } = extract(readFileSync(path, 'utf8'), values.package, path);
     if (usages.length || literals.length) files.push({ path, usages, literals });
   }
 
@@ -345,7 +421,8 @@ function main() {
     index,
     tokenValues,
     files,
-    walked: walked.length,
+    walked: scanned.length,
+    excluded,
     skip: values.skip,
   });
   for (const line of formatReport(r)) console.log(line);

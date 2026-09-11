@@ -21,7 +21,7 @@ to [Semantic Versioning](https://semver.org).
   `--system` paths matching the repo's layout — that must be substituted before
   it can run.
 
-  Three things worth knowing before switching it on:
+  Four things worth knowing before switching it on:
 
   - **A system whose records and code disagree about axis names will see
     `variant-rule-inert`, and should read the report rather than skip the rule.**
@@ -37,6 +37,15 @@ to [Semantic Versioning](https://semver.org).
   - **Only hex colours are compared.** A token authored `rgb()` or `hsl()`, or a
     literal written that way, is left alone rather than normalised into a guess,
     and a literal with no matching token is never reported at all.
+  - **The colour rule leaves three things alone, and never skips a colour for
+    what it is.** Files inside the package that owns a `--tokens` file aren't
+    scanned when that package sits beneath `--root`, so a token package walked
+    from `libs/` or `packages/` doesn't fail for declaring its own primitives.
+    The report names it on an `excluded:` line. Hex in a comment isn't code. Hex
+    inside a `mask` or `-webkit-mask` declaration in CSS or SCSS isn't a colour,
+    because only alpha matters there. A `#fff` on a toast still fails. Against
+    two real apps, this took the rule from 70% wrong to 15% without losing a
+    single true positive.
 
   Advisories — expressions the regex cannot read, props matching no declared
   axis, built components with no doc record — are printed on every run and never

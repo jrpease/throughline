@@ -63,10 +63,12 @@ node validate-adherence.mjs --root ../../apps --system ../.. --package @acme/ui 
 `validate-adherence.mjs` takes every path explicitly because cwd is the package
 holding the script, not the repo root. `--system` has no default: defaulting it
 to `--root` resolves to a path that does not exist. `--tokens` is repeatable, so
-a system whose values span mode files passes each one. `--skip <rule>` switches a
-rule off entirely — a skipped rule is absent rather than inert, which is the
-supported answer for a repo the rule cannot apply to (a Vue or Svelte app has no
-JSX for the component rules to read).
+a system whose values span mode files passes each one. Files inside the package
+that owns a `--tokens` file are not scanned when that package sits beneath
+`--root`, and the report prints an `excluded:` line naming it. `--skip <rule>`
+switches a rule off entirely — a skipped rule is absent rather than inert, which
+is the supported answer for a repo the rule cannot apply to (a Vue or Svelte app
+has no JSX for the component rules to read).
 
 Exit codes: `0` success, `1` validation/guard failure (mismatch, missing token,
 conflict, or remaining reference), `2` bad CLI arguments.
