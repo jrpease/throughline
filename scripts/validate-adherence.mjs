@@ -429,6 +429,7 @@ export function validate({
   built = [],
   index = { components: [] },
   tokenValues = new Map(),
+  dimensionValues = new Map(),
   files = [],
   walked = files.length,
   excluded = [],
@@ -443,6 +444,13 @@ export function validate({
   const stats = {
     usages: 0,
     literals: 0,
+    dimensions: 0,
+    dimensionTokens: Object.fromEntries(
+      DIMENSION_CATEGORIES.map((c) => [
+        c,
+        [...(dimensionValues.get(c)?.values() ?? [])].reduce((n, paths) => n + paths.length, 0),
+      ]),
+    ),
     files: walked,
     axisMatched: 0,
     axisUnmatched: 0,
@@ -451,7 +459,7 @@ export function validate({
     undocumented: new Set(),
   };
 
-  for (const { path, usages, literals } of files) {
+  for (const { path, usages, literals, dimensions = [] } of files) {
     for (const u of usages) {
       stats.usages += 1;
       const key = normalizeName(u.component);
@@ -517,6 +525,23 @@ export function validate({
         failures.push({ rule: 'token-exists-for-literal', value: l.value, tokens, file: path, line: l.line });
       }
     }
+
+    for (const d of dimensions) {
+      stats.dimensions += 1;
+      if (off.has('token-exists-for-dimension')) continue;
+      const tokens = dimensionValues.get(d.category)?.get(d.value);
+      if (tokens) {
+        failures.push({
+          rule: 'token-exists-for-dimension',
+          category: d.category,
+          written: d.written,
+          value: d.value,
+          tokens,
+          file: path,
+          line: d.line,
+        });
+      }
+    }
   }
 
   // Decision 7 applied to the scan itself, not just to each rule. Every rule can
@@ -524,7 +549,7 @@ export function validate({
   // --package specifier the app does not import under, an app directory that is
   // empty. That run reported a clean pass having read nothing, which is the
   // green light every other rule here exists to prevent.
-  if (stats.usages === 0 && stats.literals === 0) {
+  if (stats.usages === 0 && stats.literals === 0 && stats.dimensions === 0) {
     failures.push({ rule: 'nothing-scanned', files: stats.files });
   }
 
@@ -534,6 +559,9 @@ export function validate({
   // inert.
   if (!off.has('token-exists-for-literal') && tokenValues.size === 0) {
     failures.push({ rule: 'colour-rule-inert' });
+  }
+  if (!off.has('token-exists-for-dimension') && dimensionValues.size === 0) {
+    failures.push({ rule: 'dimension-rule-inert' });
   }
   if (!off.has('unknown-variant-value') && stats.knownComponents.size > 0 && stats.axisMatched === 0) {
     // `undocumented` rides along because it is often the real cause: an
@@ -552,11 +580,13 @@ export function validate({
 
 export function formatReport(r) {
   const s = r.stats;
+  const dimensionTotal = DIMENSION_CATEGORIES.reduce((n, c) => n + s.dimensionTokens[c], 0);
   const lines = [
-    `tokens:validate-adherence — ${s.usages} usages, ${s.literals} colour literals, ${s.files} files`,
+    `tokens:validate-adherence — ${s.usages} usages, ${s.literals} colour literals, ${s.dimensions} dimension literals, ${s.files} files`,
     `  components:   ${s.knownComponents.size} referenced, ${s.undocumented.size} undocumented`,
     `  variant axes: ${s.axisMatched} of ${s.axisMatched + s.axisUnmatched} literal attributes matched a declared axis`,
     `  not read:     ${s.dynamic} of ${s.usages} attributes are expressions, not literals`,
+    `  dimensions:   ${dimensionTotal} token values comparable — ${DIMENSION_CATEGORIES.map((c) => `${c} ${s.dimensionTokens[c]}`).join(', ')}`,
   ];
   for (const e of r.excluded) {
     lines.push(`  excluded:     ${e.files} file(s) in ${e.dir}, the package that owns --tokens`);
@@ -578,13 +608,21 @@ export function formatReport(r) {
         lines.push(
           `  - [${f.rule}] <${f.component}> at ${f.file}:${f.line} — not in design-system.json components.built`,
         );
+      } else if (f.rule === 'token-exists-for-dimension') {
+        lines.push(
+          `  - [${f.rule}] ${f.category} ${f.written}${f.written === f.value ? '' : ` (${f.value})`} at ${f.file}:${f.line} — ${f.tokens.join(', ')} resolve${f.tokens.length === 1 ? 's' : ''} to exactly this value`,
+        );
       } else if (f.rule === 'nothing-scanned') {
         lines.push(
-          `  - [${f.rule}] ${f.files} file(s) yielded no component reference and no colour literal, so this run verified nothing. Check --root points at the consuming app, and that --package is the specifier that app actually imports from.`,
+          `  - [${f.rule}] ${f.files} file(s) yielded no component reference, colour literal or dimension literal, so this run verified nothing. Check --root points at the consuming app, and that --package is the specifier that app actually imports from.`,
         );
       } else if (f.rule === 'colour-rule-inert') {
         lines.push(
           `  - [${f.rule}] no token file yielded a comparable hex value, so nothing was checked against. Pass --tokens, or --skip token-exists-for-literal if this system has no colour tokens.`,
+        );
+      } else if (f.rule === 'dimension-rule-inert') {
+        lines.push(
+          `  - [${f.rule}] no token file yielded a comparable spacing, radius or type value, so nothing was checked against. Pass the --tokens file that holds them, or --skip token-exists-for-dimension if this system has none.`,
         );
       } else if (f.rule === 'variant-rule-inert') {
         // Lead with the undocumented count when there is one: it is the likeliest
@@ -658,7 +696,9 @@ function main() {
     join(values.system, 'design-system/docs/index.json'),
     'the docs index (run docs:digest first)',
   );
-  const tokenValues = buildTokenValues((values.tokens ?? []).map((f) => read(f, 'a token source')));
+  const tokenDicts = (values.tokens ?? []).map((f) => read(f, 'a token source'));
+  const tokenValues = buildTokenValues(tokenDicts);
+  const dimensionValues = buildDimensionValues(tokenDicts);
 
   const files = [];
   let walked;
@@ -687,14 +727,15 @@ function main() {
     .map(([dir, n]) => ({ dir: join(values.root, relative(realRoot, dir)), files: n }));
 
   for (const path of scanned) {
-    const { usages, literals } = extract(readFileSync(path, 'utf8'), values.package, path);
-    if (usages.length || literals.length) files.push({ path, usages, literals });
+    const { usages, literals, dimensions } = extract(readFileSync(path, 'utf8'), values.package, path);
+    if (usages.length || literals.length || dimensions.length) files.push({ path, usages, literals, dimensions });
   }
 
   const r = validate({
     built: manifest.components?.built ?? [],
     index,
     tokenValues,
+    dimensionValues,
     files,
     walked: scanned.length,
     excluded,
