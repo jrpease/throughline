@@ -1,6 +1,6 @@
 # Narrow the component rule
 
-Status: planned
+Status: built
 Reviewed: 2026-09-11 — ready to build
 Date: 2026-09-11
 Issue: #120 (refs #39)
@@ -86,6 +86,47 @@ line stays visible.
 - **A tag inside string content.** A code sample like `'<Hero />'` in a file that
   also imports `Hero` from the package now reads as a tag without attributes.
   The site has none. **I'd recommend waiting.** Unresolved.
+
+## What shipped
+
+All five steps, on `fix/120-narrow-component-rule`.
+
+- `scripts/validate-adherence.mjs`: `extract` returns one `elements` entry per
+  opening tag, attributes or not, and reads comment-blanked text. A `.Member`
+  chain is left alone, and a `<` straight after an identifier is a type
+  argument. `unknown-component` reads `elements`, so it fails once per tag.
+  `partOwner` accepts a compound part, and the report names each one on a
+  `parts:` line. The headline counts component references, and so does
+  `nothing-scanned`. The rule keeps its `failure` verdict.
+- `scripts/validate-adherence.test.mjs`: 12 new tests, including the one that
+  pins where `ButtonX` sits, plus the edits to the `file` helper, the
+  `nothing-scanned` headline and the render test. 100 gate tests pass, 634 in
+  all.
+- `CHANGELOG.md`: a sixth "worth knowing" bullet in the unreleased gate entry.
+- `scripts/README.md`: one sentence on parts under `## Usage`.
+- `docs/superpowers/notes/2026-09-11-colour-rule-measurement.md`: an
+  "`unknown-component` after #120" section.
+- **Measured, same commits:** `throughline-ds` `--root apps` went from 20
+  `unknown-component` failures to 0, and from 67 rule failures to 47. The
+  headline reads `7 component references` where it read `33 usages`. Colour and
+  dimension flags didn't move on any of the four runs. The probe fails `<Hero />`
+  and `<Buttons>` once each, where before it missed the first and failed the
+  second three times. `<CardGrid />` passes as a part of `Card`, as Decisions
+  says it would.
+
+## Where it diverged
+
+- **Steps 1 and 2 landed as one commit** (`15e59c2`). They'd been built and left
+  uncommitted, so their Verify was re-run first: 100 tests pass, and the bare
+  CLI exits 2 with the usage line.
+- **Step 3's CHANGELOG bullet runs its sentences together** a little differently
+  from the step's list. It adds "That's the line", so the `parts:` line reads as
+  the answer to the blind spot. The content is the same.
+- **Step 5 ran at `b86f595`,** the Step 3 commit. The gate script and its tests
+  are identical to `15e59c2`, the commit the note records. Step 3 touched only
+  the CHANGELOG and `scripts/README.md`.
+
+Nothing else moved. Every other Verify passed as written.
 
 ## Plan
 

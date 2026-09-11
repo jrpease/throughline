@@ -296,3 +296,76 @@ the wrong reason. Now it fails once for the right one.
 The 4 false positives left are classes 4 and 5, the floor this note predicted:
 `daily-cycle-state.ts:32` and `:34`, `node-logos.tsx:111`, and
 `qr-code.helper.ts:21`.
+
+## `unknown-component` after #120
+
+The same site at the same commit (`2a9d370`), with the gate from
+`fix/120-narrow-component-rule` at `15e59c2`. Spec:
+`docs/specs/2026-09-11-narrow-component-rule.md`.
+
+| `throughline-ds` `--root apps` | before | after |
+|---|---|---|
+| headline | 33 usages | 7 component references |
+| attributes read (`not read:` denominator) | 33 | 16 |
+| `unknown-component` flags | 20, all false | 0 |
+| rule failures | 67 | 47 |
+
+The 17 attributes that dropped out sat on `<Icons.Folder>`-style tags, which are
+now left alone instead of read as `<Icons>`. `<CardTitle>`'s three still count
+toward `not read:`. They just stop failing as a component, three times over. The
+report says so:
+
+```
+parts:        CardTitle (Card) — not in components.built, read as part of the built component each name starts with
+```
+
+**Nothing else moved.** Colour and dimension flags diff empty on all four runs:
+the site's `apps` and `packages`, and zygarden's `apps` and `libs`. The other
+three reports differ only in the headline's first phrase, `0 usages` →
+`0 component references`.
+
+### The probe
+
+Zero failures on correct code could also mean the rule stopped seeing anything.
+The probe is the check that it didn't. A scratch copy of `apps/` gets one extra
+file with three invented components and one real one:
+
+```tsx
+import { Hero, Buttons, CardGrid, Card } from '@throughline-ds/ui';
+export const P = () => (
+  <Card>
+    <Hero />
+    <Buttons variant="x" size="y" title="z" />
+    <CardGrid />
+    {/* <Hero /> */}
+  </Card>
+);
+```
+
+| probe | before | after |
+|---|---|---|
+| `<Hero />`, line 4, no attributes | missed | fails once |
+| `<Buttons variant size title>`, line 5 | fails 3 times | fails once |
+| `{/* <Hero /> */}` | not read | not read |
+| `<CardGrid />` | missed | accepted as part of `Card` |
+| the site's own `<Icons>` and `<CardTitle>` | 17 + 3 | 0 |
+| rule failures | 70 | 49 |
+
+After, the report names both parts:
+`parts:        CardGrid (Card), CardTitle (Card) — …`.
+
+`<CardGrid />` passing is the line the spec draws, not something the probe
+caught by accident. An invented name that starts with a built name and a capital
+letter passes, and the `parts:` line is where it shows up.
+
+### What this doesn't establish
+
+- **One JSX app.** zygarden is Angular and runs with the component rules
+  skipped, so `unknown-component` has still only been read against one real
+  site.
+- **No doc records.** The site's docs index is empty, so this run says nothing
+  about parts on a documented system. The unit tests pin that a part raises no
+  variant failure or advisory.
+- **An invented name shaped like a part passes.** `<CardGrid>` proves it. A
+  declared-parts field in the manifest would close the gap, and the spec leaves
+  that open until a real run shows one slipping through.
