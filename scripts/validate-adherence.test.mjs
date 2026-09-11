@@ -786,3 +786,97 @@ test('buildDimensionValues does not throw on an unknown reference or a cycle', (
     ]),
   );
 });
+
+// Step 3: reading dimension literals from source. Every fixture is asserted on
+// `.dimensions`, mapped to `[category, written, value, line]`.
+const dims = (text, path) => extract(text, '@acme/ui', path).dimensions.map((d) => [d.category, d.written, d.value, d.line]);
+
+test('extractDimensions reads a shorthand spacing declaration and a rem radius, and drops zero', () => {
+  const text = '.a {\n  padding: 0 32px;\n  border-radius: 0.5rem;\n  margin: 0;\n}\n';
+  assert.deepEqual(dims(text, 'a.scss'), [
+    ['spacing', '32px', '32px', 2],
+    ['radius', '0.5rem', '8px', 3],
+  ]);
+});
+
+test('extractDimensions reads every longhand property, kebab-case, with its own line', () => {
+  // Line 1 opens the rule; one declaration per line, 2 through 8; line 9 closes
+  // it. Counted by hand.
+  const text =
+    '.a {\n' +
+    '  padding-inline-start: 8px;\n' +
+    '  border-top-left-radius: 4px;\n' +
+    '  row-gap: 12px;\n' +
+    '  line-height: 1.5;\n' +
+    '  letter-spacing: -0.02em;\n' +
+    '  font-weight: 600;\n' +
+    '  font-size: 14px;\n' +
+    '}\n';
+  assert.deepEqual(dims(text, 'a.css'), [
+    ['spacing', '8px', '8px', 2],
+    ['radius', '4px', '4px', 3],
+    ['spacing', '12px', '12px', 4],
+    ['line-height', '1.5', '1.5', 5],
+    ['letter-spacing', '-0.02em', '-0.02em', 6],
+    ['font-weight', '600', '600', 7],
+    ['font-size', '14px', '14px', 8],
+  ]);
+});
+
+test('extractDimensions treats an unquoted number in a script file inline style as px', () => {
+  const text =
+    "<div style={{ marginTop: 16, fontSize: 13, lineHeight: 1.05, fontWeight: 500, padding: '8px 12px' }} />\n";
+  assert.deepEqual(dims(text, 'a.tsx'), [
+    ['spacing', '16', '16px', 1],
+    ['font-size', '13', '13px', 1],
+    ['line-height', '1.05', '1.05', 1],
+    ['font-weight', '500', '500', 1],
+    ['spacing', '8px', '8px', 1],
+    ['spacing', '12px', '12px', 1],
+  ]);
+});
+
+test('a bare number is ignored outside a script file, and inside one when quoted', () => {
+  assert.deepEqual(dims('.a { margin-top: 16; }\n', 'a.scss'), []);
+  assert.deepEqual(dims("const s = { padding: '16' };\n", 'a.tsx'), []);
+});
+
+test('extractDimensions reads Tailwind arbitrary values, including after a variant, and ignores a prefixed or non-dimension utility', () => {
+  const text =
+    '<div className="p-[16px] md:py-[6rem] -mt-[4px] rounded-[8px] text-[11px] text-[#fff] leading-[1.6] tracking-[-0.01em] font-[500] w-[16px] tw-p-[16px]" />\n';
+  assert.deepEqual(dims(text, 'a.tsx'), [
+    ['spacing', 'p-[16px]', '16px', 1],
+    ['spacing', 'py-[6rem]', '96px', 1],
+    ['spacing', '-mt-[4px]', '-4px', 1],
+    ['radius', 'rounded-[8px]', '8px', 1],
+    ['font-size', 'text-[11px]', '11px', 1],
+    ['line-height', 'leading-[1.6]', '1.6', 1],
+    ['letter-spacing', 'tracking-[-0.01em]', '-0.01em', 1],
+    ['font-weight', 'font-[500]', '500', 1],
+  ]);
+});
+
+test('a number inside calc(), clamp(), a var() fallback or max() is not read', () => {
+  const text =
+    '.a {\n  padding: calc(100% - 16px) 8px;\n  font-size: clamp(3rem, 11vw, 13rem);\n  margin: var(--space-4, 16px);\n  gap: max(8px, 1vw);\n}\n';
+  assert.deepEqual(dims(text, 'a.scss'), [['spacing', '8px', '8px', 2]]);
+});
+
+test('a dimension inside a comment is not read', () => {
+  const text = '/* padding: 16px */\n// margin: 8px\n.a { gap: 4px; }\n';
+  assert.deepEqual(dims(text, 'a.scss'), [['spacing', '4px', '4px', 3]]);
+});
+
+test('a font-weight descriptor inside @font-face is not read, but one outside it is', () => {
+  const text = "@font-face {\n  font-family: 'X';\n  font-weight: 400;\n}\n.a { font-weight: 400; }\n";
+  assert.deepEqual(dims(text, 'a.css'), [['font-weight', '400', '400', 5]]);
+});
+
+test('a custom property or SCSS variable definition is not read — it declares a value, not a use', () => {
+  const text = '.a { --gap: 16px; }\n$gap: 16px;\n';
+  assert.deepEqual(dims(text, 'a.scss'), []);
+});
+
+test('the SRC fixture yields no dimension literal', () => {
+  assert.deepEqual(extract(SRC, '@acme/ui').dimensions, []);
+});

@@ -27,6 +27,67 @@ const ATTR = /([a-zA-Z][a-zA-Z0-9_-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|\{)/g;
 const HEX = /#[0-9a-fA-F]{3,8}\b/g;
 const RGB = /\brgba?\([^()]*\)/gi;
 
+// Dimension rules (#39): docs/specs/2026-09-11-dimension-rules.md. A property
+// name maps to its category once the punctuation is gone: lowercase, hyphens
+// stripped, so `padding-inline-start` and `paddingInlineStart` are both
+// `paddinginlinestart`.
+const SPACING_SUFFIXES = [
+  '',
+  'top',
+  'right',
+  'bottom',
+  'left',
+  'inline',
+  'block',
+  'inlinestart',
+  'inlineend',
+  'blockstart',
+  'blockend',
+];
+const RADIUS_CORNERS = ['', 'topleft', 'topright', 'bottomright', 'bottomleft', 'startstart', 'startend', 'endstart', 'endend'];
+const PROPERTY_CATEGORIES = new Map();
+for (const base of ['padding', 'margin']) {
+  for (const suffix of SPACING_SUFFIXES) PROPERTY_CATEGORIES.set(base + suffix, 'spacing');
+}
+for (const name of ['gap', 'rowgap', 'columngap', 'gridgap', 'gridrowgap', 'gridcolumngap']) {
+  PROPERTY_CATEGORIES.set(name, 'spacing');
+}
+for (const corner of RADIUS_CORNERS) {
+  PROPERTY_CATEGORIES.set(`border${corner}radius`, 'radius');
+}
+PROPERTY_CATEGORIES.set('fontsize', 'font-size');
+PROPERTY_CATEGORIES.set('lineheight', 'line-height');
+PROPERTY_CATEGORIES.set('letterspacing', 'letter-spacing');
+PROPERTY_CATEGORIES.set('fontweight', 'font-weight');
+
+// `property: value`, value running to the next `;`, `{`, `}`, `,` or newline —
+// that comma is what separates `{ fontSize: 13, marginTop: 16 }` into two
+// declarations rather than one.
+const DECLARATION = /(?<![\w$@.#-])([a-zA-Z][a-zA-Z-]*)\s*:\s*([^;{}\n,]*)/g;
+// A bare, px, rem, em or % number, not abutting a word character, `.`, `#`,
+// `$`, `%` or `(` on either side — that keeps it out of `#3b82f6` and `calc(`.
+const VALUE_NUMBER = /(?<![\w.#$%-])-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em|%)?(?![\w.%(-])/g;
+// A Tailwind arbitrary value, including after a variant like `md:`. `tw-`
+// prefixes are excluded by the lookbehind: the character right before the
+// utility can't be a word character or `-`.
+const TAILWIND =
+  /(?<![\w-])(-?)(p[xytrblse]?|m[xytrblse]?|gap(?:-[xy])?|space-[xy]|rounded(?:-(?:t|r|b|l|s|e|tl|tr|br|bl|ss|se|es|ee))?|text|leading|tracking|font)-\[([^\]\s]+)\]/g;
+const SCRIPT_FILE = /\.(tsx?|jsx?|mjs|cjs|vue|svelte)$/;
+
+// One starting p, m, gap or space is spacing; rounded is radius; text, leading,
+// tracking and font are the four type properties.
+function tailwindCategory(utility) {
+  if (utility.startsWith('p') || utility.startsWith('m') || utility.startsWith('gap') || utility.startsWith('space')) {
+    return 'spacing';
+  }
+  if (utility.startsWith('rounded')) return 'radius';
+  if (utility === 'text') return 'font-size';
+  if (utility === 'leading') return 'line-height';
+  if (utility === 'tracking') return 'letter-spacing';
+  if (utility === 'font') return 'font-weight';
+  return null;
+}
+
 const lineOf = (text, index) => text.slice(0, index).split('\n').length;
 
 // Every character but a newline becomes a space, so an index into the blanked
@@ -53,6 +114,39 @@ const MASK = /(?<![\w$@.#-])(?:-webkit-)?mask\s*:([^;{}]*)/g;
 export function blankMasks(text, path = '') {
   if (!/\.s?css$/.test(path)) return text;
   return text.replace(MASK, (m, value) => m.slice(0, m.length - value.length) + spaces(value));
+}
+
+// `var(--space-4, 16px)` is correct code — the 16px is the token's fallback —
+// and `calc()`, `clamp()`, `min()` and `max()` arguments are arithmetic, not
+// scale steps. Every character between a `(` and its matching `)` becomes a
+// space; an unclosed `(` blanks to the end of the value. Length is unchanged,
+// so it stays safe to run before VALUE_NUMBER's index-based line lookup.
+export function blankParens(value) {
+  let depth = 0;
+  let out = '';
+  for (const ch of value) {
+    if (ch === '(') {
+      depth += 1;
+      out += ' ';
+    } else if (ch === ')' && depth > 0) {
+      depth -= 1;
+      out += ' ';
+    } else if (depth > 0) {
+      out += ' ';
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+
+// The only false positives the dimension-rule prototype found were the
+// `font-weight` descriptors inside `@font-face { … }`, which describe a font
+// file, not a scale step. Blanked before dimensions are read, same shape as
+// blankComments.
+const FONT_FACE = /@font-face\s*\{[^}]*\}/g;
+export function blankFontFaces(text) {
+  return text.replace(FONT_FACE, spaces);
 }
 
 // #abc -> #aabbcc; #aabbccff -> #aabbcc (opaque alpha carries no information);
@@ -118,7 +212,7 @@ export function extract(text, pkg, path = '') {
     if (value) literals.push({ value, line: lineOf(colourText, m.index) });
   }
 
-  return { imported, usages, literals };
+  return { imported, usages, literals, dimensions: extractDimensions(text, path) };
 }
 
 // value -> the token paths that hold it. Repeatable --tokens, because a real
@@ -273,6 +367,37 @@ export function buildDimensionValues(dicts) {
       inner.get(value).push(path);
     }
   }
+  return out;
+}
+
+// Same two shapes source is read: a `property: value` declaration in CSS,
+// SCSS, inline styles or CSS in strings, and a Tailwind arbitrary value like
+// `p-[16px]`. Comments and @font-face descriptors are blanked first, same as
+// the colour rule; numbers inside parentheses are blanked per-declaration, so
+// a var() fallback or a calc() argument is never read as a scale step.
+export function extractDimensions(text, path = '') {
+  const t = blankFontFaces(blankComments(text, path));
+  const out = [];
+
+  for (const m of t.matchAll(DECLARATION)) {
+    const category = PROPERTY_CATEGORIES.get(m[1].toLowerCase().replace(/-/g, ''));
+    if (!category) continue;
+    const quoted = /^\s*['"`]/.test(m[2]);
+    const v = blankParens(m[2].replace(/['"`]/g, ' '));
+    for (const n of v.matchAll(VALUE_NUMBER)) {
+      const value = canonicalDimension(n[0], category, SCRIPT_FILE.test(path) && !quoted ? 'px' : null);
+      if (value) out.push({ category, written: n[0], value, line: lineOf(t, m.index) });
+    }
+  }
+
+  for (const m of t.matchAll(TAILWIND)) {
+    if (m[1] === '-' && m[3].startsWith('-')) continue;
+    const category = tailwindCategory(m[2]);
+    if (!category) continue;
+    const value = canonicalDimension(m[1] + m[3], category, null);
+    if (value) out.push({ category, written: `${m[1]}${m[2]}-[${m[3]}]`, value, line: lineOf(t, m.index) });
+  }
+
   return out;
 }
 
