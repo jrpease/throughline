@@ -1,9 +1,12 @@
-// Native token output validator: assert generated Swift/Kotlin matches its DTCG source.
-// Catches output that compiles but is wrong. Zero dependencies.
+// Token output validator: assert generated Swift/Kotlin, and web CSS custom
+// properties, match their DTCG source. Catches output that compiles but is
+// wrong. Zero dependencies.
 //
 // Usage:
 //   node validate-token-output.mjs --source a.json --source b.json \
 //     --output Tokens.swift --platform ios-swift [--min-match 0.5]
+//   node validate-token-output.mjs --source a.json --output tokens.css \
+//     --platform shadcn --block .dark
 import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
@@ -856,8 +859,9 @@ function main() {
     const parsed = parseArgs({
       options: {
         source: { type: 'string', multiple: true },
-        output: { type: 'string' },
+        output: { type: 'string', multiple: true },
         platform: { type: 'string' },
+        block: { type: 'string' },
         'min-match': { type: 'string' },
       },
     });
@@ -867,8 +871,18 @@ function main() {
     process.exit(2);
   }
 
-  if (!values.source?.length || !values.output || !values.platform) {
-    console.error('usage: validate-token-output.mjs --source <a.json> [--source <b.json>...] --output <Tokens.swift|Tokens.kt> --platform <ios-swift|android-kotlin> [--min-match <ratio>]');
+  if (!values.source?.length || !values.output?.length || !values.platform) {
+    console.error('usage: validate-token-output.mjs --source <a.json> [--source <b.json>...] --output <file> [--output <file>...] --platform <ios-swift|android-kotlin|shadcn|tailwind|vanilla-css> [--block <selector>] [--min-match <ratio>]');
+    process.exit(2);
+  }
+
+  const web = values.platform in WEB_PLATFORMS;
+  if (!web && values.output.length > 1) {
+    console.error('--output may be given more than once only for a web platform (shadcn, tailwind, vanilla-css)');
+    process.exit(2);
+  }
+  if (!web && values.block !== undefined) {
+    console.error('--block applies only to a web platform (shadcn, tailwind, vanilla-css)');
     process.exit(2);
   }
 
@@ -882,13 +896,16 @@ function main() {
     }
   }
 
-  let output;
-  try {
-    output = readFileSync(values.output, 'utf8');
-  } catch (e) {
-    console.error(`error reading output file ${values.output}: ${e.message}`);
-    process.exit(2);
+  const outputs = [];
+  for (const file of values.output) {
+    try {
+      outputs.push(readFileSync(file, 'utf8'));
+    } catch (e) {
+      console.error(`error reading output file ${file}: ${e.message}`);
+      process.exit(2);
+    }
   }
+  const output = outputs.join('\n');
 
   let minMatch;
   try {
@@ -903,7 +920,7 @@ function main() {
 
   let r;
   try {
-    r = validate({ sources, output, platform: values.platform, minMatch });
+    r = validate({ sources, output, platform: values.platform, minMatch, block: values.block });
   } catch (e) {
     console.error(e.message);
     process.exit(2);

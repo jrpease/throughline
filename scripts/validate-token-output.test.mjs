@@ -673,6 +673,104 @@ test('CLI exits 2 on a non-numeric --min-match', () => {
   assert.equal(runCli(['--source', src, '--output', good, '--platform', 'ios-swift', '--min-match', 'abc']).code, 2);
 });
 
+test('CLI validates a vanilla-css output', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'vto-'));
+  const src = join(dir, 'src.json');
+  writeFileSync(
+    src,
+    JSON.stringify({
+      space: { 4: { $value: '16px', $type: 'dimension' } },
+      gap: { md: { $value: '{space.4}', $type: 'dimension' } },
+    }),
+  );
+
+  const good = join(dir, 'good.css');
+  writeFileSync(good, ':root {\n  --space-4: 1rem;\n  --gap-md: var(--space-4);\n}\n');
+  const goodResult = runCli(['--source', src, '--output', good, '--platform', 'vanilla-css', '--min-match', '1']);
+  assert.equal(goodResult.code, 0);
+  assert.match(goodResult.stdout, /2\/2 declarations in :root matched/);
+
+  const bad = join(dir, 'bad.css');
+  writeFileSync(bad, ':root {\n  --space-4: 16rem;\n  --gap-md: var(--space-4);\n}\n');
+  const badResult = runCli(['--source', src, '--output', bad, '--platform', 'vanilla-css', '--min-match', '1']);
+  assert.equal(badResult.code, 1);
+  assert.match(badResult.stdout, /\[unit-fidelity\] --space-4/);
+});
+
+test('CLI requires --block when the output declares more than one block', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'vto-'));
+  const src = join(dir, 'src.json');
+  writeFileSync(
+    src,
+    JSON.stringify({
+      space: { 4: { $value: '16px', $type: 'dimension' } },
+      gap: { md: { $value: '{space.4}', $type: 'dimension' } },
+    }),
+  );
+
+  const two = join(dir, 'two.css');
+  writeFileSync(two, ':root { --space-4: 16px; }\n.dark { --space-4: 16px; }\n');
+
+  const noBlock = runCli(['--source', src, '--output', two, '--platform', 'vanilla-css']);
+  assert.equal(noBlock.code, 2);
+  assert.match(noBlock.stdout, /":root" \(1\), ".dark" \(1\)/);
+
+  const withDark = runCli(['--source', src, '--output', two, '--platform', 'vanilla-css', '--block', '.dark']);
+  assert.equal(withDark.code, 0);
+
+  const withNope = runCli(['--source', src, '--output', two, '--platform', 'vanilla-css', '--block', '.nope']);
+  assert.equal(withNope.code, 2);
+});
+
+test('CLI accepts --output more than once for a web platform', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'vto-'));
+  const src = join(dir, 'src.json');
+  writeFileSync(
+    src,
+    JSON.stringify({
+      space: { 4: { $value: '16px', $type: 'dimension' } },
+      gap: { md: { $value: '{space.4}', $type: 'dimension' } },
+    }),
+  );
+
+  const root = join(dir, 'root.css');
+  writeFileSync(root, ':root { --space-4: 16px; }');
+  const light = join(dir, 'light.css');
+  writeFileSync(light, '.light { --gap-md: var(--space-4); }');
+
+  const both = runCli(['--source', src, '--output', root, '--output', light, '--platform', 'vanilla-css', '--block', '.light']);
+  assert.equal(both.code, 0);
+
+  const lightOnly = runCli(['--source', src, '--output', light, '--platform', 'vanilla-css']);
+  assert.equal(lightOnly.code, 1);
+  assert.match(lightOnly.stdout, /\[dangling-reference\] --gap-md/);
+});
+
+test('CLI rejects multiple --output and --block for a non-web platform', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'vto-'));
+  const src = join(dir, 'text.json');
+  writeFileSync(src, JSON.stringify({ text: { sm: { $value: '14px', $type: 'dimension' } } }));
+  const good = join(dir, 'Good.swift');
+  writeFileSync(good, 'public static let textSm = CGFloat(14.00)\n');
+
+  const twoOutputs = runCli(['--source', src, '--output', good, '--output', good, '--platform', 'ios-swift']);
+  assert.equal(twoOutputs.code, 2);
+
+  const withBlock = runCli(['--source', src, '--output', good, '--platform', 'ios-swift', '--block', ':root']);
+  assert.equal(withBlock.code, 2);
+});
+
+test('CLI rejects --platform mui', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'vto-'));
+  const src = join(dir, 'src.json');
+  writeFileSync(src, JSON.stringify({ space: { 4: { $value: '16px', $type: 'dimension' } } }));
+  const good = join(dir, 'good.css');
+  writeFileSync(good, ':root { --space-4: 16px; }');
+  const result = runCli(['--source', src, '--output', good, '--platform', 'mui']);
+  assert.equal(result.code, 2);
+  assert.match(result.stdout, /mui is not supported/);
+});
+
 const srcOf = (dtcg) => [{ file: 'a.json', dtcg }];
 const rules = (r) => r.failures.map((f) => f.rule);
 
