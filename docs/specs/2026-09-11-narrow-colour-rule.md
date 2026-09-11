@@ -1,6 +1,7 @@
 # Narrow the colour rule
 
 Status: planned
+Reviewed: 2026-09-11 — needs revision
 Date: 2026-09-11
 Issue: #123 (refs #39)
 Evidence: `docs/superpowers/notes/2026-09-11-colour-rule-measurement.md` (#122)
@@ -64,7 +65,7 @@ lost.
 | What blanked text feeds | Hex extraction only. Import and element extraction read the original text. | Recommended; accepted under Jordan's standing instruction (2026-09-11). Keeps the change inside the colour rule. | Any change to what `unknown-component`, `unknown-variant-value` or the advisories see. |
 | Which mask declarations are skipped | A declaration whose property is exactly `mask` or `-webkit-mask`. The value runs from the `:` to the next `;`, `{` or `}`, across lines. Only in `.css` and `.scss`. | Recommended; accepted under Jordan's standing instruction (2026-09-11). That's the measured shape (`account-settings.component.scss:23-28`). `.sass` has no `;` to end a value. In JS, TS, `.vue` and `.svelte`, a value ending at `}` could swallow a sibling property's real hex. | `mask-image`, `mask-border` and other `mask-*` properties, custom properties like `--mask`, SCSS variables like `$mask`, and masks in `.sass`, SFC style blocks or CSS-in-JS. All of those still flag. |
 | Do the narrowings report counts | No. Hex in comments and masks simply isn't extracted. | Recommended; accepted under Jordan's standing instruction (2026-09-11). A comment isn't code, and a mask's colour carries no meaning. Only the package exclusion drops real files, so only it is reported. | A `comments:` or `masks:` line in the report. |
-| Where the before-and-after numbers live | A new section appended to the measurement note, plus a line in this spec's "What shipped". | #123 asks for "numbers from the real change, not the prototype". The note holds the before, so the after belongs beside it. Placement recommended; accepted under Jordan's standing instruction (2026-09-11). | A separate note. |
+| Where the before-and-after numbers live | A new section appended to the measurement note, plus a line in a `## What shipped` section added to this spec at `Status: built`. | #123 asks for "numbers from the real change, not the prototype". The note holds the before, so the after belongs beside it. Placement recommended; accepted under Jordan's standing instruction (2026-09-11). | A separate note. |
 | CHANGELOG | Fold the change into the existing, unreleased gate entry under `[Unreleased]` → Added. Don't write a separate Fixed entry. | Recommended; accepted under Jordan's standing instruction (2026-09-11). No user has run the gate. #109's pre-release fix was folded into the same entry, which is the precedent. | A Fixed entry describing a bug nobody could have hit. |
 
 ## Open questions
@@ -169,8 +170,10 @@ Change:
   under a dir (`startsWith(dir + sep)`) is excluded and counted against that
   dir. Every other path is scanned as today.
 - Call `validate` with `walked: scanned.length` and
-  `excluded: [{ dir, files }]`. Print `dir` in the same spelling as finding
-  paths: `join(root, relative(realRoot, dir))`.
+  `excluded: [{ dir, files }]`, holding only dirs whose count is at least 1. A
+  token package beneath `--root` that matched no walked file, such as one
+  holding only JSON, gets no entry and prints no line. Print `dir` in the same
+  spelling as finding paths: `join(root, relative(realRoot, dir))`.
 - `validate` accepts `excluded = []` and returns it on the result unchanged.
 - `formatReport`, after the `not read:` line, pushes one line per entry:
   `` `  excluded:     ${files} file(s) in ${dir}, the package that owns --tokens` ``.
@@ -197,6 +200,9 @@ Tests:
     `repo/src/a.css` holding the hex.
   - The run uses `--root repo/src`.
   - The hex is flagged, and no `excluded:` line appears.
+- A CLI test where `tokens/` beneath `--root` holds only `package.json` and
+  `tokens.json`, and `app/page.css` holds the hex. The hex is flagged, and no
+  `excluded:` line appears, so a zero-file package prints nothing.
 - `formatReport` on `validate({ files: [], walked: 0, excluded: [{ dir: 'x/tokens', files: 3 }] })`
   contains both `nothing-scanned` and `excluded:     3 file(s) in x/tokens`.
 - The existing "every rule renders without undefined" test passes an `excluded`
@@ -221,21 +227,32 @@ Change:
   are not scanned when that package sits beneath `--root`, and the report prints
   an `excluded:` line naming it.
 
-Verify: reviewed by eye against the house style of the neighbouring entries.
+Verify:
+- `node ci/validate-install-sets.mjs` exits 0. It's the one mechanical check
+  that parses `scripts/README.md`. Its prose-count check reads only the
+  "Documentation scripts — install as a set" section, not the Usage paragraph,
+  so it passing proves the new sentence didn't land in that section with a
+  file or script count it would contradict. It doesn't prove the sentence reads
+  well.
+- `grep -n 'excluded:' scripts/README.md` shows the sentence under `## Usage`.
+- Both edits reviewed by eye against the house style of the neighbouring entries.
 
 ### Step 5 — CI
 
 Files: none
 
-Change: none. Run each as its own command:
+Change: none. Run each of the seven steps in `.github/workflows/ci.yml` as its
+own command:
 `node --test`; `node ci/validate-plugin.mjs`; `node ci/validate-skills.mjs`;
+`node ci/validate-install-sets.mjs`;
 `node scripts/adapters/generate.mjs --check`;
 `node scripts/build-doc-card-builder.mjs --check`;
 `node scripts/build-native-adapter-config.mjs --check`.
 
-Verify: all six exit 0. `ci/validate-install-sets.test.mjs` runs under
-`node --test`, and it is the check that no new local import broke an install
-set. This change adds only `node:` built-ins.
+Verify: all seven exit 0. `node ci/validate-install-sets.mjs` is the check that
+no new local import broke an install set, and that the stated counts in
+`scripts/README.md`, which Step 4 edits, still agree with its table. This change
+adds only `node:` built-ins.
 
 ### Step 6 — Re-run the measurement against the same commits and record it
 
@@ -273,8 +290,14 @@ flags $M/after-brand-packages.txt | wc -l
 Append an "After narrowing (#123)" section to the measurement note. It holds the
 as-shipped vs narrowed table per run: flagged, true, false, unclear, false rate,
 and the headline file count. It also holds the `excluded:` lines, and a sentence
-confirming all 21 true positives still fail. Fill this spec's "What shipped" and
-"Where it diverged", and set `Status: built`.
+confirming all 21 true positives still fail.
+
+Then close out this spec. Add a `## What shipped` section and a
+`## Where it diverged` section, in that order, between `## Open questions` and
+`## Plan`, which is where the `write-spec` template puts them. What shipped lists
+what changed, one line per file or group, plus the before-and-after totals.
+Where it diverged names any step amended during the build, or says in one line
+that nothing diverged. Set `Status: built`.
 
 Verify: every diff shows **only removals, and exactly these**:
 - **brand apps:** `lab.css:44` and `lab.css:48`. 14 → 12.
