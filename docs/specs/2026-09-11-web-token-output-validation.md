@@ -1,6 +1,6 @@
 # Web output for tokens:validate-output
 
-Status: planned
+Status: built
 Reviewed: 2026-09-11 — ready to build
 Date: 2026-09-11
 Issue: #37
@@ -99,6 +99,57 @@ After this ships:
 - **README.md's roadmap bullet** (`README.md:208`) still says only native
   targets are validated per build. **I'd recommend updating it with the
   release notes**, not in this change. Unresolved.
+- **The block listing escapes quotes.** Keys go through `JSON.stringify`, so
+  the exit-2 listing prints `"[data-theme=\"light\"]"`. Copying the text
+  between the outer quotes carries the backslashes into `--block`, and no block
+  has that key. **I'd recommend printing each key shell-quoted**
+  (`'[data-theme="light"]'`), so the listing is paste-ready, the way the
+  Modes decision intends. Surfaced by the build (run 7). Unresolved.
+- **The `dual-node` advisory on a clean report.** Its last clause points at
+  "a no-unresolved-reference or dangling-reference failure above", and on
+  zygarden's correct `:root` there isn't one. **I'd recommend adding "if" to
+  the clause** ("if there is a … failure above, that is this happening"). The
+  advisory is right either way. Surfaced by the build (runs 1 and 3).
+  Unresolved.
+
+## What shipped
+
+`tokens:validate-output` reads web output. `--platform shadcn`, `tailwind` and
+`vanilla-css` extract CSS custom properties with a scanner that follows
+nesting, pick one mode block with `--block`, and accept `--output` more than
+once. Six rules fail a web run: `unit-fidelity` with web units,
+`reference-fidelity`, `dangling-reference`, `no-unresolved-reference`,
+`invalid-value` and `unverifiable-dimension`. shadcn and tailwind leave alias
+declarations out of the match rate. `--platform mui` exits 2 and points at
+#127. Native platforms run exactly the path they ran before: the source index
+and the `unitless-dimension` advisory moved into shared helpers, and no line of
+the existing test file changed.
+
+`token-sync-layer` now runs the gate for web adapters as well as native, and
+`scripts/README.md` holds the web contract, linked from the skill and from
+`references/sync-adapters.md`. CHANGELOG has the entry under `[Unreleased]`.
+
+Evidence: `docs/superpowers/notes/2026-09-11-web-output-validation-e2e.md`.
+All sixteen Step 9 runs matched their Expect column: zygarden's three blocks
+(214, 39 and 69 declarations) and throughline-sample's shadcn build (147 with
+20 aliases, and 35) came back clean, and every control failed the way this
+spec said it would. `node --test` ran 622 tests with none failing, and the
+other six CI steps exited 0.
+
+## Where it diverged
+
+- **Step 7, `SKILL.md`.** Rewrapping the execution-model paragraph also rewrapped
+  the sentence after it ("Choose each subagent's model …") and the Step 4
+  install heading, which the new text pushed past the paragraph's width. No
+  wording outside the three specified edits changed.
+- **Step 7, `references/sync-adapters.md`.** The sentence links the contract
+  and says nothing about blocks, so no rule is restated there.
+- **Step 9, harness.** `$W/stock.mjs` reads zygarden from
+  `~/Dev/zygarden-frontend`, not the `$M` clone the Plan pins. Both are at
+  `ca61ca9a6` and `diff -r` of their `src/tokens` is empty, so run 11 measures
+  the same source. Recorded in the note.
+- Nothing else diverged. Steps 1 to 6 recorded no divergence, and their
+  commits left the Plan unamended.
 
 ## Plan
 
