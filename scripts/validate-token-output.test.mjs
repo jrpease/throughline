@@ -936,3 +936,231 @@ test('extractCustomProperties ignores a declaration outside any block', () => {
 test('normalizeBlock collapses whitespace and normalizes comma spacing', () => {
   assert.equal(normalizeBlock('  :root ,\n .dark '), ':root, .dark');
 });
+
+import { cssMagnitude, webUnitFidelity } from './validate-token-output.mjs';
+
+function web(dtcg, css, extra) {
+  return validate({ sources: [{ file: 'a.json', dtcg }], output: css, platform: 'vanilla-css', minMatch: 0, ...extra });
+}
+
+test('cssMagnitude reads a unit or a bare number, and rejects the rest', () => {
+  assert.deepEqual(cssMagnitude('1rem'), { n: 1, unit: 'rem' });
+  assert.deepEqual(cssMagnitude(16), { n: 16, unit: '' });
+  assert.equal(cssMagnitude('var(--a)'), null);
+  assert.equal(cssMagnitude('#fff'), null);
+  assert.equal(cssMagnitude('16vh'), null);
+});
+
+test('webUnitFidelity is true for a matching px/rem/number/fontWeight pair', () => {
+  const t = (a, b, type) => webUnitFidelity(cssMagnitude(a), cssMagnitude(b), type);
+  assert.equal(t('16px', '16px', 'dimension'), true);
+  assert.equal(t('16px', '1rem', 'dimension'), true);
+  assert.equal(t(16, '1rem', 'dimension'), true);
+  assert.equal(t(16, '16px', 'dimension'), true);
+  assert.equal(t('1.5', '1.5', 'number'), true);
+  assert.equal(t(700, '700', 'fontWeight'), true);
+  assert.equal(t('-0.03em', '-0.03em', 'dimension'), true);
+  assert.equal(t('50%', '50%', 'dimension'), true);
+  assert.equal(t('0px', '0', 'dimension'), true);
+  assert.equal(t('24px', '24.0005px', 'dimension'), true);
+  assert.equal(t('1.1', '1.1', 'dimension'), true);
+});
+
+test('webUnitFidelity is false for a mismatched unit or magnitude', () => {
+  const t = (a, b, type) => webUnitFidelity(cssMagnitude(a), cssMagnitude(b), type);
+  assert.equal(t(16, '16rem', 'dimension'), false);
+  assert.equal(t('1.1', '1.1rem', 'dimension'), false);
+  assert.equal(t('1.5', '1.5px', 'number'), false);
+  assert.equal(t('-0.03em', '-0.48px', 'dimension'), false);
+  assert.equal(t('50%', '0.5', 'dimension'), false);
+  assert.equal(t('16px', '16', 'dimension'), false);
+});
+
+test('a clean web output passes', () => {
+  const dtcg = {
+    space: { 4: { $type: 'dimension', $value: '16px' } },
+    gap: { md: { $type: 'dimension', $value: '{space.4}' } },
+    color: { ink: { $type: 'color', $value: '#111111' } },
+    lh: { body: { $type: 'number', $value: 1.5 } },
+  };
+  const css = ':root {\n  --space-4: 1rem;\n  --gap-md: var(--space-4);\n  --color-ink: #111111;\n  --lh-body: 1.5;\n}\n';
+  const r = web(dtcg, css);
+  assert.deepEqual(r.failures, []);
+  assert.equal(r.matched, 4);
+  assert.equal(r.matchRate, 1);
+  assert.equal(r.ok, true);
+});
+
+test('no-foreign-syntax and no-bare-units do not run on web output', () => {
+  const dtcg = {
+    a: { $type: 'dimension', $value: '24px' },
+    b: { $type: 'color', $value: 'color-mix(in srgb, {color.ink} 10%, transparent)' },
+    color: { ink: { $type: 'color', $value: '#111' } },
+  };
+  const css = ':root { --a: 24px; --b: color-mix(in srgb, var(--color-ink) 10%, transparent); --color-ink: #111; }';
+  const r = web(dtcg, css);
+  assert.deepEqual(rules(r), []);
+});
+
+test('unit-fidelity catches 16rem emitted for a 16px source', () => {
+  const dtcg = { space: { 4: { $type: 'dimension', $value: '16' } } };
+  const r = web(dtcg, ':root { --space-4: 16rem; }');
+  assert.deepEqual(rules(r), ['unit-fidelity']);
+});
+
+const SPACE = {
+  space: { 4: { $type: 'dimension', $value: '16px' } },
+  gap: { md: { $type: 'dimension', $value: '{space.4}' } },
+};
+
+test('reference-fidelity fires when the emitted var() names a different token than the source references', () => {
+  const css = ':root { --space-4: 16px; --space-8: 32px; --gap-md: var(--space-8); }';
+  const r = web(SPACE, css);
+  assert.deepEqual(rules(r), ['reference-fidelity']);
+});
+
+test('composite references pass regardless of shorthand order', () => {
+  const dtcg = {
+    font: {
+      family: { body: { $type: 'fontFamily', $value: 'Inter' } },
+      size: { md: { $type: 'dimension', $value: '16px' } },
+      weight: { regular: { $type: 'fontWeight', $value: 400 } },
+    },
+    type: {
+      body: {
+        $type: 'typography',
+        $value: {
+          fontFamily: '{font.family.body}',
+          fontSize: '{font.size.md}',
+          fontWeight: '{font.weight.regular}',
+          lineHeight: 1.5,
+        },
+      },
+    },
+  };
+  const css =
+    ':root { --font-family-body: Inter; --font-size-md: 16px; --font-weight-regular: 400; --type-body: var(--font-weight-regular) var(--font-size-md)/1.5 var(--font-family-body); }';
+  const r = web(dtcg, css);
+  assert.deepEqual(rules(r), []);
+});
+
+test('dangling-reference fires when the emitted var() names nothing the output declares', () => {
+  const r = web(SPACE, ':root { --gap-md: var(--space-4); }');
+  assert.equal(r.failures.length, 1);
+  assert.deepEqual(r.failures[0], { rule: 'dangling-reference', symbol: '--gap-md', reference: '--space-4' });
+});
+
+test('a source-written var() is not dangling', () => {
+  const dtcg = { font: { sans: { $type: 'fontFamily', $value: 'var(--font-inter)' } } };
+  const r = web(dtcg, ':root { --font-sans: var(--font-inter); }');
+  assert.deepEqual(rules(r), []);
+});
+
+test('no-unresolved-reference fires on a {reference} left raw in the output', () => {
+  const dtcg = {
+    text: { xs: { $type: 'dimension', $value: '12px', lineHeight: { $type: 'dimension', $value: '16px' } } },
+    t: { lh: { $type: 'dimension', $value: '{text.xs.lineHeight}' } },
+  };
+  const r = web(dtcg, ':root { --text-xs: 12px; --t-lh: {text.xs.lineHeight}; }');
+  assert.deepEqual(rules(r), ['no-unresolved-reference']);
+  assert.ok(r.advisories.some((a) => a.rule === 'dual-node'));
+});
+
+test('invalid-value fires on a JavaScript value leaked into CSS, but not on a quoted string', () => {
+  const objDtcg = { shadow: { card: { $type: 'shadow', $value: { color: '#000', offsetX: '0px', offsetY: '1px', blur: '2px', spread: '0px' } } } };
+  const objR = web(objDtcg, ':root { --shadow-card: [object Object]; }');
+  assert.deepEqual(rules(objR), ['invalid-value']);
+
+  const strDtcg = { s: { flag: { $type: 'string', $value: 'undefined' } } };
+  const strR = web(strDtcg, ':root { --s-flag: "undefined"; }');
+  assert.deepEqual(rules(strR), []);
+});
+
+test('the alias layer is counted on shadcn/tailwind but not on vanilla-css', () => {
+  const dtcg = { color: { bg: { $type: 'color', $value: '#fff' } } };
+  const css = ':root { --color-bg: #fff; --background: var(--color-bg); }';
+
+  const shadcn = validate({ sources: [{ file: 'a.json', dtcg }], output: css, platform: 'shadcn', minMatch: 0 });
+  assert.equal(shadcn.aliases, 1);
+  assert.equal(shadcn.matchRate, 1);
+
+  const vanilla = validate({ sources: [{ file: 'a.json', dtcg }], output: css, platform: 'vanilla-css', minMatch: 0 });
+  assert.equal(vanilla.aliases, 0);
+  assert.equal(vanilla.matchRate, 0.5);
+
+  const dangling = validate({
+    sources: [{ file: 'a.json', dtcg }],
+    output: ':root { --color-bg: #fff; --background: var(--nope); }',
+    platform: 'shadcn',
+    minMatch: 0,
+  });
+  assert.equal(dangling.aliases, 0);
+  assert.ok(rules(dangling).includes('dangling-reference'));
+});
+
+test('blocks: no --block throws naming every block, a selected block is checked, an unknown one throws', () => {
+  const css = ':root { --a: 1px; }\n.dark { --a: 2px; }\n';
+  const dtcg = { a: { $type: 'dimension', $value: '2px' } };
+
+  assert.throws(() => web(dtcg, css), /pass --block with one of: ":root" \(1\), ".dark" \(1\)/);
+
+  const dark = web(dtcg, css, { block: ' .dark ' });
+  assert.deepEqual(dark.failures, []);
+  assert.equal(dark.block, '.dark');
+
+  const root = web(dtcg, css, { block: ':root' });
+  assert.deepEqual(rules(root), ['unit-fidelity']);
+
+  assert.throws(() => web(dtcg, css, { block: '.nope' }), /no block ".nope"/);
+});
+
+test('later declarations of the same custom property win', () => {
+  const dtcg = { a: { $type: 'dimension', $value: '16px' } };
+  const r = web(dtcg, ':root { --a: 16rem; }\n:root { --a: 16px; }\n');
+  assert.deepEqual(r.failures, []);
+  assert.equal(r.total, 1);
+});
+
+test('unemittedPaths is computed against every declared name, not just the selected block', () => {
+  const dtcg = {
+    a: { $type: 'dimension', $value: '1px' },
+    b: { $type: 'dimension', $value: '2px' },
+    c: { $type: 'dimension', $value: '3px' },
+  };
+  const css = ':root { --a: 1px; }\n.dark { --b: 2px; }\n';
+  const r = web(dtcg, css, { block: ':root' });
+  assert.deepEqual(r.unemittedPaths, ['c']);
+});
+
+test('a mode collision carries over to the web path', () => {
+  const r = validate({
+    sources: [
+      { file: 'mobile.json', dtcg: { a: { $type: 'dimension', $value: '1px' } } },
+      { file: 'desktop.json', dtcg: { a: { $type: 'dimension', $value: '2px' } } },
+    ],
+    output: ':root { --a: 1px; }',
+    platform: 'vanilla-css',
+    minMatch: 0,
+  });
+  assert.equal(r.collisions.length, 1);
+  assert.equal(r.ok, false);
+});
+
+test('text-role advisories do not run on the web path', () => {
+  const r = validate({
+    sources: roleSources(),
+    output: ':root { --text-base: 16px; }',
+    platform: 'vanilla-css',
+    minMatch: 0,
+  });
+  assert.ok(
+    r.advisories.every((a) => a.rule !== 'unreferenced-text-sibling' && a.rule !== 'ambiguous-text-role'),
+  );
+});
+
+test('platform mui throws rather than being read as native or web', () => {
+  assert.throws(
+    () => validate({ sources: [{ file: 'a.json', dtcg: {} }], output: '', platform: 'mui', minMatch: 0 }),
+    /mui is not supported/,
+  );
+});

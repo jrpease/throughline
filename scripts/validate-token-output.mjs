@@ -31,6 +31,15 @@ const DECL = {
   'android-kotlin': /^\s*val\s+([A-Za-z_]\w*)\s*=\s*(.+?)\s*$/,
 };
 
+// The web platforms this gate reads, and whether each one has an alias
+// layer — a hand-authored custom property (e.g. shadcn/tailwind's
+// `--background: var(--color-bg)`) that has no source token to match.
+export const WEB_PLATFORMS = {
+  shadcn: { aliasLayer: true },
+  tailwind: { aliasLayer: true },
+  'vanilla-css': { aliasLayer: false },
+};
+
 // Style Dictionary's ios-swift/enum.swift format emits an inline trailing
 // comment for any token carrying a $description ("... /** Small body text */").
 // Strip a TRAILING comment only — a value that legitimately contains "//"
@@ -351,7 +360,206 @@ function unitlessDimensionAdvisory({ path, flat, types, symbol, source, emitted 
   return null;
 }
 
-export function validate({ sources, output, platform, minMatch = 0.5 }) {
+// A CSS magnitude: a bare number, or a number with a px/rem/em/% unit. `null`
+// for anything else (a colour, a var(), an unresolved reference) — those are
+// not dimensions and unit-fidelity has nothing to compare.
+export function cssMagnitude(value) {
+  if (typeof value === 'number') return { n: value, unit: '' };
+  if (typeof value !== 'string') return null;
+  const m = value.trim().match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))(px|rem|em|%)?$/);
+  if (!m) return null;
+  return { n: Number(m[1]), unit: m[2] ?? '' };
+}
+
+// Web's analogue of expectedMagnitude/magnitudeOf, but two-sided: CSS, unlike
+// Swift/Kotlin, can emit px OR rem for the same source value, and em/% have no
+// unit-less native equivalent to fall back to, so the comparison has to know
+// which unit the SOURCE was authored in, not just read a bare number back out.
+export function webUnitFidelity(source, emitted, type) {
+  const px = (x) => (x.unit === 'rem' ? x.n * 16 : x.n);
+  const close = (a, b) => Math.abs(a - b) <= 0.001;
+  if (type === 'number' || type === 'fontWeight') {
+    return emitted.unit === '' && close(emitted.n, px(source));
+  }
+  if (source.unit === 'em' || source.unit === '%') {
+    return emitted.unit === source.unit && close(emitted.n, source.n);
+  }
+  if (source.unit === 'px' || source.unit === 'rem') {
+    return (
+      (emitted.unit === 'px' || emitted.unit === 'rem' || (emitted.unit === '' && emitted.n === 0)) &&
+      close(px(emitted), px(source))
+    );
+  }
+  // A unitless source is a ratio (unitless-dimension advisory catches the
+  // authoring problem separately); accept it read back as px, rem, or bare.
+  return ['', 'px', 'rem'].includes(emitted.unit) && close(px(emitted), source.n);
+}
+
+// Web output for tokens:validate-output (docs/specs/2026-09-11-web-token-output-validation.md),
+// Step 4. `no-foreign-syntax` and `no-bare-units` do not run here: both exist
+// to catch CSS syntax LEAKING into a Swift/Kotlin literal, where it cannot
+// compile — but CSS is the target language on this path, so `calc(...)`,
+// `var(...)` and a bare `16px` are exactly the forms a correct declaration is
+// expected to contain. There is no foreign syntax to leak (#37).
+function validateWeb({ sources, output, platform, minMatch, block }) {
+  const { declarations, unparsed } = extractCustomProperties(output);
+  const counts = new Map();
+  for (const d of declarations) counts.set(d.block, (counts.get(d.block) ?? 0) + 1);
+  const list = [...counts].map(([k, c]) => `${JSON.stringify(k)} (${c})`).join(', ');
+
+  let key;
+  if (block === undefined) {
+    if (counts.size === 1) {
+      key = [...counts.keys()][0];
+    } else if (counts.size > 1) {
+      throw new Error(`the output declares custom properties in ${counts.size} blocks — pass --block with one of: ${list}`);
+    }
+  } else {
+    key = normalizeBlock(block);
+    if (counts.size > 0 && !counts.has(key)) {
+      throw new Error(`no block ${JSON.stringify(key)} in the output — its blocks are: ${list}`);
+    }
+  }
+
+  const declared = new Set(declarations.map((d) => d.name));
+  const selected = new Map();
+  for (const d of declarations) {
+    if (d.block === key) selected.set(d.name, d.value);
+  }
+
+  const { collisions, flat, normalizationCollisions, byKey } = indexSources(sources);
+  const types = {};
+  for (const { dtcg } of sources) Object.assign(types, flattenDtcgTypes(dtcg));
+
+  function strings(v) {
+    if (typeof v === 'string') return [v];
+    if (v && typeof v === 'object') return Object.values(v).flatMap(strings);
+    return [];
+  }
+
+  const failures = [];
+  const advisories = [];
+  let matched = 0;
+  let aliases = 0;
+
+  for (const [name, value] of selected) {
+    const unquoted = value.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, '""');
+    const emittedVars = [...unquoted.matchAll(/var\(\s*(--[A-Za-z0-9_-]+)/g)].map((m) => m[1]);
+
+    const path = byKey.get(normalizeKey(name));
+    const raw = path === undefined ? '' : strings(flat[path]).join(' ');
+    const authored = new Set([...raw.matchAll(/var\(\s*(--[A-Za-z0-9_-]+)/g)].map((m) => m[1]));
+
+    for (const v of new Set(emittedVars)) {
+      if (!declared.has(v) && !authored.has(v)) {
+        failures.push({ rule: 'dangling-reference', symbol: name, reference: v });
+      }
+    }
+
+    const unresolved = /\{[^{}]*\}/.test(unquoted);
+    if (unresolved) failures.push({ rule: 'no-unresolved-reference', symbol: name, emitted: value });
+
+    const invalid = /\[object Object\]|\bNaN\b|\bundefined\b/.test(unquoted);
+    if (invalid) failures.push({ rule: 'invalid-value', symbol: name, emitted: value });
+
+    if (path === undefined) {
+      if (
+        WEB_PLATFORMS[platform].aliasLayer &&
+        /^var\(\s*--[A-Za-z0-9_-]+\s*\)$/.test(value.trim()) &&
+        declared.has(emittedVars[0])
+      ) {
+        aliases += 1;
+      }
+      continue;
+    }
+
+    let source;
+    try {
+      source = resolveValue(path, flat);
+    } catch {
+      continue;
+    }
+    matched += 1;
+
+    const advisory = unitlessDimensionAdvisory({ path, flat, types, symbol: name, source, emitted: value });
+    if (advisory) advisories.push(advisory);
+
+    if (emittedVars.length) {
+      const wantMatches = [...raw.matchAll(/\{([^{}]+)\}|var\(\s*(--[A-Za-z0-9_-]+)/g)];
+      const want = wantMatches.map((m) => normalizeKey(m[1] ?? m[2])).sort();
+      const got = emittedVars.map(normalizeKey).sort();
+      if (JSON.stringify(want) !== JSON.stringify(got)) {
+        failures.push({
+          rule: 'reference-fidelity',
+          symbol: name,
+          token: path,
+          source: typeof flat[path] === 'string' ? flat[path] : JSON.stringify(flat[path]),
+          emitted: value,
+        });
+      }
+      continue;
+    }
+
+    const s = cssMagnitude(source);
+    if (s === null) continue;
+    const e = cssMagnitude(value);
+    if (e === null) {
+      if (!unresolved && !invalid) {
+        failures.push({ rule: 'unverifiable-dimension', symbol: name, token: path, source, emitted: value });
+      }
+      continue;
+    }
+    if (!webUnitFidelity(s, e, types[path])) {
+      failures.push({ rule: 'unit-fidelity', symbol: name, token: path, source, emitted: value });
+    }
+  }
+
+  const dualNodes = [...new Set(sources.flatMap((s) => findDualNodes(s.dtcg)))];
+  if (dualNodes.length) advisories.push({ rule: 'dual-node', paths: dualNodes });
+
+  const total = selected.size;
+  const denominator = total - aliases;
+  const matchRate = denominator ? matched / denominator : 0;
+  const ok =
+    failures.length === 0 &&
+    collisions.length === 0 &&
+    normalizationCollisions.length === 0 &&
+    matched > 0 &&
+    matchRate >= minMatch;
+
+  const declaredKeys = new Set([...declared].map(normalizeKey));
+  const unemittedPaths = [];
+  for (const [k, path] of byKey) if (!declaredKeys.has(k)) unemittedPaths.push(path);
+
+  return {
+    platform,
+    block: key ?? null,
+    total,
+    aliases,
+    matched,
+    matchRate,
+    failures,
+    advisories,
+    collisions,
+    normalizationCollisions,
+    minMatch,
+    ok,
+    unparsedLines: unparsed,
+    unemittedTokens: unemittedPaths.length,
+    unemittedPaths,
+  };
+}
+
+export function validate({ sources, output, platform, minMatch = 0.5, block }) {
+  if (platform === 'mui') {
+    throw new Error(
+      '--platform mui is not supported: a MUI theme is a JavaScript object, and this gate reads CSS custom properties. See #127.',
+    );
+  }
+  if (platform in WEB_PLATFORMS) {
+    return validateWeb({ sources, output, platform, minMatch, block });
+  }
+
   const { collisions, flat, normalizationCollisions, byKey } = indexSources(sources);
 
   const types = {};
