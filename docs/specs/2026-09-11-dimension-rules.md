@@ -1,6 +1,7 @@
 # Dimension rules for the adherence gate
 
 Status: planned
+Reviewed: 2026-09-11 — ready to build
 Date: 2026-09-11
 Issue: #39, phase 3
 Parent design: `docs/superpowers/specs/2026-08-31-code-adherence-gate-design.md` (§4, §8, §11)
