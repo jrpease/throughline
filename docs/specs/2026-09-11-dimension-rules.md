@@ -1,6 +1,6 @@
 # Dimension rules for the adherence gate
 
-Status: planned
+Status: built
 Reviewed: 2026-09-11 — ready to build
 Date: 2026-09-11
 Issue: #39, phase 3
@@ -106,6 +106,53 @@ carries over unchanged: no token for the value means no finding.
   but a finding names `radius.4` where `radius.card` is the better fix.
   **I'd recommend handling it in #121**, alongside the colour version.
   Unresolved.
+
+## What shipped
+
+All seven steps, on `feat/39-dimension-rules`, in `scripts/validate-adherence.mjs`
+and its tests, plus the CHANGELOG and `scripts/README.md`.
+
+- **`token-exists-for-dimension`** fails a spacing, radius or type literal a
+  token in the same category already holds, read from declarations and Tailwind
+  arbitrary values. **`dimension-rule-inert`** fails a run whose token files
+  yield no comparable dimension. The report's headline counts dimension
+  literals, and a `dimensions:` line counts comparable tokens per category.
+- **Opaque integer `rgb()` / `rgba()`** is normalised to hex on both sides of
+  the colour rule.
+- **Phase 4 isn't triggered.** #39 closes when this lands.
+
+Measured against the real change, not the prototype, in
+`docs/superpowers/notes/2026-09-11-dimension-rule-measurement.md`:
+
+| run | files | dimension literals | dimension flags | true | false | unclear | colour flags |
+|---|---|---|---|---|---|---|---|
+| `throughline-ds` `--root apps` | 66 | 113 | 34 | 34 | 0 | 0 | 12 → 12 |
+| `zygarden` `--root apps` | 69 | 85 | 33 | 31 | 0 | 2 | 11 → 15 |
+| `zygarden` `--root libs` | 742 | 2586 | 26 | 25 | 0 | 1 | 3 → 3 |
+| **total** | 877 | 2784 | **93** | **90** | **0** | **3** | **26 → 30** |
+| `throughline-ds` `--root packages` | 29 | 13 | 12 | story scaffolding | | | 0 → 0 |
+
+Every dimension flag list is identical to the prototype's, duplicates kept. The
+only colour change is the four expected `rgb()` flags in zygarden `apps`. CI's
+seven steps pass, with 587 tests.
+
+## Where it diverged
+
+- **Step 3 exports two helpers it didn't name as exports.** `blankParens` and
+  `blankFontFaces` are exported, beside `blankComments` and `blankMasks`, which
+  already were. Nothing imports them yet. Behaviour matches the step.
+- **Step 5's `grep -n 'dimension'` shows no new CHANGELOG line.** The entry says
+  "spacing, radius or type", the words a reader uses, not "dimension". The
+  check ran as `grep -n 'spacing, radius or type' scripts/README.md CHANGELOG.md`
+  instead, which shows the table row, the usage sentence and the new bullet. The
+  README's usage sentence matches the original grep.
+- **Step 5's `rgb()` bullet carries an example** (`rgba(163, 230, 34, 1)` and
+  `#a3e622`) the step didn't list. It's the value the measurement found.
+- **Step 7's colour flags got a read the step didn't ask for.** The four new
+  `rgb()` flags are 2 true and 2 unclear, read from source in this run and
+  recorded in the note. They sit outside the 93.
+
+Nothing else moved. Every other Verify passed as written.
 
 ## Plan
 
