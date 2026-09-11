@@ -22,13 +22,21 @@ to [Semantic Versioning](https://semver.org).
   `--system` paths matching the repo's layout — that must be substituted before
   it can run.
 
-  Five things worth knowing before switching it on:
+  Six things worth knowing before switching it on:
 
   - **A system whose records and code disagree about axis names will see
     `variant-rule-inert`, and should read the report rather than skip the rule.**
     That failure means the rule verified nothing, which is not the same as
     passing. `--skip unknown-variant-value` is the supported answer only for a
     system whose axes are genuinely conceptual.
+  - **A component is checked once per tag, and a tag with no attributes is
+    checked too.** `<Icons.Folder>` is a member of something the package
+    exports, so it's left alone. A name that starts with a built component's
+    name and continues with a capital letter is read as part of that component:
+    `<CardTitle>` belongs to `Card`, and so would an invented `<CardGrid>`. That's
+    the line, and the report lists every name it accepted on a `parts:` line so
+    it stays visible. A commented-out tag isn't code. Against the throughline-ds
+    site, this took the rule from 20 failures on correct code to 0.
   - **A run that scans nothing fails.** Pointed at a directory with no matching
     source, or given a `--package` specifier the app does not import under, the
     gate reports `nothing-scanned` rather than a clean pass. Every enabled rule
