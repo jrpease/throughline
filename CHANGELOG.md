@@ -121,6 +121,18 @@ to [Semantic Versioning](https://semver.org).
 
 ### Fixed
 
+- **The source scanners skip a local Storybook build (#124).** Running
+  `storybook build` leaves minified bundles in `packages/ui/storybook-static`.
+  The directory is gitignored, so CI never sees it. A local run from `packages/`
+  read every bundle anyway. On one real design system, that was 453 of the
+  adherence gate's 465 failures, all of them in Storybook's own code. The shared
+  walker in `lib/source-scan.mjs` now skips `storybook-static` the way it already
+  skips `dist` and `.next`. `grep-color-usage.mjs` and `guard-token-removal.mjs`
+  share that walker, so they skip it too.
+
+  The token-removal guard loses nothing. It reads only `.ts` and `.tsx`, and a
+  Storybook build ships neither. On the same repo, it reported the same 687
+  references before and after.
 - **The Figma executor checks which file it is about to write to, not just that
   a bridge is up (#107).** Every write lands in whichever Figma file is active.
   With two files open, a green status check could still send a component build
