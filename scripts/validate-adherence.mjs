@@ -232,25 +232,60 @@ export function extract(text, pkg, path = '') {
 //
 // resolveValue throws on an unknown path and on a cycle. A gate that reports
 // must not die mid-report, so every resolution is wrapped and a token that
-// cannot be resolved is skipped.
+// cannot be resolved is skipped, and counted by skippedColourTokens.
 export function buildTokenValues(dicts) {
   const out = new Map();
-  for (const dict of dicts) {
-    const flat = flattenDtcg(dict);
-    for (const path of Object.keys(flat)) {
-      let resolved;
-      try {
-        resolved = resolveValue(path, flat);
-      } catch {
-        continue;
-      }
-      const hex = normalizeHex(resolved) ?? rgbToHex(resolved);
-      if (!hex) continue;
-      if (!out.has(hex)) out.set(hex, []);
-      out.get(hex).push(path);
-    }
+  for (const t of resolvedTokens(dicts)) {
+    if (!t.resolves) continue;
+    const hex = normalizeHex(t.value) ?? rgbToHex(t.value);
+    if (!hex) continue;
+    if (!out.has(hex)) out.set(hex, []);
+    out.get(hex).push(t.path);
   }
   return out;
+}
+
+// Every token in every --tokens file, resolved against all of them (#121). A
+// semantic file aliases primitives in another file, and resolving each file
+// alone skipped every one of those aliases. A file's own paths win over the
+// pool, so two mode files defining one path differently each keep their own
+// value; a path defined in several OTHER files resolves to the last one given.
+// An alias that names no path in any file stays unresolvable. That includes a
+// collection-relative `{canvas}` meaning `color-primitive.canvas`, which is an
+// export quirk rather than DTCG, and is counted rather than guessed at.
+function* resolvedTokens(dicts) {
+  const flats = dicts.map((d) => flattenDtcg(d));
+  const pool = Object.assign({}, ...flats);
+  for (const [i, dict] of dicts.entries()) {
+    const flat = flats[i];
+    const lookup = { ...pool, ...flat };
+    const types = flattenDtcgTypes(dict);
+    for (const path of Object.keys(flat)) {
+      let value;
+      try {
+        value = resolveValue(path, lookup);
+      } catch {
+        yield { path, type: types[path], resolves: false };
+        continue;
+      }
+      yield { path, type: types[path], resolves: true, value };
+    }
+  }
+}
+
+// Decision 4: a colour token the gate cannot compare is skipped AND counted, so
+// the report shows the blind spot. Only tokens whose effective $type is `color`
+// are counted — an untyped token that resolves to hex is still compared, but
+// one that does not could be anything, and counting a font family as a skipped
+// colour would bury the number that matters.
+export function skippedColourTokens(dicts) {
+  const skipped = { unresolvable: 0, nonHex: 0 };
+  for (const t of resolvedTokens(dicts)) {
+    if (t.type !== 'color') continue;
+    if (!t.resolves) skipped.unresolvable += 1;
+    else if (!(normalizeHex(t.value) ?? rgbToHex(t.value))) skipped.nonHex += 1;
+  }
+  return skipped;
 }
 
 // Dimension rules (#39): docs/specs/2026-09-11-dimension-rules.md. Same shape
@@ -357,25 +392,15 @@ export function canonicalDimension(raw, category, unitless) {
 // only is the point, per the spec's measurement.
 export function buildDimensionValues(dicts) {
   const out = new Map();
-  for (const dict of dicts) {
-    const flat = flattenDtcg(dict);
-    const types = flattenDtcgTypes(dict);
-    for (const path of Object.keys(flat)) {
-      const category = dimensionCategory(path, types[path]);
-      if (!category) continue;
-      let resolved;
-      try {
-        resolved = resolveValue(path, flat);
-      } catch {
-        continue;
-      }
-      const value = canonicalDimension(resolved, category, 'px');
-      if (!value) continue;
-      if (!out.has(category)) out.set(category, new Map());
-      const inner = out.get(category);
-      if (!inner.has(value)) inner.set(value, []);
-      inner.get(value).push(path);
-    }
+  for (const t of resolvedTokens(dicts)) {
+    const category = dimensionCategory(t.path, t.type);
+    if (!category || !t.resolves) continue;
+    const value = canonicalDimension(t.value, category, 'px');
+    if (!value) continue;
+    if (!out.has(category)) out.set(category, new Map());
+    const inner = out.get(category);
+    if (!inner.has(value)) inner.set(value, []);
+    inner.get(value).push(t.path);
   }
   return out;
 }
@@ -459,6 +484,7 @@ export function validate({
   built = [],
   index = { components: [] },
   tokenValues = new Map(),
+  colourSkipped = { unresolvable: 0, nonHex: 0 },
   dimensionValues = new Map(),
   files = [],
   walked = files.length,
@@ -477,6 +503,8 @@ export function validate({
     literals: 0,
     dimensions: 0,
     parts: new Map(),
+    colourTokens: [...tokenValues.values()].reduce((n, paths) => n + paths.length, 0),
+    colourSkipped,
     dimensionTokens: Object.fromEntries(
       DIMENSION_CATEGORIES.map((c) => [
         c,
@@ -562,7 +590,15 @@ export function validate({
       if (off.has('token-exists-for-literal')) continue;
       const tokens = tokenValues.get(l.value);
       if (tokens) {
-        failures.push({ rule: 'token-exists-for-literal', value: l.value, tokens, file: path, line: l.line });
+        // A path two mode files both resolve to this value is one name to reach
+        // for, so it is named once.
+        failures.push({
+          rule: 'token-exists-for-literal',
+          value: l.value,
+          tokens: [...new Set(tokens)],
+          file: path,
+          line: l.line,
+        });
       }
     }
 
@@ -576,7 +612,7 @@ export function validate({
           category: d.category,
           written: d.written,
           value: d.value,
-          tokens,
+          tokens: [...new Set(tokens)],
           file: path,
           line: d.line,
         });
@@ -633,6 +669,7 @@ export function formatReport(r) {
   lines.push(
     `  variant axes: ${s.axisMatched} of ${s.axisMatched + s.axisUnmatched} literal attributes matched a declared axis`,
     `  not read:     ${s.dynamic} of ${s.usages} attributes are expressions, not literals`,
+    `  colour:       ${s.colourTokens} token values comparable, ${s.colourSkipped.unresolvable} skipped as unresolvable, ${s.colourSkipped.nonHex} skipped as non-hex`,
     `  dimensions:   ${dimensionTotal} token values comparable — ${DIMENSION_CATEGORIES.map((c) => `${c} ${s.dimensionTokens[c]}`).join(', ')}`,
   );
   for (const e of r.excluded) {
@@ -745,6 +782,7 @@ function main() {
   );
   const tokenDicts = (values.tokens ?? []).map((f) => read(f, 'a token source'));
   const tokenValues = buildTokenValues(tokenDicts);
+  const colourSkipped = skippedColourTokens(tokenDicts);
   const dimensionValues = buildDimensionValues(tokenDicts);
 
   const files = [];
@@ -784,6 +822,7 @@ function main() {
     built: manifest.components?.built ?? [],
     index,
     tokenValues,
+    colourSkipped,
     dimensionValues,
     files,
     walked: scanned.length,

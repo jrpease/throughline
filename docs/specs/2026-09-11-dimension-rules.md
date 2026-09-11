@@ -104,8 +104,10 @@ carries over unchanged: no token for the value means no finding.
   `radius-semantic.json` points into `radius-primitives.json`, so its semantic
   radii aren't compared. The primitives they point at are, so nothing is missed,
   but a finding names `radius.4` where `radius.card` is the better fix.
-  **I'd recommend handling it in #121**, alongside the colour version.
-  Unresolved.
+  **Cross-file aliases landed in #121**, and `radius.card` now sits beside
+  `radius.3` in the finding. A count of skipped dimension tokens didn't: zero
+  and `%` tokens are skipped on purpose, so that count needs its own definition
+  first. Still open.
 
 ## What shipped
 
