@@ -1,7 +1,7 @@
 # Web output for tokens:validate-output
 
 Status: planned
-Reviewed: 2026-09-11 — needs revision
+Reviewed: 2026-09-11 — ready to build
 Date: 2026-09-11
 Issue: #37
 Parent design: `docs/superpowers/specs/2026-08-21-token-output-validation-design.md`
