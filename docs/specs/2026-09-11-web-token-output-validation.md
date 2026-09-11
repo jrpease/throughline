@@ -1,6 +1,7 @@
 # Web output for tokens:validate-output
 
 Status: planned
+Reviewed: 2026-09-11 — needs revision
 Date: 2026-09-11
 Issue: #37
 Parent design: `docs/superpowers/specs/2026-08-21-token-output-validation-design.md`
@@ -353,8 +354,9 @@ Use the file's existing `rules(r)` helper.
 - Emitted means any block. `dtcg = { a: { $type: 'dimension', $value: '1px' }, b: { $type: 'dimension', $value: '2px' }, c: { $type: 'dimension', $value: '3px' } }`
   with `':root { --a: 1px; }\n.dark { --b: 2px; }\n'` and `block: ':root'`
   gives `unemittedPaths` `['c']`.
-- `no-mode-collision` carries over: two sources, both defining `a`, one as
-  `1px` and one as `2px`, give `collisions.length === 1` and `ok` false.
+- `no-mode-collision` carries over:
+  `validate({ sources: [{ file: 'mobile.json', dtcg: { a: { $type: 'dimension', $value: '1px' } } }, { file: 'desktop.json', dtcg: { a: { $type: 'dimension', $value: '2px' } } }], output: ':root { --a: 1px; }', platform: 'vanilla-css', minMatch: 0 })`
+  gives `collisions.length === 1` and `ok` false.
 - Text-role advisories don't run on web: `validate({ sources: roleSources(), output: ':root { --text-base: 16px; }', platform: 'vanilla-css', minMatch: 0 })`
   gives no advisory whose rule is `unreferenced-text-sibling` or
   `ambiguous-text-role`.
@@ -485,10 +487,18 @@ neighbouring text.
     - what never fails for being CSS: `var()`, `calc()`, `color-mix()`, units
     - that shadcn and tailwind leave alias declarations out of the match rate.
 - `skills/token-sync-layer/SKILL.md`:
-  - In Step 3's execution-model paragraph, replace "(for web: the config builds,
-    the expected files appear, references resolve; for native:
-    `tokens:validate-output` passes —" with "(for web and native alike:
-    `tokens:validate-output` passes —". Keep the rest of that sentence as it is.
+  - In Step 3's execution-model paragraph, replace the whole parenthetical after
+    "verifies them". Today it runs across four wrapped lines (190-193), from
+    "(for web: the config builds," to "four known native failure modes ship
+    silently)", so find it by its first and last lines, not as one string. Its
+    tail rebuts a phrase this edit deletes and counts only native failures, so
+    it goes too. The replacement, in full: "(for web and native alike:
+    `tokens:validate-output` passes — a clean build is not verification, it is
+    the condition under which every known failure mode, web or native, ships
+    silently)". Rewrap to the paragraph's width, keeping "for web and native
+    alike" on one line so the Verify grep below can find it. Read the finished sentence as a
+    whole, from "If your host supports subagent dispatch" to "to check each
+    before combining".
   - In Step 4, change "Install the native token toolkit — all four files, as a
     set." to "Install the token toolkit — all four files, as a set, for web and
     native targets alike." The copy lines don't change.
@@ -514,7 +524,13 @@ neighbouring text.
 Verify:
 - `node ci/validate-install-sets.mjs` → exit 0.
 - `node scripts/adapters/generate.mjs --check` → exit 0.
-- `grep -n 'the config builds, the expected files appear' skills/token-sync-layer/SKILL.md` → no output.
+- `grep -n 'for web: the config builds' skills/token-sync-layer/SKILL.md` → no
+  output. Before the edit it matches line 190; a check that also passes on the
+  unchanged file proves nothing.
+- `grep -n 'four known native failure modes' skills/token-sync-layer/SKILL.md` →
+  no output. Before the edit it matches line 193.
+- `grep -n 'for web and native alike' skills/token-sync-layer/SKILL.md` → at
+  least one line. Before the edit it matches nothing.
 - `grep -n 'block' scripts/README.md skills/token-sync-layer/SKILL.md` shows the new text.
 - All four prose edits read by eye against the text around them.
 
