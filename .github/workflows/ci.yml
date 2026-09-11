@@ -19,6 +19,8 @@ jobs:
         run: node ci/validate-plugin.mjs
       - name: Validate skill/command frontmatter
         run: node ci/validate-skills.mjs
+      - name: Check install sets carry every file their scripts import
+        run: node ci/validate-install-sets.mjs
       - name: Check adapters are up to date
         run: node scripts/adapters/generate.mjs --check
       - name: Check doc-card builder is up to date

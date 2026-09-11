@@ -16,6 +16,13 @@ own structure. Zero dependencies; stdlib only.
    (matching its directory) and a `description` (≤ 1024 chars); every
    `commands/*.md` has a `description`; and the `references/manifest-schema.md`
    example JSON parses with an integer `schemaVersion`.
+4. `node ci/validate-install-sets.mjs` — every documented install set carries
+   every file its scripts import, followed transitively. Reads the lists from
+   the docs themselves: the **Documentation scripts — install as a set** table in
+   `scripts/README.md` and each `src` → `dest` copy line in `skills/*/SKILL.md`.
+   Also checks the file and npm-script counts that prose restates about the docs
+   set. Every other gate runs scripts in place, where every sibling exists, so a
+   list missing a file stays green without this one.
 
 ## Run locally
 
@@ -23,6 +30,7 @@ own structure. Zero dependencies; stdlib only.
 node --test                  # all tests
 node ci/validate-plugin.mjs  # guard plugin manifests
 node ci/validate-skills.mjs  # guard skill/command/manifest-doc structure
+node ci/validate-install-sets.mjs  # guard install lists against missing imports
 node ci/compile-native-output.mjs <dir>  # compile generated Tokens.kt/.swift (not a CI gate)
 node ci/compile-native-output.mjs <dir> --allow-missing  # tolerate one absent toolchain
 ```

@@ -46,7 +46,7 @@ scripts:
 | `lib/dtcg.mjs` | — (imported by the above) |
 
 A refresh that adds a file must also add its npm script; check `package.json`
-for all four every time, not just the file that changed.
+for all four npm scripts every time, not just the file that changed.
 
 The crosswalk contract is documented in
 `${CLAUDE_PLUGIN_ROOT}/references/crosswalk-schema.md`.
