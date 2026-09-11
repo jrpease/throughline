@@ -1,6 +1,7 @@
 # Narrow the component rule
 
 Status: planned
+Reviewed: 2026-09-11 — ready to build
 Date: 2026-09-11
 Issue: #120 (refs #39)
 Evidence: `docs/superpowers/notes/2026-09-11-colour-rule-measurement.md` (#122), plus a
