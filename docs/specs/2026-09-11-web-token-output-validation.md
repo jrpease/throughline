@@ -140,7 +140,7 @@ It says nothing in the repo or its samples shows what a generated one looks
 like, so an extractor would be a guess. It names the one concrete check a
 preset needs: that every `var()` in it is declared by the CSS it ships with
 (throughline-sample's `build/tailwind/preset.cjs` is the example). It links
-this spec. Record the number as `N` for Steps 4 and 7.
+this spec. Record the number as `N` for Steps 4 and 7. Filed as #127, so `N` is 127 below.
 
 Verify: `gh issue view N --json state,title` → `OPEN` with that title.
 
@@ -292,7 +292,7 @@ Change:
   9. Return
      `{ platform, block: resolved key or null, total, aliases, matched, matchRate, failures, advisories, collisions, normalizationCollisions, minMatch, ok, unparsedLines: unparsed, unemittedTokens: unemittedPaths.length, unemittedPaths }`.
 - At the top of `validate`: if `platform === 'mui'`, throw
-  `new Error(`--platform mui is not supported: a MUI theme is a JavaScript object, and this gate reads CSS custom properties. See #N.`)`.
+  `new Error(`--platform mui is not supported: a MUI theme is a JavaScript object, and this gate reads CSS custom properties. See #127.`)`.
   If `platform in WEB_PLATFORMS`, return `validateWeb({ sources, output, platform, minMatch, block })`.
   `validate` gains a `block` parameter that the native path ignores.
 - Put a comment above `validateWeb` naming this spec. It should say why
@@ -479,7 +479,7 @@ neighbouring text.
   - Under `## Usage`, add `node validate-token-output.mjs --source dtcg/primitives.json --source dtcg/semantic.dark.json --output css/tokens.css --platform shadcn --block .dark --min-match 1`
     to the code block. Add a paragraph after the `validate-adherence.mjs`
     paragraph stating the web contract:
-    - which platforms read CSS, and that `mui` and JavaScript configs aren't read yet (#N)
+    - which platforms read CSS, and that `mui` and JavaScript configs aren't read yet (#127)
     - one run per mode block, with that block's sources
     - how a block key is spelled, and that the run lists them when it can't choose
     - `--output` repeats for a build split across files
@@ -506,7 +506,7 @@ neighbouring text.
     list that file's build used.", add: for web output (`shadcn`, `tailwind`,
     `vanilla-css`), run it once per mode block, naming the block with `--block`
     and passing the sources that block was built from. A MUI theme isn't
-    checked yet (#N). The full contract is in
+    checked yet (#127). The full contract is in
     `${CLAUDE_PLUGIN_ROOT}/scripts/README.md`.
 - `references/sync-adapters.md`: at the end of the **Web adapters** bullet
   (lines 132-142), add one sentence saying `tokens:validate-output` checks
@@ -518,7 +518,7 @@ neighbouring text.
   Dictionary cases (`1.1` → `1.1rem`, raw `{text.5xl.lineHeight}`, `16` →
   `16rem`, `[object Object]`). It says a run is one mode block, a split build
   passes every file, shadcn and tailwind aliases leave the match rate alone,
-  and `token-sync-layer` now runs it for web. MUI isn't checked yet (#N).
+  and `token-sync-layer` now runs it for web. MUI isn't checked yet (#127).
 - Run `node scripts/adapters/generate.mjs`.
 
 Verify:
@@ -587,7 +587,7 @@ Each run passes `--min-match 1`. Record the exit code and the report:
 | 13 | `--platform vanilla-css --output $W/stock/composite-no-shorthand.css --source $W/stock/unitless.json` | exit 1, exactly 2 `invalid-value` |
 | 14 | `--platform vanilla-css --output $W/stock/composite-refs.css --source $W/stock/composite-refs.json` | exit 0, 6/6, no failures |
 | 15 | `--platform shadcn --output $M/throughline-brand/packages/tokens/shadcn/tokens.css --block ':root' --source $M/throughline-brand/packages/tokens/dtcg/tokens.json` | exit 1, 0 matched, the `name/kebab` message |
-| 16 | `--platform mui --output $O --source $T/color-primitives.json` | exit 2, names #N |
+| 16 | `--platform mui --output $O --source $T/color-primitives.json` | exit 2, names #127 |
 
 Runs 1–6 and 14 pass by showing no failures. Runs 8–13 and 15 are their
 controls, through the same CLI in the same session. Write the note with:
