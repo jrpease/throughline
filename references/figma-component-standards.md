@@ -379,9 +379,11 @@ re-describing it:
      (to-spec cards) or `Status Pill` (legacy cards). The chip's label is its
      `Status Label` text node; a legacy pill has no named label, so use its one
      TEXT descendant. If no chip is found, or the label doesn't resolve to exactly
-     one text node, **throw for that card** without writing anything to it, and
-     tell the user by name which cards still show the old status in Figma — the
-     manifest already says `stable`, so a silent skip leaves the card lying;
+     one text node, **skip that card** without writing anything to it and record
+     its name — catch per card, so one miss never aborts the rest of a multi-card
+     write. After the loop, tell the user by name every card that still shows the
+     old status in Figma — the manifest already says `stable`, so a silent skip
+     leaves the card lying;
    - set the label text to the new status (e.g. `stable`);
    - re-bind the chip fill to the matching semantic color variable
      (`stable` → success, `draft`/`beta` → warning, `deprecated` → neutral/danger)
