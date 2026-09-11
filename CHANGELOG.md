@@ -31,7 +31,9 @@ to [Semantic Versioning](https://semver.org).
   - **A run that scans nothing fails.** Pointed at a directory with no matching
     source, or given a `--package` specifier the app does not import under, the
     gate reports `nothing-scanned` rather than a clean pass. Every enabled rule
-    must have had something to check.
+    must have had something to check. The report says how many files it walked,
+    so a wrong `--root` (none) reads differently from a `--package` the app never
+    imports (plenty, none of them using it).
   - **Only hex colours are compared.** A token authored `rgb()` or `hsl()`, or a
     literal written that way, is left alone rather than normalised into a guess,
     and a literal with no matching token is never reported at all.
@@ -45,13 +47,6 @@ to [Semantic Versioning](https://semver.org).
   scans a consumer's repo.** `grep-color-usage.mjs` and `guard-token-removal.mjs`
   each carried a byte-identical copy of the excludes and the walk; both now read
   it from here, and it ships to consumer repos alongside `guard-token-removal.mjs`.
-
-### Fixed
-
-- **`validate-adherence.mjs` reports the files it walked when the
-  `nothing-scanned` rule fires**, not the files that yielded a usage or a
-  literal — which was always zero whenever the rule fired. The count now
-  distinguishes a wrong `--root` from a `--package` the app never imports.
 
 ### Changed
 
