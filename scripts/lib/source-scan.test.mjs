@@ -37,6 +37,17 @@ test('DEFAULT_EXCLUDES is one array, not two that agree today', () => {
   assert.ok(DEFAULT_EXCLUDES.some((re) => re.test('/x/dist/y')));
 });
 
+// A local `storybook build` leaves minified bundles in packages/ui/storybook-static.
+// It is gitignored build output, the same class as dist and .next (#124).
+test('walk skips a storybook-static build by default', () => {
+  const root = fixture();
+  mkdirSync(join(root, 'storybook-static', 'assets'), { recursive: true });
+  writeFileSync(join(root, 'storybook-static', 'assets', 'e.js'), '');
+  writeFileSync(join(root, 'storybook-static', 'index.html'), '');
+  const files = [...walk(root)].map((f) => f.slice(root.length + 1)).sort();
+  assert.deepEqual(files, ['src/a.tsx', 'src/b.css']);
+});
+
 // The display-name problem, measured: components.built holds "Select Menu"
 // while the code exports <SelectMenu>.
 test('normalizeName folds display names onto code identifiers', () => {

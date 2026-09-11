@@ -20,6 +20,7 @@ export const DEFAULT_EXCLUDES = [
   /(^|\/)__tests__(\/|$)/,
   /(^|\/)dist(\/|$)/,
   /(^|\/)\.next(\/|$)/,
+  /(^|\/)storybook-static(\/|$)/,
 ];
 
 // Every text file a design system's values can hide in.
