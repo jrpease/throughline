@@ -16,6 +16,7 @@ import {
   canonicalDimension,
   buildDimensionValues,
   extractDimensions,
+  partOwner,
 } from './validate-adherence.mjs';
 
 const SRC = `
@@ -79,7 +80,7 @@ test('extract finds hex literals with their line numbers', () => {
 // against the e2e, and pinned here because it is a real coarseness in the
 // reports, not an accident to be silently fixed later.
 test('a multi-line tag is read, and reports the line the tag opens on', () => {
-  const { usages } = extract(
+  const { usages, elements } = extract(
     `import { Button } from '@acme/ui';\n<Button\n  variant="tertiary"\n  size="lg"\n/>\n`,
     '@acme/ui',
   );
@@ -90,6 +91,57 @@ test('a multi-line tag is read, and reports the line the tag opens on', () => {
       ['size', 'lg', 2],
     ],
   );
+  assert.deepEqual(elements, [{ component: 'Button', line: 2 }]);
+});
+
+// Line 1 of SRC is its leading newline, so <Button opens line 7 and <Panel
+// line 8. <Other> isn't imported from the package.
+test('extract reports one element per opening tag, with the line it opens on', () => {
+  const { elements } = extract(SRC, '@acme/ui');
+  assert.deepEqual(elements, [
+    { component: 'Button', line: 7 },
+    { component: 'Card', line: 8 },
+  ]);
+});
+
+// #120: <Icons.Folder> is a member of something the system exports — not a
+// component reference — so it's left alone entirely.
+test('a tag with a .Member chain is left alone', () => {
+  const { elements, usages } = extract(
+    `import { Icons } from '@acme/ui';\n<Icons.Folder size={13} className="x" aria-hidden />\n`,
+    '@acme/ui',
+    'a.tsx',
+  );
+  assert.deepEqual(elements, []);
+  assert.deepEqual(usages, []);
+});
+
+// #120: a tag with no attributes is now checked too.
+test('an attributeless tag is still an element', () => {
+  const { elements } = extract(`import { Nonexistent } from '@acme/ui';\n<Nonexistent />\n`, '@acme/ui', 'a.tsx');
+  assert.deepEqual(elements, [{ component: 'Nonexistent', line: 2 }]);
+});
+
+// #120: a commented-out tag isn't code, whether the comment is `//` or a JSX
+// block comment.
+test('a commented-out tag is not an element', () => {
+  const { elements } = extract(
+    `import { Hero } from '@acme/ui';\n// <Hero />\n{/* <Hero /> */}\n<Hero />\n`,
+    '@acme/ui',
+    'a.tsx',
+  );
+  assert.deepEqual(elements, [{ component: 'Hero', line: 4 }]);
+});
+
+// #120: a `<` straight after an identifier character is a type argument, not
+// a tag — `useState<Variant>('a')` must not read as `<Variant>`.
+test('a type argument is not an element', () => {
+  const { elements } = extract(
+    `import { Variant } from '@acme/ui';\nconst [v] = useState<Variant>('a');\n`,
+    '@acme/ui',
+    'a.tsx',
+  );
+  assert.deepEqual(elements, []);
 });
 
 // #123, measured: `var(--signal-500); /* #5B7FFF */` in throughline-ds lab.css
@@ -206,7 +258,12 @@ const INDEX = {
 const BUILT = ['Button', 'Select Menu', 'Spinner'];
 const TOKENS = buildTokenValues([{ color: { brand: { $value: '#3B82F6', $type: 'color' } } }]);
 const DIMS = buildDimensionValues([{ space: { 4: { $value: '16px', $type: 'dimension' } } }]);
-const file = (usages = [], literals = [], dimensions = []) => [{ path: 'a.tsx', usages, literals, dimensions }];
+const elementsOf = (usages) => [
+  ...new Map(usages.map((u) => [`${u.component}:${u.line}`, { component: u.component, line: u.line }])).values(),
+];
+const file = (usages = [], literals = [], dimensions = [], elements = elementsOf(usages)) => [
+  { path: 'a.tsx', elements, usages, literals, dimensions },
+];
 
 test('a variant value outside the declared set fails', () => {
   const r = validate({
@@ -401,7 +458,7 @@ test('nothing-scanned reports the files walked, not the files that yielded', () 
   assert.equal(failure.files, 12, 'the count is the walk, not the yield');
   const text = formatReport(r).join('\n');
   assert.match(text, /12 file\(s\) yielded no component reference/);
-  assert.match(text, /0 usages, 0 colour literals, 0 dimension literals, 12 files/);
+  assert.match(text, /0 component references, 0 colour literals, 0 dimension literals, 12 files/);
 });
 
 test('the CLI prints the number of files it walked when nothing-scanned fires', () => {
@@ -582,6 +639,7 @@ test('every rule renders without undefined leaking into the text', () => {
         { component: 'Spinner', attr: 'size', value: 'lg', line: 2 },
         { component: 'Button', attr: 'label', value: 'Go', line: 3 },
         { component: 'Button', attr: 'onClick', value: null, line: 4 },
+        { component: 'SpinnerIcon', attr: 'size', value: 'sm', line: 7 },
       ],
       [{ value: '#123456', line: 5 }],
       [{ category: 'spacing', written: '1rem', value: '16px', line: 6 }],
@@ -592,6 +650,7 @@ test('every rule renders without undefined leaking into the text', () => {
   assert.equal(text.includes('undefined'), false, text);
   assert.match(text, /skipped:\s+unknown-variant-value/);
   assert.match(text, /excluded:\s+2 file\(s\) in packages\/tokens/);
+  assert.match(text, /parts:\s+SpinnerIcon \(Spinner\) — not in components\.built/);
   assert.match(
     text,
     /\[token-exists-for-dimension\] spacing 1rem \(16px\) at a\.tsx:6 — space\.4 resolves to exactly this value/,
@@ -601,6 +660,126 @@ test('every rule renders without undefined leaking into the text', () => {
   assert.equal(inertText.includes('undefined'), false, inertText);
   assert.match(inertText, /dimension-rule-inert/);
   assert.match(inertText, /--skip token-exists-for-dimension/);
+});
+
+// #120: a part name only has to start with a built component's name and
+// continue with another capital letter — `ButtonX` is accepted on purpose.
+test('partOwner accepts ButtonX on purpose — a single following capital is enough', () => {
+  const built = ['Card', 'Button', 'ButtonGroup', 'Select Menu'];
+  assert.equal(partOwner('CardTitle', built), 'Card');
+  assert.equal(partOwner('CardGrid', built), 'Card');
+  assert.equal(partOwner('ButtonGroupText', built), 'ButtonGroup');
+  assert.equal(partOwner('SelectMenuItem', built), 'Select Menu');
+  assert.equal(partOwner('ButtonX', built), 'Button');
+  for (const name of ['Cardigan', 'Buttons', 'Buton', 'Card2', 'Card', 'Hero', 'Card_Title']) {
+    assert.equal(partOwner(name, built), null, name);
+  }
+});
+
+test('an unknown component fails once per tag, not once per attribute', () => {
+  const r = validate({
+    built: BUILT,
+    index: INDEX,
+    tokenValues: TOKENS,
+    dimensionValues: DIMS,
+    files: file([
+      { component: 'Invented', attr: 'ref', value: null, line: 3 },
+      { component: 'Invented', attr: 'style', value: null, line: 3 },
+      { component: 'Invented', attr: 'className', value: 'a', line: 3 },
+    ]),
+  });
+  assert.deepEqual(r.failures.map((f) => f.rule), ['unknown-component']);
+});
+
+test('an attributeless unknown tag still fails', () => {
+  const r = validate({
+    built: BUILT,
+    index: INDEX,
+    tokenValues: TOKENS,
+    dimensionValues: DIMS,
+    files: file([], [], [], [{ component: 'Nonexistent', line: 2 }]),
+  });
+  assert.deepEqual(r.failures.map((f) => f.rule), ['unknown-component'], 'nothing-scanned must not fire either');
+});
+
+test('a part passes, and nothing past existence is checked', () => {
+  const r = validate({
+    built: ['Card'],
+    index: { components: [{ name: 'Card', variants: { variant: { default: '' } }, states: {} }] },
+    tokenValues: TOKENS,
+    dimensionValues: DIMS,
+    files: file([
+      { component: 'CardTitle', attr: 'variant', value: 'x', line: 1 },
+      { component: 'CardTitle', attr: 'onClick', value: null, line: 1 },
+    ]),
+  });
+  assert.deepEqual(r.failures, []);
+  assert.deepEqual(r.advisories, []);
+  assert.deepEqual([...r.stats.parts], [['CardTitle', 'Card']]);
+  assert.equal(r.stats.knownComponents.size, 0);
+});
+
+test('a skipped rule records no parts', () => {
+  const r = validate({
+    built: BUILT,
+    index: INDEX,
+    tokenValues: TOKENS,
+    dimensionValues: DIMS,
+    skip: ['unknown-component'],
+    files: file([], [], [], [
+      { component: 'Invented', line: 1 },
+      { component: 'SpinnerIcon', line: 2 },
+    ]),
+  });
+  assert.equal(
+    r.failures.some((f) => f.rule === 'unknown-component'),
+    false,
+  );
+  assert.equal(r.stats.parts.size, 0);
+});
+
+test('the headline counts tags, and a part is named once', () => {
+  const usages = [
+    { component: 'Button', attr: 'variant', value: 'ghost', line: 1 },
+    { component: 'Button', attr: 'size', value: 'lg', line: 1 },
+    { component: 'SpinnerIcon', attr: 'size', value: 'sm', line: 2 },
+  ];
+  const elements = [
+    { component: 'Button', line: 1 },
+    { component: 'SpinnerIcon', line: 2 },
+    { component: 'SpinnerIcon', line: 3 },
+  ];
+  const r = validate({
+    built: BUILT,
+    index: INDEX,
+    tokenValues: TOKENS,
+    dimensionValues: DIMS,
+    files: file(usages, [], [], elements),
+  });
+  const text = formatReport(r).join('\n');
+  assert.match(text, /— 3 component references, /);
+  assert.match(text, /not read:     0 of 3 attributes/);
+  const partsLines = text.split('\n').filter((l) => l.includes('parts:'));
+  assert.equal(partsLines.length, 1);
+  assert.equal((partsLines[0].match(/SpinnerIcon \(Spinner\)/g) ?? []).length, 1);
+
+  const r2 = validate({
+    built: BUILT,
+    index: INDEX,
+    tokenValues: TOKENS,
+    dimensionValues: DIMS,
+    files: file(
+      usages.filter((u) => u.component !== 'SpinnerIcon'),
+      [],
+      [],
+      elements.filter((e) => e.component !== 'SpinnerIcon'),
+    ),
+  });
+  const text2 = formatReport(r2).join('\n');
+  assert.equal(
+    text2.split('\n').some((l) => l.includes('parts:')),
+    false,
+  );
 });
 
 test('a dimension equal to a token in its category fails', () => {
@@ -770,6 +949,35 @@ test('a run that excluded everything still says what it excluded', () => {
   const text = formatReport(r).join('\n');
   assert.match(text, /nothing-scanned/);
   assert.match(text, /excluded:     3 file\(s\) in x\/tokens/);
+});
+
+// #120: an unknown component fails once per tag, a part is reported and passes,
+// and a .Member reference is left alone — read end to end through the CLI.
+test('the CLI fails an unknown component once per tag, and reports a part', () => {
+  const root = tree({
+    'app/page.tsx':
+      "import { Hero, CardTitle, Icons } from '@acme/ui';\n" +
+      'export const P = () => (\n' +
+      '  <div>\n' +
+      '    <Hero />\n' +
+      '    <CardTitle ref={r} style={s} className="t" />\n' +
+      '    <Icons.Folder size={13} />\n' +
+      '  </div>\n' +
+      ');\n',
+  });
+  const system = tree({
+    'design-system.json': JSON.stringify({ components: { built: ['Card'] } }),
+    'design-system/docs/index.json': JSON.stringify({ components: [] }),
+  });
+  const tokensDir = tree({ 'tokens.json': TOKENS_JSON });
+  const { code, out } = runCli(root, system, join(tokensDir, 'tokens.json'));
+  assert.equal(code, 1, out);
+  const unknownLines = out.split('\n').filter((l) => l.includes('[unknown-component]'));
+  assert.equal(unknownLines.length, 1, out);
+  assert.match(unknownLines[0], /<Hero> at .*page\.tsx:4/);
+  assert.ok(out.includes('parts:        CardTitle (Card)'), out);
+  assert.match(out, /— 2 component references, /);
+  assert.equal(out.includes('<Icons>'), false, out);
 });
 
 // #39: dimension rules. dimensionCategory sorts the three real naming shapes.
