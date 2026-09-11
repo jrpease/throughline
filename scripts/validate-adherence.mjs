@@ -7,12 +7,13 @@
 //
 // Spec: docs/superpowers/specs/2026-08-31-code-adherence-gate-design.md
 // Colour-rule narrowing (#123): docs/specs/2026-09-11-narrow-colour-rule.md
+// Dimension rules (#39): docs/specs/2026-09-11-dimension-rules.md
 import { readFileSync, realpathSync, existsSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
 import { join, dirname, relative, sep } from 'node:path';
 import { walk, normalizeName } from './lib/source-scan.mjs';
-import { flattenDtcg, resolveValue } from './lib/dtcg.mjs';
+import { flattenDtcg, flattenDtcgTypes, resolveValue } from './lib/dtcg.mjs';
 
 // Named imports from one package, alias included: `{ Card as Panel }`.
 const IMPORT = /import\s*\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g;
@@ -21,9 +22,71 @@ const ELEMENT = /<([A-Z][A-Za-z0-9]*)\b([^>]*?)\/?>/g;
 // One attribute: name="literal" or name={expression}. The capture is undefined
 // for the expression form, which is how a blind spot stays visible.
 const ATTR = /([a-zA-Z][a-zA-Z0-9_-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|\{)/g;
-// Hex only. Decision 4: a token authored rgb()/hsl() and a literal written the
-// same way are counted uncomparable rather than normalised into each other.
+// Hex and opaque integer rgb()/rgba() are compared (see rgbToHex). hsl() and
+// alpha below 1 are not.
 const HEX = /#[0-9a-fA-F]{3,8}\b/g;
+const RGB = /\brgba?\([^()]*\)/gi;
+
+// Dimension rules (#39): docs/specs/2026-09-11-dimension-rules.md. A property
+// name maps to its category once the punctuation is gone: lowercase, hyphens
+// stripped, so `padding-inline-start` and `paddingInlineStart` are both
+// `paddinginlinestart`.
+const SPACING_SUFFIXES = [
+  '',
+  'top',
+  'right',
+  'bottom',
+  'left',
+  'inline',
+  'block',
+  'inlinestart',
+  'inlineend',
+  'blockstart',
+  'blockend',
+];
+const RADIUS_CORNERS = ['', 'topleft', 'topright', 'bottomright', 'bottomleft', 'startstart', 'startend', 'endstart', 'endend'];
+const PROPERTY_CATEGORIES = new Map();
+for (const base of ['padding', 'margin']) {
+  for (const suffix of SPACING_SUFFIXES) PROPERTY_CATEGORIES.set(base + suffix, 'spacing');
+}
+for (const name of ['gap', 'rowgap', 'columngap', 'gridgap', 'gridrowgap', 'gridcolumngap']) {
+  PROPERTY_CATEGORIES.set(name, 'spacing');
+}
+for (const corner of RADIUS_CORNERS) {
+  PROPERTY_CATEGORIES.set(`border${corner}radius`, 'radius');
+}
+PROPERTY_CATEGORIES.set('fontsize', 'font-size');
+PROPERTY_CATEGORIES.set('lineheight', 'line-height');
+PROPERTY_CATEGORIES.set('letterspacing', 'letter-spacing');
+PROPERTY_CATEGORIES.set('fontweight', 'font-weight');
+
+// `property: value`, value running to the next `;`, `{`, `}`, `,` or newline —
+// that comma is what separates `{ fontSize: 13, marginTop: 16 }` into two
+// declarations rather than one.
+const DECLARATION = /(?<![\w$@.#-])([a-zA-Z][a-zA-Z-]*)\s*:\s*([^;{}\n,]*)/g;
+// A bare, px, rem, em or % number, not abutting a word character, `.`, `#`,
+// `$`, `%` or `(` on either side — that keeps it out of `#3b82f6` and `calc(`.
+const VALUE_NUMBER = /(?<![\w.#$%-])-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em|%)?(?![\w.%(-])/g;
+// A Tailwind arbitrary value, including after a variant like `md:`. `tw-`
+// prefixes are excluded by the lookbehind: the character right before the
+// utility can't be a word character or `-`.
+const TAILWIND =
+  /(?<![\w-])(-?)(p[xytrblse]?|m[xytrblse]?|gap(?:-[xy])?|space-[xy]|rounded(?:-(?:t|r|b|l|s|e|tl|tr|br|bl|ss|se|es|ee))?|text|leading|tracking|font)-\[([^\]\s]+)\]/g;
+const SCRIPT_FILE = /\.(tsx?|jsx?|mjs|cjs|vue|svelte)$/;
+
+// One starting p, m, gap or space is spacing; rounded is radius; text, leading,
+// tracking and font are the four type properties.
+function tailwindCategory(utility) {
+  if (utility.startsWith('p') || utility.startsWith('m') || utility.startsWith('gap') || utility.startsWith('space')) {
+    return 'spacing';
+  }
+  if (utility.startsWith('rounded')) return 'radius';
+  if (utility === 'text') return 'font-size';
+  if (utility === 'leading') return 'line-height';
+  if (utility === 'tracking') return 'letter-spacing';
+  if (utility === 'font') return 'font-weight';
+  return null;
+}
 
 const lineOf = (text, index) => text.slice(0, index).split('\n').length;
 
@@ -53,6 +116,39 @@ export function blankMasks(text, path = '') {
   return text.replace(MASK, (m, value) => m.slice(0, m.length - value.length) + spaces(value));
 }
 
+// `var(--space-4, 16px)` is correct code — the 16px is the token's fallback —
+// and `calc()`, `clamp()`, `min()` and `max()` arguments are arithmetic, not
+// scale steps. Every character between a `(` and its matching `)` becomes a
+// space; an unclosed `(` blanks to the end of the value. Length is unchanged,
+// so it stays safe to run before VALUE_NUMBER's index-based line lookup.
+export function blankParens(value) {
+  let depth = 0;
+  let out = '';
+  for (const ch of value) {
+    if (ch === '(') {
+      depth += 1;
+      out += ' ';
+    } else if (ch === ')' && depth > 0) {
+      depth -= 1;
+      out += ' ';
+    } else if (depth > 0) {
+      out += ' ';
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+
+// The only false positives the dimension-rule prototype found were the
+// `font-weight` descriptors inside `@font-face { … }`, which describe a font
+// file, not a scale step. Blanked before dimensions are read, same shape as
+// blankComments.
+const FONT_FACE = /@font-face\s*\{[^}]*\}/g;
+export function blankFontFaces(text) {
+  return text.replace(FONT_FACE, spaces);
+}
+
 // #abc -> #aabbcc; #aabbccff -> #aabbcc (opaque alpha carries no information);
 // a real alpha is kept, because two colours differing only in alpha are two
 // colours. Anything not hex returns null and is never compared.
@@ -64,6 +160,23 @@ export function normalizeHex(value) {
   if (hex.length === 8 && hex.endsWith('ff')) hex = hex.slice(0, 6);
   if (hex.length !== 6 && hex.length !== 8) return null;
   return '#' + hex;
+}
+
+// rgb(59, 130, 246) -> #3b82f6. Only whole channels 0-255 and an opaque alpha
+// (absent, 1, 1.0 or 100%) are comparable; anything else — percentages,
+// var(), a real alpha — returns null and is never guessed at.
+export function rgbToHex(value) {
+  const m = String(value).trim().match(/^rgba?\(\s*([^()]*)\)$/i);
+  if (!m) return null;
+  const parts = m[1].split(/[\s,/]+/).filter(Boolean);
+  if (parts.length < 3 || parts.length > 4) return null;
+  const channels = parts.slice(0, 3);
+  for (const c of channels) {
+    if (!/^\d{1,3}$/.test(c) || Number(c) > 255) return null;
+  }
+  if (parts.length === 4 && !/^(1(\.0+)?|100%)$/.test(parts[3])) return null;
+  const hex = channels.map((c) => Number(c).toString(16).padStart(2, '0')).join('');
+  return normalizeHex('#' + hex);
 }
 
 export function extract(text, pkg, path = '') {
@@ -94,8 +207,12 @@ export function extract(text, pkg, path = '') {
     const value = normalizeHex(h[0]);
     if (value) literals.push({ value, line: lineOf(colourText, h.index) });
   }
+  for (const m of colourText.matchAll(RGB)) {
+    const value = rgbToHex(m[0]);
+    if (value) literals.push({ value, line: lineOf(colourText, m.index) });
+  }
 
-  return { imported, usages, literals };
+  return { imported, usages, literals, dimensions: extractDimensions(text, path) };
 }
 
 // value -> the token paths that hold it. Repeatable --tokens, because a real
@@ -117,12 +234,170 @@ export function buildTokenValues(dicts) {
       } catch {
         continue;
       }
-      const hex = normalizeHex(resolved);
+      const hex = normalizeHex(resolved) ?? rgbToHex(resolved);
       if (!hex) continue;
       if (!out.has(hex)) out.set(hex, []);
       out.get(hex).push(path);
     }
   }
+  return out;
+}
+
+// Dimension rules (#39): docs/specs/2026-09-11-dimension-rules.md. Same shape
+// as buildTokenValues, one layer over: a token's category comes from the words
+// in its path (DTCG's `dimension` type doesn't say what a length is for), and
+// its raw value is canonicalised to a comparable string within that category
+// before values across dicts are pooled.
+export const DIMENSION_CATEGORIES = [
+  'spacing',
+  'radius',
+  'font-size',
+  'line-height',
+  'letter-spacing',
+  'font-weight',
+];
+
+// space/spacing/gap/inset/stack/gutter/padding/margin -> spacing; radius/rounded/
+// corner -> radius; fontsize/text -> font-size; lineheight/leading -> line-height;
+// letterspacing/tracking -> letter-spacing; fontweight -> font-weight. `size` and
+// `weight` are ambiguous on their own — a typographic qualifier earlier in the
+// path decides them, or they decide nothing.
+const DIMENSION_WORDS = {
+  space: 'spacing',
+  spacing: 'spacing',
+  gap: 'spacing',
+  inset: 'spacing',
+  stack: 'spacing',
+  gutter: 'spacing',
+  padding: 'spacing',
+  margin: 'spacing',
+  radius: 'radius',
+  rounded: 'radius',
+  corner: 'radius',
+  fontsize: 'font-size',
+  text: 'font-size',
+  lineheight: 'line-height',
+  leading: 'line-height',
+  letterspacing: 'letter-spacing',
+  tracking: 'letter-spacing',
+  fontweight: 'font-weight',
+};
+const TYPOGRAPHIC_QUALIFIERS = new Set(['font', 'text', 'typography', 'type']);
+
+export function dimensionCategory(path, type) {
+  if (type !== undefined && type !== 'dimension' && type !== 'number' && type !== 'fontWeight') return null;
+  if (type === 'fontWeight') return 'font-weight';
+
+  const words = path
+    .split('.')
+    .flatMap((s) => s.toLowerCase().split(/[-_]/))
+    .filter(Boolean);
+
+  for (let i = words.length - 1; i >= 0; i--) {
+    const word = words[i];
+    if (word === 'size' || word === 'weight') {
+      const qualified = words.slice(0, i).some((w) => TYPOGRAPHIC_QUALIFIERS.has(w));
+      return qualified ? (word === 'size' ? 'font-size' : 'font-weight') : null;
+    }
+    if (word in DIMENSION_WORDS) return DIMENSION_WORDS[word];
+  }
+  return null;
+}
+
+// A dimension is comparable only within its own category, in one canonical
+// unit per category: px (rem folds in at 16px per rem, per the system's own
+// build), em standing alone, unitless line-height, and a whole-number
+// font-weight string. `unitless` says what a bare number means for a length
+// category — 'px' for a literal read from a script file's inline style, null
+// everywhere else. Zero and percentages are never comparable, on either side.
+export function canonicalDimension(raw, category, unitless) {
+  let n;
+  let unit;
+  if (typeof raw === 'number') {
+    n = raw;
+    unit = '';
+  } else if (typeof raw === 'string') {
+    const m = raw.trim().match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))(px|rem|em|%)?$/);
+    if (!m) return null;
+    n = Number(m[1]);
+    unit = m[2] ?? '';
+  } else {
+    return null;
+  }
+
+  if (!Number.isFinite(n) || n === 0 || unit === '%') return null;
+  const r3 = (x) => {
+    const rounded = Math.round(x * 1000) / 1000;
+    return rounded === 0 ? 0 : rounded;
+  };
+
+  if (category === 'font-weight') {
+    return unit === '' && Number.isInteger(n) && n > 0 && n <= 1000 ? String(n) : null;
+  }
+  if (category === 'line-height' && unit === '') return String(r3(n));
+  if (unit === 'em') return `${r3(n)}em`;
+  if (unit === 'rem') return `${r3(n * 16)}px`;
+  if (unit === 'px') return `${r3(n)}px`;
+  return unitless === 'px' ? `${r3(n)}px` : null;
+}
+
+// Same shape as buildTokenValues: every dict contributes, a value maps to the
+// token paths that hold it, and a token that cannot be resolved is skipped
+// rather than thrown on. One category per token — matching within a category
+// only is the point, per the spec's measurement.
+export function buildDimensionValues(dicts) {
+  const out = new Map();
+  for (const dict of dicts) {
+    const flat = flattenDtcg(dict);
+    const types = flattenDtcgTypes(dict);
+    for (const path of Object.keys(flat)) {
+      const category = dimensionCategory(path, types[path]);
+      if (!category) continue;
+      let resolved;
+      try {
+        resolved = resolveValue(path, flat);
+      } catch {
+        continue;
+      }
+      const value = canonicalDimension(resolved, category, 'px');
+      if (!value) continue;
+      if (!out.has(category)) out.set(category, new Map());
+      const inner = out.get(category);
+      if (!inner.has(value)) inner.set(value, []);
+      inner.get(value).push(path);
+    }
+  }
+  return out;
+}
+
+// Same two shapes source is read: a `property: value` declaration in CSS,
+// SCSS, inline styles or CSS in strings, and a Tailwind arbitrary value like
+// `p-[16px]`. Comments and @font-face descriptors are blanked first, same as
+// the colour rule; numbers inside parentheses are blanked per-declaration, so
+// a var() fallback or a calc() argument is never read as a scale step.
+export function extractDimensions(text, path = '') {
+  const t = blankFontFaces(blankComments(text, path));
+  const out = [];
+
+  for (const m of t.matchAll(DECLARATION)) {
+    const category = PROPERTY_CATEGORIES.get(m[1].toLowerCase().replace(/-/g, ''));
+    if (!category) continue;
+    const quoted = /^\s*['"`]/.test(m[2]);
+    const v = blankParens(m[2].replace(/['"`]/g, ' '));
+    for (const n of v.matchAll(VALUE_NUMBER)) {
+      const value = canonicalDimension(n[0], category, SCRIPT_FILE.test(path) && !quoted ? 'px' : null);
+      if (value) out.push({ category, written: n[0], value, line: lineOf(t, m.index) });
+    }
+  }
+
+  for (const m of t.matchAll(TAILWIND)) {
+    if (m[1] === '-' && m[3].startsWith('-')) continue;
+    const category = tailwindCategory(m[2]);
+    if (!category) continue;
+    const value = canonicalDimension(m[1] + m[3], category, null);
+    if (value) out.push({ category, written: `${m[1]}${m[2]}-[${m[3]}]`, value, line: lineOf(t, m.index) });
+  }
+
   return out;
 }
 
@@ -154,6 +429,7 @@ export function validate({
   built = [],
   index = { components: [] },
   tokenValues = new Map(),
+  dimensionValues = new Map(),
   files = [],
   walked = files.length,
   excluded = [],
@@ -168,6 +444,13 @@ export function validate({
   const stats = {
     usages: 0,
     literals: 0,
+    dimensions: 0,
+    dimensionTokens: Object.fromEntries(
+      DIMENSION_CATEGORIES.map((c) => [
+        c,
+        [...(dimensionValues.get(c)?.values() ?? [])].reduce((n, paths) => n + paths.length, 0),
+      ]),
+    ),
     files: walked,
     axisMatched: 0,
     axisUnmatched: 0,
@@ -176,7 +459,7 @@ export function validate({
     undocumented: new Set(),
   };
 
-  for (const { path, usages, literals } of files) {
+  for (const { path, usages, literals, dimensions = [] } of files) {
     for (const u of usages) {
       stats.usages += 1;
       const key = normalizeName(u.component);
@@ -242,6 +525,23 @@ export function validate({
         failures.push({ rule: 'token-exists-for-literal', value: l.value, tokens, file: path, line: l.line });
       }
     }
+
+    for (const d of dimensions) {
+      stats.dimensions += 1;
+      if (off.has('token-exists-for-dimension')) continue;
+      const tokens = dimensionValues.get(d.category)?.get(d.value);
+      if (tokens) {
+        failures.push({
+          rule: 'token-exists-for-dimension',
+          category: d.category,
+          written: d.written,
+          value: d.value,
+          tokens,
+          file: path,
+          line: d.line,
+        });
+      }
+    }
   }
 
   // Decision 7 applied to the scan itself, not just to each rule. Every rule can
@@ -249,7 +549,7 @@ export function validate({
   // --package specifier the app does not import under, an app directory that is
   // empty. That run reported a clean pass having read nothing, which is the
   // green light every other rule here exists to prevent.
-  if (stats.usages === 0 && stats.literals === 0) {
+  if (stats.usages === 0 && stats.literals === 0 && stats.dimensions === 0) {
     failures.push({ rule: 'nothing-scanned', files: stats.files });
   }
 
@@ -259,6 +559,9 @@ export function validate({
   // inert.
   if (!off.has('token-exists-for-literal') && tokenValues.size === 0) {
     failures.push({ rule: 'colour-rule-inert' });
+  }
+  if (!off.has('token-exists-for-dimension') && dimensionValues.size === 0) {
+    failures.push({ rule: 'dimension-rule-inert' });
   }
   if (!off.has('unknown-variant-value') && stats.knownComponents.size > 0 && stats.axisMatched === 0) {
     // `undocumented` rides along because it is often the real cause: an
@@ -277,11 +580,13 @@ export function validate({
 
 export function formatReport(r) {
   const s = r.stats;
+  const dimensionTotal = DIMENSION_CATEGORIES.reduce((n, c) => n + s.dimensionTokens[c], 0);
   const lines = [
-    `tokens:validate-adherence — ${s.usages} usages, ${s.literals} colour literals, ${s.files} files`,
+    `tokens:validate-adherence — ${s.usages} usages, ${s.literals} colour literals, ${s.dimensions} dimension literals, ${s.files} files`,
     `  components:   ${s.knownComponents.size} referenced, ${s.undocumented.size} undocumented`,
     `  variant axes: ${s.axisMatched} of ${s.axisMatched + s.axisUnmatched} literal attributes matched a declared axis`,
     `  not read:     ${s.dynamic} of ${s.usages} attributes are expressions, not literals`,
+    `  dimensions:   ${dimensionTotal} token values comparable — ${DIMENSION_CATEGORIES.map((c) => `${c} ${s.dimensionTokens[c]}`).join(', ')}`,
   ];
   for (const e of r.excluded) {
     lines.push(`  excluded:     ${e.files} file(s) in ${e.dir}, the package that owns --tokens`);
@@ -303,13 +608,21 @@ export function formatReport(r) {
         lines.push(
           `  - [${f.rule}] <${f.component}> at ${f.file}:${f.line} — not in design-system.json components.built`,
         );
+      } else if (f.rule === 'token-exists-for-dimension') {
+        lines.push(
+          `  - [${f.rule}] ${f.category} ${f.written}${f.written === f.value ? '' : ` (${f.value})`} at ${f.file}:${f.line} — ${f.tokens.join(', ')} resolve${f.tokens.length === 1 ? 's' : ''} to exactly this value`,
+        );
       } else if (f.rule === 'nothing-scanned') {
         lines.push(
-          `  - [${f.rule}] ${f.files} file(s) yielded no component reference and no colour literal, so this run verified nothing. Check --root points at the consuming app, and that --package is the specifier that app actually imports from.`,
+          `  - [${f.rule}] ${f.files} file(s) yielded no component reference, colour literal or dimension literal, so this run verified nothing. Check --root points at the consuming app, and that --package is the specifier that app actually imports from.`,
         );
       } else if (f.rule === 'colour-rule-inert') {
         lines.push(
           `  - [${f.rule}] no token file yielded a comparable hex value, so nothing was checked against. Pass --tokens, or --skip token-exists-for-literal if this system has no colour tokens.`,
+        );
+      } else if (f.rule === 'dimension-rule-inert') {
+        lines.push(
+          `  - [${f.rule}] no token file yielded a comparable spacing, radius or type value, so nothing was checked against. Pass the --tokens file that holds them, or --skip token-exists-for-dimension if this system has none.`,
         );
       } else if (f.rule === 'variant-rule-inert') {
         // Lead with the undocumented count when there is one: it is the likeliest
@@ -383,7 +696,9 @@ function main() {
     join(values.system, 'design-system/docs/index.json'),
     'the docs index (run docs:digest first)',
   );
-  const tokenValues = buildTokenValues((values.tokens ?? []).map((f) => read(f, 'a token source')));
+  const tokenDicts = (values.tokens ?? []).map((f) => read(f, 'a token source'));
+  const tokenValues = buildTokenValues(tokenDicts);
+  const dimensionValues = buildDimensionValues(tokenDicts);
 
   const files = [];
   let walked;
@@ -412,14 +727,15 @@ function main() {
     .map(([dir, n]) => ({ dir: join(values.root, relative(realRoot, dir)), files: n }));
 
   for (const path of scanned) {
-    const { usages, literals } = extract(readFileSync(path, 'utf8'), values.package, path);
-    if (usages.length || literals.length) files.push({ path, usages, literals });
+    const { usages, literals, dimensions } = extract(readFileSync(path, 'utf8'), values.package, path);
+    if (usages.length || literals.length || dimensions.length) files.push({ path, usages, literals, dimensions });
   }
 
   const r = validate({
     built: manifest.components?.built ?? [],
     index,
     tokenValues,
+    dimensionValues,
     files,
     walked: scanned.length,
     excluded,

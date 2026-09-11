@@ -11,7 +11,7 @@ tested here; copied verbatim by `token-crosswalk-builder` into the user's
 | `build-reverse-index.mjs` | Emit a `codeToken -> newToken` map from the crosswalk to semi-automate SCSS/Tailwind swaps. | `tokens:reverse-index` |
 | `guard-token-removal.mjs` | Grep `.ts/.tsx` (minus generated + tests) for about-to-be-deleted symbols; blocks cleanup until zero references remain. | run during the cleanup phase |
 | `validate-token-output.mjs` | Assert generated native token output matches its DTCG source: authored-unit fidelity, no leaked CSS syntax, no bare unit literals, no mode collisions. Fails when no emitted symbol matches a source token, and reports match rate, unparsed lines, and unemitted tokens on every run. | `tokens:validate-output` |
-| `validate-adherence.mjs` | Assert the code *consuming* a design system still adheres to it: every referenced component exists, every literal variant value is one the system declares, and no colour literal duplicates a token that already holds that value. Fails when an enabled rule had nothing to check, so a green run always means something was verified. | `adherence:check` |
+| `validate-adherence.mjs` | Assert the code *consuming* a design system still adheres to it: every referenced component exists, every literal variant value is one the system declares, and no colour, spacing, radius or type literal duplicates a token that already holds that value. Fails when an enabled rule had nothing to check, so a green run always means something was verified. | `adherence:check` |
 | `lib/source-scan.mjs` | Shared source-tree walker (`walk`, `DEFAULT_EXCLUDES`, `SOURCE_EXT`) plus `normalizeName`, the display-name-to-code-identifier fold. Every gate that scans a consumer's repo reads it from here rather than carrying its own copy. | copied alongside `guard-token-removal.mjs` |
 | `lib/crosswalk.mjs` | Shared loader + structural validation for `crosswalk.json` (used by the validator and reverse-index). | copied alongside |
 | `lib/dtcg.mjs` | Shared DTCG flatten + `{alias}` resolution. Dual-node aware: a node carrying both a `$value` and children yields its own value **and** is descended into. Used by `validate-crosswalk.mjs`, `validate-token-output.mjs`, `validate-adherence.mjs`, and `lib/sd-native.mjs`. | copied alongside each of those |
@@ -68,7 +68,9 @@ that owns a `--tokens` file are not scanned when that package sits beneath
 `--root`, and the report prints an `excluded:` line naming it. `--skip <rule>`
 switches a rule off entirely — a skipped rule is absent rather than inert, which
 is the supported answer for a repo the rule cannot apply to (a Vue or Svelte app
-has no JSX for the component rules to read).
+has no JSX for the component rules to read). `--skip token-exists-for-dimension`
+is the answer for a system with no spacing, radius or type tokens, which
+otherwise fails as `dimension-rule-inert`.
 
 Exit codes: `0` success, `1` validation/guard failure (mismatch, missing token,
 conflict, or remaining reference), `2` bad CLI arguments.

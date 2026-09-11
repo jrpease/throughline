@@ -7,10 +7,15 @@ import { join, dirname } from 'node:path';
 import {
   extract,
   normalizeHex,
+  rgbToHex,
   validate,
   buildTokenValues,
   formatReport,
   tokenPackageDirs,
+  dimensionCategory,
+  canonicalDimension,
+  buildDimensionValues,
+  extractDimensions,
 } from './validate-adherence.mjs';
 
 const SRC = `
@@ -161,6 +166,33 @@ test('normalizeHex folds the spellings of one colour together', () => {
   assert.equal(normalizeHex('rgb(1,2,3)'), null, 'non-hex is uncomparable, not guessed');
 });
 
+test('rgbToHex normalises an opaque integer rgb() to hex', () => {
+  assert.equal(rgbToHex('rgb(59, 130, 246)'), '#3b82f6');
+  assert.equal(rgbToHex('rgba(59,130,246,1)'), '#3b82f6');
+  assert.equal(rgbToHex('rgb(59 130 246 / 100%)'), '#3b82f6');
+  assert.equal(rgbToHex('rgb(59 130 246 / 1.0)'), '#3b82f6');
+});
+
+test('rgbToHex declines what it cannot normalise', () => {
+  assert.equal(rgbToHex('rgba(59, 130, 246, 0.5)'), null, 'a real alpha');
+  assert.equal(rgbToHex('rgb(50%, 10%, 0%)'), null, 'percentage channels');
+  assert.equal(rgbToHex('rgb(var(--c) / 1)'), null, 'a var() channel');
+  assert.equal(rgbToHex('hsl(217 91% 60%)'), null, 'not rgb()');
+  assert.equal(rgbToHex('rgb(256, 0, 0)'), null, 'a channel above 255');
+  assert.equal(rgbToHex('rgb(1, 2)'), null, 'too few channels');
+});
+
+test('extract reads an opaque rgba() literal as its hex value', () => {
+  assert.deepEqual(hexes('.a { border-color: rgba(59, 130, 246, 1); }\n', 'a.scss'), [
+    { value: '#3b82f6', line: 1 },
+  ]);
+});
+
+test('an rgba() inside a comment or a mask is not a literal', () => {
+  assert.deepEqual(hexes('/* .a { border-color: rgba(59, 130, 246, 1); } */\n', 'a.scss'), []);
+  assert.deepEqual(hexes('mask: linear-gradient(rgb(255, 255, 255) 0 0);\n', 'a.scss'), []);
+});
+
 const INDEX = {
   components: [
     {
@@ -173,13 +205,15 @@ const INDEX = {
 };
 const BUILT = ['Button', 'Select Menu', 'Spinner'];
 const TOKENS = buildTokenValues([{ color: { brand: { $value: '#3B82F6', $type: 'color' } } }]);
-const file = (usages = [], literals = []) => [{ path: 'a.tsx', usages, literals }];
+const DIMS = buildDimensionValues([{ space: { 4: { $value: '16px', $type: 'dimension' } } }]);
+const file = (usages = [], literals = [], dimensions = []) => [{ path: 'a.tsx', usages, literals, dimensions }];
 
 test('a variant value outside the declared set fails', () => {
   const r = validate({
     built: BUILT,
     index: INDEX,
     tokenValues: TOKENS,
+    dimensionValues: DIMS,
     files: file([{ component: 'Button', attr: 'variant', value: 'tertiary', line: 3 }]),
   });
   assert.equal(r.ok, false);
@@ -194,6 +228,7 @@ test('a declared variant value passes', () => {
     built: BUILT,
     index: INDEX,
     tokenValues: TOKENS,
+    dimensionValues: DIMS,
     files: file([{ component: 'Button', attr: 'variant', value: 'ghost', line: 3 }]),
   });
   assert.deepEqual(r.failures, []);
@@ -205,6 +240,7 @@ test('a display name in the manifest matches the code identifier', () => {
     built: BUILT,
     index: INDEX,
     tokenValues: TOKENS,
+    dimensionValues: DIMS,
     files: file([{ component: 'SelectMenu', attr: 'size', value: 'sm', line: 1 }]),
   });
   assert.deepEqual(r.failures, [], 'correct code must not fail on a display name');
@@ -215,6 +251,7 @@ test('a component not in the manifest fails', () => {
     built: BUILT,
     index: INDEX,
     tokenValues: TOKENS,
+    dimensionValues: DIMS,
     files: file([{ component: 'Invented', attr: 'variant', value: 'x', line: 1 }]),
   });
   assert.deepEqual(
@@ -228,6 +265,7 @@ test('a built component with no doc record is an advisory, not a failure', () =>
     built: BUILT,
     index: INDEX,
     tokenValues: TOKENS,
+    dimensionValues: DIMS,
     files: file([
       { component: 'Spinner', attr: 'size', value: 'lg', line: 1 },
       { component: 'Button', attr: 'variant', value: 'ghost', line: 2 },
@@ -247,6 +285,7 @@ test('a run referencing only undocumented components is inert, not green', () =>
     built: BUILT,
     index: INDEX,
     tokenValues: TOKENS,
+    dimensionValues: DIMS,
     files: file([{ component: 'Spinner', attr: 'size', value: 'lg', line: 1 }]),
   });
   assert.equal(r.ok, false);
@@ -262,6 +301,7 @@ test('a declared state name is not reported as unmodelled', () => {
     built: BUILT,
     index: INDEX,
     tokenValues: TOKENS,
+    dimensionValues: DIMS,
     files: file([{ component: 'Button', attr: 'disabled', value: 'true', line: 1 }]),
   });
   assert.equal(
@@ -275,6 +315,7 @@ test('an attribute matching no axis is an advisory and does not gate', () => {
     built: BUILT,
     index: INDEX,
     tokenValues: TOKENS,
+    dimensionValues: DIMS,
     files: file([
       { component: 'Button', attr: 'variant', value: 'ghost', line: 1 },
       { component: 'Button', attr: 'label', value: 'Go', line: 1 },
@@ -289,6 +330,7 @@ test('a literal with a token fails; one without is silent', () => {
     built: BUILT,
     index: INDEX,
     tokenValues: TOKENS,
+    dimensionValues: DIMS,
     files: file(
       [{ component: 'Button', attr: 'variant', value: 'ghost', line: 1 }],
       [
@@ -327,8 +369,13 @@ test('an unresolvable or circular reference is skipped, not thrown on', () => {
 });
 
 test('a non-hex token value is counted uncomparable, not compared', () => {
-  const t = buildTokenValues([{ c: { x: { $value: 'rgb(1,2,3)', $type: 'color' } } }]);
+  const t = buildTokenValues([{ c: { x: { $value: 'hsl(217 91% 60%)', $type: 'color' } } }]);
   assert.equal(t.size, 0);
+});
+
+test('an opaque rgb() token value resolves the same as its hex', () => {
+  const t = buildTokenValues([{ c: { x: { $value: 'rgb(59, 130, 246)', $type: 'color' } } }]);
+  assert.deepEqual(t.get('#3b82f6'), ['c.x']);
 });
 
 // Found by the e2e, not by a fixture: pointed at a directory with no source in
@@ -338,23 +385,23 @@ test('a non-hex token value is counted uncomparable, not compared', () => {
 // light this project keeps filing issues about, in the gate written to prevent
 // it.
 test('a run that scanned no code at all fails rather than passing', () => {
-  const r = validate({ built: BUILT, index: INDEX, tokenValues: TOKENS, files: [] });
+  const r = validate({ built: BUILT, index: INDEX, tokenValues: TOKENS, dimensionValues: DIMS, files: [] });
   assert.equal(r.ok, false);
   assert.ok(r.failures.some((f) => f.rule === 'nothing-scanned'));
 });
 
 test('nothing-scanned fires on files that yielded neither usage nor literal', () => {
-  const r = validate({ built: BUILT, index: INDEX, tokenValues: TOKENS, files: file() });
+  const r = validate({ built: BUILT, index: INDEX, tokenValues: TOKENS, dimensionValues: DIMS, files: file() });
   assert.ok(r.failures.some((f) => f.rule === 'nothing-scanned'));
 });
 
 test('nothing-scanned reports the files walked, not the files that yielded', () => {
-  const r = validate({ built: BUILT, index: INDEX, tokenValues: TOKENS, files: [], walked: 12 });
+  const r = validate({ built: BUILT, index: INDEX, tokenValues: TOKENS, dimensionValues: DIMS, files: [], walked: 12 });
   const failure = r.failures.find((f) => f.rule === 'nothing-scanned');
   assert.equal(failure.files, 12, 'the count is the walk, not the yield');
   const text = formatReport(r).join('\n');
   assert.match(text, /12 file\(s\) yielded no component reference/);
-  assert.match(text, /0 usages, 0 colour literals, 12 files/);
+  assert.match(text, /0 usages, 0 colour literals, 0 dimension literals, 12 files/);
 });
 
 test('the CLI prints the number of files it walked when nothing-scanned fires', () => {
@@ -399,6 +446,7 @@ test('nothing-scanned is silent as soon as anything was read', () => {
     built: BUILT,
     index: INDEX,
     tokenValues: TOKENS,
+    dimensionValues: DIMS,
     files: file([], [{ value: '#123456', line: 1 }]),
   });
   assert.equal(
@@ -423,6 +471,7 @@ test('known components and zero axis matches fails as variant-rule-inert', () =>
     built: BUILT,
     index: INDEX,
     tokenValues: TOKENS,
+    dimensionValues: DIMS,
     files: file([{ component: 'Button', attr: 'label', value: 'Go', line: 1 }]),
   });
   assert.ok(r.failures.some((f) => f.rule === 'variant-rule-inert'));
@@ -433,6 +482,7 @@ test('a skipped rule is neither run nor inert', () => {
     built: BUILT,
     index: INDEX,
     tokenValues: TOKENS,
+    dimensionValues: DIMS,
     skip: ['unknown-variant-value'],
     files: file([{ component: 'Button', attr: 'label', value: 'Go', line: 1 }]),
   });
@@ -449,6 +499,7 @@ test('colour-only scanning passes with no component usages at all', () => {
     built: BUILT,
     index: INDEX,
     tokenValues: TOKENS,
+    dimensionValues: DIMS,
     skip: ['unknown-variant-value', 'unknown-component'],
     files: file([], [{ value: '#123456', line: 1 }]),
   });
@@ -460,6 +511,7 @@ test('the headline carries the dynamic proportion, not just the advisories', () 
     built: BUILT,
     index: INDEX,
     tokenValues: TOKENS,
+    dimensionValues: DIMS,
     files: file([
       { component: 'Button', attr: 'variant', value: 'ghost', line: 1 },
       { component: 'Button', attr: 'size', value: null, line: 2 },
@@ -474,6 +526,7 @@ test('an unknown value names the declared set', () => {
     built: BUILT,
     index: INDEX,
     tokenValues: TOKENS,
+    dimensionValues: DIMS,
     files: file([{ component: 'Button', attr: 'variant', value: 'tertiary', line: 3 }]),
   });
   assert.match(formatReport(r).join('\n'), /declared values for "variant" are primary, ghost/);
@@ -484,6 +537,7 @@ test('an unmodelled prop names the axes the system does model', () => {
     built: BUILT,
     index: INDEX,
     tokenValues: TOKENS,
+    dimensionValues: DIMS,
     files: file([
       { component: 'Button', attr: 'variant', value: 'ghost', line: 1 },
       { component: 'Button', attr: 'label', value: 'Go', line: 2 },
@@ -506,6 +560,7 @@ test('variant-rule-inert names undocumented components when that is the cause', 
     built: BUILT,
     index: INDEX,
     tokenValues: TOKENS,
+    dimensionValues: DIMS,
     files: file([{ component: 'Spinner', attr: 'size', value: 'lg', line: 1 }]),
   });
   assert.match(formatReport(r).join('\n'), /1 referenced component\(s\) have no doc record/);
@@ -519,6 +574,7 @@ test('every rule renders without undefined leaking into the text', () => {
     built: BUILT,
     index: INDEX,
     tokenValues: new Map(),
+    dimensionValues: DIMS,
     skip: ['unknown-variant-value'],
     files: file(
       [
@@ -528,6 +584,7 @@ test('every rule renders without undefined leaking into the text', () => {
         { component: 'Button', attr: 'onClick', value: null, line: 4 },
       ],
       [{ value: '#123456', line: 5 }],
+      [{ category: 'spacing', written: '1rem', value: '16px', line: 6 }],
     ),
     excluded: [{ dir: 'packages/tokens', files: 2 }],
   });
@@ -535,6 +592,88 @@ test('every rule renders without undefined leaking into the text', () => {
   assert.equal(text.includes('undefined'), false, text);
   assert.match(text, /skipped:\s+unknown-variant-value/);
   assert.match(text, /excluded:\s+2 file\(s\) in packages\/tokens/);
+  assert.match(
+    text,
+    /\[token-exists-for-dimension\] spacing 1rem \(16px\) at a\.tsx:6 — space\.4 resolves to exactly this value/,
+  );
+
+  const inertText = formatReport(validate({ files: [], dimensionValues: new Map() })).join('\n');
+  assert.equal(inertText.includes('undefined'), false, inertText);
+  assert.match(inertText, /dimension-rule-inert/);
+  assert.match(inertText, /--skip token-exists-for-dimension/);
+});
+
+test('a dimension equal to a token in its category fails', () => {
+  const r = validate({
+    dimensionValues: DIMS,
+    files: file([], [], [{ category: 'spacing', written: '16px', value: '16px', line: 1 }]),
+  });
+  const failures = r.failures.filter((f) => f.rule === 'token-exists-for-dimension');
+  assert.equal(failures.length, 1);
+  assert.deepEqual(failures[0].tokens, ['space.4']);
+});
+
+test('the same value in another category is silent', () => {
+  const r = validate({
+    dimensionValues: DIMS,
+    files: file([], [], [{ category: 'radius', written: '16px', value: '16px', line: 1 }]),
+  });
+  assert.equal(
+    r.failures.some((f) => f.rule === 'token-exists-for-dimension'),
+    false,
+  );
+});
+
+test('a dimension value with no token is silent', () => {
+  const r = validate({
+    dimensionValues: DIMS,
+    files: file([], [], [{ category: 'spacing', written: '13px', value: '13px', line: 1 }]),
+  });
+  assert.equal(
+    r.failures.some((f) => f.rule === 'token-exists-for-dimension'),
+    false,
+  );
+});
+
+test('a skipped dimension rule is neither run nor inert', () => {
+  const r = validate({
+    dimensionValues: new Map(),
+    skip: ['token-exists-for-dimension'],
+    files: file([], [], [{ category: 'spacing', written: '16px', value: '16px', line: 1 }]),
+  });
+  assert.equal(
+    r.failures.some((f) => f.rule === 'token-exists-for-dimension'),
+    false,
+  );
+  assert.equal(
+    r.failures.some((f) => f.rule === 'dimension-rule-inert'),
+    false,
+  );
+});
+
+test('an empty dimension value map is inert', () => {
+  const r = validate({ dimensionValues: new Map(), files: file() });
+  assert.ok(r.failures.some((f) => f.rule === 'dimension-rule-inert'));
+});
+
+test('nothing-scanned is silent when only a dimension was read', () => {
+  const r = validate({
+    dimensionValues: DIMS,
+    files: file([], [], [{ category: 'spacing', written: '13px', value: '13px', line: 1 }]),
+  });
+  assert.equal(
+    r.failures.some((f) => f.rule === 'nothing-scanned'),
+    false,
+  );
+});
+
+test('the report counts comparable tokens per category', () => {
+  const r = validate({ dimensionValues: DIMS, files: file() });
+  const text = formatReport(r).join('\n');
+  assert.match(
+    text,
+    /dimensions:   1 token values comparable — spacing 1, radius 0, font-size 0, line-height 0, letter-spacing 0, font-weight 0/,
+  );
 });
 
 // #123, measured: walked from libs/ or packages/, the gate read the token
@@ -631,4 +770,233 @@ test('a run that excluded everything still says what it excluded', () => {
   const text = formatReport(r).join('\n');
   assert.match(text, /nothing-scanned/);
   assert.match(text, /excluded:     3 file\(s\) in x\/tokens/);
+});
+
+// #39: dimension rules. dimensionCategory sorts the three real naming shapes.
+test('dimensionCategory reads spacing from the path', () => {
+  for (const path of ['space.4', 'spacing-primitive.space.16', 'spacing-semantic.inline.lg', 'space.inset.sm']) {
+    assert.equal(dimensionCategory(path, 'dimension'), 'spacing', path);
+  }
+  assert.equal(dimensionCategory('space.4', undefined), 'spacing');
+});
+
+test('dimensionCategory reads radius from the path', () => {
+  for (const path of ['radius.md', 'radius-semantic.card', 'border.radius.sm']) {
+    assert.equal(dimensionCategory(path, 'dimension'), 'radius', path);
+  }
+});
+
+test('dimensionCategory reads font-size from the path', () => {
+  for (const path of ['font.size.200', 'typography-primitive.size.11', 'text.xs', 'typography.textStyle.displayLg.fontSize']) {
+    assert.equal(dimensionCategory(path, 'dimension'), 'font-size', path);
+  }
+});
+
+test('dimensionCategory reads line-height from the path', () => {
+  assert.equal(dimensionCategory('text.xs.lineHeight', 'dimension'), 'line-height');
+  assert.equal(dimensionCategory('leading.tight', 'dimension'), 'line-height');
+  assert.equal(dimensionCategory('font.lineHeight.tight', 'number'), 'line-height');
+});
+
+test('dimensionCategory reads letter-spacing from the path', () => {
+  assert.equal(dimensionCategory('typography.letterSpacing.tight', 'dimension'), 'letter-spacing');
+  assert.equal(dimensionCategory('typography-primitive.tracking.h1', 'dimension'), 'letter-spacing');
+});
+
+test('dimensionCategory reads font-weight from its $type, not its path', () => {
+  assert.equal(dimensionCategory('font.weight.bold', 'fontWeight'), 'font-weight');
+  assert.equal(dimensionCategory('typography.fontWeight.regular', 'fontWeight'), 'font-weight');
+});
+
+test('dimensionCategory returns null for a path or $type outside the six categories', () => {
+  for (const path of ['stroke.weight.thin', 'spacing-primitive.size.icon.lg', 'border-semantic.width.default', 'focus.ringWidth']) {
+    assert.equal(dimensionCategory(path, 'dimension'), null, path);
+  }
+  assert.equal(dimensionCategory('opacity-primitive.opacity.40', 'number'), null);
+  assert.equal(dimensionCategory('color.text.primary', 'color'), null);
+  assert.equal(dimensionCategory('typography-primitive.family.display', 'string'), null);
+});
+
+test('canonicalDimension folds px and rem into one comparable value', () => {
+  assert.equal(canonicalDimension(16, 'spacing', 'px'), '16px');
+  assert.equal(canonicalDimension('16px', 'spacing', null), '16px');
+  assert.equal(canonicalDimension('1rem', 'spacing', null), '16px');
+  assert.equal(canonicalDimension('1.0rem', 'spacing', null), '16px');
+  assert.equal(canonicalDimension('0.6875rem', 'font-size', null), '11px');
+});
+
+test('canonicalDimension treats a bare number as px only when told to', () => {
+  assert.equal(canonicalDimension('16', 'spacing', null), null);
+  assert.equal(canonicalDimension('16', 'spacing', 'px'), '16px');
+});
+
+test('canonicalDimension declines zero and percentages on either side', () => {
+  assert.equal(canonicalDimension(0, 'spacing', 'px'), null);
+  assert.equal(canonicalDimension('0px', 'spacing', null), null);
+  assert.equal(canonicalDimension('-0px', 'spacing', null), null);
+  assert.equal(canonicalDimension('50%', 'radius', null), null);
+});
+
+test('canonicalDimension keeps em standing alone', () => {
+  assert.equal(canonicalDimension('-0.03em', 'letter-spacing', null), '-0.03em');
+  assert.equal(canonicalDimension('0.025em', 'letter-spacing', null), '0.025em');
+  assert.equal(canonicalDimension('-2', 'letter-spacing', 'px'), '-2px');
+});
+
+test('canonicalDimension rounds line-height to 3 places and compares unitless with unitless, px with px', () => {
+  assert.equal(canonicalDimension(1.7000000476837158, 'line-height', 'px'), '1.7');
+  assert.equal(canonicalDimension('1.5', 'line-height', null), '1.5');
+  assert.equal(canonicalDimension('20px', 'line-height', null), '20px');
+});
+
+test('canonicalDimension accepts a whole-number font-weight only', () => {
+  assert.equal(canonicalDimension(400, 'font-weight', 'px'), '400');
+  assert.equal(canonicalDimension('400', 'font-weight', null), '400');
+  assert.equal(canonicalDimension('bold', 'font-weight', null), null);
+  assert.equal(canonicalDimension('400px', 'font-weight', null), null);
+});
+
+test('canonicalDimension declines a shape it cannot parse', () => {
+  assert.equal(canonicalDimension({ value: 16, unit: 'px' }, 'spacing', 'px'), null);
+  assert.equal(canonicalDimension('calc(1rem + 2px)', 'spacing', null), null);
+  assert.equal(canonicalDimension('16vh', 'spacing', null), null);
+});
+
+test('buildDimensionValues pools resolved values per category, and drops zero', () => {
+  const dims = buildDimensionValues([
+    {
+      space: { $type: 'dimension', 4: { $value: '16px' } },
+      inset: { md: { $value: '{space.4}', $type: 'dimension' } },
+      radius: { lg: { $value: 16, $type: 'dimension' } },
+      font: { size: { base: { $value: '1rem', $type: 'dimension' } } },
+      zero: { space: { 0: { $value: '0px', $type: 'dimension' } } },
+    },
+  ]);
+  assert.deepEqual(dims.get('spacing').get('16px'), ['space.4', 'inset.md']);
+  assert.deepEqual(dims.get('radius').get('16px'), ['radius.lg']);
+  assert.deepEqual(dims.get('font-size').get('16px'), ['font.size.base']);
+  assert.equal(dims.get('spacing').size, 1, 'the zero token is absent');
+});
+
+test('buildDimensionValues does not throw on an unknown reference or a cycle', () => {
+  assert.doesNotThrow(() =>
+    buildDimensionValues([
+      {
+        a: { x: { $value: '{nope.missing}', $type: 'dimension' } },
+        b: { y: { $value: '{c.z}', $type: 'dimension' } },
+        c: { z: { $value: '{b.y}', $type: 'dimension' } },
+      },
+    ]),
+  );
+});
+
+// Step 3: reading dimension literals from source. Every fixture is asserted on
+// `.dimensions`, mapped to `[category, written, value, line]`.
+const dims = (text, path) => extract(text, '@acme/ui', path).dimensions.map((d) => [d.category, d.written, d.value, d.line]);
+
+test('extractDimensions reads a shorthand spacing declaration and a rem radius, and drops zero', () => {
+  const text = '.a {\n  padding: 0 32px;\n  border-radius: 0.5rem;\n  margin: 0;\n}\n';
+  assert.deepEqual(dims(text, 'a.scss'), [
+    ['spacing', '32px', '32px', 2],
+    ['radius', '0.5rem', '8px', 3],
+  ]);
+});
+
+test('extractDimensions reads every longhand property, kebab-case, with its own line', () => {
+  // Line 1 opens the rule; one declaration per line, 2 through 8; line 9 closes
+  // it. Counted by hand.
+  const text =
+    '.a {\n' +
+    '  padding-inline-start: 8px;\n' +
+    '  border-top-left-radius: 4px;\n' +
+    '  row-gap: 12px;\n' +
+    '  line-height: 1.5;\n' +
+    '  letter-spacing: -0.02em;\n' +
+    '  font-weight: 600;\n' +
+    '  font-size: 14px;\n' +
+    '}\n';
+  assert.deepEqual(dims(text, 'a.css'), [
+    ['spacing', '8px', '8px', 2],
+    ['radius', '4px', '4px', 3],
+    ['spacing', '12px', '12px', 4],
+    ['line-height', '1.5', '1.5', 5],
+    ['letter-spacing', '-0.02em', '-0.02em', 6],
+    ['font-weight', '600', '600', 7],
+    ['font-size', '14px', '14px', 8],
+  ]);
+});
+
+test('extractDimensions treats an unquoted number in a script file inline style as px', () => {
+  const text =
+    "<div style={{ marginTop: 16, fontSize: 13, lineHeight: 1.05, fontWeight: 500, padding: '8px 12px' }} />\n";
+  assert.deepEqual(dims(text, 'a.tsx'), [
+    ['spacing', '16', '16px', 1],
+    ['font-size', '13', '13px', 1],
+    ['line-height', '1.05', '1.05', 1],
+    ['font-weight', '500', '500', 1],
+    ['spacing', '8px', '8px', 1],
+    ['spacing', '12px', '12px', 1],
+  ]);
+});
+
+test('a bare number is ignored outside a script file, and inside one when quoted', () => {
+  assert.deepEqual(dims('.a { margin-top: 16; }\n', 'a.scss'), []);
+  assert.deepEqual(dims("const s = { padding: '16' };\n", 'a.tsx'), []);
+});
+
+test('extractDimensions reads Tailwind arbitrary values, including after a variant, and ignores a prefixed or non-dimension utility', () => {
+  const text =
+    '<div className="p-[16px] md:py-[6rem] -mt-[4px] rounded-[8px] text-[11px] text-[#fff] leading-[1.6] tracking-[-0.01em] font-[500] w-[16px] tw-p-[16px]" />\n';
+  assert.deepEqual(dims(text, 'a.tsx'), [
+    ['spacing', 'p-[16px]', '16px', 1],
+    ['spacing', 'py-[6rem]', '96px', 1],
+    ['spacing', '-mt-[4px]', '-4px', 1],
+    ['radius', 'rounded-[8px]', '8px', 1],
+    ['font-size', 'text-[11px]', '11px', 1],
+    ['line-height', 'leading-[1.6]', '1.6', 1],
+    ['letter-spacing', 'tracking-[-0.01em]', '-0.01em', 1],
+    ['font-weight', 'font-[500]', '500', 1],
+  ]);
+});
+
+test('a number inside calc(), clamp(), a var() fallback or max() is not read', () => {
+  const text =
+    '.a {\n  padding: calc(100% - 16px) 8px;\n  font-size: clamp(3rem, 11vw, 13rem);\n  margin: var(--space-4, 16px);\n  gap: max(8px, 1vw);\n}\n';
+  assert.deepEqual(dims(text, 'a.scss'), [['spacing', '8px', '8px', 2]]);
+});
+
+test('a dimension inside a comment is not read', () => {
+  const text = '/* padding: 16px */\n// margin: 8px\n.a { gap: 4px; }\n';
+  assert.deepEqual(dims(text, 'a.scss'), [['spacing', '4px', '4px', 3]]);
+});
+
+test('a font-weight descriptor inside @font-face is not read, but one outside it is', () => {
+  const text = "@font-face {\n  font-family: 'X';\n  font-weight: 400;\n}\n.a { font-weight: 400; }\n";
+  assert.deepEqual(dims(text, 'a.css'), [['font-weight', '400', '400', 5]]);
+});
+
+test('a custom property or SCSS variable definition is not read — it declares a value, not a use', () => {
+  const text = '.a { --gap: 16px; }\n$gap: 16px;\n';
+  assert.deepEqual(dims(text, 'a.scss'), []);
+});
+
+test('the SRC fixture yields no dimension literal', () => {
+  assert.deepEqual(extract(SRC, '@acme/ui').dimensions, []);
+});
+
+test('the CLI flags a dimension literal against a token, and counts it in the headline', () => {
+  const root = tree({ 'app/page.scss': '.a { padding: 1rem; }\n' });
+  const tokensDir = tree({
+    'tokens.json': JSON.stringify({
+      space: { 4: { $value: '16px', $type: 'dimension' } },
+      c: { $value: '#3B82F6', $type: 'color' },
+    }),
+  });
+  const { code, out } = runCli(root, tree(SYSTEM), join(tokensDir, 'tokens.json'));
+  assert.equal(code, 1, out);
+  assert.match(
+    out,
+    /\[token-exists-for-dimension\] spacing 1rem \(16px\) at .*page\.scss:1 — space\.4 resolves to exactly this value/,
+  );
+  assert.match(out, /0 colour literals, 1 dimension literals, 1 files/);
 });
