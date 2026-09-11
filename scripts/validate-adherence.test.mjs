@@ -7,6 +7,7 @@ import { join, dirname } from 'node:path';
 import {
   extract,
   normalizeHex,
+  rgbToHex,
   validate,
   buildTokenValues,
   formatReport,
@@ -159,6 +160,33 @@ test('normalizeHex folds the spellings of one colour together', () => {
   assert.equal(normalizeHex('#aabbccff'), '#aabbcc');
   assert.equal(normalizeHex('#aabbcc80'), '#aabbcc80', 'a real alpha is not stripped');
   assert.equal(normalizeHex('rgb(1,2,3)'), null, 'non-hex is uncomparable, not guessed');
+});
+
+test('rgbToHex normalises an opaque integer rgb() to hex', () => {
+  assert.equal(rgbToHex('rgb(59, 130, 246)'), '#3b82f6');
+  assert.equal(rgbToHex('rgba(59,130,246,1)'), '#3b82f6');
+  assert.equal(rgbToHex('rgb(59 130 246 / 100%)'), '#3b82f6');
+  assert.equal(rgbToHex('rgb(59 130 246 / 1.0)'), '#3b82f6');
+});
+
+test('rgbToHex declines what it cannot normalise', () => {
+  assert.equal(rgbToHex('rgba(59, 130, 246, 0.5)'), null, 'a real alpha');
+  assert.equal(rgbToHex('rgb(50%, 10%, 0%)'), null, 'percentage channels');
+  assert.equal(rgbToHex('rgb(var(--c) / 1)'), null, 'a var() channel');
+  assert.equal(rgbToHex('hsl(217 91% 60%)'), null, 'not rgb()');
+  assert.equal(rgbToHex('rgb(256, 0, 0)'), null, 'a channel above 255');
+  assert.equal(rgbToHex('rgb(1, 2)'), null, 'too few channels');
+});
+
+test('extract reads an opaque rgba() literal as its hex value', () => {
+  assert.deepEqual(hexes('.a { border-color: rgba(59, 130, 246, 1); }\n', 'a.scss'), [
+    { value: '#3b82f6', line: 1 },
+  ]);
+});
+
+test('an rgba() inside a comment or a mask is not a literal', () => {
+  assert.deepEqual(hexes('/* .a { border-color: rgba(59, 130, 246, 1); } */\n', 'a.scss'), []);
+  assert.deepEqual(hexes('mask: linear-gradient(rgb(255, 255, 255) 0 0);\n', 'a.scss'), []);
 });
 
 const INDEX = {
@@ -327,8 +355,13 @@ test('an unresolvable or circular reference is skipped, not thrown on', () => {
 });
 
 test('a non-hex token value is counted uncomparable, not compared', () => {
-  const t = buildTokenValues([{ c: { x: { $value: 'rgb(1,2,3)', $type: 'color' } } }]);
+  const t = buildTokenValues([{ c: { x: { $value: 'hsl(217 91% 60%)', $type: 'color' } } }]);
   assert.equal(t.size, 0);
+});
+
+test('an opaque rgb() token value resolves the same as its hex', () => {
+  const t = buildTokenValues([{ c: { x: { $value: 'rgb(59, 130, 246)', $type: 'color' } } }]);
+  assert.deepEqual(t.get('#3b82f6'), ['c.x']);
 });
 
 // Found by the e2e, not by a fixture: pointed at a directory with no source in

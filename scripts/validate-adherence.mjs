@@ -21,9 +21,10 @@ const ELEMENT = /<([A-Z][A-Za-z0-9]*)\b([^>]*?)\/?>/g;
 // One attribute: name="literal" or name={expression}. The capture is undefined
 // for the expression form, which is how a blind spot stays visible.
 const ATTR = /([a-zA-Z][a-zA-Z0-9_-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|\{)/g;
-// Hex only. Decision 4: a token authored rgb()/hsl() and a literal written the
-// same way are counted uncomparable rather than normalised into each other.
+// Hex and opaque integer rgb()/rgba() are compared (see rgbToHex). hsl() and
+// alpha below 1 are not.
 const HEX = /#[0-9a-fA-F]{3,8}\b/g;
+const RGB = /\brgba?\([^()]*\)/gi;
 
 const lineOf = (text, index) => text.slice(0, index).split('\n').length;
 
@@ -66,6 +67,23 @@ export function normalizeHex(value) {
   return '#' + hex;
 }
 
+// rgb(59, 130, 246) -> #3b82f6. Only whole channels 0-255 and an opaque alpha
+// (absent, 1, 1.0 or 100%) are comparable; anything else — percentages,
+// var(), a real alpha — returns null and is never guessed at.
+export function rgbToHex(value) {
+  const m = String(value).trim().match(/^rgba?\(\s*([^()]*)\)$/i);
+  if (!m) return null;
+  const parts = m[1].split(/[\s,/]+/).filter(Boolean);
+  if (parts.length < 3 || parts.length > 4) return null;
+  const channels = parts.slice(0, 3);
+  for (const c of channels) {
+    if (!/^\d{1,3}$/.test(c) || Number(c) > 255) return null;
+  }
+  if (parts.length === 4 && !/^(1(\.0+)?|100%)$/.test(parts[3])) return null;
+  const hex = channels.map((c) => Number(c).toString(16).padStart(2, '0')).join('');
+  return normalizeHex('#' + hex);
+}
+
 export function extract(text, pkg, path = '') {
   const imported = new Map();
   for (const m of text.matchAll(IMPORT)) {
@@ -94,6 +112,10 @@ export function extract(text, pkg, path = '') {
     const value = normalizeHex(h[0]);
     if (value) literals.push({ value, line: lineOf(colourText, h.index) });
   }
+  for (const m of colourText.matchAll(RGB)) {
+    const value = rgbToHex(m[0]);
+    if (value) literals.push({ value, line: lineOf(colourText, m.index) });
+  }
 
   return { imported, usages, literals };
 }
@@ -117,7 +139,7 @@ export function buildTokenValues(dicts) {
       } catch {
         continue;
       }
-      const hex = normalizeHex(resolved);
+      const hex = normalizeHex(resolved) ?? rgbToHex(resolved);
       if (!hex) continue;
       if (!out.has(hex)) out.set(hex, []);
       out.get(hex).push(path);
