@@ -42,8 +42,38 @@ current state, not history, the same way the manifest does.
 - `checks` — non-empty array of `{ name, method, result, evidence }`, where
   `method` is `"derived"` or `"attested"`, `result` is `"pass"` or `"fail"`, and
   `evidence` is a string.
+- `checks[].accepted` — optional, and only on a check. An array of
+  `{ fg, bg, mode }` naming pairs a user explicitly accepted as failing. Only
+  `contrast-baseline` uses it today.
 - `screenshot` — optional pointer: a Figma node id, or a repo-relative path.
 - `advancedBecause` — one line saying why the stage was allowed to advance.
+
+**`accepted`, and why its two readers disagree.** `fg` and `bg` are the dotted
+`CONTRAST_PAIRS` paths, compared after the `normalizeText` fold, so
+`color.text.onEmphasis` and `color.text.on-emphasis` are one role. `mode` is the
+**Figma** mode name `token-builder` saw — `Light`, `Dark` — because at folder
+stage no DTCG file exists yet to name a mode after. A reader that matches on
+`mode` must translate it into that run's file label first.
+
+Two skills read the field, and they match on different things:
+
+- `token-sync-layer` drops from its own gate run's `color-contrast` failures
+  every one whose `(fg, bg, mode)` triple matches an entry. It is the only reader
+  that matches on the mode, because it is the only one that knows both names: it
+  read the Figma modes and it wrote the DTCG files.
+- `storybook-chromatic-builder` compares its own live run's failures against the
+  `fg`/`bg` **roles alone**, to decide whether the `verify:check` it registers
+  carries `--skip color-contrast`. A per-mode test would decide nothing there —
+  `--skip` is rule-wide, so there is no way to skip contrast in Dark and keep it
+  in Light — and that skill could not translate a mode name anyway, having
+  neither read the Figma modes nor written the DTCG files.
+
+The rule that keeps the field honest: **it is data a caller subtracts, never
+something `verify-check.mjs` reads.** The gate does not know the field exists, and
+an attested `fail` never switches a derived rule off inside it — that would be
+the self-attestation this store exists to avoid. A triple that no longer matches
+any failure is inert, which is how an acceptance retires itself once the pair is
+fixed.
 
 **Pointers, never content.** `evidence` and `screenshot` point at things; they do
 not carry them. This is the same rule `components.meta[name].doc` follows, for
@@ -160,6 +190,7 @@ every time the earliest subject is rebuilt.
 | `component-builder` | component name |
 | `storybook-chromatic-builder` | component name |
 | `token-sync-layer` | `"system"` |
+| `token-builder` | `"system"` |
 
 The machine-readable copy of that split is `PER_COMPONENT_STAGES` in
 `scripts/lib/proof.mjs`, and the full list is `STAGES` beside it. **A change here
@@ -180,15 +211,36 @@ keyed by component?"
 | `orphan-token` | derived | `storybook-chromatic-builder` |
 | `state-incomplete` | derived | `storybook-chromatic-builder` |
 | `name-drift` | derived | `storybook-chromatic-builder` |
+| `contrast-baseline` | attested | `token-builder` |
+| `color-contrast` | derived | `token-sync-layer` |
 
-**`storybook-chromatic-builder` is the only stage that records derived results**,
-and it can do that only because it is the one stage that runs `verify:check`
-before it records — so it has the results in hand rather than asserting them.
-`component-builder` runs at folder stage with no repo to scan, and
-`token-sync-layer`'s subject is the system; both record attested checks only.
+**Two stages record derived results — `storybook-chromatic-builder` and
+`token-sync-layer`** — and each qualifies for one reason and only that reason: it
+runs `verify:check` before it records, so it has the result in hand rather than
+asserting it. That is a property of what the stage does, not of which stage it
+is; a stage that does not run the gate never qualifies. `component-builder` and
+`token-builder` both run at folder stage, with no repo to scan, so they record
+attested checks only.
 
 A derived result sitting in a stage file is a cache the next run recomputes. A
 disagreement is `proof-contradicted`.
+
+### Contrast: two checks, two methods
+
+`contrast-baseline` and `color-contrast` ask the same question in two places,
+and neither substitutes for the other.
+
+- **`contrast-baseline`** — attested, recorded by `token-builder`. The ratio an
+  agent computed in Figma from the resolved variable values, per mode, at the
+  moment the semantic tier was built. Attested because the CLI cannot read Figma.
+- **`color-contrast`** — derived, recorded by `token-sync-layer`. The same
+  question recomputed off the DTCG source by `verify:check`, which can read it.
+
+This is the `state-baseline` / `state-incomplete` pairing one layer down: the
+agent asserts in the place where the thing is built, the CLI re-derives
+independently off disk, and a system wants both. Catching a bad pair at creation
+time is the point of the first; not having to take that catch on trust is the
+point of the second.
 
 ## A worked example
 
