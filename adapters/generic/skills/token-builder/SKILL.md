@@ -301,9 +301,84 @@ and later Device (`Spacing`/`Typography`). That's the cost of independent axes.
 Verify the aliases resolve — use `figma_get_variables` (filtered to the new
 semantic collection, `resolveAliases: true`) to confirm semantic tokens point at
 primitives, not literals; if you read via a `figma_execute` script instead, use
-the async APIs (see the dynamic-page note in Prerequisites). Then checkpoint:
-show the semantic layer and demonstrate the cascade if useful ("change `gray/50`
-and `bg/default` follows").
+the async APIs (see the dynamic-page note in Prerequisites).
+
+**Then assert contrast, before the checkpoint.** Using that same
+`figma_get_variables` read (filtered to `Color/Semantic`, `resolveAliases: true`),
+convert Figma's 0–1 RGBA channels to hex and **run the shipped module rather than
+doing the arithmetic in the transcript**: shape the per-mode values as
+`[{ mode, values: { "<dotted token path>": "#rrggbb" } }]` and pass them to a
+single `node` invocation that imports `CONTRAST_PAIRS`, `contrastRatio`,
+`composite` and `AA_NORMAL_TEXT` from
+`.throughline/scripts/lib/contrast.mjs` and prints one line per pair per
+mode:
+
+    node --input-type=module -e "<import the module, read the JSON from
+    process.argv[1], loop CONTRAST_PAIRS × modes, print mode/fg/bg/ratio>" '<the JSON>'
+
+The module ships precisely so the maths has one home: read the table and call the
+function, and restate neither. The pairs are the semantic roles the system
+already promises (`text/onEmphasis` on `bg/emphasis`, `text/primary` on
+`bg/default`, each status text on its own status background); a role this system
+does not have is not asserted.
+
+**The keys are dotted token paths, not Figma variable names.** Figma calls the
+role `text/onEmphasis` in the `Color/Semantic` collection; `CONTRAST_PAIRS`
+spells it `color.text.onEmphasis`, and no normalized fold bridges the two —
+`colorsemantictextonemphasis` is not `colortextonemphasis`. Apply the **Name
+mapping** rule the sync already defines
+(`.throughline/skills/token-sync-layer/SKILL.md`): the category drives
+the top-level group and the tier is dropped, so `Color/Semantic` +
+`text/onEmphasis` → `color.text.onEmphasis`. Both halves of this check have to
+agree on the spelling, or the Figma-time half asserts pairs the CLI half never
+sees, and the two never disagree because they never meet.
+
+**A failing pair stops the tier.** Do not proceed to the checkpoint or to Step 4
+with a pair below 4.5:1. Report it in guide voice
+(`.throughline/references/guide-voice.md`): name the two roles, the
+mode, the measured ratio and the required one, then give **one** recommended fix
+— re-point that mode's alias at a primitive with more separation, naming a
+specific step in the ramp that clears — rather than a menu of options. This is
+the "modes can't be built with poor colour contrast" promise, and it is the
+cheapest place in the whole system to catch it: the mode is being defined right
+now, and nothing is built on it yet.
+
+**If the user explicitly accepts a failing pair**, continue, and say plainly in
+the same breath what it costs downstream — describing the mechanism that actually
+exists, not a registration that cannot reach the sync:
+
+1. The acceptance is recorded in this stage's entry (`contrast-baseline` at
+   `result: "fail"`, `advancedBecause` naming it, and the pair itself listed in
+   `accepted`), and `token-sync-layer` subtracts exactly that pair from its own
+   gate run — so **the next token sync is not blocked** by it, while any *other*
+   failing pair, including one introduced later, still stops the sync.
+2. The repo's own registered `verify:check` — the one
+   `storybook-chromatic-builder` wires into CI later — derives the same ratio off
+   the DTCG source and would fail there. That skill runs the gate itself when it
+   wires the script, and if every failure it sees is a pair recorded here as
+   accepted, it registers the script with `--skip color-contrast` and says so at
+   the time; if the pair has since been fixed, it registers the script without the
+   flag. Nothing is owed to a script that does not exist yet, and nothing is
+   switched off on the strength of a record alone.
+
+Say both, in that order, and then say how each one ends, because they do not end
+the same way. Fixing the pair in Figma **retires the sync's side by itself**: the
+failure stops appearing, the recorded triple matches nothing, and the sync goes
+back to normal on its own — with one expected line on that first sync, where the
+previously recorded `fail` disagrees with a rerun that now passes. That line does
+not stop anything, and the same run re-records the pass. The registered
+`--skip color-contrast` does **not** heal: it is a line in the repo's
+`package.json` and stays until someone removes it, which is the one thing this
+override leaves behind. Say that plainly rather than letting them find it — a
+user who fixes the pair months later and still sees contrast skipped in CI has
+been told the gate is live when it is not. Say the scope too: `--skip` is
+rule-wide, so while that flag is registered CI checks **no** pair, including one
+introduced after the acceptance. The sync is what catches that one, since every
+token change goes through it — but the user should know CI is not the thing
+standing guard meanwhile.
+
+Then checkpoint: show the semantic layer and demonstrate the cascade if useful
+("change `gray/50` and `bg/default` follows").
 
 Update the manifest: `tokens.semanticBuilt` = `true`, add every semantic
 collection to `tokens.collections`.
@@ -342,6 +417,34 @@ duplicating them. Checkpoint with the user: show the created styles.
 Update the manifest: set `tokens.stylesBuilt` = `true` and record which style
 groups were created in `tokens.styleGroups`. Append `token-builder` to
 `completedSkills`.
+
+**Record the stage entry:** `node .throughline/scripts/verify-check.mjs
+--record --stage token-builder --entry <tmp>.json` (subject defaults to
+`"system"`; this stage is not per-component). Build `<tmp>.json` with `changed`
+summarizing the collections and modes created, the attested check
+`contrast-baseline` carrying `result` and a one-line `evidence` naming the
+tightest ratio per mode (`"Light 5.2:1, Dark 4.9:1 — tightest is
+text/onEmphasis on bg/emphasis"`), and `advancedBecause`.
+
+When the user accepted a failing pair, the check's `result` is `"fail"`,
+`advancedBecause` names the acceptance, and the check carries
+`accepted: [{ fg, bg, mode }]` — one entry per accepted pair, `fg` and `bg` as the
+dotted token paths `CONTRAST_PAIRS` uses, and `mode` as **the Figma mode name this
+skill just read** (`Light`, `Dark` — the names in the collection it built), not a
+file name. At this point in the pipeline no DTCG file exists to name a mode
+after: the sync writes those later and chooses their names, so a filename here
+would be a guess that never matches. The sync translates this name into its own
+file label before matching, and recording what was actually observed is what
+makes that translation possible. **Write the pair structurally as well as in
+prose** — `advancedBecause` is for whoever reads the bundle later, and `accepted`
+is what `token-sync-layer` matches against, so an acceptance recorded only in
+prose would stop the next sync exactly as if it had never been given. Accept only
+the pairs the user actually accepted; that list is the scope of the override.
+
+The entry shape is `.throughline/references/proof-bundle.md` — do not
+restate it here. Write the entry only when the tier actually completed: a run that
+stopped on a failing pair and was not resumed records nothing, the same rule
+`component-builder` follows for a `BLOCKED` component.
 
 ## Step 5 — Hand off
 
