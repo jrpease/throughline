@@ -1064,9 +1064,22 @@ did — the eight in Plan Step 12.3 plus the partition pair, the promotion
 regression and the lifecycle gate. 704 unit tests pass and all seven CI commands
 are green.
 
+The finish stage rebuilt that fixture from scratch and re-ran it rather than
+reading the note back: same install set, same registered `npm run verify:check`,
+and six controls — `state-incomplete`, `orphan-token`, `proof-stale`, a
+per-component `proof-missing`, the partition pair, and a restored clean run.
+Every one reported what the note says it does, the partition control included:
+with `packages/tokens/package.json` deleted the gate came back green on a system
+that still had an orphan, 13 files scanned and no `excluded:` line.
+
 ## Where it diverged
 
-Steps 10 to 12, which is the range this build covered end to end:
+**Routing.** Steps 1, 2, 5, 6, 7, 8, 10, 11 and 12 were built inline. Steps 3
+(the archetype table), 4 (the store) and 9 (the four skill and agent files) went
+to `implementer` — each one a decided edit whose brief was already written in the
+Plan. Nothing came back `BLOCKED`, and no step was abandoned or deferred.
+
+The divergences themselves are all in steps 10 to 12:
 
 - **Step 12's partition control needed one thing the spec did not say.** Adding
   the orphan token to `dtcg/tokens.json` alone does not discriminate: the
