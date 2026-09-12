@@ -24,6 +24,9 @@ tested here; copied verbatim by `token-crosswalk-builder` into the user's
 | `lib/doc-record.mjs` | Canonical record load + `canonicalFingerprint` (sha256 over the record minus `provenance`). The fingerprint every surface is stamped with. | copied alongside docs-check.mjs |
 | `lib/doc-card-render.figma.js` | Figma renderer template for the doc card's `Usage` band and header. Inlined into `references/doc-card-builder.md`; never executed as a module. | plugin-internal (not installed) |
 | `lib/doc-card-plan.mjs` | Pure layout planner for the doc card's `Usage` band + `DOC_CARD_RENDERER_VERSION` (single source of the layout version). Inlined into `references/doc-card-builder.md`; imported by `docs-check.mjs`. | copied alongside docs-check.mjs; also inlined into the generated builder |
+| `verify-check.mjs` | The verification proof bundle: records each stage's entry, and re-derives what it can rather than trusting the record. Fails on an orphaned token, a component documented without its archetype's baseline interaction states, a name that drifts between the manifest, its record and its code surface, or a recorded result the rerun contradicts. | `verify:check` |
+| `lib/proof.mjs` | The proof store's vocabulary and mechanics: the stage list, entry validation, latest-wins merge, and the fingerprint the manifest pointer carries. | copied alongside `verify-check.mjs` |
+| `lib/component-states.mjs` | The archetype table and resolver behind `state-incomplete` — which baseline interaction states each kind of component owes, and when to abstain. | copied alongside `verify-check.mjs` |
 | `build-doc-card-builder.mjs` | Generate `references/doc-card-builder.md` from the planner + the Figma renderer template (`lib/doc-card-render.figma.js`). `--check` gates CI. | plugin-internal (not installed) |
 | `build-native-adapter-config.mjs` | Generate `references/native-adapter-config.md` by slicing `lib/sd-native.mjs` on its `@doc-section` markers and interleaving each fragment under its prose. Fails when module code falls outside every section, so the doc cannot silently ship incomplete. `--check` gates CI. | plugin-internal (not installed) |
 
@@ -31,7 +34,7 @@ tested here; copied verbatim by `token-crosswalk-builder` into the user's
 registering them leaves a repo with a script on disk and no entry point, which
 is how a stale `docs:check` went unnoticed for a full release. Both
 `storybook-chromatic-builder` (first-time setup) and `/document-component`
-(freshness refresh) install the same eight files and register the same four
+(freshness refresh) install the same eleven files and register the same five
 scripts:
 
 | File | npm script |
@@ -44,9 +47,18 @@ scripts:
 | `validate-adherence.mjs` | `"adherence:check": "node scripts/validate-adherence.mjs --root ../../apps --system ../.. --package <specifier> --tokens dtcg/tokens.json"` |
 | `lib/source-scan.mjs` | — (imported by the above) |
 | `lib/dtcg.mjs` | — (imported by the above) |
+| `verify-check.mjs` | `"verify:check": "node scripts/verify-check.mjs --root ../.. --tokens dtcg/tokens.json"` |
+| `lib/proof.mjs` | — (imported by the above) |
+| `lib/component-states.mjs` | — (imported by the above) |
 
 A refresh that adds a file must also add its npm script; check `package.json`
-for all four npm scripts every time, not just the file that changed.
+for all five npm scripts every time, not just the file that changed.
+
+`verify:check`, like `adherence:check`, carries placeholder paths the installing
+skill substitutes for the repo's real layout. Dropping `--tokens` rather than
+substituting it is how a repo ends up with a rule that never runs: with no token
+source there is nothing to read, so the gate reports `orphan-token` as skipped on
+every run — #110's first stop condition, disabled by its own registration.
 
 The crosswalk contract is documented in
 `${CLAUDE_PLUGIN_ROOT}/references/crosswalk-schema.md`.
@@ -59,6 +71,8 @@ node build-reverse-index.mjs --crosswalk crosswalk.json --out crosswalk.reverse.
 node guard-token-removal.mjs --root . --symbols symbols-to-remove.txt
 node validate-adherence.mjs --root ../../apps --system ../.. --package @acme/ui --tokens dtcg/tokens.json
 node validate-token-output.mjs --source dtcg/primitives.json --source dtcg/semantic.dark.json --output css/tokens.css --platform shadcn --block .dark --min-match 1
+node verify-check.mjs --root ../.. --tokens dtcg/tokens.json
+node verify-check.mjs --record --stage component-builder --subject Button --entry entry.json
 ```
 
 `validate-adherence.mjs` takes every path explicitly because cwd is the package
@@ -111,6 +125,32 @@ legal output. On `shadcn` and `tailwind`, a declaration with no source token
 whose whole value is a `var()` to a declared variable is an alias layer
 (`--background: var(--color-bg-canvas)`). The report counts aliases on their own
 line and leaves them out of the match rate, so `--min-match 1` still holds.
+
+`verify-check.mjs` has two modes. The **gate** — `--root <dir>`, repeatable
+`--tokens` and `--source`, repeatable `--skip` — reads the proof store at
+`design-system/proof/`, re-derives every check a stage recorded as `derived`, and
+fails on `orphan-token`, `state-incomplete`, `name-drift`, `proof-missing`,
+`proof-stale`, `proof-contradicted`, `nothing-verified` and `orphan-rule-inert`.
+`archetype-unknown` and `proof-unadopted` are informational. With no `--source`
+the walk covers `--root`; the package that owns a `--tokens` file is set aside
+either way, and the report prints an `excluded:` line naming it — without that,
+generated token output binds every semantic token to itself and `orphan-token`
+can never fire. The **recorder** — `--record --stage <name> [--subject <Name>]
+--entry <file.json>` — merges one entry into that stage's file, recomputes its
+fingerprint and stamps the manifest's `verification` pointer. Skills call it;
+nothing hand-writes the store or hand-computes a hash.
+
+`--skip <rule>` switches a rule off entirely, and a skipped rule is absent rather
+than inert. With no `--tokens` there is no token source to read, so
+`orphan-token` is reported as skipped rather than passed. The orphan rule counts
+a token as bound when its normalized key appears anywhere in a scanned file, so
+`color.bg.primary` is bound by a mention of `color.bg.primary.hover`: every miss
+is an orphan reported as bound, never a correct system failed. A `derived` check
+is one the gate recomputes off disk, and its recorded result is a cache that must
+agree — a disagreement is `proof-contradicted`. An `attested` check is an agent's
+live observation of something the CLI cannot read, printed informationally and
+never the reason a run passes. See
+`${CLAUDE_PLUGIN_ROOT}/references/proof-bundle.md`.
 
 Exit codes: `0` success, `1` validation/guard failure (mismatch, missing token,
 conflict, or remaining reference), `2` bad CLI arguments.
