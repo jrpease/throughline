@@ -10,6 +10,7 @@ import {
   rgbToHex,
   validate,
   buildTokenValues,
+  resolvedTokens,
   skippedColourTokens,
   formatReport,
   tokenPackageDirs,
@@ -441,6 +442,21 @@ test('an alias into another --tokens file resolves', () => {
   ];
   assert.deepEqual(buildTokenValues(dicts).get('#ef4444'), ['color.red.500', 'color.danger.text']);
   assert.deepEqual(skippedColourTokens(dicts), { unresolvable: 0, nonHex: 0 });
+});
+
+// #45: one --tokens file is one mode, so a caller grouping by mode needs to know
+// which file each token came from — while the value still resolves across files.
+test('resolvedTokens tags each token with the --tokens file it came from', () => {
+  const dicts = [
+    { color: { red: { 500: { $value: '#EF4444', $type: 'color' } } } },
+    { color: { danger: { text: { $value: '{color.red.500}', $type: 'color' } } } },
+  ];
+  const byPath = new Map([...resolvedTokens(dicts)].map((t) => [t.path, t]));
+  assert.equal(byPath.get('color.red.500').source, 0);
+  const semantic = byPath.get('color.danger.text');
+  assert.equal(semantic.source, 1);
+  assert.equal(semantic.resolves, true);
+  assert.equal(semantic.value, '#EF4444');
 });
 
 test('two mode files that define one path differently each resolve their own value', () => {

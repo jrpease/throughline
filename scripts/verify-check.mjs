@@ -3,15 +3,15 @@
 // recorded as `derived`, and fails when a stored result and a fresh run
 // disagree. Zero dependencies.
 //
-// Failing:       orphan-token | state-incomplete | name-drift | proof-missing
-//                | proof-stale | proof-contradicted | nothing-verified
-//                | orphan-rule-inert
+// Failing:       orphan-token | state-incomplete | name-drift | color-contrast
+//                | proof-missing | proof-stale | proof-contradicted
+//                | nothing-verified | orphan-rule-inert | contrast-rule-inert
 // Informational: archetype-unknown | proof-unadopted
 // (archetype-unknown = a doc record whose archetype neither its own `archetype`
 //  field nor its name resolves, so no baseline state set applies to it.
 //  proof-unadopted = a manifest with no `verification` key at all: the system
 //  has not opted into the bundle, so the proof-integrity checks are skipped and
-//  the three derived rules still run.)
+//  the four derived rules still run.)
 //
 // Usage: node verify-check.mjs [--root <dir>] [--tokens <file>]... [--source <dir>]... [--skip <rule>]...
 //        node verify-check.mjs --record --stage <name> [--subject <Name>] --entry <file.json>
@@ -25,7 +25,8 @@ import { loadRecord } from './lib/doc-record.mjs';
 import { flattenDtcg } from './lib/dtcg.mjs';
 import { walk, normalizeName } from './lib/source-scan.mjs';
 import { missingStates, resolveArchetype } from './lib/component-states.mjs';
-import { tokenPackageDirs } from './validate-adherence.mjs';
+import { AA_NORMAL_TEXT, CONTRAST_PAIRS, contrastRatio, parseHex, composite } from './lib/contrast.mjs';
+import { tokenPackageDirs, normalizeHex, rgbToHex, resolvedTokens } from './validate-adherence.mjs';
 import {
   DERIVED_RULE_SCOPE,
   PER_COMPONENT_STAGES,
@@ -152,6 +153,92 @@ export function checkNames({ built = [], meta = {}, records = new Map() }) {
   return failures;
 }
 
+// A pair is evaluated once per mode, and has to clear in every mode it is
+// evaluated in — a system that passes in Light and fails in Dark fails, full
+// stop, because the failure list carries the mode and nothing averages across
+// them. A pair whose roles are absent from a mode abstains rather than
+// passing: that mode contributes nothing for that pair, which is why
+// `contrast-rule-inert` exists — a rule that recognised no role anywhere must
+// not read as a clean run.
+//
+// Alpha: a translucent foreground has one correct answer over a known
+// background, so it is composited and compared. A translucent background does
+// not — what is behind it is a layout fact the token tier does not hold — so
+// that pair is skipped and counted rather than guessed at.
+//
+// The returned `modes` is the number of modes in which at least one pair was
+// actually compared, which is NOT the number of modes passed in: a primitives
+// file is a mode that holds no semantic role and contributes nothing. It is the
+// number the report's `contrast:` line carries, because "compared across N
+// modes" is the reading that catches a multi-mode system registered with one
+// mode file.
+export function checkContrast({ modes }) {
+  const failures = [];
+  const skipped = { unresolvable: 0, nonHex: 0, alphaBackground: 0 };
+  let pairs = 0;
+  let modesCompared = 0;
+
+  for (const { mode, values, unresolved } of modes) {
+    let comparedHere = 0;
+    const resolved = new Map();
+    for (const [path, value] of values) resolved.set(normalizeText(path), value);
+    const unresolvedFolded = new Set([...unresolved].map(normalizeText));
+
+    for (const pair of CONTRAST_PAIRS) {
+      const fgKey = normalizeText(pair.fg);
+      const bgKey = normalizeText(pair.bg);
+      const fgDefined = resolved.has(fgKey) || unresolvedFolded.has(fgKey);
+      const bgDefined = resolved.has(bgKey) || unresolvedFolded.has(bgKey);
+      // A side absent from both this mode's resolved values and its unresolved
+      // set means the mode does not define it at all — not evaluated, not
+      // counted anywhere.
+      if (!fgDefined || !bgDefined) continue;
+
+      if (unresolvedFolded.has(fgKey) || unresolvedFolded.has(bgKey)) {
+        skipped.unresolvable += 1;
+        continue;
+      }
+
+      const fgValue = resolved.get(fgKey);
+      const bgValue = resolved.get(bgKey);
+      const fgHex = normalizeHex(fgValue) ?? rgbToHex(fgValue);
+      const bgHex = normalizeHex(bgValue) ?? rgbToHex(bgValue);
+      if (!fgHex || !bgHex) {
+        skipped.nonHex += 1;
+        continue;
+      }
+
+      const bgParsed = parseHex(bgHex);
+      if (bgParsed.a < 1) {
+        skipped.alphaBackground += 1;
+        continue;
+      }
+
+      const fgParsed = parseHex(fgHex);
+      const fgComposited = fgParsed.a < 1 ? composite(fgHex, bgHex) : fgHex;
+
+      const ratio = contrastRatio(fgComposited, bgHex);
+      pairs += 1;
+      comparedHere += 1;
+      if (ratio < pair.threshold) {
+        failures.push({
+          rule: 'color-contrast',
+          mode,
+          fg: pair.fg,
+          bg: pair.bg,
+          fgValue,
+          bgValue,
+          ratio,
+          threshold: pair.threshold,
+        });
+      }
+    }
+    if (comparedHere > 0) modesCompared += 1;
+  }
+
+  return { failures, skipped, pairs, modes: modesCompared };
+}
+
 // Does this stage owe this component an entry yet?
 //
 // The manifest states the lifecycle outright (references/manifest-schema.md):
@@ -175,7 +262,7 @@ export function checkProof({ manifest, root, derived = [], built = [], meta = {}
 
   // A system that never adopted the bundle is not a system that stopped
   // proving things: report it and skip the integrity checks entirely. The
-  // three derived rules still run — they do not depend on the store.
+  // four derived rules still run — they do not depend on the store.
   if (!manifest.verification) {
     informational.push({ rule: 'proof-unadopted' });
     return { failures, informational, stagesRead: 0 };
@@ -257,10 +344,14 @@ function failureDetail(f) {
       return `${PROOF_DIR}/${f.stage}.json does not match the fingerprint in design-system.json — it was edited outside the recorder. Re-record the stage's entries rather than editing the file.`;
     case 'proof-contradicted':
       return `${f.stage} recorded ${f.check} as "${f.recorded}" for ${f.subject}, but this run derives "${f.rerun}". A derived result is a cache, not a claim — fix what it found, or re-record it.`;
+    case 'color-contrast':
+      return `${f.fg} on ${f.bg} is ${f.ratio.toFixed(2)}:1 in ${f.mode} (${f.fgValue} on ${f.bgValue}) — WCAG AA needs ${f.threshold}:1 for normal text. Re-point one side of the pair at a primitive with more separation in that mode; the pair has to clear in every mode, not on average.`;
     case 'nothing-verified':
-      return 'the enabled rules examined nothing: no alias token candidate, no doc record, no component in components.built. Check --root points at the design system, and that --tokens names a real token source.';
+      return 'the enabled rules examined nothing: no alias token candidate, no doc record, no component in components.built, no colour pair compared. Check --root points at the design system, and that --tokens names a real token source.';
     case 'orphan-rule-inert':
       return 'no token source yielded an alias, so orphan-token checked nothing. Pass the --tokens file that holds the semantic tier, or --skip orphan-token if this system has none.';
+    case 'contrast-rule-inert':
+      return 'no token source held both sides of any checked colour pair, so color-contrast compared nothing. Pass the --tokens file that holds the semantic colour tier, or --skip color-contrast if this system names its roles differently.';
     default:
       return JSON.stringify(f);
   }
@@ -283,10 +374,21 @@ function informationalDetail(i) {
 export function formatReport(r) {
   const s = r.stats;
   const lines = [
-    `verify:check — ${s.components} component(s), ${s.records} doc record(s), ${s.candidates} token candidate(s), ${s.files} file(s) scanned, ${s.stages} stage file(s) read`,
+    `verify:check — ${s.components} component(s), ${s.records} doc record(s), ${s.candidates} token candidate(s), ${s.modes} token mode(s), ${s.files} file(s) scanned, ${s.stages} stage file(s) read`,
   ];
   for (const e of r.excluded) {
     lines.push(`  excluded:     ${e.files} file(s) in ${e.dir}, the package that owns --tokens`);
+  }
+  // Every number on this line is a PAIR, in the mode it occurred in — which is
+  // why it says "pair(s)" once and means it across the whole line. Its mode
+  // count is the modes a pair was actually compared in, not the headline's
+  // count of --tokens files: a primitives file is a mode that holds no semantic
+  // role, and a multi-mode system registered with one --tokens flag shows up
+  // here as one.
+  if (r.contrast) {
+    lines.push(
+      `  contrast:     ${r.contrast.pairs} pair(s) compared across ${r.contrast.modes} mode(s), ${r.contrast.skipped.unresolvable} skipped as unresolvable, ${r.contrast.skipped.nonHex} skipped as non-hex, ${r.contrast.skipped.alphaBackground} skipped for a translucent background`,
+    );
   }
   if (r.skipped.length) lines.push(`  skipped:      ${r.skipped.join(', ')}`);
 
@@ -347,14 +449,36 @@ function gateMode(values) {
   const meta = manifest.components?.meta ?? {};
   const skipped = new Set(values.skip);
 
+  // The parsed dicts are kept, not only the merged `flat`: one --tokens file is
+  // one mode, and color-contrast compares each mode on its own values. Merging
+  // first would check only whichever file was passed last — the light-only
+  // build findModeCollisions was written to stop, reintroduced inside the gate.
+  // Each file is still read exactly once.
+  const dicts = values.tokens.map((file) => readJson(file, 'a token source'));
   const flat = {};
-  for (const file of values.tokens) {
-    Object.assign(flat, flattenDtcg(readJson(file, 'a token source')));
+  for (const dict of dicts) Object.assign(flat, flattenDtcg(dict));
+
+  // One mode per --tokens file, labelled by that file's basename. A token that
+  // resolved carries its value; one this mode defines but whose alias chain did
+  // not resolve goes into `unresolved` instead, so checkContrast can count the
+  // PAIR it broke rather than the gate counting loose tokens.
+  const modes = values.tokens.map((file) => ({
+    mode: basename(file).replace(/\.[^.]+$/, ''),
+    values: new Map(),
+    unresolved: new Set(),
+  }));
+  for (const t of resolvedTokens(dicts)) {
+    if (t.resolves) modes[t.source].values.set(t.path, t.value);
+    else modes[t.source].unresolved.add(t.path);
   }
-  // With no --tokens there is no token source to read, so the rule is ABSENT
-  // rather than passed: a run that checked no tokens must not report a clean
-  // orphan-token.
-  if (values.tokens.length === 0) skipped.add('orphan-token');
+
+  // With no --tokens there is no token source to read, so both rules that read
+  // one are ABSENT rather than passed: a run that checked no tokens must not
+  // report a clean orphan-token, and has nothing to compute a ratio from.
+  if (values.tokens.length === 0) {
+    skipped.add('orphan-token');
+    skipped.add('color-contrast');
+  }
 
   // Partitioned after the walk rather than excluded during it, so the report
   // can count what it set aside. WITHOUT THIS THE ORPHAN RULE CANNOT FIRE AT
@@ -411,6 +535,11 @@ function gateMode(values) {
   if (!skipped.has('name-drift')) {
     derived.push(...checkNames({ built, meta, records }));
   }
+  let contrast = null;
+  if (!skipped.has('color-contrast')) {
+    contrast = checkContrast({ modes });
+    derived.push(...contrast.failures);
+  }
   failures.push(...derived);
 
   const proof = checkProof({ manifest, root: values.root, derived, built, meta, skipped });
@@ -423,19 +552,29 @@ function gateMode(values) {
   const examined =
     (skipped.has('orphan-token') ? 0 : candidates) +
     (skipped.has('state-incomplete') ? 0 : records.size) +
-    (skipped.has('name-drift') ? 0 : built.length);
+    (skipped.has('name-drift') ? 0 : built.length) +
+    // A compared contrast pair is a subject the same way a token candidate is.
+    // Without this, a run that skips the other three rules — which is exactly
+    // how token-sync-layer invokes this gate — would fail nothing-verified on a
+    // perfectly healthy system.
+    (contrast ? contrast.pairs : 0);
   if (examined === 0) failures.push({ rule: 'nothing-verified' });
   if (!skipped.has('orphan-token') && orphanInert) failures.push({ rule: 'orphan-rule-inert' });
+  // This and nothing-verified can fire on the same run, as orphan-rule-inert
+  // already can.
+  if (contrast && contrast.pairs === 0) failures.push({ rule: 'contrast-rule-inert' });
 
   const report = formatReport({
     stats: {
       components: built.length,
       records: records.size,
       candidates,
+      modes: modes.length,
       files: scanned.length,
       stages: proof.stagesRead,
     },
     excluded,
+    contrast,
     skipped: [...skipped],
     failures,
     informational,

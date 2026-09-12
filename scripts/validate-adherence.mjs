@@ -253,7 +253,11 @@ export function buildTokenValues(dicts) {
 // An alias that names no path in any file stays unresolvable. That includes a
 // collection-relative `{canvas}` meaning `color-primitive.canvas`, which is an
 // export quirk rather than DTCG, and is counted rather than guessed at.
-function* resolvedTokens(dicts) {
+//
+// The `source` index is the dict a token came from, which is what lets a caller
+// group a system's tokens by mode, since one --tokens file is one mode:
+// scripts/verify-check.mjs reads it that way for the color-contrast rule.
+export function* resolvedTokens(dicts) {
   const flats = dicts.map((d) => flattenDtcg(d));
   const pool = Object.assign({}, ...flats);
   for (const [i, dict] of dicts.entries()) {
@@ -265,10 +269,10 @@ function* resolvedTokens(dicts) {
       try {
         value = resolveValue(path, lookup);
       } catch {
-        yield { path, type: types[path], resolves: false };
+        yield { path, type: types[path], resolves: false, source: i };
         continue;
       }
-      yield { path, type: types[path], resolves: true, value };
+      yield { path, type: types[path], resolves: true, value, source: i };
     }
   }
 }

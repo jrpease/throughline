@@ -27,6 +27,7 @@ tested here; copied verbatim by `token-crosswalk-builder` into the user's
 | `verify-check.mjs` | The verification proof bundle: records each stage's entry, and re-derives what it can rather than trusting the record. Fails on an orphaned token, a component documented without its archetype's baseline interaction states, a name that drifts between the manifest, its record and its code surface, or a recorded result the rerun contradicts. | `verify:check` |
 | `lib/proof.mjs` | The proof store's vocabulary and mechanics: the stage list, entry validation, latest-wins merge, and the fingerprint the manifest pointer carries. | copied alongside `verify-check.mjs` |
 | `lib/component-states.mjs` | The archetype table and resolver behind `state-incomplete` — which baseline interaction states each kind of component owes, and when to abstain. | copied alongside `verify-check.mjs` |
+| `lib/contrast.mjs` | The WCAG contrast maths and the semantic colour pairs behind `color-contrast` — which text role must clear which surface, in every mode, and where the rule deliberately abstains. | copied alongside `verify-check.mjs` |
 | `build-doc-card-builder.mjs` | Generate `references/doc-card-builder.md` from the planner + the Figma renderer template (`lib/doc-card-render.figma.js`). `--check` gates CI. | plugin-internal (not installed) |
 | `build-native-adapter-config.mjs` | Generate `references/native-adapter-config.md` by slicing `lib/sd-native.mjs` on its `@doc-section` markers and interleaving each fragment under its prose. Fails when module code falls outside every section, so the doc cannot silently ship incomplete. `--check` gates CI. | plugin-internal (not installed) |
 
@@ -34,7 +35,7 @@ tested here; copied verbatim by `token-crosswalk-builder` into the user's
 registering them leaves a repo with a script on disk and no entry point, which
 is how a stale `docs:check` went unnoticed for a full release. Both
 `storybook-chromatic-builder` (first-time setup) and `/document-component`
-(freshness refresh) install the same eleven files and register the same five
+(freshness refresh) install the same twelve files and register the same five
 scripts:
 
 | File | npm script |
@@ -50,6 +51,7 @@ scripts:
 | `verify-check.mjs` | `"verify:check": "node scripts/verify-check.mjs --root ../.. --tokens dtcg/tokens.json"` |
 | `lib/proof.mjs` | — (imported by the above) |
 | `lib/component-states.mjs` | — (imported by the above) |
+| `lib/contrast.mjs` | — (imported by the above) |
 
 A refresh that adds a file must also add its npm script; check `package.json`
 for all five npm scripts every time, not just the file that changed.
@@ -57,8 +59,15 @@ for all five npm scripts every time, not just the file that changed.
 `verify:check`, like `adherence:check`, carries placeholder paths the installing
 skill substitutes for the repo's real layout. Dropping `--tokens` rather than
 substituting it is how a repo ends up with a rule that never runs: with no token
-source there is nothing to read, so the gate reports `orphan-token` as skipped on
-every run — #110's first stop condition, disabled by its own registration.
+source there is nothing to read, so the gate reports both `orphan-token` and
+`color-contrast` as skipped on every run — two stop conditions disabled by their
+own registration.
+
+The registered form carries a single `dtcg/tokens.json`, and a system whose
+values span modes registers **one `--tokens` per mode file**, because each source
+file is its own mode. Registering a multi-mode system with a single `--tokens`
+flag leaves a script that checks Light and reports that it checked one mode —
+quieter than the dropped `--tokens` failure above it, and just as wrong.
 
 The crosswalk contract is documented in
 `${CLAUDE_PLUGIN_ROOT}/references/crosswalk-schema.md`.
@@ -129,8 +138,9 @@ line and leaves them out of the match rate, so `--min-match 1` still holds.
 `verify-check.mjs` has two modes. The **gate** — `--root <dir>`, repeatable
 `--tokens` and `--source`, repeatable `--skip` — reads the proof store at
 `design-system/proof/`, re-derives every check a stage recorded as `derived`, and
-fails on `orphan-token`, `state-incomplete`, `name-drift`, `proof-missing`,
-`proof-stale`, `proof-contradicted`, `nothing-verified` and `orphan-rule-inert`.
+fails on `orphan-token`, `state-incomplete`, `name-drift`, `color-contrast`,
+`proof-missing`, `proof-stale`, `proof-contradicted`, `nothing-verified`,
+`orphan-rule-inert` and `contrast-rule-inert`.
 `archetype-unknown` and `proof-unadopted` are informational. With no `--source`
 the walk covers `--root`; the package that owns a `--tokens` file is set aside
 either way, and the report prints an `excluded:` line naming it — without that,
@@ -142,7 +152,22 @@ nothing hand-writes the store or hand-computes a hash.
 
 `--skip <rule>` switches a rule off entirely, and a skipped rule is absent rather
 than inert. With no `--tokens` there is no token source to read, so
-`orphan-token` is reported as skipped rather than passed. The orphan rule counts
+`orphan-token` and `color-contrast` are reported as skipped rather than passed.
+
+`color-contrast` compares the semantic colour pairs the system's own role
+definitions already promise — `text/onEmphasis` over `bg/emphasis`, each status
+text over its own status background, and so on. Each `--tokens` file is one
+**mode**, and a pair has to clear WCAG AA's 4.5:1 for normal text in every one of
+them: a system that passes in Light and fails in Dark fails. A pair whose roles
+are absent from a mode abstains rather than passing, which is why a run that
+recognised no role anywhere fails as `contrast-rule-inert` instead of reporting a
+clean sweep. `text/disabled` is excluded, because WCAG 1.4.3 exempts inactive
+components and a disabled role is deliberately low-contrast. A translucent
+foreground is composited over its background and compared; a translucent
+background is skipped and counted, because what sits behind it is a layout fact
+the token tier does not hold. Every number on the report's `contrast:` line is a
+pair, in the mode it occurred in. `--skip color-contrast` is the escape hatch for
+a system whose roles are named differently. The orphan rule counts
 a token as bound when its normalized key appears anywhere in a scanned file, so
 `color.bg.primary` is bound by a mention of `color.bg.primary.hover`: every miss
 is an orphan reported as bound, never a correct system failed. A `derived` check

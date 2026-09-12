@@ -103,9 +103,17 @@ Three rules for the multi-collection structure:
   and token-sync-layer are a **matched pair** on this — neither is correct alone.
 
 This DTCG JSON is the canonical intermediate. Write it to a known location in
-`packages/tokens/` (e.g. `packages/tokens/dtcg/tokens.json`). Do not trust the
-MCP's built-in CSS/Tailwind exporters for final output — route through Style
-Dictionary so the adapter system governs the result.
+`packages/tokens/`, **one file per mode**, because every gate downstream reads a
+file as a mode. A single-mode system writes `packages/tokens/dtcg/tokens.json`; a
+light/dark system writes `packages/tokens/dtcg/primitives.json`,
+`packages/tokens/dtcg/semantic.light.json` and
+`packages/tokens/dtcg/semantic.dark.json` — the ramps once, then each mode's
+semantic aliases in its own file. Nesting the modes as groups inside a single
+file (`color.light.*` / `color.dark.*`) is the layout `color-contrast` abstains
+on, and writing a multi-mode system to one `tokens.json` is what leaves the
+registered `verify:check` checking a single mode and reporting that it checked
+one. Do not trust the MCP's built-in CSS/Tailwind exporters for final output —
+route through Style Dictionary so the adapter system governs the result.
 
 ### Brownfield transforms (learned the hard way)
 
@@ -263,6 +271,69 @@ color.surface.default?`). Surface these prominently. Also surface plain
 deletions (consumers will break — that's intentional, but the human should see
 it).
 
+### Check contrast before it ships
+
+Run the gate once against the DTCG sources this sync just wrote — **always**, with
+no accepted-pair exception. The paragraphs below filter the result, never the run:
+
+```
+node .throughline/scripts/verify-check.mjs --root <repo root> \
+  --tokens <each DTCG source, one flag per mode file> \
+  --skip orphan-token --skip state-incomplete --skip name-drift
+```
+
+**One `--tokens` flag per mode file** — that is what makes each pair get checked
+in every mode. Passing a single file of a multi-mode system checks one mode, and
+says so on the report's `contrast:` line.
+
+**Why those three rules are skipped, so nobody removes the flags.** A sync that
+adds a token is adding one nothing in the repo names yet, which is
+`orphan-token`'s definition of an orphan — running it here would fail nearly
+every sync that does its job. `state-incomplete` and `name-drift` are about doc
+records and code surfaces this skill does not touch. All three stay live in
+`storybook-chromatic-builder`'s run of the same gate.
+
+**Honour an accepted pair, and only an accepted one.** After the gate has run,
+read `design-system/proof/token-builder.json` under the same `--root` (it may not
+exist, in which case there is nothing to honour). Collect the `accepted` array
+from its `system` entry's `contrast-baseline` check, then drop from this run's
+`color-contrast` failures every one whose `(fg, bg, mode)` matches an entry in it,
+comparing `fg` and `bg` on the same normalized fold the rule matches roles with
+(lowercase, alphanumerics only). **Translate `mode` before comparing it:** the
+recorded value is the Figma mode name `token-builder` saw (`Dark`), and the gate
+labels a mode by its DTCG file's basename (`semantic.dark`). This skill is the one
+that knows both — it read the Figma modes and it wrote the files — so map each
+Figma mode to the file it generated for that mode, and compare against that label.
+Untranslated, the triple can never match and the override path silently does not
+exist. Match the triple exactly, and subtract nothing else.
+
+**What this reads.** The gate has no machine-readable output, so this operates on
+`formatReport`'s failure lines — `<fg> on <bg> is <ratio>:1 in <mode> …` — which
+carry all three fields in fixed positions. That is machine-formatted output with a
+stated shape, not prose. Do **not** treat `result: "fail"` on its own as the
+condition, and do **not** pattern-match `advancedBecause`: the first switches off a
+whole rule on the strength of one pair, and the second reads prose written for a
+human as though it were a test.
+
+**Then judge what is left.** Nothing remaining → proceed, and say in one line which
+pair was accepted and is not being re-litigated, both in the sync's message and in
+the PR body. That line is where the override stays visible, and it is the only
+place, since a subtracted failure is by definition not on the report. Anything
+remaining → stop, exactly as if there had been no acceptance: a pair the user never
+saw, in any mode, is the case this rule exists for, and an acceptance given for one
+pair must not carry another one through. An `accepted` list that matches nothing —
+because the pair was fixed, or was never recorded properly — subtracts nothing and
+the sync behaves as though there were no acceptance at all, which is both the
+fail-safe direction and how an acceptance retires itself once the pair clears.
+
+**A `color-contrast` failure stops the sync.** Do not open the PR. Report the
+failing pair and mode in guide voice
+(`.throughline/references/guide-voice.md`), and say the fix is in Figma —
+re-point that mode's alias — not in the generated output, which is a build
+artifact. **Any other failure in the report does not stop the sync**: surface it to
+the user and summarize it in the PR body, but the token sync owns the token tier,
+and a component's missing proof entry is not its to block on.
+
 ## Step 6 — Land it as a reviewable PR (never silent)
 
 Never overwrite token files silently. The output of a sync is a **pull request**
@@ -293,6 +364,32 @@ added, changed, deleted and probable renames, and the attested
 `tokens:validate-output` result as a check, plus `advancedBecause`. The entry
 shape is `.throughline/references/proof-bundle.md` — don't restate it
 here.
+
+The entry also carries the **derived** check `color-contrast`, its result read off
+the Step 5 report, with `evidence` naming the modes checked and the tightest
+ratio. The gate runs on every sync, so this check is always recorded — there is no
+path on which it is omitted.
+
+**When a failure was subtracted, record `result: "fail"` — what the gate actually
+reported** — with `advancedBecause` naming the accepted pair as the reason the sync
+proceeded anyway, and `evidence` saying which pair was subtracted. Do not record
+`pass` on the grounds that nothing remained after subtraction: the gate does not
+know about subtraction, the pair still fails on disk, and the next sync's own gate
+run recomputes it, so a recorded `pass` would raise `proof-contradicted` on every
+later sync report. A stored result that disagrees with the file it claims to
+describe is an attestation wearing a derived label.
+
+**Expect one `proof-contradicted` line on the first sync after the user fixes the
+pair**, and say why when you relay it: the stored `fail` is now disagreed with by a
+rerun that passes, which `checkProof` reports in both directions. It does not stop
+the sync, and this step re-records the pass on that same run, so it clears itself
+in one pass. Relaying an expected, self-healing line as a problem is how a user is
+taught to distrust the gate.
+
+**The ordering is the point.** The gate runs in Step 5 and the record is written
+here in Step 6, and it is that order which makes recording a derived result honest:
+this stage has the gate's output in hand rather than asserting it, which is the one
+and only reason a stage may record `method: "derived"`.
 
 ## Step 7 — Install the `/sync-figma-tokens` command
 
