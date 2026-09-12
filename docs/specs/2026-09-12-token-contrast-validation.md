@@ -1,6 +1,6 @@
 # Colour contrast as a stop condition in the proof bundle
 
-Status: planned
+Status: built
 Reviewed: 2026-09-12 — ready to build
 Date: 2026-09-12
 Issue: #45
@@ -1007,8 +1007,49 @@ Then add `## What shipped` and `## Where it diverged` to this spec and set
 Verify: the note contains the clean run and every control's output; `node --test`
 and the six other CI commands are green on the final tree.
 
+## What shipped
+
+- **`scripts/lib/contrast.mjs`** — the WCAG maths (`relativeLuminance`,
+  `contrastRatio`, `parseHex`, `composite`) and `CONTRAST_PAIRS`, the eight
+  semantic pairs at `AA_NORMAL_TEXT` 4.5:1, with `text/disabled` excluded and the
+  abstentions stated in comments.
+- **`color-contrast`, the gate's fourth derived rule** — `checkContrast` in
+  `scripts/verify-check.mjs`, comparing each pair once per mode, matching role
+  paths on the `normalizeText` fold, compositing a translucent foreground and
+  skipping-and-counting a translucent background. The report gained a `contrast:`
+  line and a token-mode count; `contrast-rule-inert` fires when the rule ran and
+  compared nothing; a compared pair counts toward `examined`.
+- **`token-builder` became a proof stage** (system-wide), and the store learned
+  the optional `accepted` field, validated at the recorder.
+- **The two skills** — `token-builder` asserts the pairs in Figma before the
+  semantic checkpoint and records the attested `contrast-baseline`;
+  `token-sync-layer` runs the gate before it records, subtracts accepted pairs,
+  and stops the sync on a contrast failure.
+- **Docs** — `references/proof-bundle.md`, `scripts/README.md`, the storying
+  skill's four corrections, the README roadmap line and a CHANGELOG entry.
+- **Evidence** — `docs/superpowers/notes/2026-09-12-token-contrast-e2e.md`.
+
 ## Where it diverged
 
+- **`checkContrast` returns a fourth field, `modes`.** Step 3 specified
+  `{ failures, skipped, pairs }`. The `contrast:` line needs the number of modes a
+  pair was actually **compared** in, which is not the number of `--tokens` files:
+  Step 4's test and Step 13's control both require the line to name 2 modes on a
+  fixture that passes three sources (primitives plus two mode files), because the
+  primitives file holds no semantic role and abstains. The headline keeps counting
+  sources. Reading it the other way would have made Step 13's "a run reporting 1
+  mode means the mode files were not both passed" control unable to fail. Additive
+  and no Decision moved — the mode model is exactly as the Decisions state it.
+- **Step 7's new install-set prose had to avoid the phrase "one file".**
+  `ci/validate-install-sets.mjs` slices the docs-set section from its marker to the
+  next `##` heading and reads `<number word> file(s)` anywhere inside it as a
+  stated count claim, so "because one file is one mode" registered as a claim that
+  the set holds one file. Reworded to "each source file is its own mode" and "a
+  single `--tokens` flag". The gate was right; only the wording moved.
+- **Step 11 had nothing of its own to commit.** The repo convention is to
+  regenerate adapters immediately after editing a skill, so Steps 7, 8 and 9 each
+  carried their own regenerated `adapters/` tree. Step 11's regeneration was a
+  no-op and its seven CI commands passed on the tree Step 10 left.
 - **Three of Step 7's registration edits landed in Step 3.** Adding the
   `./lib/contrast.mjs` import to `verify-check.mjs` is exactly what makes
   `ci/validate-install-sets.mjs` fail the docs set's closure check, so Step 3
