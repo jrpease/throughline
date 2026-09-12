@@ -150,6 +150,55 @@ to [Semantic Versioning](https://semver.org).
   skipped on every run — the stop condition switched off by its own
   registration.
 
+- **`color-contrast` — color contrast is a stop condition, not a warning (#45).**
+  The README has promised a11y validation "when tokens and components are
+  created" since before any of it existed, and nothing anywhere computed a ratio.
+  Something does now, in both of the places that matter, and it fails the build.
+
+  `verify:check` gains a fourth **derived** rule. It compares the eight semantic
+  pairs the system's own role definitions already promise — `text/primary`,
+  `text/secondary` and `text/link` over `bg/default`, `text/onEmphasis` over
+  `bg/emphasis`, `text/inverse` over `bg/inverse`, and each status text over its
+  own status background — against WCAG AA's 4.5:1 for normal text.
+
+  **One `--tokens` file is one mode, and a pair has to clear in every one of
+  them.** A system that passes in light and fails in dark fails. That is the whole
+  claim, and it is why a multi-mode system registers one `--tokens` flag per mode
+  file: a single-file registration checks one mode and says so on the report's new
+  `contrast:` line. Every number on that line is a pair — compared, or skipped as
+  unresolvable, as non-hex, or for a translucent background, which is a layout
+  fact the token tier does not hold.
+
+  **The same question is asked twice, on purpose.** `token-builder` computes the
+  pairs in Figma before it checkpoints the semantic tier, and stops on a failing
+  one — the cheapest place in the system to catch it, because the mode is being
+  defined right then and nothing is built on it yet. That observation is recorded
+  as the attested `contrast-baseline`, and `token-builder` becomes a proof stage
+  of its own. The CLI re-derives the same ratio off the DTCG source, because
+  arithmetic over values on disk is the most recomputable thing in the bundle.
+  Neither substitutes for the other.
+
+  **A contrast failure stops a token sync.** `token-sync-layer` runs the gate
+  against the sources it just wrote, before it opens the PR, and says the fix is
+  in Figma rather than in generated output. Other failures in that report are
+  surfaced but do not stop the sync — the token sync owns the token tier. A user
+  who explicitly accepts a failing pair in Figma has that acceptance recorded in
+  the bundle, and the sync subtracts exactly that pair; any other failing pair,
+  including one introduced later, still stops it.
+
+  `text/disabled` is excluded. WCAG 1.4.3 exempts inactive components, and a
+  disabled role is low-contrast on purpose, so gating it would fail correct
+  systems — the one direction a failing rule must never err in.
+
+  **Who will need `--skip color-contrast`.** The rule abstains rather than passing
+  when it recognizes no role, and a run that compared nothing fails as
+  `contrast-rule-inert`. So a system whose semantic roles are not spelled the way
+  the table expects — a retrofit, or one predating `token-builder`'s role set —
+  goes red on upgrade with nothing changed on its side. That flag is the answer,
+  and it prints on the report's `skipped:` line instead of disappearing quietly.
+
+  No schema bump: `verification` is unchanged at `schemaVersion` 7.
+
 ### Changed
 
 - **`walk`'s second parameter is now an options object** (`{ excludes,
