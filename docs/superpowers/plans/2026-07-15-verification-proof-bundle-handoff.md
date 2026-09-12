@@ -6,6 +6,16 @@
 > **mapped but not designed** — it is real engineering, not prose, so it earns a
 > proper design pass before any code. You have everything here to pick it up cold.
 
+> **Re-baselined 2026-09-12.** The design pass this doc asks for is done, and it
+> lives at `docs/specs/2026-09-12-verification-proof-bundle.md`. Read that for the
+> decisions and the build plan; read this for the map. "The honest map" below still
+> holds — what already gates, what only partly gates, and the four real gaps are
+> unchanged. One claim here has gone stale: the `schemaVersion` 5 → 6 proposal
+> under "Open design questions" assumed v5 was current. It isn't. v6 shipped with
+> `figma.docCardVariables`, so the proof bundle lands as **6 → 7**. The rest of the
+> open questions are answered in the spec's Decisions table rather than rewritten
+> here — two records of the same decision is one record too many.
+
 ## Where things stand
 
 - **Item 1 — guide voice + flow-close pattern:** MERGED (`#26`, squash `7f7a740`).

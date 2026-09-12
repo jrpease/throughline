@@ -281,6 +281,15 @@ TurboSnap section in `storybook-chromatic-builder`.
 Update the manifest: `sync.lastRun` (timestamp), `tokens.lastSync`, confirm
 `sync.platforms`. Append `token-sync-layer` to `completedSkills`.
 
+Alongside that, record the stage entry: `node
+.throughline/scripts/verify-check.mjs --record --stage
+token-sync-layer --entry <tmp>.json` (subject defaults to `"system"`, since this
+stage isn't per-component). Build `<tmp>.json` with `changed` summarizing tokens
+added, changed, deleted and probable renames, and the attested
+`tokens:validate-output` result as a check, plus `advancedBecause`. The entry
+shape is `.throughline/references/proof-bundle.md` — don't restate it
+here.
+
 ## Step 7 — Install the `/sync-figma-tokens` command
 
 Set up the reusable command (the plugin ships it in `commands/`) so the user can

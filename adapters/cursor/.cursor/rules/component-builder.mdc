@@ -256,7 +256,10 @@ reference register, not this skill's guide voice.
 2. **Enrich from the archetype knowledge base.** Match the component to the nearest
    archetype in `.throughline/references/component-doc-archetypes.md` and
    seed `dos`, `donts`, `accessibility`, `whenToUse`, `whenNotToUse`. Provenance
-   `best-practice` (or `w3c-apg` for the accessibility block).
+   `best-practice` (or `w3c-apg` for the accessibility block). Record the matched
+   archetype's id in the record's `archetype` field — one of `button`, `input`,
+   `choice`, `card`, `modal`, `badge`, `other` — so `verify:check` can read it
+   later rather than re-guessing from the name.
 3. **Specialize to `project.uiFramework`.** Align variant-meaning wording and the
    accessibility idiom to the target framework (the same field you read for variant
    vocabulary). Provenance `framework`.
@@ -350,6 +353,22 @@ card. (Finalize to `stable` happens later, in storybook-chromatic-builder.) Ensu
 any component built with the toggle + manual-swap fallback is listed in
 `components.instanceSwapUpgradePending`. Append `component-builder` to
 `completedSkills`.
+
+**Record the stage entry, one call per component that actually finished:**
+`node .throughline/scripts/verify-check.mjs --record --stage
+component-builder --subject <Name> --entry <tmp>.json`. Build `<tmp>.json` with
+`changed` (what was built), the attested checks `structural-read-back`,
+`state-baseline` and `figma-name` from what the `figma-executor` returned,
+`review` when a reviewer ran, `screenshot` when one was captured, and
+`advancedBecause`. The entry shape is
+`.throughline/references/proof-bundle.md` — don't restate it here. Write
+an entry only for a component that actually finished; a `BLOCKED` component gets
+none. Do this after adding the component to `components.built` above — by the
+time this loop runs, the whole run's components are already there, which is what
+lets this stage's first `--record` capture the full adoption batch; each record
+then removes its own subject from the captured `exempt` list, so running the
+loop over every finished component (not a one-shot write) is what un-grandfathers
+the rest of the batch.
 
 **Upgrade pass:** if `components.instanceSwapUpgradePending` is non-empty, re-resolve
 publish state (detect-or-ask per `.throughline/references/figma-publishing.md`);

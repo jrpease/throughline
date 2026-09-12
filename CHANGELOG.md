@@ -107,6 +107,49 @@ to [Semantic Versioning](https://semver.org).
   native ones. A MUI theme is a JavaScript object with no custom properties, so
   `--platform mui` exits `2` and isn't checked yet (#127).
 
+- **`scripts/verify-check.mjs` — a verification proof bundle, and three stop
+  conditions recorded in it (#110).** Every stage already checked its own work,
+  and every one of those checks was prose that evaporated when the run ended.
+  Nothing on disk said what a stage checked, what it found, or why it was allowed
+  to advance — so "run it twice, same structure" was the only durable claim the
+  system made, and that proves idempotency, not quality.
+
+  Each stage now leaves an entry at `design-system/proof/<stage>.json`: what
+  changed, which checks ran, what each found, and one line saying why the stage
+  advanced. `design-system.json` carries a fingerprint pointer to it under a new
+  top-level `verification` key, so an entry edited by hand is caught the same way
+  `docs:check` catches an edited doc surface. `schemaVersion` goes to `7` —
+  additive, defaulting to `null`, no existing field changes. Installed as
+  `verify:check` alongside the documentation scripts.
+
+  **A stored result is a cache, not a claim.** A check recorded as `derived` is
+  recomputed off disk on every run, and a stored result that disagrees with the
+  recomputation fails as `proof-contradicted`. A check recorded as `attested` is
+  an agent's live observation — the Figma read-back, a reviewer's verdict — and
+  it is printed on every report but is never the reason a run passes. That is the
+  same honesty `edit-unverified` already carries.
+
+  Three rules fail, and each closes a gap nothing covered:
+
+  - **`orphan-token`** — a semantic token nothing names: no other token aliases
+    it, no scanned file mentions it, no doc record lists it in `tokensUsed`.
+    Primitives are exempt, because a primitive is legitimately reached only
+    through a semantic. Binding evidence is a permissive substring match, so
+    every miss is an orphan reported as bound, never a correct system failed.
+  - **`state-incomplete`** — a component documented without its archetype's
+    baseline interaction states. A Button with no `disabled` fails. A Card with
+    no `hover` does not: only the unconditional baseline is asserted, and whether
+    `loading` applies is a design judgment a gate cannot make.
+  - **`name-drift`** — one component spelled more than one way across the
+    manifest, its record and its code surface.
+
+  **It runs nothing until a repo registers it**, the same caveat the adherence
+  gate carries. The registration in `scripts/README.md` carries placeholder
+  `--root` and `--tokens` paths that have to be substituted for the repo's real
+  layout. Dropping `--tokens` rather than substituting it leaves `orphan-token`
+  skipped on every run — the stop condition switched off by its own
+  registration.
+
 ### Changed
 
 - **`walk`'s second parameter is now an options object** (`{ excludes,

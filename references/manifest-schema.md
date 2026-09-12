@@ -11,11 +11,11 @@ what changed. Gating decisions are made by reading this file: if a prerequisite
 field is unset, the skill **offers** to run the prerequisite skill rather than
 bailing or running silently.
 
-## Schema (schemaVersion 6)
+## Schema (schemaVersion 7)
 
 ```json
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "user": {
     "codingLevel": "new"
   },
@@ -102,6 +102,7 @@ bailing or running silently.
     "completedAt": null,
     "journalScaffolded": false
   },
+  "verification": null,
   "completedSkills": []
 }
 ```
@@ -346,6 +347,41 @@ retrofit stands so a later session can resume.
 - `journalScaffolded` — whether the `docs/design-system/` decision journal has been
   created for this retrofit (offered default-on by `retrofit-planner`).
 
+### `verification`
+The pointer at the folder-resident proof store, where each stage records what it
+changed, which checks ran and why it was allowed to advance. `null` until the
+first stage records an entry. See
+`${CLAUDE_PLUGIN_ROOT}/references/proof-bundle.md`.
+- `path` — the store directory (`design-system/proof`).
+- `stages` — object keyed by stage name, each holding
+  `{ at, adoptedAt, exempt?, fingerprint }`.
+- `fingerprint` — computed over the **whole** stage file, so a hand-edited entry
+  is caught (`proof-stale`), the same way `docs:check` catches a hand-edited
+  surface.
+- `at` — the latest recorded entry's timestamp. It moves with every record.
+- `adoptedAt` — the first entry's timestamp: **write-once**, never rewritten, the
+  human-readable "when did this system opt in". No gate reads it.
+- `exempt` — present only on the per-component stages (`component-builder`,
+  `storybook-chromatic-builder`) and **capture-once-then-shrink**: the stage's
+  first record captures every name then in `components.built`, and every record,
+  the first included, removes its own subject. The list never gains a name. It is
+  what scopes the per-component `proof-missing` rule to components the stage has
+  not yet proven, so adopting the bundle does not light up a failure for every
+  component built before it existed. A listed stage with **no** `exempt` key
+  exempts **nothing**, not everything — a missing list makes the gate louder, not
+  quieter.
+
+**Pointers and hashes, never entries** — the entries themselves live in the
+store, for the same reason `components.meta[name].doc` keeps content out of the
+manifest. Skills write all of this only through `verify-check.mjs --record`; none
+hand-writes a stage file or computes a fingerprint by hand.
+
+No gate compares `components.meta[name].updatedAt` against `adoptedAt`. That
+field is refreshed by a status promotion as well as by a rebuild, so a stage
+other than the one that owes the entry can move it — and a date comparison would
+fail a pre-existing component the first time an unrelated storying run promotes
+it.
+
 ### `completedSkills`
 - Append-only list of skill identifiers that have run to completion at least
   once. Useful for the `/design-system-status` command and for friendly
@@ -378,4 +414,8 @@ are authored. Bump `schemaVersion` to `5`. No existing field changes.
 
 **v5 → v6 migration:** add `figma.docCardVariables` (default `null`), populated
 on the first doc-card render. Bump `schemaVersion` to `6`. No existing field
+changes.
+
+**v6 → v7 migration:** add `verification` (default `null`), populated on the
+first recorded stage entry. Bump `schemaVersion` to `7`. No existing field
 changes.

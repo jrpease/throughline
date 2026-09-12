@@ -32,12 +32,15 @@ system). Wire it to consume `packages/tokens` output so stories render with the
 real design tokens (import the generated CSS/theme). Checkpoint: confirm
 Storybook runs and shows the token-themed canvas.
 
-Install the documentation scripts alongside the token scripts: copy the eight
-files and register the four npm scripts listed under **Documentation scripts —
+Install the documentation scripts alongside the token scripts: copy the eleven
+files and register the five npm scripts listed under **Documentation scripts —
 install as a set** in `${CLAUDE_PLUGIN_ROOT}/scripts/README.md`. `adherence:check`
 needs the repo's own values substituted in — the UI package's specifier for
 `--package`, and paths for `--root`/`--system` that match this repo's layout;
-registering it with the table's placeholders leaves a script that cannot run. That table is
+registering it with the table's placeholders leaves a script that cannot run.
+`verify:check` needs the same treatment for its `--root` and `--tokens`, and
+registering it without `--tokens` is worse than leaving a placeholder: the script
+runs, and skips `orphan-token` on every run. That table is
 the single source of truth for what a consuming repo gets; do not restate the
 list here.
 
@@ -252,13 +255,32 @@ step and/or a Turbo task). It compares every surface against its record and exit
 non-zero on drift; Figma surfaces report `edit-unverified` (checked live in a Figma
 session). Run `docs:check` once here and confirm it passes before handing off.
 
+Ensure `verify:check` is wired alongside it, with the repo's real `--tokens`
+path — not the registered placeholder — so `orphan-token` actually runs instead
+of reporting as skipped. All three rules (`orphan-token`, `state-incomplete`,
+`name-drift`) go live now; if the orphan rule misfires on this repo,
+`--skip orphan-token` is the documented answer, and it prints on the report's
+`skipped:` line. Dropping `--tokens` is not an equivalent fix — that switches the
+rule off silently instead of visibly. **Run `verify:check` once here, before
+Step 6 promotes anything to `stable`, and confirm it passes before handing
+off — running it here rather than after Step 6 is deliberate, not an
+oversight**: this run's components are still `draft`, so
+`storybook-chromatic-builder` owes them no entry yet and the gate passes; Step 6
+is what promotes them to `stable`, and Step 7 is what records their entries.
+Moving this call after Step 6, or moving Step 7's recording ahead of it, would
+leave the components `stable`, owed an entry, and without one.
+
 ## Step 6 — Finalize component status (Figma write-back)
 
 A component built and storied here is now **done** — but its Figma doc card was
 stamped `draft` by component-builder and won't change on its own. Once the code
 component renders and its stories build (and the user has approved the result),
 **promote each finalized component to `stable`** so the design system tells the
-truth in both places.
+truth in both places. **This promotion is what makes a component owe a
+`storybook-chromatic-builder` proof entry** — the stage's lifecycle gate reads
+`components.meta[name].status`, and a component still at `draft` owes it
+nothing. Step 7's recording only follows this step for that reason: reorder them
+and a component would be `stable`, owed an entry, and recorded before it exists.
 
 **Confirm the write-back once, up front.** Before touching Figma, state the batched
 change in one line and get a yes — *"I'll update the N doc cards in Figma: flip the
@@ -274,7 +296,11 @@ the `figma_execute` scripting gotchas — `getNodeByIdAsync` and an explicit
 `timeout` for the multi-card write):
 
 - Set `components.meta[name].status` = `"stable"` and refresh
-  `components.meta[name].updatedAt` to today.
+  `components.meta[name].updatedAt` to today — for every component this pass
+  promotes, including ones this run didn't build. **No verification gate reads
+  `updatedAt`.** A promotion run moves the timestamp of components other stages
+  own, so `proof-missing` scopes itself with the stage's captured `exempt` list
+  instead of a date comparison.
 - When promoting status (e.g. draft → stable), also set `status` + `updatedAt` in
   the component's `.doc.json`, recompute its fingerprint, re-run `docs:digest`, and
   re-render the affected surfaces so `docs:check` stays green.
@@ -303,6 +329,22 @@ Set `storybook.initialized` = `true`, `storybook.chromatic` accordingly,
 `completedSkills`. (Per-component `status`/`updatedAt` were already updated in
 Step 6.) Note the ongoing loop: new components flow through the
 component-pipeline orchestrator; token changes flow through `/sync-figma-tokens`.
+
+**Record the stage entry, one call per component finalized this run:**
+`node ${CLAUDE_PLUGIN_ROOT}/scripts/verify-check.mjs --record --stage
+storybook-chromatic-builder --subject <Name> --entry <tmp>.json`. Build
+`<tmp>.json` with the attested checks `build` (the story build outcome) and
+`review`, `advancedBecause`, and **the two component-scoped derived results,
+`state-incomplete` and `name-drift`, read off the `verify:check` report Step
+5.5 already ran** — recorded with `method: "derived"`. This is the one stage
+that records derived results, and it can only do so because it has already run
+the gate before recording; the entry shape is
+`${CLAUDE_PLUGIN_ROOT}/references/proof-bundle.md` — don't restate it here. As
+in `component-builder`, this run's components are already in
+`components.built` by the time this loop runs, so this stage's first `--record`
+captures the whole batch into `exempt`; looping over every finalized component
+here, rather than writing once, is what removes each one from that list instead
+of leaving the rest of the batch grandfathered.
 
 ## Brownfield: baseline before retrofit + the verification triad
 

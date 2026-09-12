@@ -5,6 +5,7 @@ import {
   validateCommand,
   validateAgent,
   validateManifestDoc,
+  validateReferenceJson,
   validateAgentRouting,
   MAX_DESCRIPTION,
 } from './validate-skills.mjs';
@@ -77,6 +78,23 @@ test('flags a manifest doc whose schemaVersion is not an integer', () => {
 test('flags a manifest doc with no json block', () => {
   const problems = validateManifestDoc('no code block here');
   assert.ok(problems.some((p) => /no.*json.*block/i.test(p)));
+});
+
+test('a reference doc whose json blocks all parse produces no problems', () => {
+  const src = 'intro\n```json\n{ "a": 1 }\n```\nmore\n```json\n{ "b": [2, 3] }\n```\n';
+  assert.deepEqual(validateReferenceJson({ fileName: 'demo.md', source: src }), []);
+});
+
+test('flags the reference doc json block that does not parse, by index', () => {
+  const src = '```json\n{ "a": 1 }\n```\ntext\n```json\n{ not json }\n```\n';
+  const problems = validateReferenceJson({ fileName: 'demo.md', source: src });
+  assert.equal(problems.length, 1);
+  assert.ok(/references\/demo\.md: json block 2 does not parse/.test(problems[0]));
+});
+
+test('a reference doc with no json block produces no problems', () => {
+  const src = '# Demo\n\nprose only, no examples\n';
+  assert.deepEqual(validateReferenceJson({ fileName: 'demo.md', source: src }), []);
 });
 
 test('a well-formed agent produces no problems', () => {

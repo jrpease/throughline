@@ -82,6 +82,26 @@ export function validateManifestDoc(source) {
   return [];
 }
 
+// Every ```json block in a reference doc must parse, so a worked example in a
+// reference is checked rather than trusted. The fence language is matched
+// EXACTLY: ```jsonc blocks (references/crosswalk-schema.md) carry `//` comments
+// that JSON.parse rejects by design — they are annotated examples for a human,
+// not machine-read shapes. Do not "fix" this into a `json` prefix match; that
+// turns a correct reference doc into a red CI.
+export function validateReferenceJson({ fileName, source }) {
+  const problems = [];
+  let block = 0;
+  for (const match of source.matchAll(/```json\n([\s\S]*?)\n```/g)) {
+    block += 1;
+    try {
+      JSON.parse(match[1]);
+    } catch (err) {
+      problems.push(`references/${fileName}: json block ${block} does not parse: ${err.message}`);
+    }
+  }
+  return problems;
+}
+
 export function validateAgentRouting(source) {
   const missing = ['fast', 'balanced', 'deep'].filter((tier) => !new RegExp(`\`${tier}\``).test(source));
   if (missing.length) {
@@ -131,10 +151,20 @@ function main() {
     problems.push(...validateAgentRouting(readFileSync(routingPath, 'utf8')));
   }
 
+  const referencesDir = join(REPO_ROOT, 'references');
+  let referenceCount = 0;
+  if (existsSync(referencesDir)) {
+    const referenceFiles = readdirSync(referencesDir).filter((f) => f.endsWith('.md'));
+    referenceCount = referenceFiles.length;
+    for (const fileName of referenceFiles) {
+      problems.push(...validateReferenceJson({ fileName, source: readFileSync(join(referencesDir, fileName), 'utf8') }));
+    }
+  }
+
   problems.push(...validateManifestDoc(readFileSync(join(REPO_ROOT, 'references', 'manifest-schema.md'), 'utf8')));
 
   if (problems.length === 0) {
-    console.log(`✓ ${skillDirs.length} skills, ${commandFiles.length} commands, ${agentCount} agents, manifest doc OK`);
+    console.log(`✓ ${skillDirs.length} skills, ${commandFiles.length} commands, ${agentCount} agents, ${referenceCount} reference docs, manifest doc OK`);
     return;
   }
   console.error(`✗ ${problems.length} problem(s):`);
