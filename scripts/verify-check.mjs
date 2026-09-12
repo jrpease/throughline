@@ -17,9 +17,31 @@
 //        node verify-check.mjs --record --stage <name> [--subject <Name>] --entry <file.json>
 //
 // Design: docs/specs/2026-09-12-verification-proof-bundle.md
-import { basename, dirname } from 'node:path';
-import { normalizeName } from './lib/source-scan.mjs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join, relative, sep } from 'node:path';
+import { parseArgs } from 'node:util';
+import { pathToFileURL } from 'node:url';
+import { loadRecord } from './lib/doc-record.mjs';
+import { flattenDtcg } from './lib/dtcg.mjs';
+import { walk, normalizeName } from './lib/source-scan.mjs';
 import { missingStates, resolveArchetype } from './lib/component-states.mjs';
+import { tokenPackageDirs } from './validate-adherence.mjs';
+import {
+  DERIVED_RULE_SCOPE,
+  PER_COMPONENT_STAGES,
+  PROOF_DIR,
+  STAGES,
+  entryProblems,
+  loadStage,
+  mergeEntry,
+  recordedChecks,
+  stageExempt,
+  stageFingerprint,
+  stagePath,
+} from './lib/proof.mjs';
+
+// The manifest version this gate's `verification` pointer ships in.
+const SCHEMA_VERSION = 7;
 
 // The fold validate-token-output.mjs calls `normalizeKey`: it collapses every
 // adapter naming convention (color.bg.primary, --color-bg-primary, colorBgPrimary)
@@ -129,3 +151,400 @@ export function checkNames({ built = [], meta = {}, records = new Map() }) {
   }
   return failures;
 }
+
+// Does this stage owe this component an entry yet?
+//
+// The manifest states the lifecycle outright (references/manifest-schema.md):
+// a component is created at `draft` by `component-builder` and promoted to
+// `stable` by `storybook-chromatic-builder` once its code and stories are built
+// and approved. A `draft` component is one that has not reached the storying
+// stage — the normal state between the two skills — and flagging it would fail
+// every component built in Figma and not yet storied.
+export function stageOwes(stage, name, meta = {}) {
+  if (stage === 'component-builder') return true;
+  if (stage === 'storybook-chromatic-builder') return meta[name]?.status === 'stable';
+  return false;
+}
+
+// The proof-integrity layer: is the store there, does it match its fingerprint,
+// does every component the stage owes an entry have one, and does every result
+// recorded as `derived` still agree with this run?
+export function checkProof({ manifest, root, derived = [], built = [], meta = {}, skipped = new Set() }) {
+  const failures = [];
+  const informational = [];
+
+  // A system that never adopted the bundle is not a system that stopped
+  // proving things: report it and skip the integrity checks entirely. The
+  // three derived rules still run — they do not depend on the store.
+  if (!manifest.verification) {
+    informational.push({ rule: 'proof-unadopted' });
+    return { failures, informational, stagesRead: 0 };
+  }
+
+  let stagesRead = 0;
+  for (const [stage, pointer] of Object.entries(manifest.verification.stages ?? {})) {
+    const stageFile = loadStage(root, stage);
+    // This class owns "the file is gone"; proof-stale is about a file that
+    // exists and disagrees with its hash, so the two never fire together here.
+    if (stageFile === null) {
+      failures.push({ rule: 'proof-missing', stage });
+      continue;
+    }
+    stagesRead += 1;
+    if (stageFingerprint(stageFile) !== pointer.fingerprint) {
+      failures.push({ rule: 'proof-stale', stage });
+    }
+
+    if (PER_COMPONENT_STAGES.has(stage)) {
+      const exempt = stageExempt(manifest, stage);
+      for (const name of built) {
+        if (stageFile.subjects?.[name]) continue;
+        // Two independent gates, each ruling out a different false failure:
+        // the stage must owe it an entry by lifecycle, and it must not be
+        // grandfathered. Do NOT compare meta[name].updatedAt against
+        // adoptedAt, however natural it looks: `updatedAt` is refreshed by
+        // storybook-chromatic-builder on promotion, so a single storying run
+        // drags every pre-existing component past component-builder's
+        // adoption moment and the gate fails a system where nothing went
+        // wrong. The stated false negative is that a grandfathered component
+        // is never proven.
+        if (!stageOwes(stage, name, meta)) continue;
+        if (exempt.has(name)) continue;
+        failures.push({ rule: 'proof-missing', stage, name });
+      }
+    }
+
+    for (const check of recordedChecks(stageFile)) {
+      if (check.method !== 'derived') continue;
+      const scope = DERIVED_RULE_SCOPE[check.name];
+      // A rule this run did not compute cannot contradict anything, and
+      // pretending otherwise would fail a repo for using --skip.
+      if (!scope || skipped.has(check.name)) continue;
+      const ruleFailures = derived.filter((f) => f.rule === check.name);
+      const rerunFailed =
+        scope === 'component'
+          ? ruleFailures.some((f) => f.name === check.subject)
+          : ruleFailures.length > 0;
+      if (rerunFailed !== (check.result === 'fail')) {
+        failures.push({
+          rule: 'proof-contradicted',
+          stage,
+          subject: check.subject,
+          check: check.name,
+          recorded: check.result,
+          rerun: rerunFailed ? 'fail' : 'pass',
+        });
+      }
+    }
+  }
+
+  return { failures, informational, stagesRead };
+}
+
+function failureDetail(f) {
+  switch (f.rule) {
+    case 'orphan-token':
+      return `${f.token} — an alias no other token references, no scanned file mentions and no doc record lists in tokensUsed. Bind it, delete it, or --skip orphan-token if this repo's consumers are outside --source.`;
+    case 'state-incomplete':
+      return `${f.name} documents no ${f.missing.join(', ')} state — its archetype's baseline requires ${f.missing.length === 1 ? 'it' : 'them'}. Add ${f.missing.length === 1 ? 'it' : 'them'} to the record's "states" with /document-component.`;
+    case 'name-drift':
+      return `${f.name} is spelled ${Object.entries(f.spellings).map(([k, v]) => `${v} (${k})`).join(', ')} — one component, more than one name. Rename so the manifest, the record and the code surface agree.`;
+    case 'proof-missing':
+      return f.name
+        ? `${f.stage} owes ${f.name} an entry and has none — record one with verify-check.mjs --record --stage ${f.stage} --subject ${f.name}.`
+        : `${f.stage} is listed in design-system.json verification.stages, but ${PROOF_DIR}/${f.stage}.json is gone. Restore it, or re-record the stage's entries.`;
+    case 'proof-stale':
+      return `${PROOF_DIR}/${f.stage}.json does not match the fingerprint in design-system.json — it was edited outside the recorder. Re-record the stage's entries rather than editing the file.`;
+    case 'proof-contradicted':
+      return `${f.stage} recorded ${f.check} as "${f.recorded}" for ${f.subject}, but this run derives "${f.rerun}". A derived result is a cache, not a claim — fix what it found, or re-record it.`;
+    case 'nothing-verified':
+      return 'the enabled rules examined nothing: no alias token candidate, no doc record, no component in components.built. Check --root points at the design system, and that --tokens names a real token source.';
+    case 'orphan-rule-inert':
+      return 'no token source yielded an alias, so orphan-token checked nothing. Pass the --tokens file that holds the semantic tier, or --skip orphan-token if this system has none.';
+    default:
+      return JSON.stringify(f);
+  }
+}
+
+function informationalDetail(i) {
+  switch (i.rule) {
+    case 'archetype-unknown':
+      return `${i.name} — neither an "archetype" field nor its name resolves to a known archetype, so no baseline states are asserted for it.`;
+    case 'proof-unadopted':
+      return 'design-system.json has no "verification" key, so this system has not adopted the proof bundle and the proof-integrity checks are skipped. The first verify-check.mjs --record adopts it.';
+    default:
+      return JSON.stringify(i);
+  }
+}
+
+// Counts SUBJECTS, not rules. A rule that ran over nothing has verified
+// nothing, and a headline counting rules switched on would read as busy over an
+// empty system.
+export function formatReport(r) {
+  const s = r.stats;
+  const lines = [
+    `verify:check — ${s.components} component(s), ${s.records} doc record(s), ${s.candidates} token candidate(s), ${s.files} file(s) scanned, ${s.stages} stage file(s) read`,
+  ];
+  for (const e of r.excluded) {
+    lines.push(`  excluded:     ${e.files} file(s) in ${e.dir}, the package that owns --tokens`);
+  }
+  if (r.skipped.length) lines.push(`  skipped:      ${r.skipped.join(', ')}`);
+
+  if (r.failures.length) {
+    lines.push(`\n${r.failures.length} failure(s):`);
+    for (const f of r.failures) lines.push(`  - [${f.rule}] ${failureDetail(f)}`);
+  }
+  if (r.informational.length) {
+    lines.push(`\n${r.informational.length} informational note(s) — reported, not gating:`);
+    for (const i of r.informational) lines.push(`  ~ [${i.rule}] ${informationalDetail(i)}`);
+  }
+  return lines;
+}
+
+function readJson(path, what) {
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch (e) {
+    console.error(`verify:check — cannot read ${what} at ${path}: ${e.message}`);
+    process.exit(2);
+  }
+}
+
+function manifestPathOf(root) {
+  const path = join(root, 'design-system.json');
+  if (!existsSync(path)) {
+    console.error(`verify:check — no design-system.json at ${root}`);
+    process.exit(2);
+  }
+  return path;
+}
+
+function loadRecords(root, meta) {
+  const records = new Map();
+  const dir = join(root, 'design-system', 'docs', 'components');
+  if (existsSync(dir)) {
+    for (const file of readdirSync(dir)) {
+      if (!file.endsWith('.doc.json')) continue;
+      records.set(file.slice(0, -'.doc.json'.length), loadRecord(join(dir, file)));
+    }
+  }
+  // A manifest that points a component's record somewhere else wins for that
+  // name. The key comes from where the file was found, never from inside it —
+  // which is what makes manifest `Button` plus a record named `Buttons` a
+  // name-drift failure rather than a record that silently cannot be found.
+  for (const [name, m] of Object.entries(meta)) {
+    const path = m?.doc?.path;
+    if (typeof path === 'string' && existsSync(join(root, path))) {
+      records.set(name, loadRecord(join(root, path)));
+    }
+  }
+  return records;
+}
+
+function gateMode(values) {
+  const manifest = readJson(manifestPathOf(values.root), 'the manifest');
+  const built = manifest.components?.built ?? [];
+  const meta = manifest.components?.meta ?? {};
+  const skipped = new Set(values.skip);
+
+  const flat = {};
+  for (const file of values.tokens) {
+    Object.assign(flat, flattenDtcg(readJson(file, 'a token source')));
+  }
+  // With no --tokens there is no token source to read, so the rule is ABSENT
+  // rather than passed: a run that checked no tokens must not report a clean
+  // orphan-token.
+  if (values.tokens.length === 0) skipped.add('orphan-token');
+
+  // Partitioned after the walk rather than excluded during it, so the report
+  // can count what it set aside. WITHOUT THIS THE ORPHAN RULE CANNOT FIRE AT
+  // ALL: Style Dictionary writes every token by name into
+  // packages/tokens/<platform>/, SOURCE_EXT yields .css, .mjs and .js, and
+  // nothing in DEFAULT_EXCLUDES covers that directory — so under the
+  // registered `--root ../..` the generated output binds every semantic token
+  // to itself. Ported from validate-adherence.mjs, realpath comparison
+  // included: a tmpdir fixture or a symlinked checkout would otherwise never
+  // match the realpath'd package dirs.
+  const realRoot = realpathSync(values.root);
+  const ownerDirs = tokenPackageDirs(values.tokens, values.root);
+  const excludedCounts = new Map(ownerDirs.map((d) => [d, 0]));
+  const scanned = [];
+  for (const dir of values.source.length > 0 ? values.source : [values.root]) {
+    let walked;
+    try {
+      walked = [...walk(dir)];
+    } catch (e) {
+      console.error(`verify:check — cannot scan ${dir}: ${e.message}`);
+      process.exit(2);
+    }
+    const realDir = realpathSync(dir);
+    for (const path of walked) {
+      const real = join(realDir, relative(dir, path));
+      const owner = ownerDirs.find((d) => real.startsWith(d + sep));
+      if (owner) excludedCounts.set(owner, excludedCounts.get(owner) + 1);
+      else scanned.push(path);
+    }
+  }
+  const excluded = [...excludedCounts]
+    .filter(([, n]) => n > 0)
+    .map(([dir, n]) => ({ dir: join(values.root, relative(realRoot, dir)), files: n }));
+
+  const records = loadRecords(values.root, meta);
+  const failures = [];
+  const informational = [];
+  const derived = [];
+
+  let candidates = 0;
+  let orphanInert = false;
+  if (!skipped.has('orphan-token')) {
+    const fileTexts = scanned.map((path) => normalizeText(readFileSync(path, 'utf8')));
+    const orphans = checkOrphanTokens({ flat, fileTexts, records });
+    derived.push(...orphans.failures);
+    candidates = orphans.candidates;
+    orphanInert = orphans.inert;
+  }
+  if (!skipped.has('state-incomplete')) {
+    const states = checkStates({ records });
+    derived.push(...states.failures);
+    informational.push(...states.informational);
+  }
+  if (!skipped.has('name-drift')) {
+    derived.push(...checkNames({ built, meta, records }));
+  }
+  failures.push(...derived);
+
+  const proof = checkProof({ manifest, root: values.root, derived, built, meta, skipped });
+  failures.push(...proof.failures);
+  informational.push(...proof.informational);
+
+  // Subjects examined, not rules enabled. Counting enabled rules would pass a
+  // system with no doc records at all — exactly the green-having-read-nothing
+  // run this class exists to stop.
+  const examined =
+    (skipped.has('orphan-token') ? 0 : candidates) +
+    (skipped.has('state-incomplete') ? 0 : records.size) +
+    (skipped.has('name-drift') ? 0 : built.length);
+  if (examined === 0) failures.push({ rule: 'nothing-verified' });
+  if (!skipped.has('orphan-token') && orphanInert) failures.push({ rule: 'orphan-rule-inert' });
+
+  const report = formatReport({
+    stats: {
+      components: built.length,
+      records: records.size,
+      candidates,
+      files: scanned.length,
+      stages: proof.stagesRead,
+    },
+    excluded,
+    skipped: [...skipped],
+    failures,
+    informational,
+  });
+  for (const line of report) console.log(line);
+  process.exit(failures.length > 0 ? 1 : 0);
+}
+
+function recordMode(values) {
+  if (!values.stage || !values.entry) {
+    console.error(
+      'usage: verify-check.mjs --record --stage <name> [--subject <Name>] --entry <file.json>',
+    );
+    process.exit(2);
+  }
+  if (!STAGES.includes(values.stage)) {
+    console.error(
+      `verify:check — unknown --stage "${values.stage}"; the stages that record entries are ${STAGES.join(', ')}`,
+    );
+    process.exit(2);
+  }
+  // A per-component record that forgets --subject would be filed under
+  // "system", and if it were the stage's first record it would stamp adoptedAt
+  // and capture the whole exempt list off a misinvocation — which no later run
+  // undoes. Refuse before anything is written.
+  if (PER_COMPONENT_STAGES.has(values.stage) && !values.subject) {
+    console.error(
+      `verify:check — --stage ${values.stage} is keyed by component, so --subject is required`,
+    );
+    process.exit(2);
+  }
+  const subject = values.subject ?? 'system';
+
+  // The manifest must already exist. Manifest rule 1 has each skill create it
+  // with defaults if absent, but that is the owning skill's job on its own
+  // first action — this recorder is called after a skill has already read and
+  // written it, so a missing manifest here means the caller is pointed at the
+  // wrong root, and creating one would bury that in a stray file.
+  const manifestPath = manifestPathOf(values.root);
+  const entry = readJson(values.entry, 'the entry');
+  const problems = entryProblems(entry);
+  if (problems.length > 0) {
+    console.error(`verify:check — the entry at ${values.entry} is malformed:`);
+    for (const problem of problems) console.error(`  ${problem}`);
+    process.exit(2);
+  }
+
+  const manifest = readJson(manifestPath, 'the manifest');
+  const next = mergeEntry(loadStage(values.root, values.stage), values.stage, subject, entry);
+  const path = stagePath(values.root, values.stage);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(next, null, 2)}\n`);
+
+  if (!manifest.verification) manifest.verification = { path: PROOF_DIR, stages: {} };
+  manifest.verification.path = PROOF_DIR;
+  if (!manifest.verification.stages) manifest.verification.stages = {};
+  const existing = manifest.verification.stages[values.stage];
+  // "First record" is the stage entry being absent BEFORE this write — never
+  // the `exempt` key being absent, which would let a hand-deleted list be
+  // silently recaptured from the current components.built.
+  const first = existing === undefined;
+  const pointer = { ...(existing ?? {}) };
+  pointer.at = entry.at;
+  if (first) {
+    pointer.adoptedAt = entry.at;
+    // Capture reads the WHOLE of components.built, not "everything but this
+    // subject": a run's entire batch is already in `built` before the record
+    // loop reaches the first component, so a subject-excluding capture would
+    // permanently grandfather its batch-mates.
+    if (PER_COMPONENT_STAGES.has(values.stage)) {
+      pointer.exempt = [...(manifest.components?.built ?? [])].sort();
+    }
+  }
+  // On EVERY record, the first included, the subject leaves the list. Removal
+  // is the only mutation allowed, so the list can only narrow and no write can
+  // widen an exemption.
+  if (Array.isArray(pointer.exempt)) pointer.exempt = pointer.exempt.filter((n) => n !== subject);
+  pointer.fingerprint = stageFingerprint(next);
+  manifest.verification.stages[values.stage] = pointer;
+
+  if (!(manifest.schemaVersion >= SCHEMA_VERSION)) manifest.schemaVersion = SCHEMA_VERSION;
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+  console.log(`✓ verify:check — recorded ${values.stage} · ${subject} (${pointer.fingerprint})`);
+  process.exit(0);
+}
+
+function main() {
+  let values;
+  try {
+    ({ values } = parseArgs({
+      options: {
+        root: { type: 'string', default: '.' },
+        tokens: { type: 'string', multiple: true, default: [] },
+        source: { type: 'string', multiple: true, default: [] },
+        skip: { type: 'string', multiple: true, default: [] },
+        record: { type: 'boolean', default: false },
+        stage: { type: 'string' },
+        subject: { type: 'string' },
+        entry: { type: 'string' },
+      },
+    }));
+  } catch (e) {
+    console.error(e.message);
+    process.exit(2);
+  }
+
+  if (values.record) recordMode(values);
+  else gateMode(values);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
