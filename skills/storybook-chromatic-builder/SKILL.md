@@ -40,7 +40,10 @@ needs the repo's own values substituted in — the UI package's specifier for
 registering it with the table's placeholders leaves a script that cannot run.
 `verify:check` needs the same treatment for its `--root` and `--tokens`, and
 registering it without `--tokens` is worse than leaving a placeholder: the script
-runs, and skips `orphan-token` on every run. That table is
+runs, and skips both `orphan-token` and `color-contrast` on every run. Pass **one
+`--tokens` flag per mode file** — `color-contrast` checks each file as its own
+mode, so a multi-mode system registered with a single `--tokens` silently checks
+only one of them. That table is
 the single source of truth for what a consuming repo gets; do not restate the
 list here.
 
@@ -256,12 +259,15 @@ non-zero on drift; Figma surfaces report `edit-unverified` (checked live in a Fi
 session). Run `docs:check` once here and confirm it passes before handing off.
 
 Ensure `verify:check` is wired alongside it, with the repo's real `--tokens`
-path — not the registered placeholder — so `orphan-token` actually runs instead
-of reporting as skipped. All three rules (`orphan-token`, `state-incomplete`,
-`name-drift`) go live now; if the orphan rule misfires on this repo,
-`--skip orphan-token` is the documented answer, and it prints on the report's
+paths — not the registered placeholder, and one flag per mode file — so
+`orphan-token` and `color-contrast` actually run instead of reporting as skipped.
+All four rules (`orphan-token`, `state-incomplete`, `name-drift`,
+`color-contrast`) go live now; if the orphan rule misfires on this repo,
+`--skip orphan-token` is the documented answer, and `--skip color-contrast` is
+the same answer on the same terms for a system whose colour roles are named
+differently. Both print on the report's
 `skipped:` line. Dropping `--tokens` is not an equivalent fix — that switches the
-rule off silently instead of visibly. **Run `verify:check` once here, before
+rules off silently instead of visibly. **Run `verify:check` once here, before
 Step 6 promotes anything to `stable`, and confirm it passes before handing
 off — running it here rather than after Step 6 is deliberate, not an
 oversight**: this run's components are still `draft`, so
@@ -269,6 +275,54 @@ oversight**: this run's components are still `draft`, so
 is what promotes them to `stable`, and Step 7 is what records their entries.
 Moving this call after Step 6, or moving Step 7's recording ahead of it, would
 leave the components `stable`, owed an entry, and without one.
+
+**A contrast failure the user already accepted.** `token-builder` stops on a pair
+below 4.5:1, and a user may explicitly accept it anyway. That acceptance lives in
+`design-system/proof/token-builder.json` under the repo root, on the `system`
+entry's `contrast-baseline` check, as `accepted: [{ fg, bg, mode }]`. Read that
+file — it may not exist, in which case nothing is accepted and any failure stops
+this step as usual. Then compare **this run's live failures** against it: take
+the `[color-contrast]` lines off the report you just ran, and match each one's
+`fg` and `bg` — the canonical `CONTRAST_PAIRS` paths, identical on both sides and
+needing no translation — against each `accepted` entry's `fg`/`bg`, on the same
+normalized fold (lowercase, alphanumerics only). Then:
+
+- **every live failure is an accepted role pair** → register the `verify:check`
+  script in `package.json` with `--skip color-contrast`, and say in one line which
+  pair was accepted, that contrast is therefore **not checked in CI at all** while
+  that flag is there, and that deleting the flag is what re-enables it;
+- **no live failures** → register the script **without** the flag. The pair was
+  fixed, or never applied to this repo, and switching the rule off would hide a
+  future one;
+- **any live failure whose roles are not in `accepted`** → stop, exactly as this
+  step already does.
+
+**The live run is the condition, not the presence of the field.** `accepted`
+persists until `token-builder` is re-run, which nothing asks for — so keying off
+the field alone would switch CI's contrast rule off for a pair that now passes,
+while telling the user the flag is what re-enables it.
+
+**Matching on the roles, and ignoring the mode, is deliberate here.** `--skip` is
+rule-wide: there is no way to skip contrast in Dark and keep it in Light, so a
+per-mode test would decide nothing a role test does not. This skill also *cannot*
+translate a mode name — the recorded `mode` is the Figma name, and this skill
+neither read the Figma modes nor wrote the DTCG files. Only `token-sync-layer`,
+which did both, matches on the mode. The cost, stated rather than hidden:
+whenever an accepted pair's roles also fail in a mode the user did not accept,
+now or later, the roles still match and CI stays skipped. The sync is the
+backstop — it subtracts per mode, so it stops on that unaccepted mode, and every
+token change goes through it.
+
+**That backstop only holds on a tree the sync finished on.** A sync that stopped
+leaves both mode files written and the failure standing, and this skill running
+over that tree would see two failures, match both on roles, and register the flag
+over one nobody accepted. Do not wire the script on a tree whose last sync
+stopped: the pipeline stopped there too, and the fix belongs in Figma before the
+storying stage runs at all.
+
+This skill is where the registered script is created, so it is the only place
+that can apply this consequence — `token-builder` runs at folder stage, before
+any repo, and cannot edit a `package.json` that does not exist.
 
 ## Step 6 — Finalize component status (Figma write-back)
 
@@ -336,9 +390,11 @@ storybook-chromatic-builder --subject <Name> --entry <tmp>.json`. Build
 `<tmp>.json` with the attested checks `build` (the story build outcome) and
 `review`, `advancedBecause`, and **the two component-scoped derived results,
 `state-incomplete` and `name-drift`, read off the `verify:check` report Step
-5.5 already ran** — recorded with `method: "derived"`. This is the one stage
-that records derived results, and it can only do so because it has already run
-the gate before recording; the entry shape is
+5.5 already ran** — recorded with `method: "derived"`. This is one of two stages
+that record derived results, and it qualifies for the same reason the other does:
+it has already run the gate before recording, so it holds the result rather than
+asserting it (`${CLAUDE_PLUGIN_ROOT}/references/proof-bundle.md` names both); the
+entry shape is
 `${CLAUDE_PLUGIN_ROOT}/references/proof-bundle.md` — don't restate it here. As
 in `component-builder`, this run's components are already in
 `components.built` by the time this loop runs, so this stage's first `--record`
