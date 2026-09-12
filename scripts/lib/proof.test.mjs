@@ -145,6 +145,11 @@ test('PER_COMPONENT_STAGES: holds component-builder and not token-sync-layer', (
   assert.ok(!PER_COMPONENT_STAGES.has('token-sync-layer'));
 });
 
+test('STAGES: token-builder is a stage, and its subject is the system rather than a component', () => {
+  assert.ok(STAGES.includes('token-builder'));
+  assert.ok(!PER_COMPONENT_STAGES.has('token-builder'), 'its subject is the whole colour system');
+});
+
 test('PER_COMPONENT_STAGES: every member is in STAGES', () => {
   for (const stage of PER_COMPONENT_STAGES) {
     assert.ok(STAGES.includes(stage), `${stage} should be in STAGES`);

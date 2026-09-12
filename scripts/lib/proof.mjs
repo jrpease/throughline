@@ -11,12 +11,21 @@ import { stableStringify, fingerprint } from './doc-record.mjs';
 
 export const PROOF_DIR = 'design-system/proof';
 
-// The v1 stage vocabulary. A change here must also update
-// `references/proof-bundle.md`.
+// The stage vocabulary. A change here must also update the stage table in
+// `references/proof-bundle.md`: the constant and the prose are one vocabulary,
+// and a stage this list accepts but the reference does not name is a stage
+// nobody knows how to record.
+//
+// `token-builder` is system-wide. The vocabulary names the places where the
+// negative conditions' evidence is produced, and token creation is now one of
+// them — it is the cheapest place in the system to catch a mode built with poor
+// contrast, because the mode is being defined right then and nothing is built
+// on it yet. Its subject is the whole colour system, never a component.
 export const STAGES = [
   'component-builder',
   'storybook-chromatic-builder',
   'token-sync-layer',
+  'token-builder',
 ];
 
 // Which stages are keyed by component (subject = component name) rather than
