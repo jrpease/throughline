@@ -1,6 +1,7 @@
 # Colour contrast as a stop condition in the proof bundle
 
 Status: planned
+Reviewed: 2026-09-12 — needs revision
 Date: 2026-09-12
 Issue: #45
 Builds on: `docs/specs/2026-09-12-verification-proof-bundle.md` (#110) — its store,
@@ -70,13 +71,13 @@ After this ships:
 | `text/disabled` is excluded | No pair involves `color.text.disabled`. Stated in the table's comment, with the reason. | Recommended; accepted under Jordan's standing instruction (2026-09-11). WCAG 1.4.3 exempts inactive user-interface components from the contrast minimum, and a disabled role is low-contrast *on purpose* — gating it would fail every correct system, which is the one direction a failing rule must never err in. This is the same posture as excluding `default` from the state baseline. | Failing a system for having a properly-muted disabled colour. |
 | What a "mode" is | One `--tokens` file. Each file is evaluated as its own mode, with aliases resolved against the pool of every `--tokens` file and the file's own definitions winning — the exact rule `resolvedTokens` already applies (#121). The mode's label in the report is the file's basename minus its extension. | Recommended; accepted under Jordan's standing instruction (2026-09-11). It is the house model already: `findModeCollisions` (`lib/dtcg.mjs:205`) exists because "a token path defined in more than one source file with differing values means the build's source list spans modes"; `nativeSources` guards one build per mode from one explicit source list; `validate-token-output` is run once per mode block with that block's sources. Reusing it means a light/dark system passes `--tokens semantic.light.json --tokens semantic.dark.json --tokens primitives.json` and every pair is checked twice, once per mode, with primitives resolving across — which is precisely "must contrast in *every* mode". A single-file system is one mode and still checked. | A new `--mode` flag, when repeatable `--tokens` already carries the axis. Evaluating the merged `flat` that `gateMode` builds with `Object.assign`, which would check only whichever file was passed last — the light-only build `findModeCollisions` was written to stop, reintroduced inside the gate. Inferring modes from group names nested inside one file (Open questions). |
 | Where the values come from | Reuse `resolvedTokens` from `validate-adherence.mjs` by exporting it and adding a `source` index to what it yields; reuse its `normalizeHex` and `rgbToHex` for comparability. No new resolver, no new colour parser. | Recommended; accepted under Jordan's standing instruction (2026-09-11). `verify-check.mjs:28` already imports `tokenPackageDirs` from that module for the same reason, both files are in the same install set, and its `main()` is guarded by the house `import.meta.url` idiom so importing runs nothing. The generator already encodes #121's hard-won rule — a file's own paths win over the pool, so two mode files defining one path each keep their own value — and writing a second one would mean two definitions of "what is this token worth in this mode" that can disagree. Adding a field to what it yields breaks nothing: both existing consumers destructure the fields they use. | A second alias resolver in `lib/contrast.mjs`. A second hex parser, when `normalizeHex`/`rgbToHex` are already exported and already handle `#abc`, `#aabbccff` and `rgb()`. Moving `resolvedTokens` into `lib/dtcg.mjs` in this change, which is a larger refactor of a module with four consumers and is not needed to ship this. |
-| Alpha | An alpha **foreground** is composited over its pair's background (`src-over`) and compared. A pair whose **background** carries alpha is skipped and counted. | Recommended; accepted under Jordan's standing instruction (2026-09-11). A translucent foreground over a known opaque background has one correct answer and roughly ten lines of arithmetic. A translucent background does not: what is behind it is a layout fact the token tier does not hold, and guessing it would produce a ratio nobody can check. Skipping *and counting* is #121's rule — the report shows the blind spot rather than hiding it. | Failing a pair for having alpha, which would fail correct systems using tinted status backgrounds. Compositing a translucent background over a guessed canvas colour. |
-| Pairs the rule cannot compare | Skipped and counted on a `contrast:` report line, split into unresolvable, non-hex and alpha-background — the shape `validate-adherence.mjs:672` prints for colour tokens. | Recommended; accepted under Jordan's standing instruction (2026-09-11). #121 is the precedent and its reasoning transfers exactly: a colour the gate cannot compare is a hole in the check, and a number on the report is what stops the hole being mistaken for a pass. | A silent skip. Guessing at a value the resolver could not reach. |
-| `nothing-verified` and inertness | The examined count gains the number of pairs evaluated, and a new failing class `contrast-rule-inert` fires when `color-contrast` ran and evaluated no pair at all — the same shape as `orphan-rule-inert`. | Recommended; accepted under Jordan's standing instruction (2026-09-11). Without the first half, the token-sync invocation below (which skips the other three rules) would fail `nothing-verified` on a perfectly good system, because the existing counter sums candidates, records and built components — all three zeroed by `--skip`. Without the second, a system whose roles are named differently would report a clean contrast run having compared nothing, which is exactly the green-having-read-nothing outcome `nothing-scanned`, `orphan-rule-inert` and `dimension-rule-inert` all exist to stop. | A gate that passes because every rule was switched off. A contrast rule that recognises no role and calls it a pass. |
+| Alpha | A **hex** alpha foreground (`#rrggbbaa`) is composited over its pair's background (`src-over`) and compared. A pair whose **background** carries alpha is skipped and counted. An `rgba()` foreground with a real alpha is not composited: `rgbToHex` (`validate-adherence.mjs:171-183`) returns `null` for it, so it lands in the non-hex skip count — #121's existing limit, inherited rather than re-litigated here. | Recommended; accepted under Jordan's standing instruction (2026-09-11). A translucent foreground over a known opaque background has one correct answer and roughly ten lines of arithmetic. A translucent background does not: what is behind it is a layout fact the token tier does not hold, and guessing it would produce a ratio nobody can check. Skipping *and counting* is #121's rule — the report shows the blind spot rather than hiding it. | Failing a pair for having alpha, which would fail correct systems using tinted status backgrounds. Compositing a translucent background over a guessed canvas colour. |
+| Pairs the rule cannot compare | Skipped and counted on a `contrast:` report line, split into unresolvable, non-hex and alpha-background — the shape `validate-adherence.mjs:672` prints for colour tokens. All three counts are **pairs**, in the mode they were skipped in, not tokens: a broken alias on one side of `text/onEmphasis` in Dark is one unresolvable pair, and the same system's Light mode still reports its pair as compared. | Recommended; accepted under Jordan's standing instruction (2026-09-11). #121 is the precedent and its reasoning transfers exactly: a colour the gate cannot compare is a hole in the check, and a number on the report is what stops the hole being mistaken for a pass. | A silent skip. Guessing at a value the resolver could not reach. |
+| `nothing-verified` and inertness | The examined count gains the number of pairs evaluated, and a new failing class `contrast-rule-inert` fires when `color-contrast` ran and evaluated no pair at all — the same shape as `orphan-rule-inert`. | Recommended; accepted under Jordan's standing instruction (2026-09-11). Without the first half, the token-sync invocation below (which skips the other three rules) would fail `nothing-verified` on a perfectly good system, because the existing counter sums candidates, records and built components — all three zeroed by `--skip`. Without the second, a system whose roles are named differently would report a clean contrast run having compared nothing, which is exactly the green-having-read-nothing outcome `nothing-scanned`, `orphan-rule-inert` and `dimension-rule-inert` all exist to stop. The upgrade cost is stated rather than discovered: `contrast-rule-inert` is a new failing class, so an existing consumer whose registered `verify:check` already passes `--tokens` but whose semantic roles are not spelled the way the table expects — a retrofit system, or one predating `token-builder`'s role set — goes red on upgrade with nothing changed on their side. That is `orphan-rule-inert`'s shape exactly, `--skip color-contrast` is the answer, and both the CHANGELOG bullet (Step 12) and the failure text (Step 4) have to say so. | A gate that passes because every rule was switched off. A contrast rule that recognises no role and calls it a pass. |
 | Who records the derived result | `token-sync-layer`, which runs `verify:check` in its Step 5 before recording in Step 6 — making it the second stage that records derived results, and for the same stated reason as the first: it has the gate's output in hand rather than asserting it. | Recommended; accepted under Jordan's standing instruction (2026-09-11). #110 named `storybook-chromatic-builder` the only such stage *because* it was the only one that ran the gate first, not as a property of the stage. The token sync is where DTCG sources land on disk, so it is the moment `color-contrast` is both computable and consequential, and its entry is already system-subject. `proof-contradicted` stays reachable for this rule, which is what keeps the `derived` label real. | Recording contrast under a component stage, where a system-wide colour property has no subject. An entry recorded without running the gate, which would be an attestation wearing a derived label. |
 | What stops a token sync | A `color-contrast` failure stops it. Other failures in the same report — `proof-missing` for a component, `state-incomplete`, `proof-stale` — are surfaced to the user and in the PR body, but do not stop the sync. | Recommended; accepted under Jordan's standing instruction (2026-09-11). The sync owns the token tier and nothing else. A token sync blocked because some component's storybook entry is missing is the false wall #110's whole adoption decision was written to avoid, and it would teach users to stop reading the report. The rule the sync owns is the one that stops it. | A sync gated on the gate's exit code, which imports every other stage's state into a token change. A contrast failure that only warns, which is the advisory the plan rules out. |
 | Which rules the sync's gate run skips | `--skip orphan-token --skip state-incomplete --skip name-drift`, stated with the reason in the skill. | Recommended; accepted under Jordan's standing instruction (2026-09-11). `orphan-token` in particular would fail nearly every sync that does its job: a sync that adds a token is adding one nothing in the repo names yet, which is the rule's definition of an orphan. The component rules are about records and code surfaces the sync does not touch. `--skip` is the house answer for a rule a run cannot apply, it prints on the report's `skipped:` line, and `checkProof` already declines to compare a recorded derived result whose rule was skipped — so the storybook stage's cached results are not contradicted by a run that never computed them. | Running the full gate at sync time and teaching people to ignore its output. Dropping `--tokens`, which would switch contrast off silently along with `orphan-token`. |
-| The override path in Figma | `token-builder` stops on a failing pair, reports the ratio and the roles in guide voice, and recommends the fix (re-point that mode's alias at a primitive with more separation). If the user explicitly accepts the failure anyway, the skill records `contrast-baseline` with `result: "fail"` and names the acceptance in `advancedBecause` — and says plainly that `verify:check` will fail at sync time unless the repo registers `--skip color-contrast`. | Recommended; accepted under Jordan's standing instruction (2026-09-11). It is the user's brand and their call; what the plugin owes them is that the call is explicit, recorded, and that its downstream cost is stated before they make it rather than discovered at the next sync. The entry shape already carries exactly this: a `fail` result with one line saying why the stage advanced anyway. `--skip` is the documented, visible escape hatch (`scripts/README.md:143-148`). | A silent override. A hard stop with no path forward, which a plugin that does not own the brand cannot justify. An override that leaves no trace in the bundle. |
+| The override path in Figma | `token-builder` stops on a failing pair, reports the ratio and the roles in guide voice, and recommends the fix (re-point that mode's alias at a primitive with more separation). If the user explicitly accepts the failure anyway, the skill records `contrast-baseline` with `result: "fail"` and names the acceptance in `advancedBecause`. **The acceptance travels in the bundle, and the sync reads it**: before it runs the gate, `token-sync-layer` reads `design-system/proof/token-builder.json` under the same `--root`, and when `contrast-baseline` is `fail` with an acceptance named in `advancedBecause` it appends `--skip color-contrast` to that run, says so, and omits `color-contrast` from the entry it records. Separately, the repo's registered `verify:check` — the CI one — keeps failing until either the pair clears or `--skip color-contrast` is added there by hand, and `token-builder` says that in the same breath as the acceptance. | Recommended; accepted under Jordan's standing instruction (2026-09-11). It is the user's brand and their call; what the plugin owes them is that the call is explicit, recorded, and that its downstream cost is stated before they make it rather than discovered at the next sync. Routing the escape hatch through the bundle is what makes the promise reachable: the sync's gate run is constructed by the skill, not by an npm script, so a `--skip` "registered in the repo" could never reach it — and at first sync there is nothing registered to reach, because the docs install set arrives with `storybook-chromatic-builder`, which runs *after* the sync in the pipeline (`README.md:134-141`). Reading the acceptance off the store keeps the decision where it was made and visible on the report's `skipped:` line, and keeps the gate itself dumb: no attested `fail` ever switches a derived rule off inside `verify-check.mjs`. | A silent override. A hard stop with no path forward, which a plugin that does not own the brand cannot justify — and which is what "register `--skip color-contrast`" alone would have delivered, since nothing registered reaches the sync's own invocation. An override that leaves no trace in the bundle. A gate that reads an agent's attested failure and disables its own rule, which is the self-attestation the store exists to avoid. |
 | Install and registration | `lib/contrast.mjs` joins the **Documentation scripts — install as a set** table in `scripts/README.md` with `—` in the npm column. The set goes from eleven files to **twelve**; the script count stays **five**. | Recommended; accepted under Jordan's standing instruction (2026-09-11). It is imported by `verify-check.mjs`, so `ci/validate-install-sets.mjs`'s closure check requires it in the table, and `countProblems` will fail the build on every stale count claim — `scripts/README.md:37` and `skills/storybook-chromatic-builder/SKILL.md:36` — which is the mechanism that exists because a script shipped without its registration twice (#103, #105). | A new npm script for a module nothing invokes directly. A fourth install set. |
 | README roadmap | Narrow the "Built-in accessibility checks" bullet to what will then be true: colour contrast validated when tokens are created and again when they sync, component-level accessibility still ahead. | Recommended; accepted under Jordan's standing instruction (2026-09-11). The bullet is the promise #45 was filed against, and half of it comes true here. Leaving it whole would keep overclaiming the component half; the same correction was made for the native-validation line when #37 changed the fact behind it. | Deleting the bullet, which would drop a real roadmap item. Leaving a promise that is now half-shipped and still reads as neither. |
 | CHANGELOG | One bullet under `[Unreleased]` → Added, in the register of the `verify:check` entry above it, naming the rule, the pair table, the mode model, the two stages that record it and the `--skip` escape hatch. | Recommended; accepted under Jordan's standing instruction (2026-09-11). It is a user-facing capability and a change to the stage vocabulary skills write into. No schema bump: `verification` already exists at `schemaVersion` 7 and gains no field. | Folding it into the #110 entry. Any version bump or `[Unreleased]` move. |
@@ -223,9 +224,10 @@ Put one sentence in the comment above it saying the `source` index is what lets 
 caller group a system's tokens by mode, since one `--tokens` file is one mode, and
 naming `scripts/verify-check.mjs` as that caller.
 
-Both existing consumers (`buildTokenValues`, `skippedColourTokens`) destructure
-only the fields they use and are unaffected. Do not touch any other function in
-this file.
+All three existing consumers — `buildTokenValues` (`:238`), `skippedColourTokens`
+(`:283`) and `buildDimensionValues` (`:395`) — destructure only the fields they
+use and are unaffected by a new key. Do not touch any other function in this
+file.
 
 Tests: add one new test to `scripts/validate-adherence.test.mjs` (do not edit any
 existing test) asserting that `resolvedTokens` over two dicts — a primitives dict
@@ -246,19 +248,27 @@ Change: the pure half. Import `AA_NORMAL_TEXT`, `CONTRAST_PAIRS`, `contrastRatio
 `tokenPackageDirs` from).
 
 Export `checkContrast({ modes })` → `{ failures, skipped, pairs }`, where `modes`
-is an array of `{ mode, values }` — `mode` a label string, `values` a `Map` from
-dotted token path to its resolved raw value, both built by the caller in Step 4.
+is an array of `{ mode, values, unresolved }` — `mode` a label string, `values` a
+`Map` from dotted token path to its resolved raw value, and `unresolved` a `Set`
+of the dotted paths that mode defines but whose alias chain did not resolve. All
+three are built by the caller in Step 4.
 
 For each mode, for each entry in `CONTRAST_PAIRS`:
 
 - Find each side by **normalized path**: build the mode's lookup once as a `Map`
-  from `normalizeText(path)` to its value, and look up `normalizeText(pair.fg)` /
-  `normalizeText(pair.bg)`. A side with no match means the pair is **not
-  evaluated** in this mode — not counted, not skipped, not failed.
-- Convert each side with `normalizeHex(value) ?? rgbToHex(value)`. A side that
-  comes back `null` skips the pair, counted as `nonHex`. A value the resolver
-  could not resolve is absent from `values` entirely (Step 4 drops it), counted
-  there as `unresolvable`.
+  from `normalizeText(path)` to its value, and a second normalized `Set` from
+  `unresolved`. Look up `normalizeText(pair.fg)` / `normalizeText(pair.bg)`. A
+  side present in neither means the pair is **not evaluated** in this mode — not
+  counted, not skipped, not failed.
+- A side the mode defines but could not resolve (present in the normalized
+  `unresolved` set) skips the pair, counted as `unresolvable`. The count is of
+  **pairs**, in the mode that could not be compared — not of tokens, so the three
+  numbers on the `contrast:` line are all in the same unit.
+- Convert each remaining side with `normalizeHex(value) ?? rgbToHex(value)`. A
+  side that comes back `null` skips the pair, counted as `nonHex`. `rgbToHex`
+  returns `null` for an `rgba()` with a real alpha, so a translucent `rgba()`
+  foreground lands here rather than being composited — #121's limit, carried
+  forward deliberately.
 - If the background has alpha (`parseHex(bg).a < 1`), skip the pair, counted as
   `alphaBackground`.
 - If the foreground has alpha, `composite` it over the background first.
@@ -266,9 +276,9 @@ For each mode, for each entry in `CONTRAST_PAIRS`:
   `pair.threshold`, push
   `{ rule: 'color-contrast', mode, fg: pair.fg, bg: pair.bg, fgValue, bgValue, ratio, threshold: pair.threshold }`.
 
-`skipped` is `{ nonHex, alphaBackground }` summed across modes; `pairs` is the
-count of pairs actually compared across all modes — the number
-`nothing-verified` reads in Step 4.
+`skipped` is `{ unresolvable, nonHex, alphaBackground }` summed across modes,
+every one of them a pair count; `pairs` is the count of pairs actually compared
+across all modes — the number `nothing-verified` reads in Step 4.
 
 Put a comment above `checkContrast` stating: that a pair is evaluated once per
 mode and must clear in every one of them, so a system that passes in Light and
@@ -295,7 +305,13 @@ Tests, inline fixtures built as plain `Map`s:
   `contrastRatio(composite(...), bg)`.
 - A translucent background (`#1d4ed880`) skips the pair and increments
   `skipped.alphaBackground`.
-- A non-hex value (`var(--x)`) skips the pair and increments `skipped.nonHex`.
+- A non-hex value (`var(--x)`) skips the pair and increments `skipped.nonHex`,
+  and so does a translucent `rgba(255, 255, 255, 0.5)` foreground — the case the
+  Alpha decision calls out, asserted so the limit is pinned rather than assumed.
+- A pair with one side in `unresolved` skips and increments
+  `skipped.unresolvable`, with `pairs` 0 — and the *other* mode of the same
+  fixture, which resolves, still reports `pairs` 1. That pairing is what proves
+  the count is per pair per mode.
 
 Verify: `node --test` → the new tests pass, suite green.
 
@@ -320,11 +336,13 @@ Change, in `scripts/verify-check.mjs`:
   ```
   (merge into `flat` from those same dicts, so each file is still read once), then
   group `resolvedTokens(dicts)` by its new `source` index into one
-  `{ mode, values }` entry per file, `mode` being
-  `basename(file).replace(/\.[^.]+$/, '')`. Skip any token whose `resolves` is
-  `false`, counting those whose effective `type` is `'color'` as
-  `unresolvable` for the report — the same "skipped and counted" rule
-  `skippedColourTokens` applies.
+  `{ mode, values, unresolved }` entry per file, `mode` being
+  `basename(file).replace(/\.[^.]+$/, '')`. A token whose `resolves` is `true`
+  goes into `values`; one whose `resolves` is `false` goes into that mode's
+  `unresolved` set instead, so `checkContrast` can count the *pair* it broke
+  rather than the gate counting loose tokens. Nothing here counts unresolvable
+  tokens for the report — the report's `unresolvable` number comes back from
+  `checkContrast` as a pair count.
 - Run the rule unless skipped, exactly as the other three are run:
   ```js
   if (!skipped.has('color-contrast')) {
@@ -349,7 +367,9 @@ Change, in `scripts/verify-check.mjs`:
   and a `contrast:` line after the `excluded:` lines, in the shape
   `validate-adherence.mjs:672` uses:
   `  contrast:     <n> pair(s) compared across <m> mode(s), <x> skipped as unresolvable, <y> skipped as non-hex, <z> skipped for a translucent background`.
-  Print it only when `color-contrast` was not skipped.
+  Print it only when `color-contrast` was not skipped. All four numbers are pairs
+  in the mode they occurred in, which is why the line says "pair(s)" once and
+  means it across the whole line.
 - **`failureDetail`**: add the two classes, each naming what to do, as every rule
   does:
   - `color-contrast` →
@@ -461,11 +481,22 @@ Change, in `scripts/README.md`:
   components, and that a translucent foreground is composited while a translucent
   background is skipped and counted. Name `--skip color-contrast` as the escape
   hatch for a system whose roles are named differently.
+- One sentence in the placeholder paragraph at `:57-62`, next to the existing
+  warning about dropping `--tokens`: the registered form carries a single
+  `dtcg/tokens.json`, and a system with more than one mode file registers **one
+  `--tokens` per mode file**, because one file is one mode. Registering a
+  multi-mode system with one file leaves a script that checks Light and reports
+  that it checked one mode — quieter than the dropped-`--tokens` failure above it
+  and just as wrong.
 
 Change, in `skills/storybook-chromatic-builder/SKILL.md:35-36`: "copy the eleven
 files and register the five npm scripts" → "copy the twelve files and register the
-five npm scripts". Change nothing else in that paragraph — the table is the single
-source of truth for the list, as it already says.
+five npm scripts". Extend the `verify:check` substitution sentence at `:41` — the
+one that already says `--root` and `--tokens` need the repo's real values — with
+the mode rule: one `--tokens` flag per mode file, since `color-contrast` checks
+each file as its own mode and a single-file registration silently checks only
+one. Change nothing else in that paragraph — the table is the single source of
+truth for the list, as it already says.
 
 Verify: `node ci/validate-install-sets.mjs` → passes, and its output line reports
 `docs set (12 files)`. This step is the one most likely to fail that gate: it
@@ -480,14 +511,20 @@ and before the checkpoint:
 
 - Add a **contrast assertion** paragraph. Using the same
   `figma_get_variables` read (filtered to `Color/Semantic`,
-  `resolveAliases: true`) that already verifies the aliases, compute the contrast
-  ratio for each pair in
-  `${CLAUDE_PLUGIN_ROOT}/scripts/lib/contrast.mjs`'s `CONTRAST_PAIRS` — read the
-  table, do not restate it — **in every mode of the collection**, converting
-  Figma's 0–1 RGBA channels to hex first. The pairs are named by their semantic
-  roles (`text/onEmphasis` on `bg/emphasis`, `text/primary` on `bg/default`, each
-  status text on its own status background); a role the system does not have is
-  not asserted.
+  `resolveAliases: true`) that already verifies the aliases, convert Figma's 0–1
+  RGBA channels to hex, then **run the shipped module rather than doing the
+  arithmetic in the transcript**: shape the per-mode values as
+  `[{ mode, values: { "<role path>": "#rrggbb" } }]` and pass them to a single
+  `node` invocation that imports `CONTRAST_PAIRS`, `contrastRatio`, `composite`
+  and `AA_NORMAL_TEXT` from
+  `${CLAUDE_PLUGIN_ROOT}/scripts/lib/contrast.mjs` and prints one line per pair
+  per mode — e.g.
+  `node --input-type=module -e "<import, read JSON from process.argv[1], loop CONTRAST_PAIRS × modes, print mode/fg/bg/ratio>" '<the JSON>'`.
+  The module is being shipped precisely so the maths has one home; the skill
+  reads the table and calls the function, and restates neither. The pairs are
+  named by their semantic roles (`text/onEmphasis` on `bg/emphasis`,
+  `text/primary` on `bg/default`, each status text on its own status
+  background); a role the system does not have is not asserted.
 - **A failing pair stops the tier.** Do not proceed to the checkpoint or to Step 4
   with a pair below 4.5:1. Report it in guide voice
   (`${CLAUDE_PLUGIN_ROOT}/references/guide-voice.md`): name the two roles, the
@@ -498,9 +535,19 @@ and before the checkpoint:
   cheapest place in the whole system to catch it: the mode is being defined right
   now, and nothing is built on it yet.
 - **If the user explicitly accepts a failing pair**, continue, and say plainly in
-  the same breath what it costs downstream: `verify:check` derives the same ratio
-  off the DTCG source at sync time and will fail there too, so the repo will need
-  `--skip color-contrast` registered until the pair clears.
+  the same breath what it costs downstream — describing the mechanism that
+  actually exists, not a registration that cannot reach the sync:
+  1. the acceptance is recorded in this stage's entry (`contrast-baseline` at
+     `result: "fail"`, with `advancedBecause` naming it), and `token-sync-layer`
+     reads that entry before it runs the gate, so the **next token sync is not
+     blocked** by the pair the user accepted — it skips the rule for that run and
+     says so;
+  2. the repo's own registered `verify:check` — the one
+     `storybook-chromatic-builder` wires into CI later — derives the same ratio
+     off the DTCG source and **will** fail there, so that script needs
+     `--skip color-contrast` added by hand until the pair clears.
+
+  Say both, in that order. One is handled for them; the other is theirs to do.
 
 Change, in **Step 4**, alongside the existing manifest update:
 
@@ -540,6 +587,18 @@ the PR is opened:
   **One `--tokens` flag per mode file** — that is what makes the pair get checked
   in every mode; passing only one file of a multi-mode system checks one mode and
   says so on the report's `contrast:` line.
+- **Honour an accepted pair, and only an accepted one.** Before running the gate,
+  read `design-system/proof/token-builder.json` under the same `--root` (it may
+  not exist; then there is nothing to honour). If its `system` entry carries
+  `contrast-baseline` with `result: "fail"` and an `advancedBecause` naming a
+  user acceptance, append `--skip color-contrast` to the run above and tell the
+  user why in one line: they accepted this pair when the mode was built, so the
+  sync is not re-litigating it, and the rule is off for this run only. Nothing
+  else turns the rule off — a `contrast-baseline` that is absent, passing, or
+  failing without a recorded acceptance leaves the rule live, and an agent's
+  attested result never disables a derived rule inside `verify-check.mjs` itself.
+  The skip prints on the report's `skipped:` line and is named in the PR body, so
+  the override stays visible in the place the change lands.
 - **State which failure stops the sync and which does not.** A `color-contrast`
   failure stops it: do not open the PR, report the failing pair and mode in guide
   voice, and say the fix is in Figma (re-point that mode's alias), not in the
@@ -556,17 +615,23 @@ the PR is opened:
 
 Change, in **Step 6**, in the existing record paragraph: the entry now also
 carries the **derived** check `color-contrast`, with the result read off the Step
-5 report and `evidence` naming the modes checked and the tightest ratio. State the
-ordering invariant explicitly: the gate runs in Step 5 and the record is written
-in Step 6, and it is that order which makes recording a derived result honest —
-this stage has the gate's output in hand rather than asserting it, which is the
-one and only reason a stage may record `method: "derived"`. Point at
+5 report and `evidence` naming the modes checked and the tightest ratio. When
+Step 5 skipped the rule for an accepted pair, the entry **omits**
+`color-contrast` entirely and `advancedBecause` names the accepted pair instead —
+a rule that did not run has no derived result, and recording one would be an
+attestation wearing a derived label. State the ordering invariant explicitly: the
+gate runs in Step 5 and the record is written in Step 6, and it is that order
+which makes recording a derived result honest — this stage has the gate's output
+in hand rather than asserting it, which is the one and only reason a stage may
+record `method: "derived"`. Point at
 `${CLAUDE_PLUGIN_ROOT}/references/proof-bundle.md`; do not restate the entry
 shape.
 
 Verify: `node ci/validate-skills.mjs` and `node ci/validate-install-sets.mjs`
 pass. Read both steps back and confirm the ordering invariant is stated in the
-step that depends on it, and that the skip flags carry their reason inline.
+step that depends on it, that the skip flags carry their reason inline, and that
+the accepted-pair read names the file, the condition and what it does **not**
+turn the rule off for.
 
 ### Step 10 — The README roadmap line
 
@@ -582,7 +647,12 @@ roadmap bullet — it is not fully delivered — but stop it promising the half 
 now exists as though it does not.
 
 Verify: read it back beside the native-validation bullet below it, which is the
-model for a roadmap line that states a shipped half precisely.
+model for a roadmap line that states a shipped half precisely. **This step has no
+mechanical check and cannot have one**: nothing in `ci/` reads the root
+`README.md` — `ci/validate-install-sets.mjs` reads `scripts/README.md` only, and
+neither `ci/validate-plugin.mjs` nor `ci/validate-skills.mjs` opens either file.
+The read-back is the verification, and Step 11's CI set is what proves nothing
+else moved.
 
 ### Step 11 — Regenerate adapters and run the full gate set
 
@@ -605,11 +675,16 @@ that one `--tokens` file is one mode, so a system that passes in Light and fails
 in Dark fails; that the same check runs in Figma at token-creation time as the
 attested `contrast-baseline`, and that `token-builder` now records a proof entry;
 that a contrast failure stops a token sync; that `text/disabled` is excluded and
-why; and `--skip color-contrast` as the visible escape hatch. No schema bump —
+why; and `--skip color-contrast` as the visible escape hatch, naming **who will
+need it** — a system whose semantic roles are not spelled the way the table
+expects will see the new `contrast-rule-inert` failure on upgrade with nothing
+changed on its side, and that is the flag for it. No schema bump —
 `verification` is unchanged at `schemaVersion` 7. No version bump, no
 `[Unreleased]` move.
 
-Verify: read it back against the two entries above it for register and shape.
+Verify: read it back against the two entries above it for register and shape. As
+with Step 10, no checker reads `CHANGELOG.md`, so the read-back is the
+verification by design rather than by omission.
 
 ### Step 13 — Measure it end to end, with controls
 
@@ -636,8 +711,11 @@ is substitutable.
    before the next**, so each is the single difference from a green system:
    - a source with no recognised colour roles → `contrast-rule-inert`;
    - `--skip color-contrast` with the dark failure in place → exit `0` and
-     `color-contrast` on the `skipped:` line (the escape hatch works and is
-     visible);
+     `color-contrast` on the `skipped:` line. This is the escape hatch twice
+     over: the flag a consumer adds to their registered script, and the flag
+     `token-sync-layer` appends when it reads an accepted pair off
+     `token-builder`'s entry (Step 9). The CLI behaviour is the same; what the
+     control proves is that it works and stays visible;
    - the token-sync invocation — `--skip orphan-token --skip state-incomplete
      --skip name-drift` on a healthy fixture → exit `0` with **no**
      `nothing-verified`. This is the control for Step 4's counter change, and
