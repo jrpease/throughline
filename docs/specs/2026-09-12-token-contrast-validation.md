@@ -77,7 +77,7 @@ After this ships:
 | Who records the derived result | `token-sync-layer`, which runs `verify:check` in its Step 5 before recording in Step 6 — making it the second stage that records derived results, and for the same stated reason as the first: it has the gate's output in hand rather than asserting it. | Recommended; accepted under Jordan's standing instruction (2026-09-11). #110 named `storybook-chromatic-builder` the only such stage *because* it was the only one that ran the gate first, not as a property of the stage. The token sync is where DTCG sources land on disk, so it is the moment `color-contrast` is both computable and consequential, and its entry is already system-subject. `proof-contradicted` stays reachable for this rule, which is what keeps the `derived` label real. | Recording contrast under a component stage, where a system-wide colour property has no subject. An entry recorded without running the gate, which would be an attestation wearing a derived label. |
 | What stops a token sync | A `color-contrast` failure stops it. Other failures in the same report — `proof-missing` for a component, `state-incomplete`, `proof-stale` — are surfaced to the user and in the PR body, but do not stop the sync. | Recommended; accepted under Jordan's standing instruction (2026-09-11). The sync owns the token tier and nothing else. A token sync blocked because some component's storybook entry is missing is the false wall #110's whole adoption decision was written to avoid, and it would teach users to stop reading the report. The rule the sync owns is the one that stops it. | A sync gated on the gate's exit code, which imports every other stage's state into a token change. A contrast failure that only warns, which is the advisory the plan rules out. |
 | Which rules the sync's gate run skips | `--skip orphan-token --skip state-incomplete --skip name-drift`, stated with the reason in the skill. | Recommended; accepted under Jordan's standing instruction (2026-09-11). `orphan-token` in particular would fail nearly every sync that does its job: a sync that adds a token is adding one nothing in the repo names yet, which is the rule's definition of an orphan. The component rules are about records and code surfaces the sync does not touch. `--skip` is the house answer for a rule a run cannot apply, it prints on the report's `skipped:` line, and `checkProof` already declines to compare a recorded derived result whose rule was skipped — so the storybook stage's cached results are not contradicted by a run that never computed them. | Running the full gate at sync time and teaching people to ignore its output. Dropping `--tokens`, which would switch contrast off silently along with `orphan-token`. |
-| The override path in Figma | `token-builder` stops on a failing pair, reports the ratio and the roles in guide voice, and recommends the fix (re-point that mode's alias at a primitive with more separation). If the user explicitly accepts the failure anyway, the skill records `contrast-baseline` with `result: "fail"`, names the acceptance in `advancedBecause`, and lists the accepted pairs structurally as `accepted: [{ fg, bg, mode }]` on that check. **The acceptance travels in the bundle, and the sync subtracts it**: `token-sync-layer` runs the gate exactly as it always does, then drops from the `color-contrast` failures any whose `(fg, bg, mode)` triple matches a recorded accepted entry, comparing on the same normalized fold the rule itself uses. Nothing left → the sync proceeds and says in one line, and in the PR body, which pair it is not re-litigating. Anything left → it stops as normal. The repo's registered CI `verify:check` is the storying skill's to handle: when `storybook-chromatic-builder` wires that script it reads the same entry and registers `--skip color-contrast` with the reason inline, rather than asking the user to remember a hand-edit to a script that does not exist yet at token-build time. | Recommended; accepted under Jordan's standing instruction (2026-09-11). It is the user's brand and their call; what the plugin owes them is that the call is explicit, recorded, and that its downstream cost is stated before they make it rather than discovered at the next sync. Routing the escape hatch through the bundle is what makes the promise reachable: the sync's gate run is constructed by the skill, not by an npm script, so a `--skip` "registered in the repo" could never reach it — and at first sync there is nothing registered to reach, because the docs install set arrives with `storybook-chromatic-builder`, which runs *after* the sync in the pipeline (`README.md:134-141`). Reading the acceptance off the store keeps the decision where it was made and visible in the sync's own message and in the PR body, and keeps the gate itself dumb: no attested `fail` ever switches a derived rule off inside `verify-check.mjs`. **Subtracting matched failures rather than skipping the run is what makes "only an accepted one" true of the mechanism and not merely of this sentence.** An acceptance is about one pair in one mode; switching the rule off for the sync would carry every *other* pair through unchecked too — including one introduced in Figma after the acceptance was given — which is a silent hole in the only rule that invocation has live. Subtraction also retires itself: a pair the user later fixes stops appearing in the failures, so there is nothing left to match and nothing to clean up, where a skip would stay in force until somebody thought to re-run `token-builder`. And because the run actually happens, the entry records `color-contrast` as a real derived result instead of omitting it, which keeps `proof-contradicted` reachable on the path the design intends. The triple is matched exactly, so a stale or malformed `accepted` entry matches nothing and the sync stops — the safe direction to fail in. | A silent override. A hard stop with no path forward, which a plugin that does not own the brand cannot justify — and which is what "register `--skip color-contrast`" alone would have delivered, since nothing registered reaches the sync's own invocation. An override that leaves no trace in the bundle. A gate that reads an agent's attested failure and disables its own rule, which is the self-attestation the store exists to avoid. **An acceptance that silences contrast for every later sync**, carrying a pair introduced after it straight through unchecked. **An acceptance that has to be retired by hand** once the pair is fixed. An override recognised by parsing prose. |
+| The override path in Figma | `token-builder` stops on a failing pair, reports the ratio and the roles in guide voice, and recommends the fix (re-point that mode's alias at a primitive with more separation). If the user explicitly accepts the failure anyway, the skill records `contrast-baseline` with `result: "fail"`, names the acceptance in `advancedBecause`, and lists the accepted pairs structurally as `accepted: [{ fg, bg, mode }]` on that check. **The acceptance travels in the bundle, and the sync subtracts it**: `token-sync-layer` runs the gate exactly as it always does, then drops from the `color-contrast` failures any whose `(fg, bg, mode)` triple matches a recorded accepted entry, comparing `fg` and `bg` on the same normalized fold the rule itself uses, and `mode` after translating the recorded **Figma** mode name into this sync's file label. `token-builder` records the Figma name because at folder stage that is the only mode name that exists — no DTCG file has been written yet — and the sync owns the translation because it is the thing that wrote those files. Nothing left → the sync proceeds and says in one line, and in the PR body, which pair it is not re-litigating. Anything left → it stops as normal. The repo's registered CI `verify:check` is the storying skill's to handle: when `storybook-chromatic-builder` wires that script it reads the same entry and registers `--skip color-contrast` with the reason inline, rather than asking the user to remember a hand-edit to a script that does not exist yet at token-build time. | Recommended; accepted under Jordan's standing instruction (2026-09-11). It is the user's brand and their call; what the plugin owes them is that the call is explicit, recorded, and that its downstream cost is stated before they make it rather than discovered at the next sync. Routing the escape hatch through the bundle is what makes the promise reachable: the sync's gate run is constructed by the skill, not by an npm script, so a `--skip` "registered in the repo" could never reach it — and at first sync there is nothing registered to reach, because the docs install set arrives with `storybook-chromatic-builder`, which runs *after* the sync in the pipeline (`README.md:134-141`). Reading the acceptance off the store keeps the decision where it was made and visible in the sync's own message and in the PR body, and keeps the gate itself dumb: no attested `fail` ever switches a derived rule off inside `verify-check.mjs`. **Subtracting matched failures rather than skipping the run is what makes "only an accepted one" true of the mechanism and not merely of this sentence.** An acceptance is about one pair in one mode; switching the rule off for the sync would carry every *other* pair through unchecked too — including one introduced in Figma after the acceptance was given — which is a silent hole in the only rule that invocation has live. Subtraction also retires itself: a pair the user later fixes stops appearing in the failures, so there is nothing left to match and nothing to clean up, where a skip would stay in force until somebody thought to re-run `token-builder`. And because the run actually happens, the entry records `color-contrast` as a real derived result instead of omitting it, which keeps `proof-contradicted` reachable on the path the design intends. The triple is matched exactly — after the `normalizeText` fold on the two roles and the Figma-mode translation on the label — so a stale or malformed `accepted` entry matches nothing and the sync stops, the safe direction to fail in. | A silent override. A hard stop with no path forward, which a plugin that does not own the brand cannot justify — and which is what "register `--skip color-contrast`" alone would have delivered, since nothing registered reaches the sync's own invocation. An override that leaves no trace in the bundle. A gate that reads an agent's attested failure and disables its own rule, which is the self-attestation the store exists to avoid. **An acceptance that silences contrast for every later sync**, carrying a pair introduced after it straight through unchecked. **A sync-side acceptance that has to be retired by hand** once the pair is fixed — the registered CI flag is a separate cost, stated to the user at the time rather than hidden. An override recognised by parsing prose. **An acceptance whose `mode` no skill can produce**, which would make the subtraction inert and the whole override path unreachable. |
 | Install and registration | `lib/contrast.mjs` joins the **Documentation scripts — install as a set** table in `scripts/README.md` with `—` in the npm column. The set goes from eleven files to **twelve**; the script count stays **five**. | Recommended; accepted under Jordan's standing instruction (2026-09-11). It is imported by `verify-check.mjs`, so `ci/validate-install-sets.mjs`'s closure check requires it in the table, and `countProblems` will fail the build on every stale count claim — `scripts/README.md:37` and `skills/storybook-chromatic-builder/SKILL.md:36` — which is the mechanism that exists because a script shipped without its registration twice (#103, #105). | A new npm script for a module nothing invokes directly. A fourth install set. |
 | README roadmap | Narrow the "Built-in accessibility checks" bullet to what will then be true: colour contrast validated when tokens are created and again when they sync, component-level accessibility still ahead. | Recommended; accepted under Jordan's standing instruction (2026-09-11). The bullet is the promise #45 was filed against, and half of it comes true here. Leaving it whole would keep overclaiming the component half; the same correction was made for the native-validation line when #37 changed the fact behind it. | Deleting the bullet, which would drop a real roadmap item. Leaving a promise that is now half-shipped and still reads as neither. |
 | CHANGELOG | One bullet under `[Unreleased]` → Added, in the register of the `verify:check` entry above it, naming the rule, the pair table, the mode model, the two stages that record it and the `--skip` escape hatch. | Recommended; accepted under Jordan's standing instruction (2026-09-11). It is a user-facing capability and a change to the stage vocabulary skills write into. No schema bump: `verification` already exists at `schemaVersion` 7 and gains no field. | Folding it into the #110 entry. Any version bump or `[Unreleased]` move. |
@@ -370,7 +370,11 @@ Change, in `scripts/verify-check.mjs`:
   extended with `normalizeHex` and `rgbToHex`). Step 2 is what made it
   importable.
 - **Header comment**: add `color-contrast` and `contrast-rule-inert` to the
-  Failing list.
+  Failing list. Two comments in the same file also go untrue with this change and
+  move with it: `scripts/verify-check.mjs:14` and `:178` each say "the three
+  derived rules still run" — there are four now. Same class as the two sentences
+  Step 7 corrects in the storying skill; a stale count in a comment is how the
+  next reader learns the wrong rule set.
 - **`gateMode`**: keep the parsed token dicts, not only the merged `flat`. Build
   the modes array once:
   ```js
@@ -496,10 +500,15 @@ Change, in the plain reference register the file already uses:
   this is where it is defined: a check may carry
   `accepted: [{ fg, bg, mode }]`, listing pairs a user explicitly accepted as
   failing. Only `contrast-baseline` uses it today. State what reads it and how —
-  `token-sync-layer` subtracts an exactly-matching `(fg, bg, mode)` triple from
-  that sync's `color-contrast` failures, and `storybook-chromatic-builder` uses
-  its presence to decide whether the registered `verify:check` carries
-  `--skip color-contrast` — and state the rule that keeps it honest: **it is data
+  `token-sync-layer` subtracts a matching `(fg, bg, mode)` triple from that sync's
+  `color-contrast` failures, and `storybook-chromatic-builder` applies the same
+  subtraction to its own gate run to decide whether the registered `verify:check`
+  carries `--skip color-contrast`. **Define what each field holds**, since two
+  skills write and read them: `fg` and `bg` are the dotted `CONTRAST_PAIRS` paths
+  and match after the `normalizeText` fold; `mode` is the **Figma** mode name as
+  `token-builder` saw it, because at folder stage no DTCG file exists to name a
+  mode after — so a reader matching against gate output must translate it to that
+  run's file label first. Then state the rule that keeps it honest: **it is data
   a caller subtracts, never something `verify-check.mjs` reads**. The gate does
   not know the field exists; an attested result never switches a derived rule off
   inside the gate. Say too that a triple which no longer matches any failure is
@@ -554,8 +563,8 @@ each file as its own mode and a single-file registration silently checks only
 one. Change nothing else in that paragraph — the table is the single source of
 truth for the list, as it already says.
 
-**Three more changes in that file, all of which go untrue the moment this
-merges.** They are here because this is the step that already edits it:
+**Four more changes in that file, all of which go untrue or go wrong the moment
+this merges.** They are here because this is the step that already edits it:
 
 - `:260`, in the Step 5.5 wiring paragraph: "All three rules (`orphan-token`,
   `state-incomplete`, `name-drift`) go live now" → four, naming `color-contrast`,
@@ -565,18 +574,33 @@ merges.** They are here because this is the step that already edits it:
   derived results" → it is now one of two, and for the same reason — it runs the
   gate before it records. Point at `references/proof-bundle.md`, which Step 6
   corrects in the same way, rather than restating which the other stage is.
-- **Step 5.5 gains the accepted-pair read**, which is what stops this skill's
-  mandatory gate run from becoming a wall the user cannot pass. Before wiring the
-  script, read `design-system/proof/token-builder.json` under the repo root: when
-  its `system` entry's `contrast-baseline` carries a non-empty `accepted`,
-  register `verify:check` with `--skip color-contrast`, and say in one line that
-  contrast is skipped in CI because a pair was accepted when the mode was built,
-  naming the pair and that removing the flag is what re-enables the rule once it
-  is fixed. This skill is where the registered script is created, so it is the
-  only place that can apply the consequence — `token-builder` runs at folder
-  stage, before any repo, and cannot edit a `package.json` that does not exist.
-  Without this, Step 5.5's "confirm it passes before handing off" is a hard stop
-  on a path the Override decision says is supported.
+- `:41-43`, the substitution paragraph: it says dropping `--tokens` "skips
+  `orphan-token` on every run". After Step 4 it skips `color-contrast` too, since
+  a run with no token source has nothing to compute a ratio from. Name both.
+- **Step 5.5 gains the accepted-pair subtraction**, which is what stops this
+  skill's mandatory gate run from becoming a wall the user cannot pass. Apply the
+  **same rule the sync applies, against a live run** — not a presence check on the
+  stored field. At the substitution moment, run `verify:check` with the repo's
+  real `--tokens` paths, read
+  `design-system/proof/token-builder.json` under the repo root, subtract from the
+  `color-contrast` failures every one whose `(fg, bg, mode)` matches an `accepted`
+  entry (translating the recorded Figma mode name to this repo's file labels, as
+  Step 9 does), and then: a subtraction actually happened and nothing else
+  remains → register `verify:check` with `--skip color-contrast`, saying in one
+  line which pair was accepted, that contrast is therefore not checked in CI at
+  all while the flag is there, and that deleting the flag is what re-enables it;
+  nothing was subtracted → register the script without the flag, because the pair
+  either was fixed or never applied here and switching the rule off would hide a
+  live failure; anything else still failing → stop, exactly as the step already
+  does. **Presence of `accepted` is not the condition** — the field persists until
+  `token-builder` is re-run, which nothing asks for, so a user who fixed the pair
+  and re-synced would otherwise get CI's contrast rule switched off for a pair
+  that now passes, while being told the flag is what re-enables it. This skill is
+  where the registered script is created, so it is the only place that can apply
+  the consequence — `token-builder` runs at folder stage, before any repo, and
+  cannot edit a `package.json` that does not exist. Without this, Step 5.5's
+  "confirm it passes before handing off" is a hard stop on a path the Override
+  decision says is supported.
 
 Verify: `node ci/validate-install-sets.mjs` → passes, and its output line reports
 `docs set (12 files)`. This step is the one most likely to fail that gate: it
@@ -646,7 +670,11 @@ and before the checkpoint:
   `package.json` and stays until someone removes it, which is the one thing this
   override leaves behind. Say that plainly rather than letting them find it: a
   user who fixes the pair months later and still sees contrast skipped in CI has
-  been told the gate is live when it is not.
+  been told the gate is live when it is not. Say the scope too: `--skip` is
+  rule-wide, so while that flag is registered CI checks **no** pair, including one
+  introduced after the acceptance. The sync is what catches that one — every token
+  change goes through it — but the user should know CI is not the thing standing
+  guard meanwhile.
 
 Change, in **Step 4**, alongside the existing manifest update:
 
@@ -659,8 +687,14 @@ Change, in **Step 4**, alongside the existing manifest update:
   on bg/emphasis"`), and `advancedBecause`. When the user accepted a failing pair,
   the check's `result` is `"fail"`, `advancedBecause` names the acceptance, and
   the check carries `accepted: [{ fg, bg, mode }]` — one entry per accepted pair,
-  `fg` and `bg` as the dotted token paths `CONTRAST_PAIRS` uses and `mode` as the
-  mode label. **Write the pair structurally as well as in prose**: `advancedBecause`
+  `fg` and `bg` as the dotted token paths `CONTRAST_PAIRS` uses, and `mode` as
+  **the Figma mode name this skill just read** (`Light`, `Dark` — the names in the
+  collection it built), not a file name. At this point in the pipeline no DTCG
+  file exists to name a mode after: the sync writes those later and chooses their
+  names, so a filename here would be a guess that never matches. The sync
+  translates this name to its own file label before matching (Step 9); recording
+  what was actually observed is what makes that translation possible.
+  **Write the pair structurally as well as in prose**: `advancedBecause`
   is for whoever reads the bundle later, and `accepted` is what
   `token-sync-layer` matches against, so an acceptance recorded only in prose
   would stop the next sync exactly as if it had never been given. Accept only the
@@ -700,8 +734,13 @@ the PR is opened:
   its `system` entry's `contrast-baseline` check, then drop from this run's
   `color-contrast` failures every one whose `(fg, bg, mode)` matches an entry in
   it, comparing `fg` and `bg` on the same `normalizeText` fold the rule matches
-  roles with and `mode` on its label. **Match the triple exactly and subtract
-  nothing else.** Do not treat `result: "fail"` on its own as the condition, and
+  roles with. **Translate `mode` before comparing it**: the recorded value is the
+  Figma mode name `token-builder` saw (`Dark`), and the gate labels a mode by its
+  DTCG file's basename (`semantic.dark`). This skill is the one that knows both —
+  it read the Figma modes and it wrote the files — so map each Figma mode to the
+  file it generated for that mode and compare against that label. Untranslated,
+  the triple can never match and the override path silently does not exist.
+  **Match the triple exactly and subtract nothing else.** Do not treat `result: "fail"` on its own as the condition, and
   do **not** pattern-match `advancedBecause`: the first switches off a whole rule
   on the strength of one pair, and the second reads prose written for a human as
   though it were a test.
@@ -734,10 +773,16 @@ Change, in **Step 6**, in the existing record paragraph: the entry now also
 carries the **derived** check `color-contrast`, with the result read off the Step
 5 report and `evidence` naming the modes checked and the tightest ratio. The gate
 runs on every sync, so this check is always recorded — there is no path on which
-it is omitted. When a failure was subtracted as an accepted pair, the result is
-the one the gate reported for what remained, and `advancedBecause` names the
-accepted pair as the reason the sync proceeded; `evidence` says which pair was
-subtracted. Recording the gate's real output, rather than omitting the check on
+it is omitted. **When a failure was subtracted, record `result: "fail"` — what the
+gate actually reported** — with `advancedBecause` naming the accepted pair as the
+reason the sync proceeded anyway, and `evidence` saying which pair was subtracted.
+Do not record `pass` on the grounds that nothing remained after subtraction: the
+gate does not know about subtraction, the pair still fails on disk, and the next
+sync's own gate run recomputes it — so a recorded `pass` would raise
+`proof-contradicted` on every later sync report. That is a standing red line on
+the path the design intends, and a stored result that disagrees with the file it
+claims to describe is the attestation-wearing-a-derived-label this spec's
+Who-records row rules out. Recording the gate's real output, rather than omitting the check on
 an override path, is what keeps the `derived` label honest and
 `proof-contradicted` reachable here. State the ordering invariant explicitly: the
 gate runs in Step 5 and the record is written in Step 6, and it is that order
@@ -849,15 +894,22 @@ is substitutable.
      decision's central claim, and the sync proceeds there *because a failure was
      subtracted* — an absence, so by the Evidence decision it owes a control. The
      subtraction lives in the skill rather than the CLI, so exercise it against
-     the real report: with the dark failure in place, record a `token-builder`
-     entry whose `contrast-baseline` carries
-     `accepted: [{ fg: "color.text.onEmphasis", bg: "color.bg.emphasis", mode: "semantic.dark" }]`,
-     apply Step 9's matching rule to the gate's `color-contrast` failures, and
-     show nothing is left — the sync proceeds. Then break a **second** pair
-     (`color.text.primary` over `color.bg.default`, same mode), re-run the gate
-     and apply the same rule: that failure is still standing, so the sync stops.
-     One acceptance must not carry an unrelated pair through, and a green run
-     cannot be told from a broken rule without this pair.
+     the real report. **Record the entry the way `token-builder` would, with the
+     Figma mode name** — `accepted: [{ fg: "color.text.onEmphasis",
+     bg: "color.bg.emphasis", mode: "Dark" }]`, not the fixture's file name —
+     and translate `Dark` → `semantic.dark` as Step 9 says, so the control
+     exercises the bridge rather than assuming it. A hand-authored file label here
+     would prove the matching rule while hiding the fact that no skill can produce
+     that value. The interface is the gate's formatted failure line
+     (`<fg> on <bg> is <ratio>:1 in <mode> …`, Step 4) — machine-formatted output
+     with the three fields in it, which is not the "parsing prose" the Override
+     decision rules out; say which you are reading. With the dark failure in
+     place, apply the rule and show nothing is left — the sync proceeds. Then
+     break a **second** pair (`color.text.primary` over `color.bg.default`, same
+     mode), re-run the gate, apply the same rule, and **quote the one failure line
+     still standing** beside the triple that matched: the sync stops. One
+     acceptance must not carry an unrelated pair through, and a green run cannot
+     be told from a broken rule without this pair.
 4. **The alpha pair, both ways.** A `status/danger/text` at 50% alpha over an
    opaque `status/danger/bg` is composited and compared (it appears in the pair
    count); the same pair with the *background* at 50% alpha is skipped and shows
