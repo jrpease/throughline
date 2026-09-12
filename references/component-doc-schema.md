@@ -31,7 +31,7 @@ deterministically. JSON is equally machine-legible for AI consumers.
     "type": { "primary": "Highest-emphasis action…", "secondary": "…", "ghost": "…" },
     "size": { "sm": "…", "md": "…", "lg": "…" }
   },
-  "states": { "hover": "…", "focus": "…", "disabled": "…", "loading": "…" },
+  "states": { "hover": "…", "focus": "…", "active": "…", "disabled": "…", "loading": "…" },
   "dos": ["Lead with a verb", "One primary button per view"],
   "donts": ["Don't use for navigation", "Don't stack >2 primaries"],
   "accessibility": {
@@ -40,6 +40,7 @@ deterministically. JSON is equally machine-legible for AI consumers.
     "notes": ["Icon-only buttons need an aria-label"]
   },
   "tokensUsed": ["color.bg.primary", "spacing.sm", "radius.md"],
+  "archetype": "button",
   "status": "stable",
   "updatedAt": "2026-07-14",
   "provenance": {
@@ -56,6 +57,15 @@ deterministically. JSON is equally machine-legible for AI consumers.
 - **Optional content:** `whenToUse`, `whenNotToUse`, `variants`, `states`, `dos`,
   `donts`, `accessibility`, `tokensUsed`.
 - **Lifecycle:** `status` (`draft`|`beta`|`stable`|`deprecated`), `updatedAt` (ISO date).
+- **`archetype`** — optional classification metadata: one of `button`, `input`,
+  `choice`, `card`, `modal`, `badge`, `other`, written by the authoring pipeline
+  that already matches a component to its nearest archetype. **Excluded from the
+  fingerprint**, like `provenance`, because it is classification rather than
+  projected content — so adding it changes no existing fingerprint and forces no
+  re-render. `verify:check` reads it to decide which baseline interaction states a
+  component owes; with it absent the gate falls back to an exact name match, and
+  reports `archetype-unknown` when neither resolves. See
+  `${CLAUDE_PLUGIN_ROOT}/references/proof-bundle.md`.
 - **`provenance`** — per-block author source, one of `imported`, `ai-inferred`,
   `best-practice`, `w3c-apg`, `framework`, `user`, or a `+`-joined combination
   (e.g. `best-practice+user`). Regeneration **re-infers** a block whose
