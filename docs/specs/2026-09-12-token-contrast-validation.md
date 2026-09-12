@@ -1,7 +1,7 @@
 # Colour contrast as a stop condition in the proof bundle
 
 Status: planned
-Reviewed: 2026-09-12 — needs revision
+Reviewed: 2026-09-12 — ready to build
 Date: 2026-09-12
 Issue: #45
 Builds on: `docs/specs/2026-09-12-verification-proof-bundle.md` (#110) — its store,
@@ -516,8 +516,9 @@ Change, in the plain reference register the file already uses:
   skills write and read them: `fg` and `bg` are the dotted `CONTRAST_PAIRS` paths
   and match after the `normalizeText` fold; `mode` is the **Figma** mode name as
   `token-builder` saw it, because at folder stage no DTCG file exists to name a
-  mode after — so a reader matching against gate output must translate it to that
-  run's file label first. Then state the rule that keeps it honest: **it is data
+  mode after — so a reader that matches on `mode` must translate it to that run's
+  file label first. A reader that matches on the roles alone, as the storying
+  skill does, never touches the field. Then state the rule that keeps it honest: **it is data
   a caller subtracts, never something `verify-check.mjs` reads**. The gate does
   not know the field exists; an attested result never switches a derived rule off
   inside the gate. Say too that a triple which no longer matches any failure is
@@ -595,10 +596,14 @@ this merges.** They are here because this is the step that already edits it:
   **live run, and match on the roles only** — not a presence check on the stored
   field, and **not** the sync's `(fg, bg, mode)` triple. In Step 5.5, run
   `verify:check` with the repo's real `--tokens` paths, read
-  `design-system/proof/token-builder.json` under the repo root, and compare each
-  live `color-contrast` failure's `(fg, bg)` — the canonical `CONTRAST_PAIRS`
-  paths, identical on both sides, needing no translation — against the `fg`/`bg`
-  of each `accepted` entry, on the same `normalizeText` fold. Then: every live
+  `design-system/proof/token-builder.json` under the repo root — the `accepted`
+  array lives on its `system` entry's `contrast-baseline` check, and the file may
+  not exist, in which case nothing is accepted and any failure stops the step.
+  Read the failures off `formatReport`'s `[color-contrast]` lines, the same
+  interface Step 9 names, and compare each one's `(fg, bg)` — the canonical
+  `CONTRAST_PAIRS` paths, identical on both sides, needing no translation —
+  against the `fg`/`bg` of each `accepted` entry, on the same `normalizeText`
+  fold. Then: every live
   failure is an accepted role pair → edit the `verify:check` script Step 1
   registered in `package.json` to carry `--skip color-contrast`, saying in one
   line which pair was accepted, that contrast is therefore not checked in CI **at
@@ -616,10 +621,16 @@ this merges.** They are here because this is the step that already edits it:
   This skill also cannot translate — it never read the Figma modes and never wrote
   the DTCG files, and nothing records that mapping for it; only the sync, which
   did both, can (Step 9), and the Decisions row says so. The cost is stated rather
-  than hidden: if the accepted pair later fails in a *second* mode too, the roles
-  still match and CI stays skipped. The sync is what catches that — it subtracts
-  per mode, runs on every token change, and runs before this skill in the pipeline
-  — which is the backstop that makes the coarser test here safe. This skill is
+  than hidden: **whenever an accepted pair's roles also fail in a mode the user
+  did not accept — already, or later — the roles still match and CI stays
+  skipped.** The sync is the backstop: it subtracts per mode, so it stops on that
+  unaccepted mode, and every token change goes through it. **That backstop only
+  holds on a tree the sync finished on**, so say so here: a sync that stopped
+  leaves both mode files written and the failure standing, and this skill running
+  over that tree would see two failures, match both on roles, and register the
+  flag over one nobody accepted. Do not wire the script on a tree whose last sync
+  stopped — the pipeline stopped there too, and the fix belongs in Figma before
+  the storying stage runs at all. This skill is
   where the registered script is created, so it is the only place that can apply
   the consequence — `token-builder` runs at folder stage, before any repo, and
   cannot edit a `package.json` that does not exist. Without this, Step 5.5's
@@ -801,8 +812,10 @@ the PR is opened:
   `skills/token-sync-layer/SKILL.md:106-107` is the one place this skill is told
   where to write DTCG, and it shows a single `packages/tokens/dtcg/tokens.json`.
   Under the mode model one file is one mode, so a multi-mode system written that
-  way lands as the modes-nested-in-one-file layout `color-contrast` abstains on
-  (Open questions), and the registered form this spec warns about in Step 7. Show
+  way lands as either the modes-nested-in-one-file layout `color-contrast`
+  abstains on (Open questions) **or** the single-`--tokens` registration this spec
+  warns about in Step 7 — which one depends on how the modes are encoded in that
+  file, and both are wrong for the same reason. Show
   one file per mode alongside the single-file case, and say which is which. It is
   not false today; it becomes misleading the moment this rule exists.
 - **Say why the three rules are skipped**, so nobody removes the flags: a sync
