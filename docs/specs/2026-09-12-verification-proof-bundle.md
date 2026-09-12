@@ -1,6 +1,6 @@
 # Verification proof bundle + negative stop conditions
 
-Status: planned
+Status: built
 Reviewed: 2026-09-12 — ready to build
 Date: 2026-09-12
 Issue: #110
@@ -993,7 +993,13 @@ in-place invocation would skip all three.
      package, re-run, and show the orphan going *undetected* — the gate comes
      back green on a system that still has an orphan. Restore the file and show
      it failing again. That pair is the only evidence that the `excluded:` line
-     is doing work rather than decorating the report. **Then remove the orphan
+     is doing work rather than decorating the report. **The orphan has to be
+     added to the generated `web/tokens.css` as well as to the DTCG source**, the
+     way a real Style Dictionary build would rewrite it: with a stale generated
+     file the middle run catches the orphan anyway, the partition looks
+     unnecessary and the control asserts nothing. Invoke that middle run as
+     `node scripts/verify-check.mjs …` rather than `npm run verify:check`, since
+     deleting `package.json` deletes the npm script. **Then remove the orphan
      token and confirm a clean `0` before running either control below.** Both of
      them assert an exit `0`, and the orphan carried forward from step 3 would
      make that impossible — step 3's "immediately after the clean run" does not
@@ -1033,3 +1039,53 @@ Then add `## What shipped` and `## Where it diverged` to this spec and set
 
 Verify: the note contains both the clean run and every control's output; `node --test`
 and the six other CI commands are green on the final tree.
+
+## What shipped
+
+All twelve steps, as designed. The gate is `scripts/verify-check.mjs`, with
+`scripts/lib/proof.mjs` (the store) and `scripts/lib/component-states.mjs` (the
+archetype baseline) beside it, registered as `verify:check` in the documentation
+install set — now eleven files and five scripts. The manifest carries
+`verification` at `schemaVersion` 7, additive with a `null` default, and the doc
+record gained an optional, non-projected `archetype` field.
+
+Three stages write entries: `component-builder` and
+`storybook-chromatic-builder` keyed by component, `token-sync-layer` by the
+subject `system`. `storybook-chromatic-builder` is the one stage that records
+derived results, because it runs the gate before it records. `figma-executor`
+gained the baseline-state assertion, scoped to the three archetypes the
+standards prose names.
+
+Verified end to end in
+`docs/superpowers/notes/2026-09-12-proof-bundle-e2e.md`: a fixture design system
+with the install set copied in and `npm run verify:check` invoked from the tokens
+package, a clean run at exit `0`, and twelve controls that each had to fail and
+did — the eight in Plan Step 12.3 plus the partition pair, the promotion
+regression and the lifecycle gate. 704 unit tests pass and all seven CI commands
+are green.
+
+## Where it diverged
+
+Steps 10 to 12, which is the range this build covered end to end:
+
+- **Step 12's partition control needed one thing the spec did not say.** Adding
+  the orphan token to `dtcg/tokens.json` alone does not discriminate: the
+  fixture's generated `web/tokens.css` goes stale, so the middle run catches the
+  orphan even with the partition switched off, and the control asserts nothing.
+  The first attempt came back red for exactly that reason and was discarded
+  rather than recorded. The orphan has to be written into the generated output
+  too, the way a real Style Dictionary build would. Amended in Step 12 above, and
+  the discarded attempt is written up in the note — it is the clearest evidence
+  in the run that the control discriminates.
+- **That middle run is invoked directly, not through `npm run`.** Deleting
+  `packages/tokens/package.json` deletes the npm script along with it. Same
+  command, same cwd, same arguments. Amended in Step 12 above.
+- **The corrected partition pair ran after the promotion and lifecycle
+  controls**, not before them, because the first attempt was discarded and
+  repeated. The spec's real ordering constraint held: the orphan was removed and
+  a clean `0` confirmed before either control that asserts a zero. The counts in
+  the note's partition section are therefore from the later state — 3 components
+  and 2 stage files rather than 2 and 1.
+- **Step 10 was purely mechanical.** `node scripts/adapters/generate.mjs`
+  rewrote the three skills Step 9 edited. Nothing under `adapters/` was touched
+  by hand.
