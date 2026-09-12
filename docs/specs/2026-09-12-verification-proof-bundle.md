@@ -1,6 +1,7 @@
 # Verification proof bundle + negative stop conditions
 
 Status: planned
+Reviewed: 2026-09-12 — needs revision
 Date: 2026-09-12
 Issue: #110
 Supersedes: `docs/superpowers/plans/2026-07-15-verification-proof-bundle-handoff.md`
@@ -68,8 +69,8 @@ After this ships:
 | Manifest schema | `schemaVersion` 6 → 7, adding top-level `verification`, default `null`. No existing field changes. | Recommended; accepted under Jordan's standing instruction (2026-09-11). The handoff's 5 → 6 is stale: v6 shipped `figma.docCardVariables` (`references/manifest-schema.md:379-381`). The additive-with-default shape is what v4→v5 and v5→v6 both did. | Reusing v6. Any change to an existing field. |
 | One entry's shape | `{ at, changed: [], checks: [{ name, method, result, evidence }], screenshot?, advancedBecause }`, stored under `subjects[<name>]`; system-wide stages use the subject `"system"`. `evidence` and `screenshot` are pointers, hashes or one-line summaries — never content. `at` is an ISO string passed in by the caller. | Recommended; accepted under Jordan's standing instruction (2026-09-11). It is the handoff's proposed shape (`:87-90`) with `stage`/`subject` lifted into the file and key, since storing them twice invites the two to disagree. Pointers-not-content matches `meta[name].doc`. `at` is passed in because `Date.now()` is unavailable in some execution contexts (handoff `:88`). | A flat log keyed only by stage, which cannot say which component a check was about. Screenshots or diffs inlined into the store. |
 | Derived vs. attested (the fork open since 2026-08-07) | Both, labelled, and not equal. `method: "derived"` means `verify:check` recomputes it off disk every run; the stored result is a cache, and a disagreement fails as `proof-contradicted`. `method: "attested"` means an agent observed it live; it is printed on the informational line and is never the reason a run passes. A stage whose entry carries only attested checks reports `attested-only`, informational. | Recommended; accepted under Jordan's standing instruction (2026-09-11). This is the question the brainstorm paused on: a bundle written by the agent that did the work is self-attestation, and `docs:check` has teeth because it recomputes rather than trusting a report. The repo already has the precedent for the honest half — `edit-unverified` (`scripts/docs-check.mjs:5-11`) records what the CLI cannot read without pretending it verified it. | A bundle that is trusted because it was written. Dropping Figma observations entirely, which would lose the read-back's result. |
-| What `verify:check` fails on | `proof-missing`, `proof-contradicted`, `proof-stale` (stage file's fingerprint ≠ the manifest's), `orphan-token`, `state-incomplete`, `name-drift`, `nothing-verified`, and `orphan-rule-inert`. Informational: `attested-only`, `archetype-unknown`, `proof-unadopted`. Exit `0` clean, `1` a failure, `2` bad arguments. | Recommended; accepted under Jordan's standing instruction (2026-09-11). The failing/informational split and the exit codes are the house convention (`scripts/docs-check.mjs:86`, `scripts/README.md:115-116`). `nothing-verified` is `nothing-scanned`'s rule (`validate-adherence.mjs:629`): a green run must mean something was checked. | A warnings-only gate. Advisory-only negative conditions, which the plan rules out at §3 Phase 3.2. |
-| Adoption on an existing system | A manifest with no `verification` key at all reports `proof-unadopted` (informational) and skips every proof-integrity check; the three negative conditions still run. Once `verification` exists, a missing entry for a completed stage is `proof-missing` and fails. | Recommended; accepted under Jordan's standing instruction (2026-09-11). Every existing project has zero entries. Failing them on upgrade is the standing warning wall `layout-upgrade-available` was written to avoid (`references/component-doc-schema.md:139-143`), and the same shape as the brownfield-first-run adoption rule (`:152-154`). | Failing every pre-existing system on the first run. Silently passing a system that opted in and then stopped writing entries. |
+| What `verify:check` fails on | `proof-missing`, `proof-contradicted`, `proof-stale` (a stage file that exists but whose fingerprint ≠ the manifest's), `orphan-token`, `state-incomplete`, `name-drift`, `nothing-verified`, and `orphan-rule-inert`. Informational: `attested-only`, `archetype-unknown`, `proof-unadopted`. Exit `0` clean, `1` a failure, `2` bad arguments. **`nothing-verified` counts subjects examined, not rules enabled**: zero alias candidates, zero doc records and zero built components means nothing was verified, however many rules were switched on. | Recommended; accepted under Jordan's standing instruction (2026-09-11). The failing/informational split and the exit codes are the house convention (`scripts/docs-check.mjs:86`, `scripts/README.md:115-116`). `nothing-verified` is `nothing-scanned`'s rule (`validate-adherence.mjs:623-630`), and that rule counts what the scan *found* (`stats.elements`, `stats.literals`, `stats.dimensions`), not how many rules were on — counting enabled rules would pass a system with no doc records at all, which is exactly the green-having-read-nothing run the rule exists to stop. A missing file is `proof-missing` only; `proof-stale` is about disagreement between a file and its hash, so the two classes never fire on the same condition. | A warnings-only gate. Advisory-only negative conditions, which the plan rules out at §3 Phase 3.2. A green run over an empty system. |
+| Adoption on an existing system | A manifest with no `verification` key at all reports `proof-unadopted` (informational) and skips every proof-integrity check; the three negative conditions still run. Once `verification` exists, the proof checks are scoped to what the system actually adopted: a stage listed in `verification.stages` whose file is gone fails as `proof-missing`, and a built component with no subject entry fails as `proof-missing` **only when it was touched after that stage's first recorded entry** — `components.meta[name].updatedAt` later than the earliest `at` in the stage file. | Recommended; accepted under Jordan's standing instruction (2026-09-11). Every existing project has zero entries. Failing them on upgrade is the standing warning wall `layout-upgrade-available` was written to avoid (`references/component-doc-schema.md:139-143`), and the same shape as the brownfield-first-run adoption rule (`:152-154`). Scoping by adoption time is what keeps that true in practice: the first entry a stage records creates its file, and an unscoped rule would then fail the other N−1 already-built components on the very next run — the warning wall, rebuilt from the other side. Comparing against the file's *earliest* entry rather than the manifest's `at` means the window does not slide forward as later entries land. `updatedAt` is stamped at creation and refreshed on every re-run (`references/manifest-schema.md:250-262`), so it is the honest "when was this last touched". A component with no `updatedAt` is exempt — a stated false negative, in the same house style as `orphan-token`'s limit. | Failing every pre-existing system on the first run. Failing every already-built component the moment one entry is recorded. Silently passing a system that opted in and then stopped writing entries. |
 | `orphan-token` definition | A source token whose own `$value` is an alias (`{…}`) and which nothing names: no other token's `$value` references it, no scanned source file's text contains its normalized key, and no component doc record lists it in `tokensUsed`. Primitives (tokens whose value is a literal) are exempt. Binding evidence is permissive: `normalizeKey(fileText).includes(normalizeKey(path))`. Fires `orphan-rule-inert` when no source token is an alias. | Recommended; accepted under Jordan's standing instruction (2026-09-11). "A token defined and bound by nothing" (#110) needs a definition a zero-dependency CLI can compute. A token whose value is an alias is the semantic tier by construction in a two-tier system (`references/manifest-schema.md:211`), and the semantic tier is the layer code is supposed to consume; a primitive is legitimately reached only through a semantic, so gating it would fail correct systems. Permissive matching is deliberate: `normalizeKey` already folds every adapter's naming convention (`validate-token-output.mjs:181-185`), so a token counts as bound if its name appears anywhere, in any spelling. A failing rule must not guess. | Failing an unused primitive. Class-name-aware scanning (a Tailwind `bg-bg-primary` is caught by the substring fold, not by understanding Tailwind). Checking Figma variable bindings. |
 | `orphan-token`'s stated limit | A token counts as bound when its key is a substring of a normalized file, so `color.bg.primary` is bound by a mention of `color.bg.primary.hover`, and by prose that happens to contain the words. Stated in the code comment and in `scripts/README.md`, not hidden. | Recommended; accepted under Jordan's standing instruction (2026-09-11). Every miss is a false negative (an orphan reported as bound), never a false failure. `lib/dtcg.mjs:87-92` is the house precedent for writing a limit down rather than papering over it. | Word-boundary matching, which would miss `--color-bg-primary` inside `var()` chains and every camelCase adapter symbol. |
 | `state-incomplete` — what is asserted | Per component doc record: resolve its archetype, then require every state in that archetype's **unconditional** baseline, minus `default`, to be a key of `record.states` (compared with `normalizeName`). Baselines: `button` and `choice` → hover, focus, active, disabled; `input` → hover, focus, disabled; `card`, `modal`, `badge`, `other` → none (exempt). | Recommended; accepted under Jordan's standing instruction (2026-09-11). The baseline is `references/figma-component-standards.md:126-138`, which is prescriptive prose today and gated nowhere. `default` is dropped because "the resting state" is not documentation — the Figma matrix still requires it, and that half is the executor's attested check. Conditional states (`loading`, `error`, `success`, `selected`) are dropped because the standard itself makes them situational ("decide *which* conditional states apply"), and a hard gate cannot decide that. What is left is exactly the miss #110 names: a spec that forgets `disabled`. | Failing a Card for having no hover state. Gating `loading` on every button. |
@@ -81,7 +82,8 @@ After this ships:
 | The executor's new assertion | `agents/figma-executor.md` step 4 gains one line: before finalizing, compare the spec's declared `state` axis against the archetype baseline in `references/figma-component-standards.md`, and return `BLOCKED` naming the missing state rather than building a matrix that omits one. The values it saw are reported for the entry as an attested check. | Recommended; accepted under Jordan's standing instruction (2026-09-11). #110's second gap is that "the read-back checks only the spec's declared matrix. A spec that forgets `disabled` passes." The read-back is the only place that sees the built matrix, so that is where the assertion belongs; the derived half (`state-incomplete` on the record) is an independent second layer, not a substitute. | Teaching the CLI to read a Figma variant matrix. Leaving the executor to trust the spec. |
 | Reviewer verdicts | Recorded by the dispatching skill as an attested check named `review`, carrying `approved` / `changes-requested`. `agents/reviewer.md` is unchanged. | Recommended; accepted under Jordan's standing instruction (2026-09-11). The dispatcher already receives the verdict as the subagent's return value; changing the agent contract to emit structured data is a second, larger change with its own failure modes. | A structured return contract for the agent tier in this change. |
 | Install and registration | `verify-check.mjs`, `lib/proof.mjs` and `lib/component-states.mjs` join the **Documentation scripts — install as a set** table in `scripts/README.md`, registering `verify:check`. The set goes from eight files and four scripts to eleven files and five. `storybook-chromatic-builder` Step 1's stated counts move with it. | Recommended; accepted under Jordan's standing instruction (2026-09-11). The set is the documentation-and-verification set a consuming repo gets, and `ci/validate-install-sets.mjs` already checks both the import closure and the stated counts — the mechanism that exists precisely because a script shipped without its registration twice (#103, #105). The three new files' imports are all already in the set. | A fourth install set. Copying the script without registering an npm script. |
-| CLI surface | `verify-check.mjs [--root <dir>] [--tokens <file>]… [--source <dir>]… [--skip <rule>]…`, plus the `--record` mode above. With no `--tokens`, `orphan-token` is reported as skipped, not passed. With no `--source`, the walk covers `--root`. | Recommended; accepted under Jordan's standing instruction (2026-09-11). This is `validate-adherence.mjs`'s surface (`scripts/README.md:60-80`): explicit paths because cwd is the package holding the script, repeatable `--tokens` for a system whose values span mode files, and `--skip` as the supported answer for a rule a repo genuinely cannot apply. A skipped rule is absent rather than inert. | Defaulting `--tokens` to a guessed path. Silently passing a run that had no token source. |
+| CLI surface | `verify-check.mjs [--root <dir>] [--tokens <file>]… [--source <dir>]… [--skip <rule>]…`, plus the `--record` mode above. With no `--tokens`, `orphan-token` is reported as skipped, not passed. With no `--source`, the walk covers `--root`. **The registered form carries those paths**: `"verify:check": "node scripts/verify-check.mjs --root ../.. --tokens dtcg/tokens.json"`, placeholders the installing skill substitutes for the repo's real layout, exactly as `adherence:check` already requires. | Recommended; accepted under Jordan's standing instruction (2026-09-11). This is `validate-adherence.mjs`'s surface (`scripts/README.md:60-80`): explicit paths because cwd is the package holding the script, repeatable `--tokens` for a system whose values span mode files, and `--skip` as the supported answer for a rule a repo genuinely cannot apply. A skipped rule is absent rather than inert. The registered form has to carry the paths for the same reason the `adherence:check` row does: a bare `node scripts/verify-check.mjs` has no `--tokens`, so every consumer who registers what the table says would run a gate with `orphan-token` permanently skipped — #110's first stop condition, disabled by its own registration. | Defaulting `--tokens` to a guessed path. Silently passing a run that had no token source. Registering the gate in a form that can never run one of its rules. |
+| Wiring it into a consumer's CI before `orphan-token` has been measured | Wire it now, all three rules live. `--skip orphan-token` is the visible, documented escape hatch for a repo it misfires on; measurement narrows the rule, it does not gate the wiring. | Recommended; accepted under Jordan's standing instruction (2026-09-11). The plan's §3 Phase 3.2 noisy-rule worry is real, but a rule nobody runs is a rule nobody measures, and the earlier draft held the two positions at once — an open question saying "measure before it is registered in anyone's CI" beside a Plan step that registers it. `--skip` is already this repo's answer for a rule a repo cannot apply (`scripts/README.md:76-80`) and it prints on the report's `skipped:` line, so switching it off stays visible rather than silent. | Registering the gate with `orphan-token` quietly off (by dropping `--tokens`). Holding the whole gate back for one unmeasured rule. |
 | CHANGELOG | One new bullet under `[Unreleased]` → Added, naming the new gate, the manifest bump to 7, and the three rules. | Recommended; accepted under Jordan's standing instruction (2026-09-11). It is a new user-facing capability and a manifest schema change; every prior schema bump has its own entry (`CHANGELOG.md:817`, `:1099`, `:1210`). | Folding it into the adherence-gate entry. Any version bump or `[Unreleased]` move. |
 | Evidence | A new e2e note written by the build from the real change, plus `## What shipped` here. Every run whose pass condition is "no failures" is paired, in the same session and through the same CLI, with a control that must fail. | Recommended; accepted under Jordan's standing instruction (2026-09-11). #77's rule, now in `ci/README.md:69-99`: an absence cannot report on itself, and a green gate proves nothing without a case it must reject. | Recording unit-test counts as end-to-end evidence. |
 
@@ -92,11 +94,13 @@ After this ships:
   models state, not history, everywhere else, and nobody has asked "what did this
   check say last month" yet. An append-only `design-system/proof/journal.ndjson`
   is the obvious shape if they do. Unresolved.
-- **`orphan-token` against a real app.** The rule has been reasoned about, not
-  measured; the noisy-rule risk is the one §3 Phase 3.2 of the plan calls out for
-  the colour rule. **I'd recommend measuring it against the Phase 3 app (§4 Q7,
-  `throughline-ds`) before it is registered in anyone's CI**, and narrowing rather
-  than downgrading it if it is noisy. Unresolved.
+- **How noisy `orphan-token` is on a real app.** The rule is reasoned about and
+  fixture-tested, not measured against a real codebase; the noisy-rule risk is the
+  one §3 Phase 3.2 of the plan calls out for the colour rule. **I'd recommend
+  measuring it against the Phase 3 app (§4 Q7, `throughline-ds`) once it is
+  wired**, and narrowing rather than downgrading it if it is noisy. The wiring
+  does not wait on the measurement (Decisions); `--skip orphan-token` is the
+  escape hatch until then. Unresolved.
 - **Figma-side orphan variables.** A Figma variable no layer binds is the other
   half of "defined and bound by nothing", and it needs a whole-file node walk
   collecting `boundVariables`. **I'd recommend a separate item** once the bundle
@@ -105,10 +109,12 @@ After this ships:
   table cannot resolve is exempt from `state-incomplete`. **I'd recommend
   revisiting once records carry it in practice** — requiring it today fails every
   existing record. Unresolved.
-- **`proof-missing` granularity.** A component in `components.built` with no
-  entry for a stage it has clearly been through is a miss the current design
-  reports only when `verification` exists. **I'd recommend leaving it there**
-  until adoption is real. Unresolved.
+- **`proof-missing` granularity.** A built component with no entry is flagged
+  only when `verification` exists *and* its `components.meta[name].updatedAt`
+  postdates the stage's first recorded entry, so a component carrying no
+  `updatedAt` at all is never flagged. **I'd recommend leaving that false
+  negative** until adoption is real: the alternative is failing components whose
+  history the manifest cannot date. Unresolved.
 - **Whether `advancedBecause` should be constrained.** It is free prose today, so
   a stage can advance "because it looked fine". **I'd recommend a controlled
   vocabulary later**, once there are real entries to generalise from.
@@ -182,7 +188,10 @@ Change: write the reference for the store, in the plain reference register of
 - **The manifest pointer**, `verification`, and that skills write it only through
   `verify-check.mjs --record`.
 - **The stage vocabulary in v1**: `component-builder`, `storybook-chromatic-builder`,
-  `token-sync-layer`.
+  `token-sync-layer` — the first two keyed by component, the last by the subject
+  `"system"`. State that the machine-readable copy of that split is
+  `PER_COMPONENT_STAGES` in `scripts/lib/proof.mjs`, and that a change here must
+  change that constant.
 - **The check names in v1** and which method each uses: `structural-read-back`
   (attested), `state-baseline` (attested), `figma-name` (attested), `review`
   (attested), `build` (attested), `orphan-token` (derived), `state-incomplete`
@@ -192,8 +201,32 @@ Change: write the reference for the store, in the plain reference register of
 Reference other files as `${CLAUDE_PLUGIN_ROOT}/references/<file>.md`, the
 convention every reference uses.
 
-Verify: `node ci/validate-skills.mjs` passes (it parses JSON blocks in reference
-docs); read the example back and confirm it matches the shape the prose states.
+Files: `ci/validate-skills.mjs`, `ci/validate-skills.test.mjs`
+
+Change: give that worked example a real mechanical check, because today there
+isn't one. `validateManifestDoc` (`ci/validate-skills.mjs:68-82`) parses exactly
+one block — the first ```` ```json ```` in `references/manifest-schema.md` — and
+asserts only that `schemaVersion` is an integer. Nothing checks any other
+reference doc's JSON. Add `export function validateReferenceJson({ fileName, source })`:
+every ```` ```json ```` block in the file must parse, reported as
+`references/<file>: json block <n> does not parse: <message>`. Call it from
+`main()` over every `references/*.md`, alongside the existing
+`validateManifestDoc`, which keeps its `schemaVersion` assertion for the manifest
+doc alone. Add the reference-doc count to the success line. Surveyed before
+writing it: the only JSON blocks under `references/` today are one in
+`manifest-schema.md` and two in `component-doc-schema.md`, and all three parse —
+so this check is one the current tree already satisfies.
+
+Tests in the file's existing style (`ci/validate-skills.test.mjs:60-80` is the
+model): two well-formed blocks → `[]`; a source whose second block is malformed →
+one problem naming the file and the block index; a source with no JSON block →
+`[]`, since most reference docs have none.
+
+Verify: `node --test` → the new `validate-skills` tests pass, suite green.
+`node ci/validate-skills.mjs` → passes, and its success line counts the reference
+docs it read, with `references/proof-bundle.md`'s worked example among the blocks
+it parsed. Then read the example back and confirm it matches the shape the prose
+states — the parse check proves it is JSON, not that it is the right JSON.
 
 ### Step 3 — The archetype state baseline
 
@@ -246,6 +279,18 @@ Change: a zero-dependency module. Import `stableStringify` and `fingerprint`
 from `./doc-record.mjs` — do not write a second hash.
 
 - `PROOF_DIR = 'design-system/proof'`.
+- `STAGES` — the v1 stage vocabulary,
+  `['component-builder', 'storybook-chromatic-builder', 'token-sync-layer']`.
+- `PER_COMPONENT_STAGES` — `new Set(['component-builder', 'storybook-chromatic-builder'])`.
+  Every other stage in `STAGES` is system-wide and keyed by the subject
+  `"system"`. This is the constant `checkProof` asks "is this stage keyed by
+  component?"; it lives here, with the rest of the store's vocabulary, rather
+  than being implied by the prose in `references/proof-bundle.md`.
+- `DERIVED_RULE_SCOPE` — `{ 'orphan-token': 'system', 'state-incomplete': 'component', 'name-drift': 'component' }`,
+  which tells the reader how to compare a recorded result against a rerun (Step 6).
+- `stageAdoptedAt(stageFile)` → the earliest `at` across the file's subjects, or
+  `null` when it has none. This is the stage's adoption moment, and it does not
+  slide forward as later entries land.
 - `stagePath(root, stage)` → `join(root, PROOF_DIR, `${stage}.json`)`.
 - `loadStage(root, stage)` → the parsed object, or `null` when the file does not
   exist.
@@ -270,7 +315,10 @@ for a missing `at`, an empty `checks`, a `method` of `"guessed"`, a `result` of
 `{ stage, subjects: { Button: … } }`; on an existing file replaces one subject
 and leaves the other untouched, with keys sorted. `stageFingerprint` is stable
 across key insertion order (build the same object two ways, assert equal hashes)
-and changes when any value changes.
+and changes when any value changes. `stageAdoptedAt` returns the earliest `at` of
+three subjects recorded out of order, and `null` for a file with no subjects.
+`PER_COMPONENT_STAGES` holds `component-builder` and not `token-sync-layer`, and
+every one of its members is in `STAGES`.
 
 Verify: `node --test` → the new tests pass, suite green.
 
@@ -313,6 +361,17 @@ Export, each pure and separately testable:
   disagreement is one `{ rule: 'name-drift', name, spellings: { manifest, record, file, dir } }`
   listing only the surfaces that were available.
 
+**How a record is found for a name.** `records` is a `Map` keyed by component
+name, never an array: the caller (Step 6) keys each loaded `*.doc.json` by
+`meta[name].doc.path` when the manifest sets one for that name, and otherwise by
+the file's basename minus `.doc.json` — the naming `component-doc-schema.md:105-112`
+already documents. `loadRecord` (`scripts/lib/doc-record.mjs:52`) just parses, so
+the key comes from where the file was found, not from inside it. The record's own
+`name` field is therefore one of the spellings being compared and never the key
+— which is what makes manifest `Button` plus a record named `Buttons` a
+`name-drift` failure rather than a record that silently cannot be found.
+`checkStates` reads the same map and reports `archetype-unknown` against the key.
+
 Put a comment above `checkOrphanTokens` stating the permissive-substring limit
 from the Decisions table, in the style of `scripts/lib/dtcg.mjs:87-92`.
 
@@ -340,23 +399,45 @@ Files: `scripts/verify-check.mjs`, `scripts/verify-check.test.mjs`
 
 Change: add the proof-integrity layer, the report and the CLI.
 
-- `checkProof({ manifest, root, derived })` → for each stage named in
-  `manifest.verification?.stages`: load the stage file; `proof-stale` when its
-  recomputed `stageFingerprint` ≠ the recorded `fingerprint`, or the file is
-  missing. `proof-missing` when `manifest.verification` exists and a stage listed
-  in it has no file, or a component in `components.built` has no subject entry in
-  a per-component stage file that exists. `proof-contradicted` when a recorded
-  check whose `method` is `"derived"` has `result: "pass"` while `derived` (the
-  failures computed in Step 5, keyed by rule name and subject) says it fails, or
-  the reverse. Informational: `proof-unadopted` when `manifest.verification` is
-  absent entirely — and in that case run none of the above; `attested-only` for a
-  subject whose entry has no derived check.
+- `checkProof({ manifest, root, derived, built, meta, skipped })` → when
+  `manifest.verification` is absent entirely, the single informational
+  `proof-unadopted` and nothing else. Otherwise, for each stage named in
+  `manifest.verification.stages`:
+  - `proof-missing` when the stage file is not on disk. This class owns "the file
+    is gone"; `proof-stale` never fires for a missing file.
+  - `proof-stale` when the file exists and its recomputed `stageFingerprint` ≠
+    the recorded `fingerprint`.
+  - `proof-missing` (per component) for each stage in `PER_COMPONENT_STAGES`
+    whose file exists: a name in `components.built` with no `subjects[name]`
+    entry **and** whose `meta[name].updatedAt` parses as a date strictly later
+    than `stageAdoptedAt(stageFile)`. A component with no `updatedAt`, an
+    unparseable one, or one that predates the stage's first entry is exempt — it
+    was built before this system adopted the bundle, and failing it is the
+    warning wall the Adoption decision rules out. The exemption is a stated false
+    negative; put it in the comment above the rule, not only here.
+  - `proof-contradicted` when a recorded check whose `method` is `"derived"`
+    disagrees with the rerun. How they are compared comes from
+    `DERIVED_RULE_SCOPE`:
+    - **component-scoped** (`state-incomplete`, `name-drift`): a check recorded
+      under subject `S` with `result: "pass"` contradicts when the rerun's
+      failures for that rule name `S`; `result: "fail"` contradicts when they do
+      not.
+    - **system-scoped** (`orphan-token`): the rerun found orphans or it did not,
+      system-wide. Any recorded `orphan-token` check, under any subject,
+      contradicts when its `result` disagrees with that — the subject says where
+      the claim was recorded, not what it was about, and the report prints both.
+    - A recorded derived check whose rule is in `skipped`, or whose name is not
+      in `DERIVED_RULE_SCOPE`, is not compared. A rule this run did not compute
+      cannot contradict anything, and pretending otherwise would fail a repo for
+      using `--skip`.
+  - Informational: `attested-only` for a subject whose entry has no derived check.
 - `formatReport(result)` → an array of lines, headed by a count line in the shape
-  `validate-adherence.mjs`'s uses: components checked, token candidates
-  considered, files scanned, stages read. Then `skipped:` when `--skip` was
-  passed, then failures one per line as `  - [rule] detail`, then informational
-  lines as `  ~ …`. Every rule prints what to do about it, the way
-  `docs-check.mjs:109` names `/document-component`.
+  `validate-adherence.mjs`'s uses, and counting **subjects, not rules**:
+  components checked, records read, token candidates considered, files scanned,
+  stages read. Then `skipped:` when `--skip` was passed, then failures one per
+  line as `  - [rule] detail`, then informational lines as `  ~ …`. Every rule
+  prints what to do about it, the way `docs-check.mjs:109` names
+  `/document-component`.
 - `main()` with `parseArgs`: `root` (string, default `'.'`), `tokens`
   (string, multiple), `source` (string, multiple), `skip` (string, multiple), and
   the recorder's `record` (boolean), `stage` (string), `subject` (string),
@@ -366,11 +447,19 @@ Change: add the proof-integrity layer, the report and the CLI.
     `docs-check.mjs:93`). Load every `--tokens` file, merge with `flattenDtcg`.
     Walk each `--source` dir (or `--root` when none given) with `walk` from
     `lib/source-scan.mjs` and pre-normalize each file's text. Load every
-    `design-system/docs/components/*.doc.json`. Run the three checks, minus any
-    named in `--skip`, then `checkProof`. Fail with `nothing-verified` when no
-    derived check ran at all — a rule that was skipped does not count as having
-    run. Fail with `orphan-rule-inert` when `orphan-token` ran and had no
-    candidates. Print the report; exit `1` on any failure, else `0`.
+    `design-system/docs/components/*.doc.json` into the `Map` Step 5 describes,
+    keyed by basename minus `.doc.json`, with a `meta[name].doc.path` that points
+    elsewhere winning for that name. Run the three checks, minus any named in
+    `--skip`, then `checkProof`. Fail with `nothing-verified` when the enabled
+    derived rules **examined nothing**: no alias candidate for `orphan-token`, no
+    doc record for `state-incomplete`, and no name in `components.built` for
+    `name-drift`. The count is of subjects, not of rules switched on — a rule
+    that ran over zero subjects has verified nothing, and counting it as having
+    run would pass a system with no doc records at all. A rule switched off with
+    `--skip` is absent and contributes nothing either way. Fail with
+    `orphan-rule-inert` when `orphan-token` ran and had no candidates; both can
+    fire on the same run, as `nothing-scanned` and `colour-rule-inert` already
+    do. Print the report; exit `1` on any failure, else `0`.
   - **Record mode** (`--record`): require `--stage` and `--entry`; `--subject`
     defaults to `"system"`. Read and `JSON.parse` the entry file, run
     `entryProblems`, exit `2` listing them when non-empty. `loadStage`,
@@ -386,10 +475,17 @@ Change: add the proof-integrity layer, the report and the CLI.
 
 Tests, using `mkdtempSync` fixtures and a `runCli` helper that spawns the script
 with `node` (model it on `scripts/validate-token-output.test.mjs`'s helper):
-- A clean system exits `0` and prints no failure lines.
+- A clean system exits `0` and prints no failure lines. State the fixture
+  explicitly: `components.built` is `["Button", "Card"]`, both carry a
+  `meta[name].updatedAt` earlier than the recorded `component-builder` entry's
+  `at`, and only `Button` has an entry — so `Card` is exempt under the adoption
+  scope, and the clean run is clean for the reason the design says it is.
 - The same system with `disabled` removed from the Button record exits `1` and
   the output names `state-incomplete`. **This is the discriminating control for
   the clean run above** — assert both in the same test file.
+- The same system with `Card`'s `meta.updatedAt` moved past the entry's `at` and
+  still no entry exits `1` with `proof-missing` — the control that proves the
+  adoption scope is a scope and not an off switch.
 - A manifest with no `verification` exits `0` and prints `proof-unadopted`.
 - A stage file whose content is edited after recording exits `1` with
   `proof-stale`.
@@ -397,6 +493,12 @@ with `node` (model it on `scripts/validate-token-output.test.mjs`'s helper):
   with `proof-contradicted`.
 - A run with no `--tokens` and every other rule skipped exits `1` with
   `nothing-verified`.
+- A system with every rule enabled but no doc records and an empty
+  `components.built` exits `1` with `nothing-verified` — the case that separates
+  counting subjects from counting enabled rules.
+- An entry recording `state-incomplete` as `pass` for a subject the rerun fails
+  exits `1` with `proof-contradicted`, and the same check recorded for a subject
+  the rerun passes does not.
 - Record mode writes the stage file, stamps the manifest and bumps
   `schemaVersion` 6 → 7; a second record for another subject leaves the first
   intact and changes the fingerprint.
@@ -435,10 +537,13 @@ projected content, and that `verify:check` reads it to decide which baseline
 interaction states a component owes. Add `"active"` to the example record's
 `states` object: the example is a Button, and the baseline requires it.
 
-Verify: `node ci/validate-skills.mjs` → passes (the JSON blocks parse and
-`schemaVersion` is an integer). `node --test` → green: the doc-record
-fingerprint tests must be unaffected, which is the point of keeping `archetype`
-out of `PROJECTED_KEYS`.
+Verify: `node ci/validate-skills.mjs` → passes. With Step 2's
+`validateReferenceJson` in place this is a real check on both edited files: every
+JSON block in `manifest-schema.md` and `component-doc-schema.md` parses, and the
+manifest doc's `schemaVersion` is still asserted to be an integer. Without that
+step it would have covered only the first block of `manifest-schema.md`. `node
+--test` → green: the doc-record fingerprint tests must be unaffected, which is
+the point of keeping `archetype` out of `PROJECTED_KEYS`.
 
 ### Step 8 — The install set
 
@@ -453,8 +558,16 @@ Change:
   contradicts; installed as `verify:check`), `lib/proof.mjs` and
   `lib/component-states.mjs` (both `—` in the "Installed as" column).
 - The **Documentation scripts — install as a set** table: add
-  `verify-check.mjs` with `"verify:check": "node scripts/verify-check.mjs"`, and
-  `lib/proof.mjs` and `lib/component-states.mjs` with `—`.
+  `verify-check.mjs` with
+  `"verify:check": "node scripts/verify-check.mjs --root ../.. --tokens dtcg/tokens.json"`,
+  and `lib/proof.mjs` and `lib/component-states.mjs` with `—`. The paths are
+  explicit for the same reason the `adherence:check` row's are: cwd is the
+  package holding the script, and a bare `node scripts/verify-check.mjs` passes
+  no `--tokens`, which by this gate's own rule skips `orphan-token` on every run.
+  Say in the paragraph under the table that `verify:check`, like
+  `adherence:check`, carries placeholder paths the installing skill substitutes
+  for the repo's layout — and that dropping `--tokens` rather than substituting
+  it is how a repo ends up with a rule that never runs.
 - The sentence above that table: "the same **eight** files and register the same
   same **four** scripts" → **eleven** and **five**. Check no other number words
   in that section describe the set.
@@ -467,9 +580,13 @@ Change:
 Files: `skills/storybook-chromatic-builder/SKILL.md`
 
 Change: Step 1's install paragraph — "copy the eight files and register the four
-npm scripts" → "copy the eleven files and register the five npm scripts". Do not
-restate the list; that table is the single source of truth, as the paragraph
-already says.
+npm scripts" → "copy the eleven files and register the five npm scripts", and
+extend the substitution sentence that already singles out `adherence:check`
+(`skills/storybook-chromatic-builder/SKILL.md:36-42`) to name `verify:check`
+too: its `--root` and `--tokens` need the repo's real paths, and registering it
+without `--tokens` leaves `orphan-token` skipped on every run. Do not restate the
+file list; that table is the single source of truth, as the paragraph already
+says.
 
 Verify: `node ci/validate-install-sets.mjs` → passes, and its output line reports
 `docs set (11 files)`. This step is the one most likely to fail that gate: it
@@ -499,8 +616,13 @@ Files: `skills/storybook-chromatic-builder/SKILL.md`
 Change: Step 7, alongside the manifest updates — record one entry per finalized
 component for stage `storybook-chromatic-builder`, with attested `build` (the
 story build outcome) and `review` checks, and `advancedBecause`. In Step 5.5's
-"Wire the gate" paragraph, add `verify:check` beside `docs:check` as part of the
-repo's verification, and run it once here.
+"Wire the gate" paragraph (`skills/storybook-chromatic-builder/SKILL.md:250-253`),
+add `verify:check` beside `docs:check` as part of the repo's verification, and run
+it once here — **with the repo's real `--tokens` path**, so `orphan-token`
+actually runs rather than reporting as skipped. All three rules go live now
+(Decisions); if the orphan rule misfires on this repo, `--skip orphan-token` is
+the documented answer and it prints on the report's `skipped:` line. Dropping
+`--tokens` is not: that switches the rule off silently.
 
 Files: `skills/token-sync-layer/SKILL.md`
 
@@ -555,20 +677,27 @@ Verify: read it back against the two entries above it for register and shape.
 Files: `docs/superpowers/notes/2026-09-12-proof-bundle-e2e.md` (new), this spec
 
 Change: build a fixture design system in the session scratchpad — a
-`design-system.json` at `schemaVersion: 6`, two doc records (a complete `Button`
-and a `Card`), a small DTCG source with primitives and semantics, and a source
+`design-system.json` at `schemaVersion: 6` whose `components.built` is
+`["Button", "Card"]`, with `components.meta` giving both an `updatedAt` dated
+before the entry recorded in step 1 below; two doc records (a complete `Button`
+and a `Card`); a small DTCG source with primitives and semantics; and a source
 file that references some of them. Then, in one session, through the installed
 CLI:
 
-1. Record a `component-builder` entry for `Button`; show the stage file, the
+1. Record a `component-builder` entry for `Button` only; show the stage file, the
    manifest pointer and the bump to `7`.
-2. Run the gate clean → exits `0`.
+2. Run the gate clean → exits `0`. `Card` has no entry and does not fail, because
+   its `updatedAt` predates the stage's first entry — that is the adoption scope
+   working, and the note should say so rather than leave it looking like luck.
 3. **The discriminating controls, each run immediately after the clean run and
    each of which must fail:** delete `disabled` from the Button record
    (`state-incomplete`); add a semantic token nothing names (`orphan-token`);
    rename the record to `Buttons` (`name-drift`); hand-edit the stage file
-   (`proof-stale`); record `orphan-token` as `pass` with an orphan present
-   (`proof-contradicted`); run with every rule skipped (`nothing-verified`).
+   (`proof-stale`); delete the stage file (`proof-missing`); move `Card`'s
+   `updatedAt` past the entry's `at` with no entry recorded for it
+   (`proof-missing`, per component); record `orphan-token` as `pass` with an
+   orphan present (`proof-contradicted`); run with every rule skipped
+   (`nothing-verified`).
 4. Restore, re-run clean → exits `0` again.
 
 Write the note with the real commands and their real output, following
