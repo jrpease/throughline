@@ -25,7 +25,8 @@ import { loadRecord } from './lib/doc-record.mjs';
 import { flattenDtcg } from './lib/dtcg.mjs';
 import { walk, normalizeName } from './lib/source-scan.mjs';
 import { missingStates, resolveArchetype } from './lib/component-states.mjs';
-import { tokenPackageDirs } from './validate-adherence.mjs';
+import { AA_NORMAL_TEXT, CONTRAST_PAIRS, contrastRatio, parseHex, composite } from './lib/contrast.mjs';
+import { tokenPackageDirs, normalizeHex, rgbToHex } from './validate-adherence.mjs';
 import {
   DERIVED_RULE_SCOPE,
   PER_COMPONENT_STAGES,
@@ -150,6 +151,81 @@ export function checkNames({ built = [], meta = {}, records = new Map() }) {
     if (folded.size > 1) failures.push({ rule: 'name-drift', name, spellings });
   }
   return failures;
+}
+
+// A pair is evaluated once per mode, and has to clear in every mode it is
+// evaluated in — a system that passes in Light and fails in Dark fails, full
+// stop, because the failure list carries the mode and nothing averages across
+// them. A pair whose roles are absent from a mode abstains rather than
+// passing: that mode contributes nothing for that pair, which is why
+// `contrast-rule-inert` exists — a rule that recognised no role anywhere must
+// not read as a clean run.
+//
+// Alpha: a translucent foreground has one correct answer over a known
+// background, so it is composited and compared. A translucent background does
+// not — what is behind it is a layout fact the token tier does not hold — so
+// that pair is skipped and counted rather than guessed at.
+export function checkContrast({ modes }) {
+  const failures = [];
+  const skipped = { unresolvable: 0, nonHex: 0, alphaBackground: 0 };
+  let pairs = 0;
+
+  for (const { mode, values, unresolved } of modes) {
+    const resolved = new Map();
+    for (const [path, value] of values) resolved.set(normalizeText(path), value);
+    const unresolvedFolded = new Set([...unresolved].map(normalizeText));
+
+    for (const pair of CONTRAST_PAIRS) {
+      const fgKey = normalizeText(pair.fg);
+      const bgKey = normalizeText(pair.bg);
+      const fgDefined = resolved.has(fgKey) || unresolvedFolded.has(fgKey);
+      const bgDefined = resolved.has(bgKey) || unresolvedFolded.has(bgKey);
+      // A side absent from both this mode's resolved values and its unresolved
+      // set means the mode does not define it at all — not evaluated, not
+      // counted anywhere.
+      if (!fgDefined || !bgDefined) continue;
+
+      if (unresolvedFolded.has(fgKey) || unresolvedFolded.has(bgKey)) {
+        skipped.unresolvable += 1;
+        continue;
+      }
+
+      const fgValue = resolved.get(fgKey);
+      const bgValue = resolved.get(bgKey);
+      const fgHex = normalizeHex(fgValue) ?? rgbToHex(fgValue);
+      const bgHex = normalizeHex(bgValue) ?? rgbToHex(bgValue);
+      if (!fgHex || !bgHex) {
+        skipped.nonHex += 1;
+        continue;
+      }
+
+      const bgParsed = parseHex(bgHex);
+      if (bgParsed.a < 1) {
+        skipped.alphaBackground += 1;
+        continue;
+      }
+
+      const fgParsed = parseHex(fgHex);
+      const fgComposited = fgParsed.a < 1 ? composite(fgHex, bgHex) : fgHex;
+
+      const ratio = contrastRatio(fgComposited, bgHex);
+      pairs += 1;
+      if (ratio < pair.threshold) {
+        failures.push({
+          rule: 'color-contrast',
+          mode,
+          fg: pair.fg,
+          bg: pair.bg,
+          fgValue,
+          bgValue,
+          ratio,
+          threshold: pair.threshold,
+        });
+      }
+    }
+  }
+
+  return { failures, skipped, pairs };
 }
 
 // Does this stage owe this component an entry yet?

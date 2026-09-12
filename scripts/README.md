@@ -34,7 +34,7 @@ tested here; copied verbatim by `token-crosswalk-builder` into the user's
 registering them leaves a repo with a script on disk and no entry point, which
 is how a stale `docs:check` went unnoticed for a full release. Both
 `storybook-chromatic-builder` (first-time setup) and `/document-component`
-(freshness refresh) install the same eleven files and register the same five
+(freshness refresh) install the same twelve files and register the same five
 scripts:
 
 | File | npm script |
@@ -50,6 +50,7 @@ scripts:
 | `verify-check.mjs` | `"verify:check": "node scripts/verify-check.mjs --root ../.. --tokens dtcg/tokens.json"` |
 | `lib/proof.mjs` | — (imported by the above) |
 | `lib/component-states.mjs` | — (imported by the above) |
+| `lib/contrast.mjs` | — (imported by the above) |
 
 A refresh that adds a file must also add its npm script; check `package.json`
 for all five npm scripts every time, not just the file that changed.

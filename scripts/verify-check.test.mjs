@@ -6,7 +6,9 @@ import {
   checkOrphanTokens,
   checkStates,
   checkNames,
+  checkContrast,
 } from './verify-check.mjs';
+import { CONTRAST_PAIRS, contrastRatio, composite } from './lib/contrast.mjs';
 
 test('aliasTargets finds a reference in a plain string value and in an object value member', () => {
   const targets = aliasTargets({
@@ -117,6 +119,130 @@ test('checkNames: an MDX surface at Button/Button.mdx agrees', () => {
 
 test('checkNames: a component with no record and no surface has nothing to disagree with', () => {
   assert.deepEqual(checkNames({ built: ['Button'] }), []);
+});
+
+test('checkContrast: a pair failing in one mode fails, even though it clears in another — the mode claim', () => {
+  const modes = [
+    {
+      mode: 'light',
+      values: new Map([
+        ['color.text.onEmphasis', '#ffffff'],
+        ['color.bg.emphasis', '#1d4ed8'],
+      ]),
+      unresolved: new Set(),
+    },
+    {
+      mode: 'dark',
+      values: new Map([
+        ['color.text.onEmphasis', '#94a3b8'],
+        ['color.bg.emphasis', '#1d4ed8'],
+      ]),
+      unresolved: new Set(),
+    },
+  ];
+  const { failures } = checkContrast({ modes });
+  assert.equal(failures.length, 1);
+  assert.equal(failures[0].mode, 'dark');
+  assert.ok(failures[0].ratio < 4.5);
+  assert.ok(!failures.some((f) => f.mode === 'light'));
+});
+
+test('checkContrast: a mode where every pair present clears reports no failures and counts every pair', () => {
+  const values = new Map();
+  for (const pair of CONTRAST_PAIRS) {
+    values.set(pair.fg, '#000000');
+    values.set(pair.bg, '#ffffff');
+  }
+  const modes = [{ mode: 'only', values, unresolved: new Set() }];
+  const { failures, pairs } = checkContrast({ modes });
+  assert.deepEqual(failures, []);
+  assert.equal(pairs, CONTRAST_PAIRS.length);
+});
+
+test('checkContrast: a hyphenated spelling is matched by the normalized fold and still fails', () => {
+  const values = new Map([
+    ['color.text.on-emphasis', '#94a3b8'],
+    ['color.bg.emphasis', '#1d4ed8'],
+  ]);
+  const modes = [{ mode: 'dark', values, unresolved: new Set() }];
+  const { failures } = checkContrast({ modes });
+  assert.equal(failures.length, 1);
+  assert.equal(failures[0].fg, 'color.text.onEmphasis');
+});
+
+test('checkContrast: a mode with only one side of a pair abstains rather than passing', () => {
+  const values = new Map([['color.text.primary', '#000000']]);
+  const modes = [{ mode: 'only', values, unresolved: new Set() }];
+  const { failures, pairs } = checkContrast({ modes });
+  assert.deepEqual(failures, []);
+  assert.equal(pairs, 0);
+});
+
+test('checkContrast: an empty modes array checks nothing', () => {
+  const { failures, pairs } = checkContrast({ modes: [] });
+  assert.deepEqual(failures, []);
+  assert.equal(pairs, 0);
+});
+
+test('checkContrast: a translucent foreground is composited against the background, not skipped', () => {
+  const values = new Map([
+    ['color.text.primary', '#00000080'],
+    ['color.bg.default', '#ffffff'],
+  ]);
+  const modes = [{ mode: 'only', values, unresolved: new Set() }];
+  const { failures, skipped, pairs } = checkContrast({ modes });
+  assert.equal(pairs, 1);
+  assert.deepEqual(skipped, { unresolvable: 0, nonHex: 0, alphaBackground: 0 });
+  assert.equal(failures.length, 1);
+  const expected = contrastRatio(composite('#00000080', '#ffffff'), '#ffffff');
+  assert.ok(Math.abs(failures[0].ratio - expected) < 1e-9);
+});
+
+test('checkContrast: a translucent background skips the pair and counts it as alphaBackground', () => {
+  const values = new Map([
+    ['color.text.onEmphasis', '#ffffff'],
+    ['color.bg.emphasis', '#1d4ed880'],
+  ]);
+  const modes = [{ mode: 'only', values, unresolved: new Set() }];
+  const { failures, skipped, pairs } = checkContrast({ modes });
+  assert.deepEqual(failures, []);
+  assert.equal(pairs, 0);
+  assert.equal(skipped.alphaBackground, 1);
+});
+
+test('checkContrast: a non-hex value skips as nonHex, and so does a translucent rgba() foreground', () => {
+  const values = new Map([
+    ['color.text.primary', 'var(--x)'],
+    ['color.bg.default', '#ffffff'],
+    ['color.text.link', 'rgba(255, 255, 255, 0.5)'],
+  ]);
+  const modes = [{ mode: 'only', values, unresolved: new Set() }];
+  const { failures, skipped, pairs } = checkContrast({ modes });
+  assert.deepEqual(failures, []);
+  assert.equal(pairs, 0);
+  assert.equal(skipped.nonHex, 2);
+});
+
+test('checkContrast: a side in `unresolved` skips as unresolvable, and pairs is counted per pair per mode', () => {
+  const modes = [
+    {
+      mode: 'broken',
+      values: new Map([['color.bg.default', '#ffffff']]),
+      unresolved: new Set(['color.text.primary']),
+    },
+    {
+      mode: 'fine',
+      values: new Map([
+        ['color.text.primary', '#000000'],
+        ['color.bg.default', '#ffffff'],
+      ]),
+      unresolved: new Set(),
+    },
+  ];
+  const { failures, skipped, pairs } = checkContrast({ modes });
+  assert.deepEqual(failures, []);
+  assert.equal(skipped.unresolvable, 1);
+  assert.equal(pairs, 1);
 });
 
 import { execFileSync } from 'node:child_process';

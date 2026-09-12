@@ -543,10 +543,16 @@ Change, in `scripts/README.md`:
   surface, in every mode, and where the rule deliberately abstains." Installed as:
   `copied alongside verify-check.mjs`.
 - A row in the **Documentation scripts — install as a set** table:
-  `lib/contrast.mjs` | `— (imported by the above)`.
+  `lib/contrast.mjs` | `— (imported by the above)`. **This landed early, in Step
+  3** (see "Where it diverged") — the import Step 3 adds is the thing that breaks
+  the set's closure check, so the row had to travel with it.
 - `scripts/README.md:37` — "the same **eleven** files and register the same
   **five**" → **twelve** and **five**. The script count does not move; only the
-  file count does. Leave `:55` ("all five npm scripts") alone.
+  file count does. Leave `:55` ("all five npm scripts") alone. **Also landed in
+  Step 3**, together with the identical count claim in
+  `skills/storybook-chromatic-builder/SKILL.md:35` named below: the gate reads
+  every paragraph that names the set, so both claims move with the table or
+  neither does.
 - The `verify-check.mjs` usage paragraph (`:129-153`) gains the new rule: the
   failing list gains `color-contrast` and `contrast-rule-inert`; one short
   paragraph states that a `--tokens` file is a mode, that a pair must clear in
@@ -1000,3 +1006,20 @@ Then add `## What shipped` and `## Where it diverged` to this spec and set
 
 Verify: the note contains the clean run and every control's output; `node --test`
 and the six other CI commands are green on the final tree.
+
+## Where it diverged
+
+- **Three of Step 7's registration edits landed in Step 3.** Adding the
+  `./lib/contrast.mjs` import to `verify-check.mjs` is exactly what makes
+  `ci/validate-install-sets.mjs` fail the docs set's closure check, so Step 3
+  could not meet its own "suite green" Verify while the registration waited four
+  steps for Step 7 — and Steps 4 through 6 would each have run their checks
+  against a suite that was already one test red, which is how a real regression
+  hides. Three edits moved with the import: the install-set table row in
+  `scripts/README.md`, the "eleven files" count on `:37`, and the identical count
+  in `skills/storybook-chromatic-builder/SKILL.md:35`, since the gate checks
+  every paragraph that names the set. Step 7 still owns everything else — the
+  main script-table row, the `verify-check.mjs` usage paragraph, the
+  placeholder-paragraph sentence and the four corrections to the storying skill.
+  No Decision moved: "Install and registration" ships exactly as written, one
+  step earlier.
