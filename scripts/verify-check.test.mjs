@@ -359,7 +359,11 @@ function recordEntry(root, stage, subject, options) {
   return runCli(args);
 }
 
-const gate = (root, extra = []) => runCli(['--root', root, '--tokens', tokensPath(root), ...extra]);
+// The shared fixture names none of the colour roles CONTRAST_PAIRS checks, so
+// color-contrast would abstain and fail contrast-rule-inert on every CLI test
+// here. That rule has its own fixture and its own invocations below.
+const gate = (root, extra = []) =>
+  runCli(['--root', root, '--tokens', tokensPath(root), '--skip', 'color-contrast', ...extra]);
 
 function addComponent(root, name, status = 'draft') {
   const manifest = manifestOf(root);
@@ -598,6 +602,139 @@ test('CLI: record mode exits 2 on a malformed entry and writes nothing', (t) => 
   assert.match(r.stdout, /advancedBecause/);
   assert.equal(existsSync(stageFilePath(root, 'component-builder')), false);
   assert.equal(manifestOf(root).verification, undefined);
+});
+
+const CONTRAST_PRIMITIVES = {
+  color: {
+    white: { $value: '#ffffff', $type: 'color' },
+    ink: { $value: '#111111', $type: 'color' },
+    blue: { $value: '#1d4ed8', $type: 'color' },
+    pale: { $value: '#94a3b8', $type: 'color' },
+  },
+};
+
+// The roles both mode files carry. `onEmphasis` is the one the control
+// re-points: white on that blue clears AA, pale slate on the same blue does not.
+function contrastSemantic({ textPrimary, bgDefault, onEmphasis }) {
+  return {
+    color: {
+      text: {
+        primary: { $value: textPrimary, $type: 'color' },
+        onEmphasis: { $value: onEmphasis, $type: 'color' },
+      },
+      bg: {
+        default: { $value: bgDefault, $type: 'color' },
+        emphasis: { $value: '{color.blue}', $type: 'color' },
+      },
+    },
+  };
+}
+
+const LIGHT = contrastSemantic({
+  textPrimary: '{color.ink}',
+  bgDefault: '{color.white}',
+  onEmphasis: '{color.white}',
+});
+const DARK_CLEAN = contrastSemantic({
+  textPrimary: '{color.white}',
+  bgDefault: '{color.ink}',
+  onEmphasis: '{color.white}',
+});
+const DARK_FAILING = contrastSemantic({
+  textPrimary: '{color.white}',
+  bgDefault: '{color.ink}',
+  onEmphasis: '{color.pale}',
+});
+
+const dtcgPath = (root, file) => join(root, 'packages', 'tokens', 'dtcg', file);
+
+function contrastFixture(t, { dark = DARK_CLEAN } = {}) {
+  const root = mkdtempSync(join(tmpdir(), 'verify-contrast-'));
+  if (t) t.after(() => rmSync(root, { recursive: true, force: true }));
+
+  mkdirSync(join(root, 'packages', 'tokens', 'dtcg'), { recursive: true });
+  mkdirSync(join(root, 'apps', 'web'), { recursive: true });
+  writeJson(join(root, 'packages', 'tokens', 'package.json'), { name: '@fixture/tokens' });
+  writeJson(dtcgPath(root, 'primitives.json'), CONTRAST_PRIMITIVES);
+  writeJson(dtcgPath(root, 'semantic.light.json'), LIGHT);
+  writeJson(dtcgPath(root, 'semantic.dark.json'), dark);
+  // The consuming app binds the semantic tier, so orphan-token stays quiet and
+  // the contrast rule is the only one these tests can trip.
+  writeFileSync(
+    join(root, 'apps', 'web', 'app.css'),
+    '.page { color: var(--color-text-primary); background: var(--color-bg-default); }\n' +
+      '.badge { color: var(--color-text-on-emphasis); background: var(--color-bg-emphasis); }\n',
+  );
+  writeJson(manifestPath(root), { schemaVersion: 6, components: { built: [], meta: {} } });
+  return root;
+}
+
+// One --tokens flag per mode file, which is what makes each pair get checked in
+// every mode. These call runCli rather than `gate`, which carries a standing
+// --skip color-contrast.
+const contrastArgs = (root, extra = []) => [
+  '--root', root,
+  '--tokens', dtcgPath(root, 'primitives.json'),
+  '--tokens', dtcgPath(root, 'semantic.light.json'),
+  '--tokens', dtcgPath(root, 'semantic.dark.json'),
+  ...extra,
+];
+
+test('CLI: a two-mode system passes in both modes, and fails when only the dark mode is re-pointed', (t) => {
+  const root = contrastFixture(t);
+  const clean = runCli(contrastArgs(root));
+  assert.equal(clean.code, 0, clean.stdout);
+  // Three --tokens files, but the primitives hold no semantic role, so pairs
+  // were compared in exactly the two mode files.
+  assert.match(clean.stdout, /contrast:\s+\d+ pair\(s\) compared across 2 mode\(s\)/);
+
+  // The only difference between the two runs is one value in one mode.
+  writeJson(dtcgPath(root, 'semantic.dark.json'), DARK_FAILING);
+  const broken = runCli(contrastArgs(root));
+  assert.equal(broken.code, 1, broken.stdout);
+  assert.match(
+    broken.stdout,
+    /\[color-contrast\] color\.text\.onEmphasis on color\.bg\.emphasis is \d+\.\d+:1 in semantic\.dark/,
+  );
+  assert.doesNotMatch(broken.stdout, /in semantic\.light/, 'light still clears');
+});
+
+test('CLI: a token source naming no role the pair table knows fails contrast-rule-inert', (t) => {
+  const root = fixture(t);
+  recordEntry(root, 'component-builder', 'Button');
+  const r = runCli(['--root', root, '--tokens', tokensPath(root)]);
+  assert.equal(r.code, 1);
+  assert.match(r.stdout, /\[contrast-rule-inert\]/);
+});
+
+test('CLI: --skip color-contrast drops the failure and the contrast line, and shows on skipped:', (t) => {
+  const root = fixture(t);
+  recordEntry(root, 'component-builder', 'Button');
+  const r = runCli(['--root', root, '--tokens', tokensPath(root), '--skip', 'color-contrast']);
+  assert.equal(r.code, 0, r.stdout);
+  assert.doesNotMatch(r.stdout, /contrast-rule-inert/);
+  assert.doesNotMatch(r.stdout, /^\s+contrast:/m);
+  assert.match(r.stdout, /skipped:.*color-contrast/);
+});
+
+test('CLI: the token-sync invocation skips the other three rules without failing nothing-verified', (t) => {
+  const root = contrastFixture(t);
+  const r = runCli(
+    contrastArgs(root, ['--skip', 'orphan-token', '--skip', 'state-incomplete', '--skip', 'name-drift']),
+  );
+  assert.equal(r.code, 0, r.stdout);
+  assert.doesNotMatch(r.stdout, /nothing-verified/, 'the compared pairs are what was examined');
+});
+
+test('CLI: a color-contrast result recorded as pass contradicts a run that fails it', (t) => {
+  const root = contrastFixture(t, { dark: DARK_FAILING });
+  recordEntry(root, 'token-sync-layer', null, {
+    checks: [{ name: 'color-contrast', method: 'derived', result: 'pass', evidence: 'verify:check report' }],
+  });
+
+  const r = runCli(contrastArgs(root));
+  assert.equal(r.code, 1);
+  assert.match(r.stdout, /\[proof-contradicted\] token-sync-layer recorded color-contrast as "pass"/);
 });
 
 test('CLI: record mode refuses a misinvocation before it can stamp the manifest', (t) => {

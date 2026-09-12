@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   STAGES,
   PER_COMPONENT_STAGES,
+  DERIVED_RULE_SCOPE,
   entryProblems,
   mergeEntry,
   stageFingerprint,
@@ -147,5 +148,43 @@ test('PER_COMPONENT_STAGES: holds component-builder and not token-sync-layer', (
 test('PER_COMPONENT_STAGES: every member is in STAGES', () => {
   for (const stage of PER_COMPONENT_STAGES) {
     assert.ok(STAGES.includes(stage), `${stage} should be in STAGES`);
+  }
+});
+
+test('entryProblems: [] for a check carrying a well-formed "accepted"', () => {
+  const entry = wellFormedEntry();
+  entry.checks[0].accepted = [
+    { fg: 'color.text.onEmphasis', bg: 'color.bg.emphasis', mode: 'Dark' },
+  ];
+  assert.deepEqual(entryProblems(entry), []);
+});
+
+test('entryProblems: one problem for an "accepted" that is an object rather than an array', () => {
+  const entry = wellFormedEntry();
+  entry.checks[0].accepted = { fg: 'color.text.onEmphasis', bg: 'color.bg.emphasis', mode: 'Dark' };
+  const problems = entryProblems(entry);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /checks\[0\]\.accepted/);
+});
+
+test('entryProblems: one problem for an "accepted" entry missing "mode"', () => {
+  const entry = wellFormedEntry();
+  entry.checks[0].accepted = [{ fg: 'color.text.onEmphasis', bg: 'color.bg.emphasis' }];
+  const problems = entryProblems(entry);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /checks\[0\]\.accepted\[0\]/);
+});
+
+test('DERIVED_RULE_SCOPE: color-contrast is scoped to the system, like orphan-token', () => {
+  assert.equal(DERIVED_RULE_SCOPE['color-contrast'], 'system');
+  assert.equal(DERIVED_RULE_SCOPE['orphan-token'], 'system');
+});
+
+test('DERIVED_RULE_SCOPE: every key is a rule verify-check.mjs can produce', () => {
+  // The gate's derived rules. A scope entry for a name the gate never emits
+  // would never contradict anything, which is a rule switched off by typo.
+  const GATE_DERIVED_RULES = ['orphan-token', 'state-incomplete', 'name-drift', 'color-contrast'];
+  for (const rule of Object.keys(DERIVED_RULE_SCOPE)) {
+    assert.ok(GATE_DERIVED_RULES.includes(rule), `${rule} should be a rule the gate produces`);
   }
 });

@@ -36,6 +36,10 @@ export const DERIVED_RULE_SCOPE = {
   'orphan-token': 'system',
   'state-incomplete': 'component',
   'name-drift': 'component',
+  // Contrast is a property of the token system as a whole, not of any one
+  // component, so a recorded result is compared against the rerun system-wide —
+  // the same scope orphan-token has.
+  'color-contrast': 'system',
 };
 
 // The names this stage has not yet proven, per the Adoption decision's
@@ -115,6 +119,29 @@ export function entryProblems(entry) {
       }
       if (typeof check.evidence !== 'string') {
         problems.push(`checks[${i}].evidence must be a string`);
+      }
+      // Optional, and only `contrast-baseline` uses it today — but validated
+      // because it is load-bearing: token-sync-layer subtracts these (fg, bg,
+      // mode) triples from its own gate run's color-contrast failures, so a
+      // malformed one is the difference between a pair the user accepted and a
+      // pair nobody has seen. Reject it here rather than letting the sync
+      // silently match nothing.
+      if (check.accepted !== undefined) {
+        if (!Array.isArray(check.accepted)) {
+          problems.push(`checks[${i}].accepted must be an array when present`);
+        } else {
+          check.accepted.forEach((pair, j) => {
+            const wellFormed =
+              pair &&
+              typeof pair === 'object' &&
+              ['fg', 'bg', 'mode'].every((k) => typeof pair[k] === 'string' && pair[k] !== '');
+            if (!wellFormed) {
+              problems.push(
+                `checks[${i}].accepted[${j}] must carry non-empty "fg", "bg" and "mode" strings`,
+              );
+            }
+          });
+        }
       }
     });
   }
