@@ -1,9 +1,11 @@
 # Remediation run: handoff
 
 Date: 2026-09-11
+Corrected: 2026-09-13 — Phase 4 shipped on 2026-09-12 and has moved from
+"What's unfinished" to "What shipped". Nothing else about this note changed.
 
-The backlog got worked in order today, in batches, against pinned #112. Four
-batches are done. Two are left. Nothing has been released.
+The backlog got worked in order against pinned #112. Five batches are done. One
+is left, and it is blocked on Q9. Nothing has been released.
 
 ## What shipped
 
@@ -27,15 +29,19 @@ All merged to `main`, all under `[Unreleased]`.
   scanned (#124, PR #131).
 - **Web output validation.** `tokens:validate-output` checks web CSS, not just
   native output (#37, PR #128).
+- **Phase 4, the proof bundle** (2026-09-12, both merged). Every stage now leaves
+  a durable entry on disk and `verify:check` re-derives what it can, so a stage
+  advances on evidence somebody kept rather than on prose that evaporates when the
+  run ends (#110, PR #136). Colour contrast landed as the fourth derived rule
+  inside it rather than a checker beside it: eight semantic pairs at WCAG AA,
+  compared once per mode, failing the token build rather than warning about it
+  (#45, PR #139). Manifest `schemaVersion` is 7.
 
 ## What's unfinished
 
 - **The adherence gate release.** Everything #112 said must be in it is merged.
   Before writing the release notes, fix the roadmap line in `README.md` that still
   says only native targets are validated per build. #37 changed that.
-- **Phase 4.** #110, the persisted proof bundle, then #45 right behind it.
-  #45 moved out of Parked because a contrast check that stops a token build is
-  a stop condition, so it belongs inside #110's bundle, not beside it.
 - **Phase 5.** The consumption layer, #40 through #44. It can't start until Q9
   is answered.
 - **Waiting on something real.** #127 needs a generated MUI theme before anyone
