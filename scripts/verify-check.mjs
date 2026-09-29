@@ -79,12 +79,21 @@ export function aliasTargets(flat) {
 // what code is meant to consume — a primitive is legitimately reached only
 // through a semantic, so gating one would fail a correct system.
 //
+// A token is also bound by its path without the first segment (#137). Code
+// consumes what the build emitted, and a build renames the category: a
+// Tailwind preset turns `spacing.inset.lg` into `p-inset-lg`, and a hand-written
+// build into `--space-inset-lg`. Neither contains `spacing`. Measured on
+// throughline-ds, matching the full path alone failed 49 used tokens out of 61
+// flagged; with the tail, none, and every real orphan still fails
+// (docs/notes/2026-09-29-proof-bundle-rules-measurement.md).
+//
 // LIMIT, stated rather than hidden: binding evidence is a permissive substring
 // match over the normalized text, so `color.bg.primary` counts as bound by a
-// mention of `color.bg.primary.hover`, and by prose that happens to contain the
-// words. Every miss is a false negative — an orphan reported as bound — never a
-// false failure, which is the direction a failing rule has to err in.
-// `fileTexts` entries are pre-normalized by the caller.
+// mention of `color.bg.primary.hover`, `radius.card` by any `card`, and either
+// by prose that happens to contain the words. Every miss is a false negative —
+// an orphan reported as bound — never a false failure, which is the direction a
+// failing rule has to err in. `fileTexts` entries are pre-normalized by the
+// caller.
 export function checkOrphanTokens({ flat, fileTexts = [], records = new Map() }) {
   const targets = aliasTargets(flat);
   const recordTokens = new Set();
@@ -100,9 +109,11 @@ export function checkOrphanTokens({ flat, fileTexts = [], records = new Map() })
     if (typeof value !== 'string' || !REF_IN_STRING.test(value)) continue;
     candidates += 1;
     const key = normalizeText(path);
+    const segments = path.split('.');
+    const tail = segments.length > 1 ? normalizeText(segments.slice(1).join('.')) : null;
     const bound =
       targets.has(path) ||
-      fileTexts.some((text) => text.includes(key)) ||
+      fileTexts.some((text) => text.includes(key) || (tail !== null && text.includes(tail))) ||
       recordTokens.has(key);
     if (!bound) failures.push({ rule: 'orphan-token', token: path });
   }

@@ -137,6 +137,12 @@ to [Semantic Versioning](https://semver.org).
     Primitives are exempt, because a primitive is legitimately reached only
     through a semantic. Binding evidence is a permissive substring match, so
     every miss is an orphan reported as bound, never a correct system failed.
+    A token is also bound by its path without the first segment, because code
+    uses what the build emitted: a Tailwind preset turns `spacing.inset.lg` into
+    `p-inset-lg`, and neither contains `spacing` (#137). Against throughline-ds,
+    matching the full path alone failed 49 used tokens. Now it fails none and
+    keeps all 12 real orphans. Against zygarden it keeps 56 of 61, and the five
+    it misses are short names like `divider` that appear elsewhere.
   - **`state-incomplete`** — a component documented without its archetype's
     baseline interaction states. A Button with no `disabled` fails. A Card with
     no `hover` does not: only the unconditional baseline is asserted, and whether
