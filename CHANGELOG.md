@@ -236,6 +236,16 @@ to [Semantic Versioning](https://semver.org).
   component. If they differ, it switches to the target and checks again. It stops
   with `BLOCKED` only when the manifest has no file key, or the target file does
   not have the Desktop Bridge plugin open.
+- **Figma writes done without the executor get the same file check (#135).**
+  The check above only ran when a skill dispatched the executor. On a host with
+  no subagents, which covers the Cursor, Codex and generic adapters, the four
+  Figma-building skills build inline, and that path had no file check. Two writes
+  always run inline on every host: the status write-back to doc cards in
+  `storybook-chromatic-builder`, and `document-component`'s Figma projection.
+  Every one of those paths now runs the active-file preflight in
+  `references/figma-scripting.md`, which now names the manifest's `figma.fileKey`
+  as the target and says to stop when the file still doesn't match. A CI test
+  fails when a skill or command that scripts Figma writes doesn't mention it.
 - **Promoting a component to `stable` now reaches doc cards with the legacy
   header (#108).** Doc cards come in two header shapes. Current cards name their
   chip `Status` and its text `Status Label`. Older cards carry a `Status Pill`

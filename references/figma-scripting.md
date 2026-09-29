@@ -51,8 +51,9 @@ wrong document.
 
 **So the preflight must assert the active file's *identity*, not just connection:**
 
-1. **Know your target `fileKey`** before writing (the one your architect read, or
-   the one the workflow is scoped to).
+1. **Know your target `fileKey`** before writing. It is `figma.fileKey` in
+   `design-system.json` at the working-directory root. If that field is absent,
+   stop and ask which file to write to — do not assume the active one is right.
 2. **Read the active file and compare.** `figma_get_status` reports
    `currentFileKey` / `currentFileName`; `figma_list_open_files` shows every
    connected file and which is active. Confirm the active `fileKey` equals your
@@ -61,6 +62,15 @@ wrong document.
 3. **If it drifted, navigate — don't just retry.** `figma_navigate` to the target
    file URL, then re-read status to confirm the switch took, then write. A bare
    re-run without navigating will hit the wrong file again.
+4. **If it still doesn't match, stop.** Name both files. The usual cause is that
+   the target file does not have the Desktop Bridge plugin open.
+
+Run this before the first write, and again right before any replace — the
+build-verify-then-replace finalize deletes the existing node, so it is the write
+that destroys work in the wrong file. The `figma-executor` agent runs it as step 1
+of its contract. **When a skill builds inline instead** (a host with no subagent
+dispatch, or a write-back the skill does itself), nothing runs it for you: the
+skill has to.
 
 This is the file-level analogue of the live-instance discipline above: the
 instance preflight guards against *two* live bridges; this guards against the *one*

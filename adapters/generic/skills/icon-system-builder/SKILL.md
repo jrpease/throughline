@@ -180,6 +180,10 @@ needed here. Route per `.throughline/references/agent-routing.md`. If
 your host has no subagent dispatch, script the SVG-to-component pass inline,
 sequentially, with the user in the loop. Either way, follow
 `.throughline/references/figma-scripting.md`.
+Inline, run the active-file preflight in
+`.throughline/references/figma-scripting.md` before the first write and
+again before replacing anything — the executor's file check does not come with
+you.
 
 ## Step 3 — Normalize: page, naming, sizing, variants
 

@@ -71,6 +71,10 @@ human between them. Route per
 `${CLAUDE_PLUGIN_ROOT}/references/agent-routing.md`; never parallelize Figma
 work. If your host has no subagent dispatch, build and verify each tier inline,
 sequentially, as the steps below describe.
+Inline, run the active-file preflight in
+`${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md` before the first write and
+again before replacing anything — the executor's file check does not come with
+you.
 
 ## Step 1 — Brainstorm the structure (before building anything)
 
