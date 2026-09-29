@@ -11,6 +11,7 @@ import {
   statedCounts,
   countProblems,
   paragraphsNamingDocsSet,
+  copyClaimProblems,
 } from './validate-install-sets.mjs';
 
 const SCRIPTS = fileURLToPath(new URL('../scripts/', import.meta.url));
@@ -170,4 +171,45 @@ test('the real docs install set is closed, and dropping lib/dtcg.mjs from it fai
     problems.some((problem) => problem.includes('`validate-adherence.mjs` imports `./lib/dtcg.mjs`')),
     `expected the #105 gap to be reported, got: ${JSON.stringify(problems)}`,
   );
+});
+
+const DOCS = { entries: same('docs-check.mjs', 'lib/doc-card-plan.mjs') };
+
+test('copyClaimProblems: a copy paragraph in a file with no copy lines fails', () => {
+  const source = 'Copy `${CLAUDE_PLUGIN_ROOT}/scripts/validate-token-output.mjs` and its lib files into the repo.';
+  const { problems, claims } = copyClaimProblems({ label: 'x.md', source, entries: [], docsSet: DOCS });
+  assert.equal(claims, 1);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /no `src` → `dest` lines/);
+});
+
+test('copyClaimProblems: a script named in a copy paragraph must be in the copy lines', () => {
+  const source = [
+    'Copy `${CLAUDE_PLUGIN_ROOT}/scripts/lib/sd-native.mjs` into the repo.',
+    '',
+    'Copy these from `${CLAUDE_PLUGIN_ROOT}/scripts/`:',
+    '',
+    '- `lib/dtcg.mjs` → `packages/tokens/scripts/lib/dtcg.mjs`',
+  ].join('\n');
+  const entries = parseCopyLines(source);
+  const { problems } = copyClaimProblems({ label: 'x.md', source, entries, docsSet: DOCS });
+  assert.deepEqual(problems, ['x.md: a copy paragraph names `lib/sd-native.mjs`, which is not in its copy lines']);
+  const fixed = [...entries, { src: 'lib/sd-native.mjs', dest: 'x' }];
+  assert.deepEqual(copyClaimProblems({ label: 'x.md', source, entries: fixed, docsSet: DOCS }).problems, []);
+});
+
+test('copyClaimProblems: a paragraph pointing at the docs set is checked against the docs set', () => {
+  const source =
+    'Refresh from the plugin copy, per **Documentation scripts — install as a set**: compare ' +
+    '`${CLAUDE_PLUGIN_ROOT}/scripts/lib/doc-card-plan.mjs` first.';
+  assert.deepEqual(copyClaimProblems({ label: 'c.md', source, entries: [], docsSet: DOCS }).problems, []);
+  const stale = source.replace('lib/doc-card-plan.mjs', 'lib/gone.mjs');
+  assert.match(copyClaimProblems({ label: 'c.md', source: stale, entries: [], docsSet: DOCS }).problems[0], /not in the docs install set/);
+});
+
+test('copyClaimProblems: "copy" as a noun beside the README is not an install claim', () => {
+  const source = 'See `${CLAUDE_PLUGIN_ROOT}/scripts/README.md`. This copy is setup, not a forever-fork.';
+  const { problems, claims } = copyClaimProblems({ label: 's.md', source, entries: [], docsSet: DOCS });
+  assert.deepEqual(problems, []);
+  assert.equal(claims, 0);
 });
