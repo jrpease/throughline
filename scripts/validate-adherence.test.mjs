@@ -1354,3 +1354,49 @@ test('an .html file is walked and a template literal fails the gate', () => {
   assert.match(out, /x\.component\.html:2/);
   assert.doesNotMatch(out, /x\.component\.html:1\b/);
 });
+
+test('a style value ends at its closing quote, so it cannot bleed into the next attribute', () => {
+  const cases = [
+    '<div style="padding: 0" class="tw-w-[16px]"></div>',
+    '<div style="margin: 0 auto" [class]="on ? \'h-[24px]\' : \'\'"></div>',
+    '<span style="margin: 0">a</span><span style="color: red">b</span>',
+  ];
+  for (const html of cases) {
+    assert.deepEqual(extract(html, '@acme/ui', 'a.html').dimensions, [], html);
+  }
+  const { dimensions } = extract('<div style="padding: 4px" class="text-[12px]"></div>', '@acme/ui', 'a.html');
+  assert.deepEqual(dimensions.map((d) => `${d.category}:${d.written}`), ['spacing:4px', 'font-size:text-[12px]']);
+});
+
+test('// in a template is not a comment', () => {
+  const { literals } = extract('<div style="background: url(//cdn/x.png); color: #1a1a1a"></div>', '@acme/ui', 'a.html');
+  assert.deepEqual(literals.map((l) => l.value), ['#1a1a1a']);
+});
+
+test('a mask in a template style is not a colour', () => {
+  const { literals } = extract('<div style="mask: linear-gradient(#ffffff 0 0)"></div>', '@acme/ui', 'a.html');
+  assert.deepEqual(literals, []);
+});
+
+test('every template attribute and binding form is read', () => {
+  const html = [
+    '<a ngStyle="{color: \'#000001\'}"></a>',
+    '<a [ngStyle]="{color: \'#000002\'}"></a>',
+    '<a ngClass="bg-[#000003]"></a>',
+    '<a [class.bg-[#000004]]="on"></a>',
+    '<a [class.x]="\'#000005\'"></a>',
+    '<a [(fill)]="\'#000006\'"></a>',
+    '<a flood-color="#000007" lighting-color="#000008" color="#000009"></a>',
+  ].join('\n');
+  const values = extract(html, '@acme/ui', 'a.html').literals.map((l) => l.value);
+  for (const v of ['#000001', '#000002', '#000003', '#000005', '#000006', '#000007', '#000008', '#000009']) {
+    assert.ok(values.includes(v), `${v} missing from ${values}`);
+  }
+});
+
+test('a malformed tag with many attributes fails fast instead of backtracking', () => {
+  const html = '<div ' + 'a="b" '.repeat(26) + 'x/y';
+  const started = Date.now();
+  templateView(html);
+  assert.ok(Date.now() - started < 1000, `took ${Date.now() - started}ms`);
+});

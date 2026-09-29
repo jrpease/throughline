@@ -102,7 +102,10 @@ Angular app has no JSX for the component rules to read). An Angular `.html`
 template is read through its styling attributes only: `style`, `class`,
 `ngStyle`, `ngClass`, the SVG colour attributes (`fill`, `stroke`, `stop-color`,
 `flood-color`, `lighting-color`, `color`), and their bindings (`[attr.fill]`,
-`[style.color]`). Text content, `data-*`, `href` and comments are not read.
+`[style.color]`). Text content, `data-*`, `href`, comments and unquoted values
+are not read. Colour is read from all of these. Dimensions are read only where a
+property name sits beside the value: `prop: value` in `style` or `ngStyle`, and
+an arbitrary-value class like `p-[12px]`. `[style.padding.px]="12"` is not.
 `--skip token-exists-for-dimension`
 is the answer for a system with no spacing, radius or type tokens, which
 otherwise fails as `dimension-rule-inert`.

@@ -74,7 +74,9 @@ to [Semantic Versioning](https://semver.org).
   - **Angular templates are read, through their styling attributes only
     (#132).** `style`, `class`, `ngStyle`, `ngClass`, the SVG colour attributes
     (`fill`, `stroke`, `stop-color` and the rest) and their bindings, such as
-    `[attr.fill]` and `[style.color]`. Text content isn't read, so a brand guide
+    `[attr.fill]` and `[style.color]`. Dimensions are read only where a property
+    name sits beside the value: `prop: value` in `style` or `ngStyle`, and a class
+    like `p-[12px]`. Text content isn't read, so a brand guide
     that prints `#080d14` next to its swatch isn't flagged for the text. Neither
     are `data-*`, `href="#cafe"` or an HTML comment. On zygarden this found 64
     colour and 11 type literals the gate never saw before, and every one was

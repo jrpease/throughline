@@ -45,6 +45,8 @@ lost.
   commented-out `<Button>` or import still reads as a usage, which is #120's
   territory.
 - **Angular templates.** The gate scans no `.html`, per the parent spec's §4.
+  *Superseded 2026-09-29 by #132: templates are read through their styling
+  attributes. See `scripts/README.md`.*
 - **An opt-out flag** for any of the three narrowings.
 
 ## Decisions

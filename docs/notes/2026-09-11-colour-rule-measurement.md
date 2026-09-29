@@ -455,3 +455,16 @@ Neither is an attribute the gate reads.
 That is why 64 colour flags, not the 83 the section above counted. That count
 was every hex in a template with a token behind it, `data-hex` and text
 included.
+
+**A review found three bugs before merge, and the counts above held through the
+fixes.** A malformed tag with many attributes backtracked exponentially. A
+`style` value's last declaration ran on into the next kept attribute on the
+line. And `//` in a template was read as a comment. After fixing all three,
+the same runs give the same flags, line for line.
+
+**The `tw-` prefix question the dimension spec deferred now has its evidence.**
+zygarden's templates hold 933 `tw-`-prefixed arbitrary values (`tw-p-[0.6rem]`,
+`tw-rounded-[0.25rem]`). TAILWIND's lookbehind skips a prefixed utility on
+purpose, so none of them is compared, and `libs` stays at 26 dimension flags.
+Whether to read a configured prefix is still open. It is recorded here so the
+next decision starts from the number.

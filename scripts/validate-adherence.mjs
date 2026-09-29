@@ -101,22 +101,23 @@ const spaces = (s) => s.replace(/[^\n]/g, ' ');
 // A hex inside a comment is not code: `var(--signal-500); /* #5B7FFF */` already
 // uses the token. One pass, leftmost opener wins, so a `/*` inside a `//`
 // comment cannot pair with a real `*/` lines later. `//` is not a comment in
-// plain CSS, and after a `:` it is a URL. An unterminated `/*` is left alone,
+// plain CSS or an HTML template, and after a `:` it is a URL. An unterminated `/*` is left alone,
 // which errs toward flagging. Strings are not tracked; that would be a parser.
 export function blankComments(text, path = '') {
-  const re = path.endsWith('.css') ? /\/\*[\s\S]*?\*\//g : /\/\*[\s\S]*?\*\/|(?<!:)\/\/[^\n]*/g;
+  const re = /\.(css|html)$/.test(path) ? /\/\*[\s\S]*?\*\//g : /\/\*[\s\S]*?\*\/|(?<!:)\/\/[^\n]*/g;
   return text.replace(re, spaces);
 }
 
 // In `mask: linear-gradient(#fff 0 0) content-box, ...` only alpha matters, so
 // the value of a `mask` or `-webkit-mask` declaration is not a colour. The
 // lookbehind keeps `--mask`, `$mask` and `.mask` flagging; `mask-image` and the
-// other `mask-*` properties never match. CSS and SCSS only: `.sass` has no `;`
+// other `mask-*` properties never match. CSS, SCSS and a template's `style`
+// attribute, which templateView ends with a `;`. Not `.sass`: it has no `;`
 // to end the value, and in script a value ending at `}` could swallow a sibling
 // property's real hex.
 const MASK = /(?<![\w$@.#-])(?:-webkit-)?mask\s*:([^;{}]*)/g;
 export function blankMasks(text, path = '') {
-  if (!/\.s?css$/.test(path)) return text;
+  if (!/\.(s?css|html)$/.test(path)) return text;
   return text.replace(MASK, (m, value) => m.slice(0, m.length - value.length) + spaces(value));
 }
 
@@ -190,7 +191,7 @@ export function rgbToHex(value) {
 // attribute: `[attr.fill]`, `[stroke]`, `[style.color]`, `[ngStyle]`. The rule
 // that reads JSX tags does not apply; an Angular selector is a different mapping.
 const TEMPLATE_ATTRS = new Set(['style', 'ngstyle', 'class', 'ngclass', 'fill', 'stroke', 'stop-color', 'flood-color', 'lighting-color', 'color']);
-const HTML_TAG = /<[a-zA-Z][^\s/>]*((?:\s+[^\s=/>"']+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?)*)\s*\/?>/g;
+const HTML_TAG = /<[a-zA-Z][^\s/>]*((?:\s+[^\s=/>"']+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>"'][^\s>]*))?)*)\s*\/?>/g;
 const HTML_ATTR = /([^\s=/>"']+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 
 function templateAttr(name) {
@@ -208,6 +209,9 @@ export function templateView(text) {
       const value = a[2] ?? a[3];
       const at = attrsAt + a.index + a[0].length - 1 - value.length;
       for (let i = 0; i < value.length; i += 1) out[at + i] = value[i];
+      // A style value's last declaration has no `;`, and would otherwise run on
+      // into the next kept value on the line. The closing quote becomes one.
+      if (['style', 'ngstyle'].includes(templateAttr(a[1]))) out[at + value.length] = ';';
     }
   }
   return out.join('');
