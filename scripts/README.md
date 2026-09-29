@@ -192,11 +192,13 @@ conflict, or remaining reference), `2` bad CLI arguments.
 
 ## How the skill installs these
 
-`token-crosswalk-builder` copies `lib/crosswalk.mjs`, `lib/dtcg.mjs`,
-`lib/source-scan.mjs`, `validate-crosswalk.mjs`, `build-reverse-index.mjs`,
-`guard-token-removal.mjs`, and
-`crosswalk.schema.json` into the user's `packages/tokens/scripts/` (schema beside `crosswalk.json`), then
-wires `packages/tokens/package.json`:
+The file lists live in the skills, as `src` → `dest` copy lines that
+`ci/validate-install-sets.mjs` checks. They are not repeated here, so they can't
+drift.
+
+`token-crosswalk-builder` copies the files in its Step 2 list
+(`skills/token-crosswalk-builder/SKILL.md`) into the user's `packages/tokens/`,
+then wires `packages/tokens/package.json`:
 
 ```jsonc
 "scripts": {
@@ -205,11 +207,11 @@ wires `packages/tokens/package.json`:
 }
 ```
 
-`token-sync-layer` copies `validate-token-output.mjs`, `lib/dtcg.mjs`,
-`lib/native-literal.mjs`, **and** `lib/sd-native.mjs`, and wires
-`"tokens:validate-output"`. All four travel together: `sd-native.mjs` and the
-validator both import `lib/dtcg.mjs` and `lib/native-literal.mjs`, so
-installing any one of them alone breaks at import time.
+`token-sync-layer` copies its token-toolkit list
+(`skills/token-sync-layer/SKILL.md`, Step 4) and wires `"tokens:validate-output"`.
+The files travel together: `sd-native.mjs` and the validator both import
+`lib/dtcg.mjs` and `lib/native-literal.mjs`, so installing any one of them alone
+breaks at import time.
 
 The scripts version with the user's repo so their CI runs them locally — a path
 inside the plugin install would not be reachable from the user's CI.

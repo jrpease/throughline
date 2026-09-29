@@ -13,7 +13,9 @@
 //   - every `src` → `dest` copy line in skills/*/SKILL.md, one list per skill
 //
 // It also checks the file and npm-script counts restated in prose about the
-// docs set ("the same eight files"), which drift from the table independently.
+// docs set ("the same eight files"), which drift from the table independently,
+// and that every paragraph about copying plugin scripts names only files a list
+// carries (#134).
 //
 // Imports are found by regex, not a parser — `ci/` is stdlib-only. A missed
 // import form fails open, so keep scripts/ to static `from './x.mjs'` imports.
@@ -131,6 +133,46 @@ export function paragraphsNamingDocsSet(source) {
   return source.split(/\n\s*\n/).filter((paragraph) => paragraph.replace(/\s+/g, ' ').includes('install as a set'));
 }
 
+// A paragraph that talks about copying plugin scripts is making an install
+// claim, whether or not it is written as a list (#134). Every script it names
+// has to be in this file's copy lines, or in the docs set when the paragraph
+// points there, and a copy paragraph in a file with no copy lines at all means
+// the list was rewritten as a sentence and has dropped out of the closure check.
+const COPY_VERB = /\b(copy|copies|copying|copied|install|installs|installing)\b/i;
+const PLUGIN_SCRIPT = /\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/([\w./-]*)/g;
+
+export function copyClaimProblems({ label, source, entries, docsSet }) {
+  const problems = [];
+  let claims = 0;
+  const listed = new Set(entries.map((entry) => entry.src));
+  const inDocsSet = new Set((docsSet?.entries ?? []).map((entry) => entry.src));
+  for (const paragraph of source.split(/\n\s*\n/)) {
+    if (!COPY_VERB.test(paragraph)) continue;
+    // scripts/README.md is where a set is documented, not something copied.
+    const named = [...paragraph.matchAll(PLUGIN_SCRIPT)].map((match) => match[1]).filter((path) => path !== 'README.md');
+    if (named.length === 0) continue;
+    const docs = paragraph.replace(/\s+/g, ' ').includes('install as a set');
+    const files = named.filter((path) => path !== '' && !path.endsWith('/'));
+    claims += 1;
+    if (!docs && entries.length === 0) {
+      const opening = paragraph.trim().split('\n')[0].slice(0, 80);
+      problems.push(
+        `${label}: a paragraph copies plugin scripts ("${opening}…") but the file has no \`src\` → \`dest\` lines, ` +
+          'so nothing checks what it installs — write the list as copy lines',
+      );
+      continue;
+    }
+    for (const path of files) {
+      if (docs ? !inDocsSet.has(path) && !listed.has(path) : !listed.has(path)) {
+        problems.push(
+          `${label}: a copy paragraph names \`${path}\`, which is not in ${docs ? 'the docs install set' : 'its copy lines'}`,
+        );
+      }
+    }
+  }
+  return { problems, claims };
+}
+
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPTS = join(REPO_ROOT, 'scripts');
 
@@ -144,6 +186,7 @@ function main() {
   const checked = [];
   let skillLists = 0;
   let claims = 0;
+  let copyParagraphs = 0;
 
   const docsSet = parseDocsSet(readFileSync(join(SCRIPTS, 'README.md'), 'utf8'));
   if (!docsSet || docsSet.entries.length === 0) {
@@ -169,6 +212,9 @@ function main() {
       checked.push(`${path.split('/')[1]} (${entries.length} files)`);
       skillLists += 1;
     }
+    const copyClaims = copyClaimProblems({ label: path, source, entries, docsSet });
+    problems.push(...copyClaims.problems);
+    copyParagraphs += copyClaims.claims;
     if (docsSet) {
       for (const paragraph of paragraphsNamingDocsSet(source)) {
         problems.push(...countProblems({ label: path, text: paragraph, entries: docsSet.entries }));
@@ -182,7 +228,10 @@ function main() {
   }
 
   if (problems.length === 0) {
-    console.log(`✓ install sets closed under imports: ${checked.join(', ')}; ${claims} stated count(s) agree`);
+    console.log(
+      `✓ install sets closed under imports: ${checked.join(', ')}; ${claims} stated count(s) agree; ` +
+        `${copyParagraphs} copy paragraph(s) name only listed files`,
+    );
     return;
   }
   console.error(`✗ ${problems.length} problem(s):`);
