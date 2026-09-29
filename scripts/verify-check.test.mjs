@@ -35,6 +35,32 @@ test('checkOrphanTokens: a token mentioned in a scanned file is bound', () => {
   assert.deepEqual(failures, []);
 });
 
+test('checkOrphanTokens: a token is bound by what a renaming build emitted for it', () => {
+  const flat = {
+    'spacing.4': '16px',
+    'spacing.inset.lg': '{spacing.4}',
+    'typography.size.h1': '{spacing.4}',
+    'radius.card': '{spacing.4}',
+    'color.bg.inverse': '{color.blue.500}',
+    'color.blue.500': '#00aaff',
+  };
+  const fileTexts = [
+    normalizeText('<div className="p-inset-lg rounded-card">'),
+    normalizeText('h1 { font-size: var(--type-size-h1); }'),
+    normalizeText('<p className="text-text-inverse">'),
+  ];
+  const { failures } = checkOrphanTokens({ flat, fileTexts });
+  // text-text-inverse carries `textinverse`, not `bginverse`, so the tail does
+  // not bind a sibling role.
+  assert.deepEqual(failures, [{ rule: 'orphan-token', token: 'color.bg.inverse' }]);
+});
+
+test('checkOrphanTokens: a one-segment path has no tail to match on', () => {
+  const flat = { base: '#fff', accent: '{base}' };
+  const { failures } = checkOrphanTokens({ flat, fileTexts: [normalizeText('anything at all')] });
+  assert.deepEqual(failures, [{ rule: 'orphan-token', token: 'accent' }]);
+});
+
 test('checkOrphanTokens: a token listed in a record\'s tokensUsed is bound', () => {
   const records = new Map([['Button', { name: 'Button', tokensUsed: ['color.bg.primary'] }]]);
   const { failures } = checkOrphanTokens({ flat: SEMANTIC, records });
