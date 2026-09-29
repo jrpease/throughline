@@ -411,3 +411,60 @@ finding moved.
 A path that two mode files resolve to the same value is named once in a
 finding. The counts still count each file's token, which is how 112 splits
 into 90 and 22.
+
+## Angular templates after #132
+
+2026-09-29. zygarden at the same commit (`ca61ca9a6`), read through a fresh
+`git clone --local` with `docs:digest` run first. Before is the gate at main
+`de31124`, after is `fix/132-angular-templates`. Every token file, the zygarden
+form of the dimension note's command:
+
+```
+Z=zyg; T=$Z/libs/shared/util-tokens/src/tokens
+for R in apps libs; do
+  node scripts/validate-adherence.mjs --root $Z/$R --system $Z --package @zygarden/none \
+    $(for f in $T/*.json; do printf -- '--tokens %s ' "$f"; done) \
+    --skip unknown-component --skip unknown-variant-value
+done
+```
+
+| run | colour before | colour after | dimension before | dimension after |
+|---|---|---|---|---|
+| `apps` | 15 | 26 | 33 | 44 |
+| `libs` | 3 | 56 | 26 | 26 |
+
+**Every new flag was read, and all 75 are real.** No flag from before moved.
+
+- **51 in `libs/shared/ui-svg-helper/.../svg-helper.component.html`**, the SVG
+  helper the section above named. 49 are brand green `#77ae17` as `fill` or
+  `stroke`, which `color.brand.primary` holds. One is `#ffffff` and one `#111827`.
+- **2 in `invite-link-card.html`**, `tw-from-[#77AE17]` in a gradient class.
+  `#AFEF21` on the same line matches no token and isn't reported.
+- **11 colour and 11 type in the brand guide's `app.html`**, all inline `style`:
+  palette swatches, one gradient, and the type specimen's weights and sizes. A
+  brand guide is the one app where a literal could be argued as intentional. It
+  shows values. But a swatch drawn from `var(--…)` is what keeps the guide in
+  step with the tokens it documents, so these count as real.
+
+**What isn't read, on purpose.** The brand guide prints each swatch's hex three
+times: in `style`, in `data-hex` and in a `<code>` element. Only `style` is
+read. The other two are display, and flagging them would triple every finding.
+`&#8288;` in four feature templates is an entity, and `href="#…"` is a fragment.
+Neither is an attribute the gate reads.
+
+That is why 64 colour flags, not the 83 the section above counted. That count
+was every hex in a template with a token behind it, `data-hex` and text
+included.
+
+**A review found three bugs before merge, and the counts above held through the
+fixes.** A malformed tag with many attributes backtracked exponentially. A
+`style` value's last declaration ran on into the next kept attribute on the
+line. And `//` in a template was read as a comment. After fixing all three,
+the same runs give the same flags, line for line.
+
+**The `tw-` prefix question the dimension spec deferred now has its evidence.**
+zygarden's templates hold 933 `tw-`-prefixed arbitrary values (`tw-p-[0.6rem]`,
+`tw-rounded-[0.25rem]`). TAILWIND's lookbehind skips a prefixed utility on
+purpose, so none of them is compared, and `libs` stays at 26 dimension flags.
+Whether to read a configured prefix is still open. It is recorded here so the
+next decision starts from the number.

@@ -9,6 +9,7 @@
 // Colour-rule narrowing (#123): docs/specs/2026-09-11-narrow-colour-rule.md
 // Dimension rules (#39): docs/specs/2026-09-11-dimension-rules.md
 // Component-rule narrowing (#120): docs/specs/2026-09-11-narrow-component-rule.md
+// Angular templates (#132): templateView, below.
 import { readFileSync, realpathSync, existsSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
@@ -100,22 +101,23 @@ const spaces = (s) => s.replace(/[^\n]/g, ' ');
 // A hex inside a comment is not code: `var(--signal-500); /* #5B7FFF */` already
 // uses the token. One pass, leftmost opener wins, so a `/*` inside a `//`
 // comment cannot pair with a real `*/` lines later. `//` is not a comment in
-// plain CSS, and after a `:` it is a URL. An unterminated `/*` is left alone,
+// plain CSS or an HTML template, and after a `:` it is a URL. An unterminated `/*` is left alone,
 // which errs toward flagging. Strings are not tracked; that would be a parser.
 export function blankComments(text, path = '') {
-  const re = path.endsWith('.css') ? /\/\*[\s\S]*?\*\//g : /\/\*[\s\S]*?\*\/|(?<!:)\/\/[^\n]*/g;
+  const re = /\.(css|html)$/.test(path) ? /\/\*[\s\S]*?\*\//g : /\/\*[\s\S]*?\*\/|(?<!:)\/\/[^\n]*/g;
   return text.replace(re, spaces);
 }
 
 // In `mask: linear-gradient(#fff 0 0) content-box, ...` only alpha matters, so
 // the value of a `mask` or `-webkit-mask` declaration is not a colour. The
 // lookbehind keeps `--mask`, `$mask` and `.mask` flagging; `mask-image` and the
-// other `mask-*` properties never match. CSS and SCSS only: `.sass` has no `;`
+// other `mask-*` properties never match. CSS, SCSS and a template's `style`
+// attribute, which templateView ends with a `;`. Not `.sass`: it has no `;`
 // to end the value, and in script a value ending at `}` could swallow a sibling
 // property's real hex.
 const MASK = /(?<![\w$@.#-])(?:-webkit-)?mask\s*:([^;{}]*)/g;
 export function blankMasks(text, path = '') {
-  if (!/\.s?css$/.test(path)) return text;
+  if (!/\.(s?css|html)$/.test(path)) return text;
   return text.replace(MASK, (m, value) => m.slice(0, m.length - value.length) + spaces(value));
 }
 
@@ -182,7 +184,41 @@ export function rgbToHex(value) {
   return normalizeHex('#' + hex);
 }
 
+// An Angular template carries styling in a few attributes and nowhere else, so
+// only those are read (#132). Everything outside them — text content, which is
+// where a brand guide prints `#080d14`, an entity like `&#8288;`, `data-*`,
+// `href="#cafe"`, HTML comments — is blanked. Bindings read like their plain
+// attribute: `[attr.fill]`, `[stroke]`, `[style.color]`, `[ngStyle]`. The rule
+// that reads JSX tags does not apply; an Angular selector is a different mapping.
+const TEMPLATE_ATTRS = new Set(['style', 'ngstyle', 'class', 'ngclass', 'fill', 'stroke', 'stop-color', 'flood-color', 'lighting-color', 'color']);
+const HTML_TAG = /<[a-zA-Z][^\s/>]*((?:\s+[^\s=/>"']+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>"'][^\s>]*))?)*)\s*\/?>/g;
+const HTML_ATTR = /([^\s=/>"']+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+
+function templateAttr(name) {
+  const bare = name.toLowerCase().replace(/^\[\(?|\)?\]$/g, '').replace(/^attr\./, '');
+  return bare.startsWith('style.') ? 'style' : bare.startsWith('class.') ? 'class' : bare;
+}
+
+export function templateView(text) {
+  const out = spaces(text).split('');
+  const code = text.replace(/<!--[\s\S]*?-->/g, spaces);
+  for (const tag of code.matchAll(HTML_TAG)) {
+    const attrsAt = tag.index + tag[0].indexOf(tag[1]);
+    for (const a of tag[1].matchAll(HTML_ATTR)) {
+      if (!TEMPLATE_ATTRS.has(templateAttr(a[1]))) continue;
+      const value = a[2] ?? a[3];
+      const at = attrsAt + a.index + a[0].length - 1 - value.length;
+      for (let i = 0; i < value.length; i += 1) out[at + i] = value[i];
+      // A style value's last declaration has no `;`, and would otherwise run on
+      // into the next kept value on the line. The closing quote becomes one.
+      if (['style', 'ngstyle'].includes(templateAttr(a[1]))) out[at + value.length] = ';';
+    }
+  }
+  return out.join('');
+}
+
 export function extract(text, pkg, path = '') {
+  if (path.endsWith('.html')) text = templateView(text);
   const code = blankComments(text, path);
 
   const imported = new Map();
@@ -792,7 +828,7 @@ function main() {
   const files = [];
   let walked;
   try {
-    walked = [...walk(values.root, { fileFilter: /\.(tsx?|jsx?|mjs|cjs|css|scss|sass|vue|svelte)$/ })];
+    walked = [...walk(values.root, { fileFilter: /\.(tsx?|jsx?|mjs|cjs|css|scss|sass|vue|svelte|html)$/ })];
   } catch (e) {
     console.error(`cannot scan --root ${values.root}: ${e.message}`);
     process.exit(2);

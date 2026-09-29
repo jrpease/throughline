@@ -51,7 +51,8 @@ carries over unchanged: no token for the value means no finding.
 - **Definitions.** `--gap: 16px` and `$gap: 16px` declare a value. They don't use
   one.
 - **Angular and HTML templates.** The gate scans no `.html`, per the parent
-  spec's §4.
+  spec's §4. *Superseded 2026-09-29 by #132: templates are read through their
+  styling attributes. See `scripts/README.md`.*
 - **Cross-file aliases and a count of skipped dimension tokens.** Same shape as
   #121, and it resolves there.
 - **`hsl()`, percentage channels and alpha below 1.**
@@ -93,7 +94,10 @@ carries over unchanged: no token for the value means no finding.
   `apps/` that hits it, and folding it into #124 if one does.** Unresolved.
 - **Tailwind prefixes** (`tw-p-[16px]`). Zygarden sets a `tw-` prefix, but its
   arbitrary values live in `.html` templates the gate doesn't read.
-  **I'd recommend waiting for evidence.** Unresolved.
+  **I'd recommend waiting for evidence.** Unresolved. *2026-09-29: the gate reads
+  templates now (#132), and zygarden's hold 933 `tw-`-prefixed arbitrary values
+  the lookbehind still skips. The evidence is in; the decision isn't. See the
+  colour-rule measurement note.*
 - **Root font size.** An app that sets `html { font-size: 62.5% }` would see
   `1rem` flagged against a 16px token. **I'd recommend waiting**, since neither
   real app does it and that app's token CSS has the same problem. Unresolved.
