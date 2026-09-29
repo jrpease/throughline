@@ -941,7 +941,7 @@ Verify: read it back against the two entries above it for register and shape.
 
 ### Step 12 — Measure it end to end, with controls
 
-Files: `docs/superpowers/notes/2026-09-12-proof-bundle-e2e.md` (new), this spec
+Files: `docs/notes/2026-09-12-proof-bundle-e2e.md` (new), this spec
 
 Change: build a fixture design system in the session scratchpad — a
 `design-system.json` at `schemaVersion: 6` whose `components.built` is
@@ -1057,7 +1057,7 @@ gained the baseline-state assertion, scoped to the three archetypes the
 standards prose names.
 
 Verified end to end in
-`docs/superpowers/notes/2026-09-12-proof-bundle-e2e.md`: a fixture design system
+`docs/notes/2026-09-12-proof-bundle-e2e.md`: a fixture design system
 with the install set copied in and `npm run verify:check` invoked from the tokens
 package, a clean run at exit `0`, and twelve controls that each had to fail and
 did — the eight in Plan Step 12.3 plus the partition pair, the promotion

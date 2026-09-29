@@ -55,7 +55,7 @@ All merged to `main`, all under `[Unreleased]`.
   made in conversation. The specs are in `docs/specs/`.
 - **Measurements run on throwaway clones** of `throughline-brand` and
   `zygarden-frontend`, at the commits recorded in
-  `docs/superpowers/notes/2026-09-11-colour-rule-measurement.md`. Neither repo was
+  `docs/notes/2026-09-11-colour-rule-measurement.md`. Neither repo was
   touched.
 - **A detailed bug issue gets picked up fast.** #113 arrived ten minutes after
   #109 was filed. Read outside PRs for safety before merging anything. This
