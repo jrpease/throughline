@@ -713,7 +713,7 @@ test('CLI requires --block when the output declares more than one block', () => 
 
   const noBlock = runCli(['--source', src, '--output', two, '--platform', 'vanilla-css']);
   assert.equal(noBlock.code, 2);
-  assert.match(noBlock.stdout, /":root" \(1\), ".dark" \(1\)/);
+  assert.match(noBlock.stdout, /':root' \(1\), '\.dark' \(1\)/);
 
   const withDark = runCli(['--source', src, '--output', two, '--platform', 'vanilla-css', '--block', '.dark']);
   assert.equal(withDark.code, 0);
@@ -1200,7 +1200,7 @@ test('blocks: no --block throws naming every block, a selected block is checked,
   const css = ':root { --a: 1px; }\n.dark { --a: 2px; }\n';
   const dtcg = { a: { $type: 'dimension', $value: '2px' } };
 
-  assert.throws(() => web(dtcg, css), /pass --block with one of: ":root" \(1\), ".dark" \(1\)/);
+  assert.throws(() => web(dtcg, css), /pass --block with one of: ':root' \(1\), '\.dark' \(1\)/);
 
   const dark = web(dtcg, css, { block: ' .dark ' });
   assert.deepEqual(dark.failures, []);
@@ -1209,7 +1209,26 @@ test('blocks: no --block throws naming every block, a selected block is checked,
   const root = web(dtcg, css, { block: ':root' });
   assert.deepEqual(rules(root), ['unit-fidelity']);
 
-  assert.throws(() => web(dtcg, css, { block: '.nope' }), /no block ".nope"/);
+  assert.throws(() => web(dtcg, css, { block: '.nope' }), /no block '\.nope'/);
+});
+
+test('blocks: a listed key pastes back as --block, quotes and all', () => {
+  const css = `[data-theme="light"] { --a: 1px; }\n[data-theme='dark'] { --a: 2px; }\n`;
+  const dtcg = { a: { $type: 'dimension', $value: '2px' } };
+  let message;
+  try {
+    web(dtcg, css);
+  } catch (e) {
+    message = e.message;
+  }
+  assert.ok(message.includes(`'[data-theme="light"]' (1)`), message);
+  assert.ok(message.includes(`'[data-theme='\\''dark'\\'']' (1)`), message);
+  assert.doesNotMatch(message, /\\"/);
+
+  // What a shell hands back for the printed key is the key itself.
+  const printed = /'\[data-theme="light"\]'/.exec(message)[0];
+  const pasted = execFileSync('sh', ['-c', `printf %s ${printed}`], { encoding: 'utf8' });
+  assert.equal(web(dtcg, css, { block: pasted }).block, '[data-theme="light"]');
 });
 
 test('later declarations of the same custom property win', () => {

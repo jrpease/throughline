@@ -404,11 +404,18 @@ export function webUnitFidelity(source, emitted, type) {
 // compile — but CSS is the target language on this path, so `calc(...)`,
 // `var(...)` and a bare `16px` are exactly the forms a correct declaration is
 // expected to contain. There is no foreign syntax to leak (#37).
+// A block key is printed for pasting back as --block, so it is quoted the way a
+// POSIX shell reads it. JSON.stringify escaped the quotes in `[data-theme="light"]`
+// and a copied key matched no block (#133).
+function shellQuote(s) {
+  return `'${s.replaceAll("'", `'\\''`)}'`;
+}
+
 function validateWeb({ sources, output, platform, minMatch, block }) {
   const { declarations, unparsed } = extractCustomProperties(output);
   const counts = new Map();
   for (const d of declarations) counts.set(d.block, (counts.get(d.block) ?? 0) + 1);
-  const list = [...counts].map(([k, c]) => `${JSON.stringify(k)} (${c})`).join(', ');
+  const list = [...counts].map(([k, c]) => `${shellQuote(k)} (${c})`).join(', ');
 
   let key;
   if (block === undefined) {
@@ -420,7 +427,7 @@ function validateWeb({ sources, output, platform, minMatch, block }) {
   } else {
     key = normalizeBlock(block);
     if (counts.size > 0 && !counts.has(key)) {
-      throw new Error(`no block ${JSON.stringify(key)} in the output — its blocks are: ${list}`);
+      throw new Error(`no block ${shellQuote(key)} in the output — its blocks are: ${list}`);
     }
   }
 
@@ -821,7 +828,7 @@ export function formatReport(r) {
         const more = a.paths.length > 5 ? `, ...and ${a.paths.length - 5} more` : '';
         lines.push(
           web
-            ? `  - [${a.rule}] ${a.paths.length} node(s) carry both a $value and child tokens: ${shown}${more}. DTCG §6.1 makes that invalid, and §6.2 defines $root as the way a group carries a base value alongside children. Stock Style Dictionary does not descend into these nodes, so their children can be missing from web output — a no-unresolved-reference or dangling-reference failure above is that happening.`
+            ? `  - [${a.rule}] ${a.paths.length} node(s) carry both a $value and child tokens: ${shown}${more}. DTCG §6.1 makes that invalid, and §6.2 defines $root as the way a group carries a base value alongside children. Stock Style Dictionary does not descend into these nodes, so their children can be missing from web output. If a no-unresolved-reference or dangling-reference failure appears above, that is why.`
             : `  - [${a.rule}] ${a.paths.length} node(s) carry both a $value and child tokens: ${shown}${more}. DTCG §6.1 makes that invalid — an object cannot be both a token and a group — and §6.2 defines $root as the way a group carries a base value alongside children. The build handles this shape and will keep handling it; nothing here is broken. Rewrite them as $root only if you want the source to conform.`,
         );
         continue;
