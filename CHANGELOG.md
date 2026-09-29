@@ -95,7 +95,8 @@ to [Semantic Versioning](https://semver.org).
 
   - **One run is one mode block.** `--block` picks it (`:root`, `.dark`,
     `@media (min-width: 768px) :root`). A file with several blocks and no
-    `--block` exits `2` and lists them with their declaration counts.
+    `--block` exits `2` and lists them with their declaration counts, each
+    shell-quoted so it pastes straight back: `'[data-theme="light"]'`.
   - **A build split across files passes every file** as another `--output`, so
     a `var()` in `_light.css` to a variable `_root.css` declares isn't dangling.
   - **shadcn and tailwind aliases don't count against the match rate.**
