@@ -140,8 +140,9 @@ emit as references to primitive vars rather than flattened literals.
   Tailwind tokens; the standalone `tailwind` adapter maps tokens into the
   Tailwind theme config directly; `mui` emits a JS theme object whose palette
   references preserve the cascade through object structure.
-  `tokens:validate-output` checks the generated CSS against its source too — see
-  `${CLAUDE_PLUGIN_ROOT}/scripts/README.md`.
+  `tokens:validate-output` checks the generated CSS against its source too, and
+  only the CSS: for `tailwind`, the file declaring the custom properties, not the
+  theme config. See `${CLAUDE_PLUGIN_ROOT}/scripts/README.md`.
 - **Native adapters** (`ios-swift`, and generated native targets like
   Android/Kotlin): `outputReferences: false` — references resolve to literal
   values at build time, because the target language has no runtime var

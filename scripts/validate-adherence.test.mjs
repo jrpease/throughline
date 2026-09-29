@@ -1400,3 +1400,28 @@ test('a malformed tag with many attributes fails fast instead of backtracking', 
   templateView(html);
   assert.ok(Date.now() - started < 1000, `took ${Date.now() - started}ms`);
 });
+
+test('a --package the app never imports is component-rule-inert, not a pass', () => {
+  const files = [{ path: 'a.tsx', elements: [], usages: [], literals: [{ value: '#111111', line: 1 }], dimensions: [] }];
+  const r = validate({ built: ['Button'], files, walked: 1, skip: ['token-exists-for-dimension'] });
+  assert.equal(r.ok, false);
+  assert.ok(r.failures.some((f) => f.rule === 'component-rule-inert'));
+  assert.match(formatReport(r).join('\n'), /component-rule-inert.*--package/);
+  const skipped = validate({ built: ['Button'], files, walked: 1, skip: ['token-exists-for-dimension', 'unknown-component'] });
+  assert.ok(!skipped.failures.some((f) => f.rule === 'component-rule-inert'));
+  const empty = validate({ built: ['Button'], files: [], walked: 3 });
+  assert.deepEqual(empty.failures.filter((f) => /nothing-scanned|component-rule-inert/.test(f.rule)).map((f) => f.rule), ['nothing-scanned']);
+});
+
+test('CLI: a misspelled --skip exits 2 instead of skipping nothing', () => {
+  let code = 0;
+  let stderr = '';
+  try {
+    execFileSync('node', [new URL('./validate-adherence.mjs', import.meta.url).pathname, '--root', '.', '--system', '.', '--package', 'x', '--skip', 'unknown-components'], { encoding: 'utf8', stdio: 'pipe' });
+  } catch (e) {
+    code = e.status;
+    stderr = e.stderr;
+  }
+  assert.equal(code, 2);
+  assert.match(stderr, /--skip names no rule: unknown-components/);
+});

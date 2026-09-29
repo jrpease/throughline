@@ -12,9 +12,9 @@ tested here; copied verbatim by `token-crosswalk-builder` into the user's
 | `guard-token-removal.mjs` | Grep `.ts/.tsx` (minus generated + tests) for about-to-be-deleted symbols; blocks cleanup until zero references remain. | run during the cleanup phase |
 | `validate-token-output.mjs` | Assert generated token output — Swift, Kotlin, or web CSS custom properties — matches its DTCG source: authored-unit fidelity and no mode collisions everywhere, plus no leaked CSS syntax and no bare unit literals in Swift and Kotlin. Fails when no emitted symbol matches a source token, and reports match rate, unparsed lines, and unemitted tokens on every run. | `tokens:validate-output` |
 | `validate-adherence.mjs` | Assert the code *consuming* a design system still adheres to it: every referenced component exists, every literal variant value is one the system declares, and no colour, spacing, radius or type literal duplicates a token that already holds that value. Fails when an enabled rule had nothing to check, so a green run always means something was verified. | `adherence:check` |
-| `lib/source-scan.mjs` | Shared source-tree walker (`walk`, `DEFAULT_EXCLUDES`, `SOURCE_EXT`) plus `normalizeName`, the display-name-to-code-identifier fold. Every gate that scans a consumer's repo reads it from here rather than carrying its own copy. | copied alongside `guard-token-removal.mjs` |
+| `lib/source-scan.mjs` | Shared source-tree walker (`walk`, `DEFAULT_EXCLUDES`, `SOURCE_EXT`) plus `normalizeName`, the display-name-to-code-identifier fold. Every gate that scans a consumer's repo reads it from here rather than carrying its own copy. | copied alongside `guard-token-removal.mjs`, and in the documentation set for `validate-adherence.mjs` and `verify-check.mjs` |
 | `lib/crosswalk.mjs` | Shared loader + structural validation for `crosswalk.json` (used by the validator and reverse-index). | copied alongside |
-| `lib/dtcg.mjs` | Shared DTCG flatten + `{alias}` resolution. Dual-node aware: a node carrying both a `$value` and children yields its own value **and** is descended into. Used by `validate-crosswalk.mjs`, `validate-token-output.mjs`, `validate-adherence.mjs`, and `lib/sd-native.mjs`. | copied alongside each of those |
+| `lib/dtcg.mjs` | Shared DTCG flatten + `{alias}` resolution. Dual-node aware: a node carrying both a `$value` and children yields its own value **and** is descended into. Used by `validate-crosswalk.mjs`, `validate-token-output.mjs`, `validate-adherence.mjs`, `verify-check.mjs`, and `lib/sd-native.mjs`. | copied alongside each of those |
 | `lib/sd-native.mjs` | The Style Dictionary native configuration as code: unit-aware dimension transforms, `color-mix` computation, dual-node preprocessing, platform assembly, and a per-mode source guard. Style Dictionary is a parameter, never an import. | copied alongside `validate-token-output.mjs` |
 | `lib/native-literal.mjs` | Shared grammar for "is this a well-formed Swift or Kotlin literal": parses rather than pattern-matches, so an unquoted string, a raw CSS function, or any other unanticipated case fails the same way. Used by `sd-native.mjs`'s output filter and by `validate-token-output.mjs`'s invalid-literal rule. | copied alongside `validate-token-output.mjs` and `lib/sd-native.mjs` |
 | `crosswalk.schema.json` | The finalized JSON Schema for `crosswalk.json` (contract + editor support). | copied beside `crosswalk.json` |
@@ -96,7 +96,8 @@ that owns a `--tokens` file are not scanned when that package sits beneath
 starts with a built component's name and continues with a capital letter
 (`CardTitle` for `Card`) is read as part of that component, and the report lists
 each one on a `parts:` line. `--skip <rule>`
-switches a rule off entirely — a skipped rule is absent rather than inert, which
+switches a rule off entirely (a name that isn't a rule exits `2`, rather than
+skipping nothing), and a skipped rule is absent rather than inert, which
 is the supported answer for a repo the rule cannot apply to (a Vue, Svelte or
 Angular app has no JSX for the component rules to read). An Angular `.html`
 template is read through its styling attributes only: `style`, `class`,
@@ -159,7 +160,8 @@ fingerprint and stamps the manifest's `verification` pointer. Skills call it;
 nothing hand-writes the store or hand-computes a hash.
 
 `--skip <rule>` switches a rule off entirely, and a skipped rule is absent rather
-than inert. With no `--tokens` there is no token source to read, so
+than inert. A name that isn't one of the four rules exits `2`: `colour-contrast`
+is a typo here, not a skip. With no `--tokens` there is no token source to read, so
 `orphan-token` and `color-contrast` are reported as skipped rather than passed.
 
 `color-contrast` compares the semantic colour pairs the system's own role

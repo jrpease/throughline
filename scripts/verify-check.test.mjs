@@ -778,3 +778,9 @@ test('CLI: record mode refuses a misinvocation before it can stamp the manifest'
   assert.equal(readFileSync(manifestPath(root), 'utf8'), before, 'the manifest is untouched');
   assert.equal(existsSync(join(root, 'design-system', 'proof')), false);
 });
+
+test('CLI: a misspelled --skip exits 2 instead of skipping nothing', () => {
+  const r = runCli(['--skip', 'colour-contrast']);
+  assert.equal(r.code, 2);
+  assert.match(r.stdout, /--skip names no rule: colour-contrast/);
+});
