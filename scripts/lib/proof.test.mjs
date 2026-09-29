@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   STAGES,
   PER_COMPONENT_STAGES,
@@ -188,8 +189,9 @@ test('DERIVED_RULE_SCOPE: color-contrast is scoped to the system, like orphan-to
 test('DERIVED_RULE_SCOPE: every key is a rule verify-check.mjs can produce', () => {
   // The gate's derived rules. A scope entry for a name the gate never emits
   // would never contradict anything, which is a rule switched off by typo.
-  const GATE_DERIVED_RULES = ['orphan-token', 'state-incomplete', 'name-drift', 'color-contrast'];
+  // Read off the gate's own source, so renaming a rule there fails here.
+  const gate = readFileSync(new URL('../verify-check.mjs', import.meta.url), 'utf8');
   for (const rule of Object.keys(DERIVED_RULE_SCOPE)) {
-    assert.ok(GATE_DERIVED_RULES.includes(rule), `${rule} should be a rule the gate produces`);
+    assert.ok(gate.includes(`rule: '${rule}'`), `${rule} should be a rule the gate produces`);
   }
 });

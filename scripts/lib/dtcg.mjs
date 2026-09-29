@@ -1,7 +1,7 @@
 // Shared DTCG reading: flatten a token tree to dot-paths, resolve {alias} chains.
 // Zero dependencies. Consumed by validate-crosswalk.mjs, validate-token-output.mjs,
-// validate-adherence.mjs and lib/sd-native.mjs, and copied alongside them when a
-// skill installs any of those.
+// validate-adherence.mjs, verify-check.mjs and lib/sd-native.mjs, and copied
+// alongside them when a skill installs any of those.
 
 const REF = /^\{([^}]+)\}$/;
 

@@ -673,6 +673,8 @@ function recordMode(values) {
   process.exit(0);
 }
 
+export const SKIPPABLE = ['orphan-token', 'state-incomplete', 'name-drift', 'color-contrast'];
+
 function main() {
   let values;
   try {
@@ -690,6 +692,14 @@ function main() {
     }));
   } catch (e) {
     console.error(e.message);
+    process.exit(2);
+  }
+
+  // A misspelled rule would print on the skipped: line and still run, and the
+  // prose spells it "colour" as often as the rule says "color".
+  const unknown = values.skip.filter((rule) => !SKIPPABLE.includes(rule));
+  if (unknown.length) {
+    console.error(`--skip names no rule: ${unknown.join(', ')}. Skippable: ${SKIPPABLE.join(', ')}.`);
     process.exit(2);
   }
 

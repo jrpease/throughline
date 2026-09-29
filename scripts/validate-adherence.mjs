@@ -673,6 +673,13 @@ export function validate({
   // and a green run that verified nothing is the failure class this project
   // keeps filing issues about. A rule the caller switched off is absent, not
   // inert.
+  // A --package the app never imports under leaves every literal rule busy and
+  // the component rules with nothing, so nothing-scanned stays quiet. Only fired
+  // when the walk found something else, so it never doubles nothing-scanned.
+  const scannedOther = stats.literals > 0 || stats.dimensions > 0;
+  if (!off.has('unknown-component') && stats.elements === 0 && scannedOther) {
+    failures.push({ rule: 'component-rule-inert', files: stats.files });
+  }
   if (!off.has('token-exists-for-literal') && tokenValues.size === 0) {
     failures.push({ rule: 'colour-rule-inert' });
   }
@@ -740,6 +747,10 @@ export function formatReport(r) {
         lines.push(
           `  - [${f.rule}] ${f.files} file(s) yielded no component reference, colour literal or dimension literal, so this run verified nothing. Check --root points at the consuming app, and that --package is the specifier that app actually imports from.`,
         );
+      } else if (f.rule === 'component-rule-inert') {
+        lines.push(
+          `  - [${f.rule}] ${f.files} file(s) held literals but no component imported from --package, so unknown-component and unknown-variant-value verified nothing. Check --package is the specifier the app imports the system under, or --skip both rules for an app with no JSX (Vue, Svelte, Angular).`,
+        );
       } else if (f.rule === 'colour-rule-inert') {
         lines.push(
           `  - [${f.rule}] no token file yielded a comparable hex value, so nothing was checked against. Pass --tokens, or --skip token-exists-for-literal if this system has no colour tokens.`,
@@ -782,6 +793,8 @@ export function formatReport(r) {
   return lines;
 }
 
+export const SKIPPABLE = ['unknown-component', 'unknown-variant-value', 'token-exists-for-literal', 'token-exists-for-dimension'];
+
 function main() {
   let values;
   try {
@@ -796,6 +809,12 @@ function main() {
     }));
   } catch (e) {
     console.error(e.message);
+    process.exit(2);
+  }
+
+  const unknown = values.skip.filter((rule) => !SKIPPABLE.includes(rule));
+  if (unknown.length) {
+    console.error(`--skip names no rule: ${unknown.join(', ')}. Skippable: ${SKIPPABLE.join(', ')}.`);
     process.exit(2);
   }
 

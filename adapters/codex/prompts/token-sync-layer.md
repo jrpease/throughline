@@ -229,7 +229,11 @@ import. Then register the gate so it stays live on every future sync:
 Invoke it once per native output file, passing the same `--source` list that
 file's build used. For web output (`shadcn`, `tailwind`, `vanilla-css`), invoke
 it once per mode block instead: name the block with `--block` and pass the
-sources that block was built from. A MUI theme isn't checked yet (#127). The
+sources that block was built from. Pass the generated **CSS** file, the one that
+declares the custom properties. For `tailwind` that is the CSS the theme config
+points at, never the config itself: the gate reads custom properties, and a JS
+config has none, so it would match nothing and fail. A MUI theme, or a Tailwind
+build whose only output is a JS config, isn't checked yet (#127). The
 full contract is in `.throughline/scripts/README.md`. `--min-match 1`
 is what makes it a gate: the flag defaults to `0.5`, so without it a 60% match
 rate exits `0`.
@@ -363,8 +367,11 @@ here.
 
 The entry also carries the **derived** check `color-contrast`, its result read off
 the Step 5 report, with `evidence` naming the modes checked and the tightest
-ratio. The gate runs on every sync, so this check is always recorded — there is no
-path on which it is omitted.
+ratio. Record it whenever the report's `contrast:` line compared at least one
+pair. When it compared none (the report says `contrast-rule-inert`, or the run
+passed `--skip color-contrast`) there is no result to record: omit the check, and
+say why in `advancedBecause`. A `pass` written there would describe a comparison
+that never happened, and the gate could never contradict it.
 
 **When a failure was subtracted, record `result: "fail"` — what the gate actually
 reported** — with `advancedBecause` naming the accepted pair as the reason the sync

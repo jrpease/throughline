@@ -208,10 +208,11 @@ keyed by component?"
 | `figma-name` | attested | `component-builder` |
 | `review` | attested | the dispatching skill |
 | `build` | attested | `storybook-chromatic-builder` |
-| `orphan-token` | derived | `storybook-chromatic-builder` |
+| `orphan-token` | derived | not recorded: re-derived on every `verify:check` run |
 | `state-incomplete` | derived | `storybook-chromatic-builder` |
 | `name-drift` | derived | `storybook-chromatic-builder` |
 | `contrast-baseline` | attested | `token-builder` |
+| `tokens:validate-output` | attested | `token-sync-layer` |
 | `color-contrast` | derived | `token-sync-layer` |
 
 **Two stages record derived results — `storybook-chromatic-builder` and

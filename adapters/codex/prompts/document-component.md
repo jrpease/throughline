@@ -39,7 +39,13 @@ Ask which component to document (e.g. "Button"), then:
    doc scripts from the plugin copy. Refresh the whole set and re-check the npm
    registrations, both per **Documentation scripts — install as a set** in
    `.throughline/scripts/README.md` — a refreshed file whose script was
-   never registered is the same failure in a new place. Run `docs:check` (with the
+   never registered is the same failure in a new place. Two of the registrations,
+   `adherence:check` and `verify:check`, carry placeholder paths and a
+   `--package` specifier: substitute the repo's real ones per the paragraphs under
+   that table, run each once, and use the documented `--skip` for a rule the
+   system doesn't fit, rather than registering a placeholder that fails every
+   run. A repo refreshed from before 0.20.0 gets both for the first time, so say
+   so. Run `docs:check` (with the
    refreshed scripts, if any). For each drifted surface, offer a per-item
    choice — **re-render** (canonical wins) or **pull-back**
    (fold the surface edit into the record) — and land the result as a reviewable

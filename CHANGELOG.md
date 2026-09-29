@@ -6,6 +6,32 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Breaking
+
+Three things can turn a green run red on upgrade. Read these before you do.
+
+- **A token build now fails on a colour pair that misses WCAG AA.** Contrast used
+  to be a warning. It's a stop condition now, checked per mode, so a system that
+  clears in light and fails in dark fails. The details are under `color-contrast`
+  below. Measured on throughline-ds, four of sixteen pairs fail, two of them in
+  shipped components, so expect this one to fire.
+- **Your next doc-script refresh installs two new gates.** The documentation set
+  grew from five files to twelve, and from three npm scripts to five.
+  `/document-component` refreshes the whole set, so an existing
+  repo gets `adherence:check` and `verify:check` registered for the first time.
+  Both carry placeholder paths and a `--package` specifier that have to be
+  swapped for the repo's real ones. The command now says so, and
+  `scripts/README.md` has the rules. Left as placeholders, they fail every run.
+- **`walk`'s second parameter is now an options object** (`{ excludes,
+  fileFilter }`) in both `grep-color-usage.mjs` and `guard-token-removal.mjs`.
+  The positional `walk(root, excludes)` is gone. Both scripts still export `walk`
+  and `DEFAULT_EXCLUDES`, and `SOURCE_EXT` is available from
+  `lib/source-scan.mjs`. Output is unchanged, byte for byte against the previous
+  release on a real repo: 2083 colour matches across 58 files and 216 guard
+  findings. `guard-token-removal.mjs` now imports `lib/source-scan.mjs`, and
+  `token-crosswalk-builder` copies it. A repo that refreshes the guard without
+  it gets an import error.
+
 ### Added
 
 - **`scripts/validate-adherence.mjs` — a code adherence gate (#39).** Reads a
@@ -22,7 +48,7 @@ to [Semantic Versioning](https://semver.org).
   `--system` paths matching the repo's layout — that must be substituted before
   it can run.
 
-  Six things worth knowing before switching it on:
+  Seven things worth knowing before switching it on:
 
   - **A system whose records and code disagree about axis names will see
     `variant-rule-inert`, and should read the report rather than skip the rule.**
@@ -37,12 +63,14 @@ to [Semantic Versioning](https://semver.org).
     the line, and the report lists every name it accepted on a `parts:` line so
     it stays visible. A commented-out tag isn't code. Against the throughline-ds
     site, this took the rule from 20 failures on correct code to 0.
-  - **A run that scans nothing fails.** Pointed at a directory with no matching
-    source, or given a `--package` specifier the app does not import under, the
-    gate reports `nothing-scanned` rather than a clean pass. Every enabled rule
-    must have had something to check. The report says how many files it walked,
-    so a wrong `--root` (none) reads differently from a `--package` the app never
-    imports (plenty, none of them using it).
+  - **A run that scans nothing fails, and so does a component rule that saw no
+    component.** Pointed at a directory with no matching source, the gate reports
+    `nothing-scanned` rather than a clean pass. Given a `--package` specifier the
+    app does not import under, the colour and dimension rules still have plenty
+    to read, so it reports `component-rule-inert` instead: the component rules
+    checked nothing. An app with no JSX (Vue, Svelte, Angular) skips both
+    component rules. The report says how many files it walked, so a wrong
+    `--root` (none) reads differently from a wrong `--package` (plenty).
   - **Hex and opaque `rgb()` colours are compared.** `rgba(163, 230, 34, 1)` and
     `#a3e622` are the same colour, so they match whichever one the token uses
     and whichever one the code uses. `hsl()` and anything with alpha below 1 are
@@ -216,32 +244,19 @@ to [Semantic Versioning](https://semver.org).
 
   No schema bump: `verification` is unchanged at `schemaVersion` 7.
 
-### Changed
-
-- **`walk`'s second parameter is now an options object** (`{ excludes,
-  fileFilter }`) in both `grep-color-usage.mjs` and `guard-token-removal.mjs`.
-  The positional `walk(root, excludes)` is gone. Both scripts still export `walk`
-  and `DEFAULT_EXCLUDES`; `SOURCE_EXT` is available from `lib/source-scan.mjs`.
-  Output is unchanged — verified byte-identical against the previous release on a
-  real repo, 2083 colour matches across 58 files and 216 guard findings.
-
-- **`token-crosswalk-builder` now copies `lib/source-scan.mjs`.** A repo that
-  refreshes `guard-token-removal.mjs` without it gets an import error.
-
 ### Fixed
 
 - **The source scanners skip a local Storybook build (#124).** Running
   `storybook build` leaves minified bundles in `packages/ui/storybook-static`.
   The directory is gitignored, so CI never sees it. A local run from `packages/`
-  read every bundle anyway. On one real design system, that was 453 of the
-  adherence gate's 465 failures, all of them in Storybook's own code. The shared
+  read every bundle anyway. On one real design system, the colour rule alone
+  flagged 105 literals in Storybook's own code. The shared
   walker in `lib/source-scan.mjs` now skips `storybook-static` the way it already
   skips `dist` and `.next`. `grep-color-usage.mjs` and `guard-token-removal.mjs`
   share that walker, so they skip it too.
 
   The token-removal guard loses nothing. It reads only `.ts` and `.tsx`, and a
-  Storybook build ships neither. On the same repo, it reported the same 687
-  references before and after.
+  Storybook build ships neither.
 - **The Figma executor checks which file it is about to write to, not just that
   a bridge is up (#107).** Every write lands in whichever Figma file is active.
   With two files open, a green status check could still send a component build
