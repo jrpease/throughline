@@ -4,6 +4,13 @@ Date: 2026-09-11
 Corrected: 2026-09-13 — Phase 4 shipped on 2026-09-12 and has moved from
 "What's unfinished" to "What shipped". Nothing else about this note changed.
 
+**Superseded 2026-09-29: 0.20.0 has shipped.** It carries everything below, plus
+a pre-release batch (#132, #133, #135, #137, #141, #142) and the whole-branch
+review's fixes (#148). Q9 is answered: #41 composes one screen, added to an
+existing app. Phase 5 is unblocked. #112 is still the order, and its "After the
+release" list (#134, #138, #140) comes first. The rest of this note is the
+record as of 2026-09-13.
+
 The backlog got worked in order against pinned #112. Five batches are done. One
 is left, and it is blocked on Q9. Nothing has been released.
 
