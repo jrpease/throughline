@@ -97,8 +97,13 @@ starts with a built component's name and continues with a capital letter
 (`CardTitle` for `Card`) is read as part of that component, and the report lists
 each one on a `parts:` line. `--skip <rule>`
 switches a rule off entirely — a skipped rule is absent rather than inert, which
-is the supported answer for a repo the rule cannot apply to (a Vue or Svelte app
-has no JSX for the component rules to read). `--skip token-exists-for-dimension`
+is the supported answer for a repo the rule cannot apply to (a Vue, Svelte or
+Angular app has no JSX for the component rules to read). An Angular `.html`
+template is read through its styling attributes only: `style`, `class`,
+`ngStyle`, `ngClass`, the SVG colour attributes (`fill`, `stroke`, `stop-color`,
+`flood-color`, `lighting-color`, `color`), and their bindings (`[attr.fill]`,
+`[style.color]`). Text content, `data-*`, `href` and comments are not read.
+`--skip token-exists-for-dimension`
 is the answer for a system with no spacing, radius or type tokens, which
 otherwise fails as `dimension-rule-inert`.
 

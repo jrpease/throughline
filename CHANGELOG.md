@@ -71,6 +71,14 @@ to [Semantic Versioning](https://semver.org).
     inside `calc()`, `clamp()` or a `var()` fallback are left alone, and so are
     `0` and `@font-face` descriptors. Tailwind step classes like `p-4` aren't
     read, only arbitrary values like `p-[16px]`.
+  - **Angular templates are read, through their styling attributes only
+    (#132).** `style`, `class`, `ngStyle`, `ngClass`, the SVG colour attributes
+    (`fill`, `stroke`, `stop-color` and the rest) and their bindings, such as
+    `[attr.fill]` and `[style.color]`. Text content isn't read, so a brand guide
+    that prints `#080d14` next to its swatch isn't flagged for the text. Neither
+    are `data-*`, `href="#cafe"` or an HTML comment. On zygarden this found 64
+    colour and 11 type literals the gate never saw before, and every one was
+    real. 51 of them are brand green hard-coded into one SVG icon helper.
 
   Advisories — expressions the regex cannot read, props matching no declared
   axis, built components with no doc record — are printed on every run and never

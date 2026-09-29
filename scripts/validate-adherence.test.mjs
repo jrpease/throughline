@@ -19,6 +19,7 @@ import {
   buildDimensionValues,
   extractDimensions,
   partOwner,
+  templateView,
 } from './validate-adherence.mjs';
 
 const SRC = `
@@ -1295,4 +1296,61 @@ test('the CLI flags a dimension literal against a token, and counts it in the he
     /\[token-exists-for-dimension\] spacing 1rem \(16px\) at .*page\.scss:1 — space\.4 resolves to exactly this value/,
   );
   assert.match(out, /0 colour literals, 1 dimension literals, 1 files/);
+});
+
+// #132: an Angular template is read through its styling attributes only.
+const TEMPLATE = `<!-- <div style="color: #010101"> -->
+<div class="border-[#afef21] p-[12px]" data-hex="#080d14" style="background: #080d14; padding: 16px">
+  <code>#0a0a0a</code>&#8288;<a href="#cafe">x</a>
+  <svg><stop stop-color="#123456" /><path [attr.fill]="'#abcdef'" [stroke]="on ? '#111111' : '#222222'" d="M0 0"/></svg>
+  <span [style.color]="'#333333'"></span>
+</div>`;
+
+test('templateView keeps styling attribute values in place and blanks the rest', () => {
+  const view = templateView(TEMPLATE);
+  assert.equal(view.length, TEMPLATE.length);
+  assert.equal(view.split('\n').length, TEMPLATE.split('\n').length);
+  assert.equal(view.indexOf('background: #080d14'), TEMPLATE.indexOf('background: #080d14'));
+  for (const gone of ['#010101', 'data-hex', '#0a0a0a', '8288', '#cafe', 'M0 0']) {
+    assert.ok(!view.includes(gone), `${gone} should be blanked`);
+  }
+});
+
+test('an Angular template yields colours from style, class, SVG attributes and bindings, and nothing from text', () => {
+  const { literals, dimensions, elements } = extract(TEMPLATE, '@acme/ui', 'a.component.html');
+  assert.deepEqual(
+    literals.map((l) => `${l.value}:${l.line}`),
+    ['#afef21:2', '#080d14:2', '#123456:4', '#abcdef:4', '#111111:4', '#222222:4', '#333333:5'],
+  );
+  assert.deepEqual(
+    dimensions.map((d) => `${d.written}:${d.line}`),
+    ['16px:2', 'p-[12px]:2'],
+  );
+  assert.deepEqual(elements, []);
+});
+
+test('an .html file is walked and a template literal fails the gate', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'adherence-html-'));
+  mkdirSync(join(dir, 'design-system/docs'), { recursive: true });
+  writeFileSync(join(dir, 'design-system.json'), JSON.stringify({ components: { built: [] } }));
+  writeFileSync(join(dir, 'design-system/docs/index.json'), JSON.stringify({ components: [] }));
+  writeFileSync(join(dir, 'tokens.json'), JSON.stringify({ brand: { $type: 'color', $value: '#AFEF21' } }));
+  mkdirSync(join(dir, 'app'));
+  writeFileSync(join(dir, 'app/x.component.html'), '<p>#afef21</p>\n<svg><path fill="#AFEF21"/></svg>\n');
+  let out = '';
+  let code = 0;
+  try {
+    execFileSync('node', [
+      new URL('./validate-adherence.mjs', import.meta.url).pathname,
+      '--root', join(dir, 'app'), '--system', dir, '--package', '@acme/ui',
+      '--tokens', join(dir, 'tokens.json'),
+      '--skip', 'unknown-component', '--skip', 'unknown-variant-value', '--skip', 'token-exists-for-dimension',
+    ], { encoding: 'utf8' });
+  } catch (e) {
+    out = e.stdout;
+    code = e.status;
+  }
+  assert.equal(code, 1, out);
+  assert.match(out, /x\.component\.html:2/);
+  assert.doesNotMatch(out, /x\.component\.html:1\b/);
 });
