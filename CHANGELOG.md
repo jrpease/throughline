@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.20.0] — 2026-09-29
+
 ### Breaking
 
 Three things can turn a green run red on upgrade. Read these before you do.
@@ -1389,7 +1391,8 @@ components → Storybook on a pnpm + Turborepo + Next.js 16 + Tailwind v4 monore
 - Reference docs for coding level, manifest schema, sync adapters, Figma
   component standards, and brainstorm-before-build.
 
-[Unreleased]: https://github.com/jrpease/throughline/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/jrpease/throughline/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/jrpease/throughline/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/jrpease/throughline/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/jrpease/throughline/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/jrpease/throughline/compare/v0.16.0...v0.17.0
