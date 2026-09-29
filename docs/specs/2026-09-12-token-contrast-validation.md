@@ -924,7 +924,7 @@ verification by design rather than by omission.
 
 ### Step 13 — Measure it end to end, with controls
 
-Files: `docs/superpowers/notes/2026-09-12-token-contrast-e2e.md` (new), this spec
+Files: `docs/notes/2026-09-12-token-contrast-e2e.md` (new), this spec
 
 Change: build a fixture design system in the session scratchpad — a
 `design-system.json` at `schemaVersion` 7, a `packages/tokens/package.json`, and a
@@ -1027,7 +1027,7 @@ and the six other CI commands are green on the final tree.
   and stops the sync on a contrast failure.
 - **Docs** — `references/proof-bundle.md`, `scripts/README.md`, the storying
   skill's four corrections, the README roadmap line and a CHANGELOG entry.
-- **Evidence** — `docs/superpowers/notes/2026-09-12-token-contrast-e2e.md`.
+- **Evidence** — `docs/notes/2026-09-12-token-contrast-e2e.md`.
 
 ## Where it diverged
 

@@ -6,7 +6,7 @@ Date: 2026-09-11
 Issue: #39, phase 3
 Parent design: `docs/superpowers/specs/2026-08-31-code-adherence-gate-design.md` (§4, §8, §11)
 Evidence: a prototype of exactly these rules, run against the two apps and the
-commits in `docs/superpowers/notes/2026-09-11-colour-rule-measurement.md`
+commits in `docs/notes/2026-09-11-colour-rule-measurement.md`
 
 ## Goal
 
@@ -124,7 +124,7 @@ and its tests, plus the CHANGELOG and `scripts/README.md`.
 - **Phase 4 isn't triggered.** #39 closes when this lands.
 
 Measured against the real change, not the prototype, in
-`docs/superpowers/notes/2026-09-11-dimension-rule-measurement.md`:
+`docs/notes/2026-09-11-dimension-rule-measurement.md`:
 
 | run | files | dimension literals | dimension flags | true | false | unclear | colour flags |
 |---|---|---|---|---|---|---|---|
@@ -171,7 +171,7 @@ M=/private/tmp/claude-501/-Users-jordanpease-Dev-throughline/34e9781c-566c-40de-
 
 - `$M/throughline-brand` at `2a9d370`, and `$M/zygarden-frontend` at `ca61ca9a6`.
   If they're gone, rebuild them from the Reproduce block in
-  `docs/superpowers/notes/2026-09-11-colour-rule-measurement.md`.
+  `docs/notes/2026-09-11-colour-rule-measurement.md`.
 - `$M/dim-spec-proto.mjs` is a throwaway prototype of Steps 2 and 3, and
   `$M/rgb-spec-proto.mjs` of Step 1. They're a reference only. The briefs below
   are complete without them.
@@ -548,7 +548,7 @@ Verify: all seven exit 0.
 
 ### Step 7 — Measure the real change, record it, close out this spec
 
-Files: a new `docs/superpowers/notes/<date +%F>-dimension-rule-measurement.md`,
+Files: a new `docs/notes/<date +%F>-dimension-rule-measurement.md`,
 this spec
 
 Change: confirm the clones are still at `2a9d370`

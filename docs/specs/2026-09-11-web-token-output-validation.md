@@ -135,7 +135,7 @@ the existing test file changed.
 `scripts/README.md` holds the web contract, linked from the skill and from
 `references/sync-adapters.md`. CHANGELOG has the entry under `[Unreleased]`.
 
-Evidence: `docs/superpowers/notes/2026-09-11-web-output-validation-e2e.md`.
+Evidence: `docs/notes/2026-09-11-web-output-validation-e2e.md`.
 All sixteen Step 9 runs matched their Expect column: zygarden's three blocks
 (214, 39 and 69 declarations) and throughline-sample's shadcn build (147 with
 20 aliases, and 35) came back clean, and every control failed the way this
@@ -608,7 +608,7 @@ Verify: all seven exit 0.
 
 ### Step 9 — Measure the real change, record it, close out this spec
 
-Files: a new `docs/superpowers/notes/<date +%F>-web-output-validation-e2e.md`,
+Files: a new `docs/notes/<date +%F>-web-output-validation-e2e.md`,
 this spec
 
 Change: confirm `git -C $M/zygarden-frontend log -1 --format=%h` is `ca61ca9a6`,

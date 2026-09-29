@@ -4,7 +4,7 @@ Status: built
 Reviewed: 2026-09-11 — ready to build
 Date: 2026-09-11
 Issue: #123 (refs #39)
-Evidence: `docs/superpowers/notes/2026-09-11-colour-rule-measurement.md` (#122)
+Evidence: `docs/notes/2026-09-11-colour-rule-measurement.md` (#122)
 Parent design: `docs/superpowers/specs/2026-08-31-code-adherence-gate-design.md`
 
 ## Goal
@@ -98,7 +98,7 @@ lost.
   dropping the `:` guard.
 - `CHANGELOG.md`: a fourth "worth knowing" bullet in the unreleased gate entry.
 - `scripts/README.md`: one sentence on the exclusion under `## Usage`.
-- `docs/superpowers/notes/2026-09-11-colour-rule-measurement.md`: an "After
+- `docs/notes/2026-09-11-colour-rule-measurement.md`: an "After
   narrowing (#123)" section with the per-run table.
 - **Totals, same commits:** 73 flags → 26. 21 true → 21, 51 false → 4, 1 unclear
   → 1. The false rate went from 70% to 15%. Every diff is removals only, and
@@ -288,7 +288,7 @@ adds only `node:` built-ins.
 
 ### Step 6 — Re-run the measurement against the same commits and record it
 
-Files: `docs/superpowers/notes/2026-09-11-colour-rule-measurement.md`, this spec
+Files: `docs/notes/2026-09-11-colour-rule-measurement.md`, this spec
 
 Change: from the repo root, with `$M` as above, confirm the clones are still at
 `2a9d370` (`git -C $M/throughline-brand log -1 --format=%h`) and `ca61ca9a6`

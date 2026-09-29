@@ -4,7 +4,7 @@ Status: built
 Reviewed: 2026-09-11 — ready to build
 Date: 2026-09-11
 Issue: #120 (refs #39)
-Evidence: `docs/superpowers/notes/2026-09-11-colour-rule-measurement.md` (#122), plus a
+Evidence: `docs/notes/2026-09-11-colour-rule-measurement.md` (#122), plus a
 prototype of these rules run against the same site at the same commit
 Parent design: `docs/superpowers/specs/2026-08-31-code-adherence-gate-design.md` (§4, §11)
 
@@ -104,7 +104,7 @@ All five steps, on `fix/120-narrow-component-rule`.
   all.
 - `CHANGELOG.md`: a sixth "worth knowing" bullet in the unreleased gate entry.
 - `scripts/README.md`: one sentence on parts under `## Usage`.
-- `docs/superpowers/notes/2026-09-11-colour-rule-measurement.md`: an
+- `docs/notes/2026-09-11-colour-rule-measurement.md`: an
   "`unknown-component` after #120" section.
 - **Measured, same commits:** `throughline-ds` `--root apps` went from 20
   `unknown-component` failures to 0, and from 67 rule failures to 47. The
@@ -145,7 +145,7 @@ M=/private/tmp/claude-501/-Users-jordanpease-Dev-throughline/34e9781c-566c-40de-
 
 - `$M/throughline-brand` at `2a9d370`, and `$M/zygarden-frontend` at `ca61ca9a6`.
   If they're gone, rebuild them from the Reproduce block in
-  `docs/superpowers/notes/2026-09-11-colour-rule-measurement.md`.
+  `docs/notes/2026-09-11-colour-rule-measurement.md`.
 - `$M/before-120-brand-apps.txt`, `before-120-brand-packages.txt`,
   `before-120-zyg-apps.txt`, `before-120-zyg-libs.txt` and `before-120-probe.txt`
   are the gate's output on `main` at `18fe3a1`, before this change. If they're
@@ -362,7 +362,7 @@ Verify: all seven exit 0.
 
 ### Step 5 — Measure the real change, record it, close out this spec
 
-Files: `docs/superpowers/notes/2026-09-11-colour-rule-measurement.md`, this spec
+Files: `docs/notes/2026-09-11-colour-rule-measurement.md`, this spec
 
 Change: confirm the clones are still at `2a9d370`
 (`git -C $M/throughline-brand log -1 --format=%h`) and `ca61ca9a6`
