@@ -31,6 +31,9 @@ Ask which component to document (e.g. "Button"), then:
    verify its returned summary and stamp `surfaces.docCard.{src,render,renderer}`
    from it), and (if the repo/code side exists) render MDX/JSDoc and run
    `docs:digest` per the `storybook-chromatic-builder` render step.
+   Before the Figma writes, run the active-file preflight in
+   `${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md` — this command writes
+   inline, so no executor checks the file for you.
 3. **Reconcile drift.** Before trusting `docs:check`, confirm the repo's copy of
    the doc scripts is current: compare `DOC_CARD_RENDERER_VERSION` in the repo's
    `scripts/lib/doc-card-plan.mjs` against the same constant in

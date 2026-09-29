@@ -109,6 +109,10 @@ component once its slice of the spec is complete enough to transcribe. **Keep th
 human checkpoint between components** — subagents run continuously within a
 component, but you pause for the human between them. If your host has no subagent
 dispatch, build and verify each component inline, sequentially, as before.
+Inline, run the active-file preflight in
+`.throughline/references/figma-scripting.md` before the first write and
+again before replacing anything — the executor's file check does not come with
+you.
 
 ## Step 3 — Build each component, bound to tokens/styles
 

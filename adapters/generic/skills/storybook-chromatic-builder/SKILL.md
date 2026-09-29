@@ -342,7 +342,9 @@ For every component you finalized in this run, follow the **"Promoting a
 component's status (write-back on finalize)"** routine in
 `.throughline/references/figma-component-standards.md` (which also covers
 the `figma_execute` scripting gotchas — `getNodeByIdAsync` and an explicit
-`timeout` for the multi-card write):
+`timeout` for the multi-card write). This write runs inline, so run the
+active-file preflight in `.throughline/references/figma-scripting.md`
+before it:
 
 - Set `components.meta[name].status` = `"stable"` and refresh
   `components.meta[name].updatedAt` to today — for every component this pass
