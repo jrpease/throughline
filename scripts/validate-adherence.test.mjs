@@ -20,6 +20,8 @@ import {
   extractDimensions,
   partOwner,
   templateView,
+  readSubtrees,
+  SKIPPABLE,
 } from './validate-adherence.mjs';
 
 const SRC = `
@@ -1424,4 +1426,225 @@ test('CLI: a misspelled --skip exits 2 instead of skipping nothing', () => {
   }
   assert.equal(code, 2);
   assert.match(stderr, /--skip names no rule: unknown-components/);
+});
+
+// The JSX subtree reader (#140). Every fixture passes a script path: extract
+// reads subtrees only for script files, so a pathless call would test nothing.
+const sub = (body, imports = 'Button, Badge, Card') =>
+  extract(`import { ${imports} } from '@acme/ui';\n${body}`, '@acme/ui', 'x.tsx').subtrees;
+
+test('reader: pairs nested elements, and a nested target is its own entry', () => {
+  const s = sub('<Card><p>Hi</p><Button>Go</Button></Card>');
+  assert.deepEqual(s.map((e) => [e.component, e.paired]), [['Card', true], ['Button', true]]);
+  assert.deepEqual(s[0].children.map((c) => c.name ?? c.type), ['p', 'Button']);
+  assert.deepEqual(s[1].children, [{ type: 'text', value: 'Go' }]);
+});
+
+test('reader: a same-name element nested inside itself pairs to the right close', () => {
+  const s = sub('<Button><Button>Inner</Button> outer</Button>');
+  assert.equal(s.length, 2);
+  assert.ok(s.every((e) => e.paired));
+  assert.deepEqual(s[0].children.map((c) => c.type), ['element', 'text']);
+  assert.equal(s[0].children[1].value, ' outer');
+});
+
+test('reader: an arrow function or a > in a string does not end the tag', () => {
+  const [a] = sub('<Button onClick={() => go(x > 1)} title="a > b">Go</Button>');
+  assert.equal(a.paired, true);
+  assert.deepEqual(a.attrs, [
+    { name: 'onClick', kind: 'expr', value: null },
+    { name: 'title', kind: 'literal', value: 'a > b' },
+  ]);
+  assert.deepEqual(a.children, [{ type: 'text', value: 'Go' }]);
+});
+
+test('reader: literal, expression and bare attributes each have a kind', () => {
+  const [a] = sub(`<Button asChild variant='ghost' size={s} aria-hidden />`);
+  assert.equal(a.selfClosing, true);
+  assert.deepEqual(a.attrs.map((x) => [x.name, x.kind, x.value]), [
+    ['asChild', 'bare', null],
+    ['variant', 'literal', 'ghost'],
+    ['size', 'expr', null],
+    ['aria-hidden', 'bare', null],
+  ]);
+});
+
+test('reader: a spread is recorded on the element and on a child', () => {
+  const [a] = sub('<Button {...props}><Icon {...rest} size={16} /></Button>');
+  assert.equal(a.spread, true);
+  assert.deepEqual(a.attrs, []);
+  assert.equal(a.children[0].spread, true);
+  assert.equal(a.children[0].selfClosing, true);
+});
+
+test('reader: a fragment child pairs, and a JSX comment is dropped', () => {
+  const [a] = sub('<Button><>{/* icon */}<Icon /></>{label}</Button>');
+  assert.equal(a.paired, true);
+  assert.equal(a.children[0].name, '');
+  assert.deepEqual(a.children[0].children.map((c) => c.name ?? c.type), ['Icon']);
+  assert.deepEqual(a.children[1], { type: 'expr', value: 'label' });
+});
+
+test('reader: JSX inside an expression is read as JSX, apostrophes and all', () => {
+  const [card, badge] = sub("<Card>{ok && <Badge>Don't</Badge>}</Card>");
+  assert.equal(card.paired, true);
+  assert.deepEqual(badge.children, [{ type: 'text', value: "Don't" }]);
+});
+
+test('reader: an unclosed element abstains as unpaired, with no children', () => {
+  const [a] = sub('<Button variant="ghost">Go');
+  assert.equal(a.paired, false);
+  assert.deepEqual(a.children, []);
+  assert.deepEqual(a.attrs, [{ name: 'variant', kind: 'literal', value: 'ghost' }]);
+});
+
+test('reader: a mismatched close abstains rather than guessing', () => {
+  const [a] = sub('<Button><span>Go</div></Button>');
+  assert.equal(a.paired, false);
+});
+
+test('reader: runs only on script files, and a pathless call reads nothing', () => {
+  const src = "import { Button } from '@acme/ui';\n<Button>Go</Button>";
+  assert.equal(extract(src, '@acme/ui', 'x.tsx').subtrees.length, 1);
+  assert.deepEqual(extract(src, '@acme/ui', 'x.vue').subtrees, []);
+  assert.deepEqual(extract(src, '@acme/ui').subtrees, []);
+});
+
+test('reader: a member name and a type argument are not targets', () => {
+  assert.deepEqual(sub('const [v] = useState<Button>(x); <Button.Group>a</Button.Group>'), []);
+});
+
+test('reader: readSubtrees takes comment-blanked code and an import map', () => {
+  const s = readSubtrees('<Btn>Go</Btn>', new Map([['Btn', 'Button']]));
+  assert.deepEqual(s.map((e) => [e.component, e.paired]), [['Button', true]]);
+});
+
+// The usage rules (#140), through validate as the CLI runs them.
+const BADGE_RECORD = { name: 'Badge', variants: { tone: { danger: {}, success: {} } }, states: {} };
+const a11y = (body, { imports = 'Button, Badge, IconButton', index = { components: [] }, skip = [] } = {}) => {
+  const src = `import { ${imports} } from '@acme/ui';\n${body}`;
+  const { elements, usages, subtrees } = extract(src, '@acme/ui', 'x.tsx');
+  const r = validate({
+    built: ['Button', 'Badge', 'IconButton'],
+    index,
+    files: [{ path: 'x.tsx', elements, usages, literals: [], dimensions: [], subtrees }],
+    skip: ['token-exists-for-literal', 'token-exists-for-dimension', 'unknown-variant-value', ...skip],
+  });
+  return { r, rules: r.failures.map((f) => f.rule).filter((rule) => rule === 'unnamed-control' || rule === 'colour-only-status') };
+};
+
+test('unnamed-control: an icon-only Button fails, with or without icon props', () => {
+  assert.deepEqual(a11y('<Button><TrashIcon /></Button>').rules, ['unnamed-control']);
+  assert.deepEqual(a11y('<Button><TrashIcon size={16} color="red" /></Button>').rules, ['unnamed-control']);
+  assert.deepEqual(a11y('<Button>   </Button>').rules, ['unnamed-control']);
+});
+
+test('unnamed-control: a name on the element, a descendant, or in text passes', () => {
+  for (const body of [
+    '<Button><TrashIcon aria-label="Delete" /></Button>',
+    '<Button asChild><a>Go</a></Button>',
+    '<Button>{label}</Button>',
+    '<Button aria-label={t("delete")}><TrashIcon /></Button>',
+    '<Button title="Delete"><TrashIcon /></Button>',
+    '<IconButton aria-labelledby="x" />',
+  ]) {
+    const { r, rules } = a11y(body);
+    assert.deepEqual(rules, [], body);
+    assert.equal(r.stats.a11y['unnamed-control'].checked, 1, body);
+  }
+});
+
+test('unnamed-control: an empty or bare aria-label names nothing', () => {
+  assert.deepEqual(a11y('<Button aria-label=""><TrashIcon /></Button>').rules, ['unnamed-control']);
+  assert.deepEqual(a11y('<Button aria-label><TrashIcon /></Button>').rules, ['unnamed-control']);
+});
+
+test('usage rules abstain on a spread, a label-like prop inside, or an unpaired element', () => {
+  for (const body of [
+    '<Button {...props}><TrashIcon /></Button>',
+    '<Button><TrashIcon {...iconProps} /></Button>',
+    '<Button><Trans i18nKey="delete" /></Button>',
+    '<Button><FormattedMessage id="delete" /></Button>',
+    '<Button><Icon srLabel="x" /></Button>',
+    '<Button><TrashIcon />',
+  ]) {
+    const { r, rules } = a11y(body);
+    assert.deepEqual(rules, [], body);
+    assert.deepEqual(r.stats.a11y['unnamed-control'], { checked: 0, abstained: 1 }, body);
+  }
+});
+
+test('self-closing: fails on modelled or never-a-label props, abstains on anything else', () => {
+  const index = { components: [BADGE_RECORD] };
+  assert.deepEqual(a11y('<Badge tone="danger" />', { index }).rules, ['colour-only-status']);
+  assert.deepEqual(a11y('<Badge tone="danger" className="x" onClick={f} data-x="1" />', { index }).rules, ['colour-only-status']);
+  assert.deepEqual(a11y('<Badge aria-label="" />').rules, ['colour-only-status']);
+  // No record: a variant can't be told from a label prop.
+  const noRecord = a11y('<Badge tone="danger" />');
+  assert.deepEqual(noRecord.rules, []);
+  assert.deepEqual(noRecord.r.stats.a11y['colour-only-status'], { checked: 0, abstained: 1 });
+  const ghost = a11y('<IconButton variant="ghost" />');
+  assert.deepEqual(ghost.rules, []);
+  assert.deepEqual(ghost.r.stats.a11y['unnamed-control'], { checked: 0, abstained: 1 });
+  // A states key is modelled too, so it can't be the label.
+  const loading = { components: [{ name: 'Badge', variants: {}, states: { loading: {} } }] };
+  assert.deepEqual(a11y('<Badge loading />', { index: loading }).rules, ['colour-only-status']);
+  // An unknown prop on an element with children doesn't abstain: its children decide.
+  assert.deepEqual(a11y('<Button variant="ghost"><TrashIcon /></Button>').rules, ['unnamed-control']);
+});
+
+test('colour-only-status: text or a named icon passes; targets by archetype', () => {
+  for (const body of ['<Badge tone="danger">Error</Badge>', '<Badge><AlertIcon title="Error" /></Badge>']) {
+    const { r, rules } = a11y(body);
+    assert.deepEqual(rules, [], body);
+    assert.deepEqual(r.stats.a11y['colour-only-status'], { checked: 1, abstained: 0 }, body);
+  }
+  assert.deepEqual(a11y('<Badge><AlertIcon /></Badge>').rules, ['colour-only-status']);
+  // Tag folds to badge by name; a record's archetype reaches a name that doesn't.
+  assert.deepEqual(a11y('<Tag />', { imports: 'Tag' }).rules, ['colour-only-status']);
+  const index = { components: [{ name: 'Pill', archetype: 'badge' }, { name: 'Action', archetype: 'button' }] };
+  assert.deepEqual(a11y('<Pill /><Action />', { imports: 'Pill, Action', index }).rules, ['colour-only-status', 'unnamed-control']);
+});
+
+test('usage rules: a nested target is judged on its own', () => {
+  const { r, rules } = a11y('<Button><Badge /> Save</Button>');
+  assert.deepEqual(rules, ['colour-only-status']);
+  assert.equal(r.stats.a11y['unnamed-control'].checked, 1);
+});
+
+test('usage rules read script files only', () => {
+  const src = "import { Button } from '@acme/ui';\n<Button><TrashIcon /></Button>";
+  const { subtrees } = extract(src, '@acme/ui', 'x.vue');
+  const r = validate({ built: ['Button'], files: [{ path: 'x.vue', elements: [], usages: [], literals: [], dimensions: [], subtrees }] });
+  assert.ok(!r.failures.some((f) => f.rule === 'unnamed-control'));
+  assert.equal(r.stats.a11y['unnamed-control'].checked, 0);
+});
+
+test('usage rules: skippable, and a skipped rule leaves the a11y line', () => {
+  assert.ok(SKIPPABLE.includes('unnamed-control') && SKIPPABLE.includes('colour-only-status'));
+  const one = a11y('<Button><TrashIcon /></Button><Badge><X /></Badge>', { skip: ['unnamed-control'] });
+  assert.deepEqual(one.rules, ['colour-only-status']);
+  const line = formatReport(one.r).find((l) => l.includes('a11y:'));
+  assert.equal(line, '  a11y:         colour-only-status 1 checked, 0 abstained');
+  const both = a11y('<Button><TrashIcon /></Button>', { skip: ['unnamed-control', 'colour-only-status'] });
+  assert.deepEqual(both.rules, []);
+  assert.ok(!formatReport(both.r).some((l) => l.includes('a11y:')));
+});
+
+test('usage rules: the a11y line sits right after dimensions, and failures name the element', () => {
+  const lines = formatReport(a11y('<Button><TrashIcon /></Button>').r);
+  const at = lines.findIndex((l) => l.startsWith('  dimensions:'));
+  assert.equal(lines[at + 1], '  a11y:         unnamed-control 1 checked, 0 abstained; colour-only-status 0 checked, 0 abstained');
+  assert.ok(lines.some((l) => l.startsWith('  - [unnamed-control] <Button> at x.tsx:2 — no accessible name')));
+});
+
+test('usage rules: no inert failure when nothing is targeted', () => {
+  const { r } = a11y('<Card>hi</Card>', { imports: 'Card' });
+  assert.ok(!r.failures.some((f) => /a11y|unnamed|colour-only/.test(f.rule)));
+});
+
+test('reader: nesting deeper than the stack abstains instead of crashing', () => {
+  const deep = '<div>'.repeat(20000) + '</div>'.repeat(20000);
+  const [a] = sub(`<Button>${deep}</Button>`);
+  assert.equal(a.paired, false);
 });

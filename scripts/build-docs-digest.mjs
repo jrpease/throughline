@@ -17,6 +17,7 @@ export function buildIndex(records) {
     generatedFrom: 'design-system/docs/components/*.doc.json',
     components: records.map((r) => ({
       name: r.name,
+      archetype: r.archetype ?? null,
       summary: r.summary ?? '',
       description: r.description ?? '',
       whenToUse: r.whenToUse ?? [],

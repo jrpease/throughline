@@ -16,6 +16,7 @@ import { pathToFileURL } from 'node:url';
 import { join, dirname, relative, sep } from 'node:path';
 import { walk, normalizeName } from './lib/source-scan.mjs';
 import { flattenDtcg, flattenDtcgTypes, resolveValue } from './lib/dtcg.mjs';
+import { resolveArchetype } from './lib/component-states.mjs';
 
 // Named imports from one package, alias included: `{ Card as Panel }`.
 const IMPORT = /import\s*\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g;
@@ -217,6 +218,180 @@ export function templateView(text) {
   return out.join('');
 }
 
+// The JSX subtree reader (#140): docs/specs/2026-09-29-component-accessibility-checks.md.
+// It runs alongside ELEMENT, not in place of it: only the usage rules read it.
+// Every function returns null on anything it can't pair cleanly, and the caller
+// turns that into `paired: false`, never a guess.
+const IDENT_START = /[A-Za-z_$]/;
+const NAME_CHAR = /[\w$.:-]/;
+
+// i is at an opening quote; returns the index just past its close.
+function skipString(code, i) {
+  const q = code[i];
+  for (let j = i + 1; j < code.length; j++) {
+    if (code[j] === '\\') j++;
+    else if (q === '`' && code[j] === '$' && code[j + 1] === '{') {
+      const end = skipBraces(code, j + 1);
+      if (end === null) return null;
+      j = end - 1;
+    } else if (code[j] === q) return j + 1;
+  }
+  return null;
+}
+
+// i is at `{`; returns the index just past its matching `}`. JSX inside an
+// expression (`{ok && <Badge>Done</Badge>}`) is read as JSX, so an apostrophe
+// in its text isn't taken for a string. A `<` after an identifier character is
+// a comparison or a type argument.
+function skipBraces(code, i) {
+  let depth = 0;
+  for (let j = i; j < code.length; j++) {
+    const c = code[j];
+    if (c === '"' || c === "'" || c === '`') {
+      const end = skipString(code, j);
+      if (end === null) return null;
+      j = end - 1;
+    } else if (c === '<' && !/[\w$.)\]]/.test(code[j - 1] ?? '') && /[A-Za-z>]/.test(code[j + 1] ?? '')) {
+      const el = parseElement(code, j);
+      if (el === null) return null;
+      j = el.end - 1;
+    } else if (c === '{') depth++;
+    else if (c === '}' && --depth === 0) return j + 1;
+  }
+  return null;
+}
+
+// i is at `<`. Reads the name and attributes up to `>` or `/>`.
+function parseTag(code, i) {
+  let j = i + 1;
+  let name = '';
+  while (j < code.length && NAME_CHAR.test(code[j])) name += code[j++];
+  const attrs = [];
+  let spread = false;
+  for (;;) {
+    while (/\s/.test(code[j] ?? '')) j++;
+    if (j >= code.length) return null;
+    if (code.startsWith('/>', j)) return { name, attrs, spread, selfClosing: true, end: j + 2 };
+    if (code[j] === '>') return { name, attrs, spread, selfClosing: false, end: j + 1 };
+    if (code[j] === '{') {
+      const end = skipBraces(code, j);
+      if (end === null || !code.slice(j + 1, end - 1).trim().startsWith('...')) return null;
+      spread = true;
+      j = end;
+      continue;
+    }
+    if (!IDENT_START.test(code[j])) return null;
+    let attr = '';
+    while (j < code.length && NAME_CHAR.test(code[j])) attr += code[j++];
+    while (/\s/.test(code[j] ?? '')) j++;
+    if (code[j] !== '=') {
+      attrs.push({ name: attr, kind: 'bare', value: null });
+      continue;
+    }
+    j++;
+    while (/\s/.test(code[j] ?? '')) j++;
+    if (code[j] === '"' || code[j] === "'") {
+      const end = skipString(code, j);
+      if (end === null) return null;
+      attrs.push({ name: attr, kind: 'literal', value: code.slice(j + 1, end - 1) });
+      j = end;
+    } else if (code[j] === '{') {
+      const end = skipBraces(code, j);
+      if (end === null) return null;
+      attrs.push({ name: attr, kind: 'expr', value: null });
+      j = end;
+    } else return null;
+  }
+}
+
+// i is just past an opening tag named `name`; reads to its matching close.
+function parseChildren(code, i, name) {
+  const children = [];
+  let j = i;
+  while (j < code.length) {
+    if (code[j] === '<') {
+      if (code[j + 1] === '/') {
+        const close = code.indexOf('>', j);
+        if (close === -1 || code.slice(j + 2, close).trim() !== name) return null;
+        return { children, end: close + 1 };
+      }
+      const el = parseElement(code, j);
+      if (el === null) return null;
+      children.push({ type: 'element', name: el.name, attrs: el.attrs, spread: el.spread, selfClosing: el.selfClosing, children: el.children });
+      j = el.end;
+    } else if (code[j] === '{') {
+      const end = skipBraces(code, j);
+      if (end === null) return null;
+      // A JSX comment `{/* */}` is blank by now, and names nothing.
+      if (code.slice(j + 1, end - 1).trim()) children.push({ type: 'expr', value: code.slice(j + 1, end - 1) });
+      j = end;
+    } else {
+      let k = j;
+      while (k < code.length && code[k] !== '<' && code[k] !== '{') k++;
+      children.push({ type: 'text', value: code.slice(j, k) });
+      j = k;
+    }
+  }
+  return null;
+}
+
+function parseElement(code, i) {
+  const tag = parseTag(code, i);
+  if (tag === null) return null;
+  if (tag.selfClosing) return { ...tag, children: [] };
+  const body = parseChildren(code, tag.end, tag.name);
+  if (body === null) return null;
+  return { ...tag, children: body.children, end: body.end };
+}
+
+// One entry per opening tag ELEMENT matches on an imported name, nested ones
+// included: a Button inside a Card is its own entry and also one of the Card's
+// children. `code` is comment-blanked.
+export function readSubtrees(code, imported) {
+  const subtrees = [];
+  for (const el of code.matchAll(ELEMENT)) {
+    const declared = imported.get(el[1]);
+    if (!declared || el[2]) continue;
+    const line = lineOf(code, el.index);
+    let parsed;
+    try {
+      parsed = parseElement(code, el.index);
+    } catch (e) {
+      // Nesting past the stack's depth abstains like anything else unpaired.
+      if (!(e instanceof RangeError)) throw e;
+      parsed = null;
+    }
+    if (parsed === null) {
+      let tag = null;
+      try {
+        tag = parseTag(code, el.index);
+      } catch (e) {
+        if (!(e instanceof RangeError)) throw e;
+      }
+      subtrees.push({
+        component: declared,
+        line,
+        selfClosing: tag?.selfClosing ?? false,
+        paired: false,
+        attrs: tag?.attrs ?? [],
+        spread: tag?.spread ?? false,
+        children: [],
+      });
+      continue;
+    }
+    subtrees.push({
+      component: declared,
+      line,
+      selfClosing: parsed.selfClosing,
+      paired: true,
+      attrs: parsed.attrs,
+      spread: parsed.spread,
+      children: parsed.children,
+    });
+  }
+  return subtrees;
+}
+
 export function extract(text, pkg, path = '') {
   if (path.endsWith('.html')) text = templateView(text);
   const code = blankComments(text, path);
@@ -258,7 +433,9 @@ export function extract(text, pkg, path = '') {
     if (value) literals.push({ value, line: lineOf(colourText, m.index) });
   }
 
-  return { imported, elements, usages, literals, dimensions: extractDimensions(text, path) };
+  const subtrees = /\.(jsx?|tsx?|mjs|cjs)$/.test(path) ? readSubtrees(code, imported) : [];
+
+  return { imported, elements, usages, literals, dimensions: extractDimensions(text, path), subtrees };
 }
 
 // value -> the token paths that hold it. Repeatable --tokens, because a real
@@ -520,6 +697,54 @@ export function partOwner(name, built) {
   return best;
 }
 
+// The usage rules (#140). Both judge an element the same way and differ only in
+// which components they target. The order matters: abstain before naming, so a
+// spread that may carry the label is never read as unnamed.
+export const A11Y_RULES = ['unnamed-control', 'colour-only-status'];
+const NAMING = ['aria-label', 'aria-labelledby', 'title'];
+// On a descendant, a prop that may render text: an icon's `size` or `color`
+// can't, an i18n component's `i18nKey` or `id` can.
+const LABEL_LIKE = new Set(['label', 'alt', 'text', 'i18nKey', 'defaultMessage', 'message', 'id']);
+const isLabelLike = (name) => LABEL_LIKE.has(name) || /(Label|Text)$/.test(name);
+// On a self-closing element itself, props that can never be its label.
+const NEVER_LABEL = new Set(['className', 'style', 'disabled', 'type', 'key', 'ref', 'id', 'aria-hidden', 'asChild', ...NAMING]);
+
+function namesItself(attrs) {
+  return attrs.some((a) => NAMING.includes(a.name) && (a.kind === 'expr' || (a.kind === 'literal' && a.value.trim() !== '')));
+}
+
+function* descendants(children) {
+  for (const c of children) {
+    if (c.type !== 'element') continue;
+    yield c;
+    yield* descendants(c.children);
+  }
+}
+
+// JSX drops whitespace-only text, and an expression may be the label.
+function hasText(children) {
+  return children.some(
+    (c) => c.type === 'expr' || (c.type === 'text' && c.value.trim() !== '') || (c.type === 'element' && hasText(c.children)),
+  );
+}
+
+// 'named', 'unnamed', or 'abstain' when the name could arrive some way the
+// reader can't see.
+export function judgeName(el, record) {
+  if (!el.paired || el.spread) return 'abstain';
+  const inside = [...descendants(el.children)];
+  if (inside.some((d) => d.spread || d.attrs.some((a) => isLabelLike(a.name)))) return 'abstain';
+  if (namesItself(el.attrs) || inside.some((d) => namesItself(d.attrs))) return 'named';
+  if (hasText(el.children)) return 'named';
+  if (el.selfClosing) {
+    // With no record there's no telling a variant from a label prop.
+    const modelled = new Set([...Object.keys(record?.variants ?? {}), ...Object.keys(record?.states ?? {})]);
+    const unknown = (a) => !modelled.has(a.name) && !NEVER_LABEL.has(a.name) && !/^on[A-Z]/.test(a.name) && !/^data-/.test(a.name);
+    if (el.attrs.some(unknown)) return 'abstain';
+  }
+  return 'unnamed';
+}
+
 export function validate({
   built = [],
   index = { components: [] },
@@ -557,9 +782,31 @@ export function validate({
     dynamic: 0,
     knownComponents: new Set(),
     undocumented: new Set(),
+    // No inert failure for these: an app with no Badge isn't misconfigured. A
+    // rule that checked nothing shows as 0 checked instead.
+    a11y: Object.fromEntries(A11Y_RULES.filter((rule) => !off.has(rule)).map((rule) => [rule, { checked: 0, abstained: 0 }])),
   };
 
-  for (const { path, elements = [], usages, literals, dimensions = [] } of files) {
+  for (const { path, elements = [], usages, literals, dimensions = [], subtrees = [] } of files) {
+    for (const el of subtrees) {
+      const key = normalizeName(el.component);
+      const record = records.get(key);
+      const targeted = {
+        'unnamed-control': key === 'button' || key === 'iconbutton' || record?.archetype === 'button',
+        'colour-only-status': resolveArchetype(record ?? { name: el.component }) === 'badge',
+      };
+      for (const rule of A11Y_RULES) {
+        if (!targeted[rule] || !stats.a11y[rule]) continue;
+        const verdict = judgeName(el, record);
+        if (verdict === 'abstain') {
+          stats.a11y[rule].abstained += 1;
+          continue;
+        }
+        stats.a11y[rule].checked += 1;
+        if (verdict === 'unnamed') failures.push({ rule, component: el.component, file: path, line: el.line });
+      }
+    }
+
     for (const e of elements) {
       stats.elements += 1;
       if (off.has('unknown-component') || builtKeys.has(normalizeName(e.component))) continue;
@@ -719,6 +966,10 @@ export function formatReport(r) {
     `  colour:       ${s.colourTokens} token values comparable, ${s.colourSkipped.unresolvable} skipped as unresolvable, ${s.colourSkipped.nonHex} skipped as non-hex`,
     `  dimensions:   ${dimensionTotal} token values comparable — ${DIMENSION_CATEGORIES.map((c) => `${c} ${s.dimensionTokens[c]}`).join(', ')}`,
   );
+  const a11y = Object.entries(s.a11y);
+  if (a11y.length) {
+    lines.push(`  a11y:         ${a11y.map(([rule, c]) => `${rule} ${c.checked} checked, ${c.abstained} abstained`).join('; ')}`);
+  }
   for (const e of r.excluded) {
     lines.push(`  excluded:     ${e.files} file(s) in ${e.dir}, the package that owns --tokens`);
   }
@@ -742,6 +993,14 @@ export function formatReport(r) {
       } else if (f.rule === 'token-exists-for-dimension') {
         lines.push(
           `  - [${f.rule}] ${f.category} ${f.written}${f.written === f.value ? '' : ` (${f.value})`} at ${f.file}:${f.line} — ${f.tokens.join(', ')} resolve${f.tokens.length === 1 ? 's' : ''} to exactly this value`,
+        );
+      } else if (f.rule === 'unnamed-control') {
+        lines.push(
+          `  - [${f.rule}] <${f.component}> at ${f.file}:${f.line} — no accessible name: no text, and no aria-label, aria-labelledby or title on it or anything inside it`,
+        );
+      } else if (f.rule === 'colour-only-status') {
+        lines.push(
+          `  - [${f.rule}] <${f.component}> at ${f.file}:${f.line} — status in colour alone: no text, and no named icon inside it`,
         );
       } else if (f.rule === 'nothing-scanned') {
         lines.push(
@@ -793,7 +1052,13 @@ export function formatReport(r) {
   return lines;
 }
 
-export const SKIPPABLE = ['unknown-component', 'unknown-variant-value', 'token-exists-for-literal', 'token-exists-for-dimension'];
+export const SKIPPABLE = [
+  'unknown-component',
+  'unknown-variant-value',
+  'token-exists-for-literal',
+  'token-exists-for-dimension',
+  ...A11Y_RULES,
+];
 
 function main() {
   let values;
@@ -871,9 +1136,9 @@ function main() {
     .map(([dir, n]) => ({ dir: join(values.root, relative(realRoot, dir)), files: n }));
 
   for (const path of scanned) {
-    const { elements, usages, literals, dimensions } = extract(readFileSync(path, 'utf8'), values.package, path);
-    if (elements.length || usages.length || literals.length || dimensions.length) {
-      files.push({ path, elements, usages, literals, dimensions });
+    const { elements, usages, literals, dimensions, subtrees } = extract(readFileSync(path, 'utf8'), values.package, path);
+    if (elements.length || usages.length || literals.length || dimensions.length || subtrees.length) {
+      files.push({ path, elements, usages, literals, dimensions, subtrees });
     }
   }
 
