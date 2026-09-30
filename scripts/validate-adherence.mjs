@@ -706,8 +706,23 @@ const NAMING = ['aria-label', 'aria-labelledby', 'title'];
 // can't, an i18n component's `i18nKey` or `id` can.
 const LABEL_LIKE = new Set(['label', 'alt', 'text', 'i18nKey', 'defaultMessage', 'message', 'id']);
 const isLabelLike = (name) => LABEL_LIKE.has(name) || /(Label|Text)$/.test(name);
-// On a self-closing element itself, props that can never be its label.
-const NEVER_LABEL = new Set(['className', 'style', 'disabled', 'type', 'key', 'ref', 'id', 'aria-hidden', 'asChild', ...NAMING]);
+// On an element with nothing inside, props that can never be its label. An icon
+// prop takes a component, not text.
+const NEVER_LABEL = new Set([
+  'className',
+  'style',
+  'disabled',
+  'type',
+  'key',
+  'ref',
+  'id',
+  'aria-hidden',
+  'asChild',
+  'icon',
+  'leadingIcon',
+  'trailingIcon',
+  ...NAMING,
+]);
 
 function namesItself(attrs) {
   return attrs.some((a) => NAMING.includes(a.name) && (a.kind === 'expr' || (a.kind === 'literal' && a.value.trim() !== '')));
@@ -736,7 +751,10 @@ export function judgeName(el, record) {
   if (inside.some((d) => d.spread || d.attrs.some((a) => isLabelLike(a.name)))) return 'abstain';
   if (namesItself(el.attrs) || inside.some((d) => namesItself(d.attrs))) return 'named';
   if (hasText(el.children)) return 'named';
-  if (el.selfClosing) {
+  // `<Button label="Save"></Button>` has no children to judge by either, so it
+  // gets the same scrutiny as `<Button label="Save" />`. JSX drops whitespace-only
+  // text, so that counts as nothing inside too.
+  if (el.children.every((c) => c.type === 'text' && c.value.trim() === '')) {
     // With no record there's no telling a variant from a label prop.
     const modelled = new Set([...Object.keys(record?.variants ?? {}), ...Object.keys(record?.states ?? {})]);
     const unknown = (a) => !modelled.has(a.name) && !NEVER_LABEL.has(a.name) && !/^on[A-Z]/.test(a.name) && !/^data-/.test(a.name);

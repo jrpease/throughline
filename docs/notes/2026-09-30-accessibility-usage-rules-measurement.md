@@ -113,4 +113,10 @@ has never seen.
 So on this system, `unnamed-control` catches `<Button><TrashIcon /></Button>`,
 but not the `trailingIcon` form, which is the one its own code uses. That's a
 miss, not a wrong failure, and the rule is still safe to ship. It's also the
-first thing to decide next. See the spec's Open questions.
+first thing to decide next.
+
+**Since closed.** `icon`, `leadingIcon` and `trailingIcon` are now on the
+never-a-label list (#140's spec, "Icon props on an element with nothing
+inside"), so the unlabelled form fails. Both samples were rerun after the change.
+They gave the same counts and no new failures, because the one icon-prop Button in
+the corpus is labelled.
