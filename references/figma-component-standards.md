@@ -571,6 +571,42 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
    previously-built components too** — when you touch an existing one, a legacy padded
    wrapper, an inside-aligned stroke, or a transparent variant with no ring at all must
    be retrofitted to the current recipe (see "State handling").
+
+   **The `focus-indicator` check** is the programmatic half of this item. Run it
+   with `figma_execute`. A miss is fixed and re-audited like any other item. If the
+   ring is still missing when the pass budget below runs out, **stop the build**
+   (the executor returns `BLOCKED`) rather than hand off.
+   - **Scope.** It runs only for a component whose name folds (lowercase,
+     punctuation stripped) to a Button, an Input / text field, or a Checkbox /
+     radio / toggle / chip, the same exact-name match as the state check. It also
+     needs `project.uiFramework` to be exactly `shadcn`, `tailwind`, `mui`,
+     `vanilla-css` or `vanilla`, or absent or `null`. Anything else (`ios-swift`,
+     a tier-2 library, any other value) is skipped, and the skip is said.
+   - **What it reads.** Every child `COMPONENT` of the set whose
+     `variantProperties` has a key folding to `state` with a value folding to
+     exactly `focus`. `Focused` or `focus-visible` isn't read. The ring is looked
+     for on that variant, or, where the variant wraps the control in other content
+     (an Input with a label or helper text), on the child frame that is the
+     control, the node the recipe above puts the ring on.
+   - **Ring recipes** (`shadcn`, `tailwind`, absent or `null`; `mui` on anything
+     but an input). The control has either a `DROP_SHADOW` effect with
+     `visible !== false`, `spread > 0` and `boundVariables.color` on the
+     `border/focus` variable, or a direct child with
+     `layoutPositioning = "ABSOLUTE"` and `strokeAlign = "OUTSIDE"` whose stroke
+     is bound to `border/focus`. `spread > 0` matters: binding an effect's colour
+     can silently zero its spread (see `figma-scripting.md`), which leaves a ring
+     that is bound and invisible. On `shadcn`, `tailwind` or the default, a control
+     with a stroke of its own also has that stroke bound to `border/focus`. One
+     with no stroke (ghost, link) is judged on its ring alone. An `mui` button is
+     judged on its ring alone.
+   - **`mui` inputs.** The control's own stroke is bound to `border/focus`, and its
+     weight to `width/focus`.
+   - **`vanilla-css` / `vanilla`.** The control or a direct child carries a stroke
+     bound to `border/focus` with `strokeAlign = "OUTSIDE"`. The `offset/focus` gap
+     isn't asserted.
+   - **The result.** On a miss, stop and name the variant and what it lacks. On a
+     pass, `component-builder` records `focus-indicator` as an attested check. A
+     skip records nothing.
 10. **Visual** — the screenshot (from the validation loop) shows no overlaps,
    misalignment, lopsided hug/fill sizing, or clipped strokes/focus rings.
 11. **Usage band rendered by the builder** — the card's `Usage` frame was
