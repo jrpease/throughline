@@ -363,7 +363,7 @@ any component built with the toggle + manual-swap fallback is listed in
 **Record the stage entry, one call per component that actually finished:**
 `node .throughline/scripts/verify-check.mjs --record --stage
 component-builder --subject <Name> --entry <tmp>.json`. Build `<tmp>.json` with
-`changed` (what was built), the attested checks `structural-read-back`,
+`at` (an ISO timestamp you supply), `changed` (what was built), the attested checks `structural-read-back`,
 `state-baseline` and `figma-name` from what the `figma-executor` returned (or
 what your inline read-back found), `focus-indicator` when that check ran and
 passed (not when it was skipped),

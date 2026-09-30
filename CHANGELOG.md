@@ -24,6 +24,28 @@ to [Semantic Versioning](https://semver.org).
 - **`archetype` in the docs index.** `docs:digest` now carries each record's
   `archetype`, or `null`, so the adherence gate can target a component that
   doesn't carry a standard name.
+- **Figma builds check every focus ring, and stop on a missing one (#140).**
+  Buttons, inputs and choice controls (checkbox, radio, toggle, chip) are read
+  back after they're built. Every focus variant must carry a visible ring bound to
+  a focus variable, such as `border/focus` or `color/focus/ring`. A variant
+  without one stops the build, naming the variant. That covers `shadcn`,
+  `tailwind`, `mui`, `vanilla-css`, `vanilla` and an unset framework, and every
+  other framework is skipped. `figma-executor` and an inline `component-builder`
+  run the same check, and a pass is recorded as the attested check
+  `focus-indicator`. Components built earlier are checked the next time they're
+  touched, never swept. Proven live on 2026-09-30: a `Chip` passed, and a
+  `Toggle` whose ghost focus variant had no ring came back `BLOCKED`.
+
+### Fixed
+
+- **`verify:check` prints attested checks (#138).** The report was documented to
+  show an agent's attested checks on its informational lines, and didn't show
+  them anywhere. A person reading the report couldn't see what a stage claimed to
+  have checked. Each one now prints as `~ [attested] <stage> · <subject> — <check>
+  <result>: <evidence>`, and still never decides the run.
+- **component-builder's entry list names `at`.** The recorder requires a
+  timestamp, and the skill's list of fields left it out, so an entry built from
+  that list alone was refused.
 
 ## [0.20.0] — 2026-09-29
 

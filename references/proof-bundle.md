@@ -282,7 +282,7 @@ One stage file with two subjects — `Button`, freshly built and reviewed, and
           "name": "focus-indicator",
           "method": "attested",
           "result": "pass",
-          "evidence": "shadcn: every focus variant carries a ring bound to border/focus"
+          "evidence": "shadcn: every focus variant carries a visible ring bound to a focus variable"
         },
         {
           "name": "review",

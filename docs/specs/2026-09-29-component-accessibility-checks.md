@@ -57,7 +57,7 @@ Settled in conversation on 2026-09-29 and 30. Twelve questions were answered in 
 grilling session. The spec review raised eight more, answered the same day, and
 the re-review three more, answered on 2026-09-30. The Plan review raised three
 more and its re-review two more, all answered on 2026-09-30. The build raised two
-more, answered the same day. Several rows below split or refine one of those
+more, and the live Figma run (Step 7) three more, all answered the same day. Several rows below split or refine one of those
 answers. In every case the recommendation was the choice.
 
 Three lists were written as recommendations and accepted whole, rather than
@@ -73,8 +73,11 @@ The measurement is the first place to question them.
 | What a finding does | **Fails**, narrowed to exact matches, abstaining on anything unresolved, and **measured before it ships** | #141 and #137 showed a failing rule's precision is only known after a real run. The repo's discipline is to narrow, never downgrade (#123) | Shipping as an advisory first |
 | What the usage rules are measured against | **throughline-ds**, the only JSX codebase on hand, in two labelled samples. The first is its site through the gate as a consumer runs it. The second is its ui package's own components and stories through a one-off script that treats their relative imports as the system package. The gate isn't changed to see them. The note says plainly that this is one codebase | zygarden is Angular, so the usage rules abstain there. The site alone renders three `<Button>`s and one `<Badge>`, all with visible text, so it would pass without exercising either rule | Waiting for a second JSX app before shipping; measuring the site alone; widening the gate's import match to reach the ui package |
 | Storybook's a11y addon | Not in v1 | It runs per rendered story, needs a test runner in CI, overlaps contrast, and would be a new dependency in every consumer's Storybook | Installing it with `test: 'error'` now |
-| What the Figma focus check asserts | For components resolving to `button`, `input` or `choice` (by name, as the executor's state check does, since no doc record exists until Step 4.5 so `IconButton` abstains): **every focus variant carries the focus indicator its framework's recipe prescribes**, bound to `border/focus`. The executor reads it back programmatically, and a missing indicator is `BLOCKED`, as a missing state already is. component-builder records it as a new attested check, `focus-indicator`, which gets a row in the check table (`references/proof-bundle.md:204-216`). Nothing validates check names, so a missing row would drift silently | The standards already name the failure this catches: a transparent variant (ghost, link) with no ring. "Every focus variant" is what catches it | "An indicator exists somewhere"; ring contrast in v1 |
-| Which indicator counts, per framework | Keyed off `project.uiFramework`, the same recipes the build follows (`figma-component-standards.md:151-166`). Checked for **exactly these values**: `shadcn`, `tailwind` and an absent or `null` value (the manifest default, `manifest-schema.md:23`) get a ring on every focus variant, plus the border recoloured to `border/focus` on a variant that has a stroke. A ghost or link variant has no border to recolour, so only its ring is asserted. `mui` gets an input's border thickened and recoloured, and a ring on buttons and other clickables. `vanilla-css` and `vanilla` (the manifest schema's example spelling, `manifest-schema.md:121-122`) get an `OUTSIDE` offset outline stroke. **Every other value is skipped**, including `ios-swift`, multi-framework and any tier-2 framework. component-builder reads `uiFramework` for the inline build (`skills/component-builder/SKILL.md:132-141`), but **it does not reach the executor today**: neither the architect's spec (`agents/architect.md:18`) nor `agents/figma-executor.md` mentions it. **The executor reads `project.uiFramework` from `design-system.json` itself**, the file it already reads for `figma.fileKey` (`agents/figma-executor.md:16`) | One shape blocks a correct MUI Input and every iOS control. Asserting the border on every variant would block a correct ghost button. The standards give tier-2 a researched idiom with the shadcn ring as a fallback (`:164-166`), and the check can't tell a researched idiom from the fallback, so a failure there could be wrong. The manifest has no fixed value set, so the list is explicit. Multi-framework gets the shadcn ring in the standards (`:151`), but the manifest has no value spelled for it, so it can't be listed and is skipped. Reading the manifest directly leaves one source of truth | A single ring shape for every framework; checking shadcn and the default only; asserting the border recolour on a variant with no stroke; carrying `uiFramework` through the architect's spec, which would be a second copy of one value and a hand-off the architect could forget |
+| What the Figma focus check asserts | For components resolving to `button`, `input` or `choice` (by name, as the executor's state check does, since no doc record exists until Step 4.5 so `IconButton` abstains): **every focus variant carries the focus indicator its framework's recipe prescribes**, bound to a focus variable (see "What the ring must be bound to"). The executor reads it back programmatically, and a missing indicator is `BLOCKED`, as a missing state already is. component-builder records it as a new attested check, `focus-indicator`, which gets a row in the check table (`references/proof-bundle.md:204-216`). Nothing validates check names, so a missing row would drift silently | The standards already name the failure this catches: a transparent variant (ghost, link) with no ring. "Every focus variant" is what catches it | "An indicator exists somewhere"; ring contrast in v1 |
+| Which indicator counts, per framework | Keyed off `project.uiFramework`, the same recipes the build follows (`figma-component-standards.md:151-166`). Checked for **exactly these values**: `shadcn`, `tailwind` and an absent or `null` value (the manifest default, `manifest-schema.md:23`) get a ring on every focus variant. Only the ring is asserted (see "The border half of the recipe"). `mui` gets an input's border thickened and recoloured, and a ring on buttons and other clickables. `vanilla-css` and `vanilla` (the manifest schema's example spelling, `manifest-schema.md:121-122`) get an `OUTSIDE` offset outline stroke. **Every other value is skipped**, including `ios-swift`, multi-framework and any tier-2 framework. component-builder reads `uiFramework` for the inline build (`skills/component-builder/SKILL.md:132-141`), but **it does not reach the executor today**: neither the architect's spec (`agents/architect.md:18`) nor `agents/figma-executor.md` mentions it. **The executor reads `project.uiFramework` from `design-system.json` itself**, the file it already reads for `figma.fileKey` (`agents/figma-executor.md:16`) | One shape blocks a correct MUI Input and every iOS control. Asserting the border on every variant would block a correct ghost button. The standards give tier-2 a researched idiom with the shadcn ring as a fallback (`:164-166`), and the check can't tell a researched idiom from the fallback, so a failure there could be wrong. The manifest has no fixed value set, so the list is explicit. Multi-framework gets the shadcn ring in the standards (`:151`), but the manifest has no value spelled for it, so it can't be listed and is skipped. Reading the manifest directly leaves one source of truth | A single ring shape for every framework; checking shadcn and the default only; asserting the border recolour on a variant with no stroke; carrying `uiFramework` through the architect's spec, which would be a second copy of one value and a hand-off the architect could forget |
+| What the ring must be bound to | **Any variable with a `focus` segment in its name**: `border/focus`, `color/border/focus`, `color/focus/ring`, `color/focus/ringOnFill`. The ring must also be visible (`spread > 0`). A raw colour or a non-focus variable still blocks | Found in the live run. The sample system's own Button, built by this plugin, binds its rings to `color/focus/ring` and `color/focus/ringOnFill`, with a `color/` collection prefix. An exact `border/focus` match would have blocked all 18 of its correct, visible focus variants | An exact `border/focus` match; a prefix-tolerant `border/focus` match, which still blocks that Button |
+| The border half of the recipe | **Ring only.** The recipe's border recolour is styling, not the indicator, and a control whose border keeps its normal colour beside a correct ring passes | Found in the live run. The sample Button's outline focus variant keeps `color/border/default` beside a visible ring. Blocking it would stop a build over styling | Blocking on the border recolour, including only where a stroke exists (the earlier answer, superseded) |
+| What the live proof builds | **A new `Chip` (positive) and a new `Toggle` (negative)**, both choice-archetype names absent from the test file, then removed from it afterwards | Rebuilding the sample's real Button would replace a 108-variant set and could detach its instances. The Plan's `RinglessButton` would never have been checked: the name doesn't fold to `button`, so the check skips it rather than blocking | Rebuilding the real Button; a negative test on a name the check skips |
 | What counts as a focus variant | A variant whose `state` axis value is exactly `focus` after `normalizeName`. `Focused`, `focus-visible` and `hover+focus` abstain, and so does focus modelled as a boolean property | The same exact-match precedent as the executor's state check (`agents/figma-executor.md:19`) and `missingStates` (`scripts/lib/component-states.mjs:49-56`) | Substring matching on `focus` |
 | Components built before this ships | **Checked when next touched or rebuilt**, never swept. A rebuild runs the check. `verify:check` does not flag a built component whose proof lacks `focus-indicator` | Flagging every missing entry would turn every existing system red on upgrade. The standards already say to retrofit rings on touch (`figma-component-standards.md:188-194`) | A sweep, or a failing "missing focus-indicator" rule |
 | The inline build path | A host with no subagent dispatch runs **the same read-back inline**, as part of component-builder's post-build audit, stops on a missing indicator, and records `focus-indicator` the same way | Otherwise "the build stops" is true only where an executor exists, which is the gap #135 closed for the file check | Leaving the inline path to audit item 9's prose alone |
@@ -410,34 +413,41 @@ Amended in the build, after the diff review:
 
 ### Step 7 — Live proof, in the #138 session
 
-Files: none, apart from a note appended to #138's
-Change: In the live Figma session #138 runs, against the system that session
-builds on, on a system whose manifest has `uiFramework: "shadcn"`. throughline-ds's already
-does. If #138's system uses another value, run this step on a shadcn system
-instead rather than change #138's:
+Ran on 2026-09-30 against `throughline-sample` and its Figma file, "Throughline
+Plugin Test" (`uiFramework: "shadcn"`). The installed plugin was 0.20.0, which
+predates the check, so each `figma-executor` was told to follow the working tree's
+`agents/figma-executor.md` and standards. The agent definitions under test were
+the unreleased ones, run by the released agent.
 
-1. Build one Button with filled and ghost variants through `figma-executor`,
-   from a normal architect spec.
-2. Build a second component, `RinglessButton`, with the same matrix, from an
-   architect spec edited by hand to omit the ring on the ghost focus variant.
-   The executor always rebuilds from its spec into a fresh `WIP:` frame, so
-   editing the finished component and rebuilding would restore the ring. The spec
-   is the only place to remove it.
+What happened, in order:
 
-Verify:
+1. **Reading the existing Button first changed the check.** All 18 of its focus
+   variants carry a visible ring bound to `color/focus/ring` or
+   `color/focus/ringOnFill`, and the check as written would have blocked every
+   one. The user settled two rows: "What the ring must be bound to" and "The
+   border half of the recipe".
+2. **`Chip`, first attempt: `BLOCKED` by the existing state check.** The
+   standards give a chip `selected` as well, and the architect's spec left it
+   out. Nothing was written. The spec gained a `Selected` column.
+3. **`Chip`: `DONE`.** 12 variants. `focus-indicator` passed on both focus
+   variants (spread 4, bound to `color/focus/ring`). Independently re-read
+   afterwards.
+4. **`Toggle`, first attempt: not a test.** The hand edit removed the ghost ring
+   from one line, but three other lines of the spec still asked for it, and the
+   executor built it. The check had nothing to catch.
+5. **`Toggle`, with a spec consistent throughout: `BLOCKED`.** The
+   `focus-indicator` check named `variant=ghost, state=Focus` as having no drop
+   shadow and no ring child. The `WIP:` frame was left in place and the existing
+   component untouched, exactly as the contract says.
+6. **Recording Chip's entry (#138).** component-builder's field list omitted
+   `at`, and the recorder refused the entry with exit 2. Fixed in the skill. The
+   recorded entry then passed. But `verify:check`'s report never showed it:
+   attested checks weren't printed anywhere, though the reference, the proof-bundle
+   spec and the 0.20.0 CHANGELOG all say they are. Fixed: each attested check
+   now prints as an informational line.
 
-- The Button returns `DONE` with `focus-indicator` passed, and component-builder's
-  entry for it carries `focus-indicator`.
-- `node scripts/verify-check.mjs --root <system> --tokens <each mode file>`
-  reports no failure naming `Button`. No rule reads `focus-indicator`, so this
-  proves only that the recorded entry passes `proof.mjs`'s shape check. The step
-  keeps it for that reason. Unrelated rules may fail on that system.
-  throughline-ds, for one, has four real `color-contrast` failures. Any that
-  appear are listed in the note, not treated as this step's result.
-- `RinglessButton` returns `BLOCKED` naming its ghost focus variant and leaves its
-  `WIP:` frame unfinalized.
-
-Until this runs, the CHANGELOG doesn't claim the focus check.
+All three test components were removed from the file afterwards. Chip's proof
+entry is kept on `throughline-sample`'s local branch `test/140-focus-live`.
 
 ### Step 8 — Close out
 

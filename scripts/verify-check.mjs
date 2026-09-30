@@ -313,6 +313,12 @@ export function checkProof({ manifest, root, derived = [], built = [], meta = {}
     }
 
     for (const check of recordedChecks(stageFile)) {
+      // An attested check is an agent's live observation. It is shown so a
+      // human can see what was claimed, and it never decides the run.
+      if (check.method === 'attested') {
+        informational.push({ rule: 'attested', stage, ...check });
+        continue;
+      }
       if (check.method !== 'derived') continue;
       const scope = DERIVED_RULE_SCOPE[check.name];
       // A rule this run did not compute cannot contradict anything, and
@@ -372,6 +378,8 @@ function informationalDetail(i) {
   switch (i.rule) {
     case 'archetype-unknown':
       return `${i.name} — neither an "archetype" field nor its name resolves to a known archetype, so no baseline states are asserted for it.`;
+    case 'attested':
+      return `${i.stage} · ${i.subject ?? '(stage)'} — ${i.name} ${i.result}${i.evidence ? `: ${i.evidence}` : ''}. Observed by an agent, not re-derived here.`;
     case 'proof-unadopted':
       return 'design-system.json has no "verification" key, so this system has not adopted the proof bundle and the proof-integrity checks are skipped. The first verify-check.mjs --record adopts it.';
     default:
