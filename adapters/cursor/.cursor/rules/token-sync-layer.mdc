@@ -363,7 +363,7 @@ Update the manifest: `sync.lastRun` (timestamp), `tokens.lastSync`, confirm
 Alongside that, record the stage entry: `node
 .throughline/scripts/verify-check.mjs --record --stage
 token-sync-layer --entry <tmp>.json` (subject defaults to `"system"`, since this
-stage isn't per-component). Build `<tmp>.json` with `changed` summarizing tokens
+stage isn't per-component). Build `<tmp>.json` with `at` (an ISO timestamp you supply), `changed` summarizing tokens
 added, changed, deleted and probable renames, and the attested
 `tokens:validate-output` result as a check, plus `advancedBecause`. The entry
 shape is `.throughline/references/proof-bundle.md` — don't restate it

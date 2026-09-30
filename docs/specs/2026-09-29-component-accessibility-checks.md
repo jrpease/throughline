@@ -1,7 +1,7 @@
 # Accessibility checks for components, not just tokens
 
-Status: planned
-Reviewed: 2026-09-30 — needs revision (one Plan blocker, rest minor; revised since)
+Status: built
+Reviewed: 2026-09-30 — needs revision (one Plan blocker, rest minor; revised since). The built code had a whole-release review on 2026-09-30, with its findings fixed before tagging.
 Date: 2026-09-29
 Issue: #140
 Builds on: `docs/specs/2026-09-12-verification-proof-bundle.md` (#110) for the
@@ -104,9 +104,43 @@ The measurement is the first place to question them.
 - **Whether the vanilla check asserts the `offset/focus` gap.** The recipe puts
   the ring `offset/focus` clear of the edge (`figma-component-standards.md:158-162`).
   The gap lives in the ring child's geometry, not in a binding. Recommend leaving
-  it unasserted in v1. The Plan asserts only `strokeAlign` and the `border/focus`
+  it unasserted in v1. The Plan asserts only `strokeAlign` and the focus-variable
   binding, and an answer of yes adds one assertion to Step 6 without changing any
   other step. Unresolved.
+
+## What shipped
+
+- **#152, #154.** `scripts/validate-adherence.mjs` gained the JSX subtree reader
+  and the `unnamed-control` and `colour-only-status` rules, with tests. The
+  measurement is `docs/notes/2026-09-30-accessibility-usage-rules-measurement.md`.
+- **#152.** `scripts/build-docs-digest.mjs` carries `archetype` in the docs
+  index.
+- **#153, #156.** The `focus-indicator` check went into
+  `references/figma-component-standards.md` (item 9), `agents/figma-executor.md`
+  and `skills/component-builder/SKILL.md`, with a row in
+  `references/proof-bundle.md`. The three adapter copies were regenerated.
+- **#156.** `scripts/verify-check.mjs` prints attested checks, for #138.
+- **Release prep.** Every recording skill's entry list names `at`.
+- **Docs.** `scripts/README.md`, `CHANGELOG.md` and `README.md`.
+
+## Where it diverged
+
+- **The focus check's binding and border rules changed after the live run.** A
+  ring counts when it's bound to any focus variable, and only the ring is
+  asserted. As first written, the check would have blocked the sample system's
+  own correct Button. See the Decisions rows "What the ring must be bound to" and
+  "The border half of the recipe".
+- **Two decisions came out of the build, not the interview.** Icon props are
+  never the label, and an empty body is judged like a self-closing element.
+- **Step 7 built `Chip` and `Toggle`, not a Button and a `RinglessButton`.** The
+  check would have skipped a `RinglessButton`, and rebuilding the sample's real
+  Button would have replaced it.
+- **Step 7 also found and fixed #138's real gap:** attested checks were never
+  printed.
+- **Step 6's body below still says `border/focus`.** It's kept as written. The
+  Decisions rows and the "Amended" note supersede it.
+- **Step 8 is partly open.** The CHANGELOG entry is done. #140's issue text
+  and the focus-ring contrast question wait on the user.
 
 ## Plan
 
@@ -407,9 +441,12 @@ Amended in the build, after the diff review:
   invisible.
 - The ring is looked for on the control, not only the variant. An Input that
   wraps its field in a label or helper text carries the ring on the field.
-- A miss joins the audit's fix-and-re-audit loop, and stops the build only when
-  the pass budget runs out. That's the same loop the executor's step 4 already
-  runs.
+- A miss is `BLOCKED` in the executor, which builds from a spec and can't add a
+  ring the spec didn't give. Building inline, the builder designed the ring
+  itself, so a miss is fixed and re-audited, and stops the build only when the
+  pass budget runs out. (This bullet first said fix-and-re-audit everywhere. The
+  release review caught that it contradicted the executor and this spec's own
+  Decisions row, and the live run showed the block.)
 
 ### Step 7 — Live proof, in the #138 session
 

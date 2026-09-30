@@ -1,7 +1,13 @@
 # #140 component accessibility checks: handoff
 
 Date: 2026-09-30
-Spec: `docs/specs/2026-09-29-component-accessibility-checks.md` (Status: planned)
+Spec: `docs/specs/2026-09-29-component-accessibility-checks.md`
+
+**Superseded later on 2026-09-30.** Step 7 ran live the same day. It built
+`Chip` and `Toggle`, not the `RinglessButton` described below. The focus check
+and the #138 fix are in the CHANGELOG, the README says so, and the spec is at
+`Status: built`. The spec's "Where it diverged" section has the current state.
+The rest of this note stays as it was written.
 
 ## What shipped (unreleased, on `main`)
 
