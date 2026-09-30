@@ -26,6 +26,12 @@ test('buildIndex maps every record with defaulted fields', () => {
   assert.equal(button.description, 'A control…');
 });
 
+test('buildIndex carries archetype, null when the record has none', () => {
+  const index = buildIndex([{ ...RECORDS[0], archetype: 'button' }, RECORDS[1]]);
+  assert.equal(index.components[0].archetype, 'button');
+  assert.equal(index.components[1].archetype, null);
+});
+
 test('buildLlmsTxt includes each component name and its rules', () => {
   const txt = buildLlmsTxt(RECORDS);
   assert.match(txt, /## Button/);

@@ -101,6 +101,26 @@ The measurement is the first place to question them.
   it unasserted in v1. The Plan asserts only `strokeAlign` and the `border/focus`
   binding, and an answer of yes adds one assertion to Step 6 without changing any
   other step. Unresolved.
+- **Icon props make `unnamed-control` skip this system's own icon-only
+  pattern.** Found in the Step 4 measurement
+  (`docs/notes/2026-09-30-accessibility-usage-rules-measurement.md`).
+  throughline-ds builds an icon-only button as `<Button trailingIcon={…} />`.
+  `trailingIcon` isn't on the never-a-label list, so without an `aria-label` the
+  rule skips it rather than failing it. Options:
+  - add `icon`, `leadingIcon` and `trailingIcon` to the never-a-label list, since
+    an icon prop takes a component, not text
+  - let a record declare its icon props
+  - leave it as a known miss
+
+  Recommend the first. It's a three-name change, and it turns the likeliest real
+  bug on this system from a skip into a failure. Unresolved.
+- **Whether an element with an empty body judges its own props like a
+  self-closing one.** Found in the diff review. `<Button label="Save" />`
+  abstains, but `<Button label="Save"></Button>` fails, because the unknown-prop
+  abstain is keyed on self-closing. The reason given for that ("an element with
+  children has its children to judge by") doesn't hold when there are none.
+  Formatters collapse `<X></X>` to `<X />`, so it's rare. Recommend applying the
+  self-closing rule to any element with no children. Unresolved.
 
 ## Plan
 

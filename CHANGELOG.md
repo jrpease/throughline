@@ -6,6 +6,23 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Added
+
+- **Two accessibility rules in the adherence gate (#140).** `unnamed-control`
+  fails a Button or IconButton with no accessible name, like
+  `<Button><TrashIcon /></Button>`. `colour-only-status` fails a Badge whose
+  status is carried by colour alone, like `<Badge tone="danger" />` when its doc
+  record declares `tone`. Both can fail
+  a run that passed before. They read JSX in script files only, and they abstain
+  instead of guessing: on a `{...props}` spread, on a label-like prop inside the
+  element, and on any unknown prop of a self-closing element. The report prints a
+  new `a11y:` line with how many elements each rule checked and abstained on.
+  Switch either off with `--skip`. Measured on throughline-ds: 24 elements checked,
+  no wrong failures (`docs/notes/2026-09-30-accessibility-usage-rules-measurement.md`).
+- **`archetype` in the docs index.** `docs:digest` now carries each record's
+  `archetype`, or `null`, so the adherence gate can target a component that
+  doesn't carry a standard name.
+
 ## [0.20.0] — 2026-09-29
 
 ### Breaking
