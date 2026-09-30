@@ -1648,3 +1648,19 @@ test('reader: nesting deeper than the stack abstains instead of crashing', () =>
   const [a] = sub(`<Button>${deep}</Button>`);
   assert.equal(a.paired, false);
 });
+
+test('usage rules: an icon prop is never the label, so an unlabelled icon button fails', () => {
+  assert.deepEqual(a11y('<Button trailingIcon={Icons.ChevronDown} />').rules, ['unnamed-control']);
+  assert.deepEqual(a11y('<IconButton icon={TrashIcon} />').rules, ['unnamed-control']);
+  assert.deepEqual(a11y('<Button leadingIcon={Icons.Plus} aria-label="Add" />').rules, []);
+});
+
+test('usage rules: an empty body is judged like a self-closing element', () => {
+  const empty = a11y('<Button label="Save"></Button>');
+  assert.deepEqual(empty.rules, []);
+  assert.deepEqual(empty.r.stats.a11y['unnamed-control'], { checked: 0, abstained: 1 });
+  assert.deepEqual(a11y('<Button trailingIcon={Icons.X}></Button>').rules, ['unnamed-control']);
+  // JSX drops whitespace-only children, so they count as nothing inside.
+  assert.deepEqual(a11y('<Button label="Save">\n  </Button>').rules, []);
+  assert.deepEqual(a11y('<Button className="x">  </Button>').rules, ['unnamed-control']);
+});

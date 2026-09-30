@@ -56,7 +56,8 @@ After this ships, three things fail instead of passing silently:
 Settled in conversation on 2026-09-29 and 30. Twelve questions were answered in the
 grilling session. The spec review raised eight more, answered the same day, and
 the re-review three more, answered on 2026-09-30. The Plan review raised three
-more and its re-review two more, all answered on 2026-09-30. Several rows below split or refine one of those
+more and its re-review two more, all answered on 2026-09-30. The build raised two
+more, answered the same day. Several rows below split or refine one of those
 answers. In every case the recommendation was the choice.
 
 Three lists were written as recommendations and accepted whole, rather than
@@ -85,6 +86,8 @@ The measurement is the first place to question them.
 | Whether the usage rules fail as inert when they find nothing | **No inert failure.** The report prints, per rule, how many elements it **checked and how many it abstained on**, so zero checked is visible | An app that uses no Badge isn't misconfigured. Counting checks alone would hide a rule that abstained on everything | An inert failure with `--skip` as the escape |
 | When an element has an accessible name | It carries a non-empty `aria-label`, `aria-labelledby` or `title` (literal, or any expression), **or anything between its tags does**, **or there is any non-whitespace text or `{expression}` between its tags**. It fails when everything between its tags is elements and whitespace and none of them carries a name. An expression counts as text. **Any element carrying `{...props}` abstains**, with or without children, since the spread may be the label. **A descendant makes the element abstain** if it carries `{...props}` or a label-like prop: `label`, `alt`, `text`, `i18nKey`, `defaultMessage`, `message`, `id`, or any prop name ending in `Label` or `Text`. Otherwise descendants are judged only by `aria-label`, `aria-labelledby`, `title` and text, so `size`, `strokeWidth` and `color` on an icon don't cause a skip. Other unknown props cause a skip only on self-closing elements (see below), because an element with children has its children to judge by. `aria-label=""` and whitespace-only children count as unnamed | `<Button asChild><a>Go</a></Button>` and `<Button><TrashIcon aria-label="Delete" /></Button>` are both accessible and must pass: an accessible name is computed from descendants too, and icon libraries put the label on the icon. `<Button {...props}><TrashIcon /></Button>` is the common wrapper-component pattern, and its name may arrive in the spread. Skipping on every unknown prop of a descendant would skip almost every icon button, since icons carry `size` and `color`. The label-like list keeps the realistic cases from failing wrongly without gutting the rule, and the measurement shows whether it's right. The i18n props are there because `<Button><Trans i18nKey="delete" /></Button>` and `<Button><FormattedMessage id="delete" /></Button>` are named at runtime, and throughline-ds has no i18n, so the measurement can't catch them. Treating an expression as text makes the uncertain case a miss, never a wrong failure. JSX drops whitespace-only children, so they name nothing | Counting only direct text children; counting only the element's own attributes; failing an element whose props are spread |
 | Self-closing elements | They **fail unless named**, by the same rule for both usage rules. They **abstain** if the element carries any prop other than: the record's `variants` keys and `states` keys, `className`, `style`, or a fixed list that can never be a label (`on*` handlers, `disabled`, `type`, `key`, `ref`, `id`, `data-*`, `aria-hidden`, `asChild`). Any other prop, and any `{...props}`, may be a label, so the element abstains. **With no doc record**, only `className`, `style` and the fixed list are exempt, so `<IconButton variant="ghost" />` abstains. `<Badge tone="danger" />` fails when `tone` is one of the record's `variants` keys, and so does a self-closing element whose only extra prop is a `states` key | A bare `<Badge variant="danger" />` is exactly the colour-only dot the status rule exists for. Without the fixed list, almost every self-closing element abstains and the rule never runs. With no record there is no way to tell a variant from a label prop, so abstaining is the safe direction | Always abstaining on self-closing elements; guessing variant names for components with no record |
+| Icon props on an element with nothing inside | **`icon`, `leadingIcon` and `trailingIcon` join the never-a-label list**, so `<Button trailingIcon={…} />` with no `aria-label` fails | Found in the Step 4 measurement: throughline-ds builds its icon-only buttons this way, and the rule skipped them. An icon prop takes a component, not text, so it can't be the label | Leaving the system's likeliest real bug as a known miss; letting each record declare its icon props |
+| An element with an empty body | **Judged like a self-closing element.** An element whose only content is whitespace, or nothing, abstains on the same unknown props | Found in the diff review: `<Button label="Save"></Button>` failed while `<Button label="Save" />` abstained. The reason for sparing elements with children, that their children decide, doesn't hold when there are none. JSX drops whitespace-only text, so it counts as nothing | Keying the unknown-prop abstain on the self-closing syntax alone |
 | Rule names | `unnamed-control` and `colour-only-status` | Say what's wrong, like the gate's other rules. British "colour" matches the adherence gate's own spelling (`colour-rule-inert`) | WCAG-worded names |
 | Whether the usage rules can be switched off | **Both are in the adherence gate's `SKIPPABLE`** (`validate-adherence.mjs:796`), under `--skip` like every other failing rule | A team that hits a wrong failure gets the same escape as for every other rule | Rules that can only be escaped by removing the gate |
 | The proof bundle | The usage rules are **adherence-gate failures only**, never also recorded as bundle entries. #140's issue text, which says both halves become bundle entries, gets corrected | The adherence gate isn't part of the bundle, and a second record of the same finding is one more thing to drift | Recording the adherence result in the bundle |
@@ -101,26 +104,6 @@ The measurement is the first place to question them.
   it unasserted in v1. The Plan asserts only `strokeAlign` and the `border/focus`
   binding, and an answer of yes adds one assertion to Step 6 without changing any
   other step. Unresolved.
-- **Icon props make `unnamed-control` skip this system's own icon-only
-  pattern.** Found in the Step 4 measurement
-  (`docs/notes/2026-09-30-accessibility-usage-rules-measurement.md`).
-  throughline-ds builds an icon-only button as `<Button trailingIcon={…} />`.
-  `trailingIcon` isn't on the never-a-label list, so without an `aria-label` the
-  rule skips it rather than failing it. Options:
-  - add `icon`, `leadingIcon` and `trailingIcon` to the never-a-label list, since
-    an icon prop takes a component, not text
-  - let a record declare its icon props
-  - leave it as a known miss
-
-  Recommend the first. It's a three-name change, and it turns the likeliest real
-  bug on this system from a skip into a failure. Unresolved.
-- **Whether an element with an empty body judges its own props like a
-  self-closing one.** Found in the diff review. `<Button label="Save" />`
-  abstains, but `<Button label="Save"></Button>` fails, because the unknown-prop
-  abstain is keyed on self-closing. The reason given for that ("an element with
-  children has its children to judge by") doesn't hold when there are none.
-  Formatters collapse `<X></X>` to `<X />`, so it's rare. Recommend applying the
-  self-closing rule to any element with no children. Unresolved.
 
 ## Plan
 

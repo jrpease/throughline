@@ -15,7 +15,9 @@ to [Semantic Versioning](https://semver.org).
   record declares `tone`. Both can fail
   a run that passed before. They read JSX in script files only, and they abstain
   instead of guessing: on a `{...props}` spread, on a label-like prop inside the
-  element, and on any unknown prop of a self-closing element. The report prints a
+  element, and on any unknown prop of an element with nothing inside it. Icon
+  props (`icon`, `leadingIcon`, `trailingIcon`) are never the label, so
+  `<Button trailingIcon={…} />` with no `aria-label` fails. The report prints a
   new `a11y:` line with how many elements each rule checked and abstained on.
   Switch either off with `--skip`. Measured on throughline-ds: 24 elements checked,
   no wrong failures (`docs/notes/2026-09-30-accessibility-usage-rules-measurement.md`).
