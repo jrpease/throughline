@@ -429,8 +429,8 @@ groups were created in `tokens.styleGroups`. Append `token-builder` to
 
 **Record the stage entry:** `node ${CLAUDE_PLUGIN_ROOT}/scripts/verify-check.mjs
 --record --stage token-builder --entry <tmp>.json` (subject defaults to
-`"system"`; this stage is not per-component). Build `<tmp>.json` with `changed`
-summarizing the collections and modes created, the attested check
+`"system"`; this stage is not per-component). Build `<tmp>.json` with `at` (an ISO
+timestamp you supply), `changed` summarizing the collections and modes created, the attested check
 `contrast-baseline` carrying `result` and a one-line `evidence` naming the
 tightest ratio per mode (`"Light 5.2:1, Dark 4.9:1 — tightest is
 text/onEmphasis on bg/emphasis"`), and `advancedBecause`.

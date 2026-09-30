@@ -573,12 +573,18 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
    be retrofitted to the current recipe (see "State handling").
 
    **The `focus-indicator` check** is the programmatic half of this item. Run it
-   with `figma_execute`. A miss is fixed and re-audited like any other item. If the
-   ring is still missing when the pass budget below runs out, **stop the build**
-   (the executor returns `BLOCKED`) rather than hand off.
+   with `figma_execute`. What a miss does depends on who designed the ring:
+   - **`figma-executor` returns `BLOCKED`** on a miss, naming the variant. It
+     builds from an architect spec, and adding a ring the spec didn't give is a
+     design decision it doesn't make.
+   - **Building inline**, you designed the ring yourself, so a miss is a build
+     error: fix and re-audit like any other item. If the ring is still missing
+     when the pass budget below runs out, **stop the build** rather than hand off.
    - **Scope.** It runs only for a component whose name folds (lowercase,
      punctuation stripped) to a Button, an Input / text field, or a Checkbox /
-     radio / toggle / chip, the same exact-name match as the state check. It also
+     radio / toggle / chip, the same exact-name match as the state check. A Switch
+     or a TextInput isn't in that list, so neither Figma check reads it (the CLI's
+     `state-incomplete` does). It also
      needs `project.uiFramework` to be exactly `shadcn`, `tailwind`, `mui`,
      `vanilla-css` or `vanilla`, or absent or `null`. Anything else (`ios-swift`,
      a tier-2 library, any other value) is skipped, and the skip is said.
@@ -587,7 +593,9 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
      exactly `focus`. `Focused` or `focus-visible` isn't read. The ring is looked
      for on that variant, or, where the variant wraps the control in other content
      (an Input with a label or helper text), on the child frame that is the
-     control, the node the recipe above puts the ring on.
+     control, the node the recipe above puts the ring on. Reading **zero** focus
+     variants on an in-scope component is not a pass: it means the `state` axis
+     has no `focus` value, which the state check stops on.
    - **A focus variable** is any variable whose name has a `focus` segment:
      `border/focus`, `color/border/focus`, `color/focus/ring` and
      `color/focus/ringOnFill` all count. Systems name their ring role differently,

@@ -384,7 +384,7 @@ component-pipeline orchestrator; token changes flow through `/sync-figma-tokens`
 **Record the stage entry, one call per component finalized this run:**
 `node .throughline/scripts/verify-check.mjs --record --stage
 storybook-chromatic-builder --subject <Name> --entry <tmp>.json`. Build
-`<tmp>.json` with the attested checks `build` (the story build outcome) and
+`<tmp>.json` with `at` (an ISO timestamp you supply), the attested checks `build` (the story build outcome) and
 `review`, `advancedBecause`, and **the two component-scoped derived results,
 `state-incomplete` and `name-drift`, read off the `verify:check` report Step
 5.5 already ran** — recorded with `method: "derived"`. This is one of two stages

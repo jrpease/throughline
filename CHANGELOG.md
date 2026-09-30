@@ -6,6 +6,23 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Breaking
+
+Two things can turn a green run red on upgrade. Read these before you do.
+
+- **Your next doc-script refresh adds two accessibility rules to
+  `adherence:check`.** `unnamed-control` fails an icon-only button with no
+  accessible name, and `colour-only-status` fails a badge that carries status in
+  colour alone. Both are described under Added below. They abstain rather than
+  guess, and measured on throughline-ds they made no wrong failures, but a real
+  bug in your app will now fail the run. `--skip` switches either one off.
+- **A Figma component build stops on a focus variant with no ring**, or, for an
+  `mui` input or a `vanilla` control, without its framework's focus stroke. This covers
+  Buttons, Inputs and choice controls, on `shadcn`, `tailwind`, `mui`,
+  `vanilla-css`, `vanilla` or an unset framework. A component built before this
+  release isn't checked until it's next rebuilt or touched. When it is, a ghost or
+  link variant that never got a ring will stop the build until it has one.
+
 ### Added
 
 - **Two accessibility rules in the adherence gate (#140).** `unnamed-control`
@@ -19,15 +36,17 @@ to [Semantic Versioning](https://semver.org).
   props (`icon`, `leadingIcon`, `trailingIcon`) are never the label, so
   `<Button trailingIcon={…} />` with no `aria-label` fails. The report prints a
   new `a11y:` line with how many elements each rule checked and abstained on.
-  Switch either off with `--skip`. Measured on throughline-ds: 24 elements checked,
-  no wrong failures (`docs/notes/2026-09-30-accessibility-usage-rules-measurement.md`).
+  Switch either off with `--skip`. Measured on throughline-ds: 24 elements checked
+  and no failures of any kind. The corpus held no real bug to catch, so catching
+  one rests on the unit tests (`docs/notes/2026-09-30-accessibility-usage-rules-measurement.md`).
 - **`archetype` in the docs index.** `docs:digest` now carries each record's
   `archetype`, or `null`, so the adherence gate can target a component that
   doesn't carry a standard name.
 - **Figma builds check every focus ring, and stop on a missing one (#140).**
   Buttons, inputs and choice controls (checkbox, radio, toggle, chip) are read
   back after they're built. Every focus variant must carry a visible ring bound to
-  a focus variable, such as `border/focus` or `color/focus/ring`. A variant
+  a focus variable, such as `border/focus` or `color/focus/ring`. An `mui` input
+  or a `vanilla` control carries its framework's focus stroke instead. A variant
   without one stops the build, naming the variant. That covers `shadcn`,
   `tailwind`, `mui`, `vanilla-css`, `vanilla` and an unset framework, and every
   other framework is skipped. `figma-executor` and an inline `component-builder`
@@ -43,9 +62,10 @@ to [Semantic Versioning](https://semver.org).
   them anywhere. A person reading the report couldn't see what a stage claimed to
   have checked. Each one now prints as `~ [attested] <stage> · <subject> — <check>
   <result>: <evidence>`, and still never decides the run.
-- **component-builder's entry list names `at`.** The recorder requires a
-  timestamp, and the skill's list of fields left it out, so an entry built from
-  that list alone was refused.
+- **Every recording stage's entry list names `at`.** The recorder requires a
+  timestamp, and the field lists in `token-builder`, `token-sync-layer`,
+  `component-builder` and `storybook-chromatic-builder` all left it out, so an
+  entry built from the list alone was refused.
 
 ## [0.20.0] — 2026-09-29
 
