@@ -171,7 +171,9 @@ deterministic naming):
   visual-validation loop (screenshot → fix any overlaps/misalignment →
   re-screenshot) **and its "Post-build audit (REQUIRED before handoff)"
   read-back checklist** (container type, auto layout, bound variables,
-  deterministic names) before the checkpoint.
+  deterministic names) before the checkpoint. When you build inline, with no
+  `figma-executor`, that includes item 9's `focus-indicator` check: a miss stops
+  the build, as it would for the executor.
 
 Checkpoint after each component: show all variants, confirm before the next.
 
@@ -358,7 +360,9 @@ any component built with the toggle + manual-swap fallback is listed in
 `node .throughline/scripts/verify-check.mjs --record --stage
 component-builder --subject <Name> --entry <tmp>.json`. Build `<tmp>.json` with
 `changed` (what was built), the attested checks `structural-read-back`,
-`state-baseline` and `figma-name` from what the `figma-executor` returned,
+`state-baseline` and `figma-name` from what the `figma-executor` returned (or
+what your inline read-back found), `focus-indicator` when that check ran and
+passed (not when it was skipped),
 `review` when a reviewer ran, `screenshot` when one was captured, and
 `advancedBecause`. The entry shape is
 `.throughline/references/proof-bundle.md` — don't restate it here. Write

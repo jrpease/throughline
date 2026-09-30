@@ -415,6 +415,16 @@ Then `node scripts/adapters/generate.mjs --check` → pass, which proves the
 adapter copies were regenerated. The read-back prose is reviewed by eye against
 the "Which indicator counts" Decisions row.
 
+Amended in the build, after the diff review:
+- A ring effect must also have `spread > 0`. Binding an effect's colour can zero
+  its spread (`figma-scripting.md:144-158`), which leaves a ring that is bound but
+  invisible.
+- The ring is looked for on the control, not only the variant. An Input that
+  wraps its field in a label or helper text carries the ring on the field.
+- A miss joins the audit's fix-and-re-audit loop, and stops the build only when
+  the pass budget runs out. That's the same loop the executor's step 4 already
+  runs.
+
 ### Step 7 — Live proof, in the #138 session
 
 Files: none, apart from a note appended to #138's

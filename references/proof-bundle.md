@@ -206,6 +206,7 @@ keyed by component?"
 | `structural-read-back` | attested | `component-builder` |
 | `state-baseline` | attested | `component-builder` |
 | `figma-name` | attested | `component-builder` |
+| `focus-indicator` | attested | `component-builder` |
 | `review` | attested | the dispatching skill |
 | `build` | attested | `storybook-chromatic-builder` |
 | `orphan-token` | derived | not recorded: re-derived on every `verify:check` run |
@@ -276,6 +277,12 @@ One stage file with two subjects — `Button`, freshly built and reviewed, and
           "method": "attested",
           "result": "pass",
           "evidence": "Figma node named Button"
+        },
+        {
+          "name": "focus-indicator",
+          "method": "attested",
+          "result": "pass",
+          "evidence": "shadcn: every focus variant carries a ring bound to border/focus"
         },
         {
           "name": "review",
