@@ -412,6 +412,19 @@ test('CLI: a clean system exits 0, and the first record grandfathers the rest of
   assert.doesNotMatch(r.stdout, /failure\(s\)/);
 });
 
+test('CLI: an attested check is printed as an informational line, and never decides the run', (t) => {
+  const root = fixture(t);
+  const checks = [
+    { name: 'structural-read-back', method: 'attested', result: 'pass', evidence: 'COMPONENT_SET 1:2' },
+    { name: 'focus-indicator', method: 'attested', result: 'pass', evidence: 'shadcn: 2 focus variants ringed' },
+  ];
+  assert.equal(recordEntry(root, 'component-builder', 'Button', { checks }).code, 0);
+  const r = gate(root);
+  assert.equal(r.code, 0, r.stdout);
+  assert.match(r.stdout, /~ \[attested\] component-builder · Button — focus-indicator pass: shadcn: 2 focus variants ringed\./);
+  assert.match(r.stdout, /~ \[attested\] component-builder · Button — structural-read-back pass/);
+});
+
 test('CLI: the same system fails state-incomplete once the Button record loses disabled', (t) => {
   const root = fixture(t);
   recordEntry(root, 'component-builder', 'Button');

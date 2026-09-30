@@ -588,21 +588,24 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
      for on that variant, or, where the variant wraps the control in other content
      (an Input with a label or helper text), on the child frame that is the
      control, the node the recipe above puts the ring on.
+   - **A focus variable** is any variable whose name has a `focus` segment:
+     `border/focus`, `color/border/focus`, `color/focus/ring` and
+     `color/focus/ringOnFill` all count. Systems name their ring role differently,
+     and a collection prefix is common. A raw colour, or a variable with no `focus`
+     segment, doesn't count.
    - **Ring recipes** (`shadcn`, `tailwind`, absent or `null`; `mui` on anything
      but an input). The control has either a `DROP_SHADOW` effect with
-     `visible !== false`, `spread > 0` and `boundVariables.color` on the
-     `border/focus` variable, or a direct child with
-     `layoutPositioning = "ABSOLUTE"` and `strokeAlign = "OUTSIDE"` whose stroke
-     is bound to `border/focus`. `spread > 0` matters: binding an effect's colour
-     can silently zero its spread (see `figma-scripting.md`), which leaves a ring
-     that is bound and invisible. On `shadcn`, `tailwind` or the default, a control
-     with a stroke of its own also has that stroke bound to `border/focus`. One
-     with no stroke (ghost, link) is judged on its ring alone. An `mui` button is
-     judged on its ring alone.
-   - **`mui` inputs.** The control's own stroke is bound to `border/focus`, and its
-     weight to `width/focus`.
+     `visible !== false`, `spread > 0` and `boundVariables.color` on a focus
+     variable, or a direct child with `layoutPositioning = "ABSOLUTE"` and
+     `strokeAlign = "OUTSIDE"` whose stroke is bound to a focus variable.
+     `spread > 0` matters: binding an effect's colour can silently zero its spread
+     (see `figma-scripting.md`), which leaves a ring that is bound and invisible.
+     Only the ring is asserted. The recipe's border recolour is styling, and a
+     control whose border keeps its normal colour beside a correct ring passes.
+   - **`mui` inputs.** The control's own stroke is bound to a focus variable, and its
+     weight to a variable (the recipe's `width/focus`).
    - **`vanilla-css` / `vanilla`.** The control or a direct child carries a stroke
-     bound to `border/focus` with `strokeAlign = "OUTSIDE"`. The `offset/focus` gap
+     bound to a focus variable with `strokeAlign = "OUTSIDE"`. The `offset/focus` gap
      isn't asserted.
    - **The result.** On a miss, stop and name the variant and what it lacks. On a
      pass, `component-builder` records `focus-indicator` as an attested check. A
