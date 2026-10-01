@@ -6,6 +6,28 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.21.1] — 2026-10-01
+
+Getting ready for Anthropic's plugin directory. Nothing about how ThroughLine
+builds changes.
+
+### Changed
+
+- **The Figma MCP server is pinned to `figma-console-mcp@1.40.8`.** It used to
+  launch `@latest`, which the directory doesn't accept, and which meant every
+  install could pick up a different server. 1.40.8 is the current release, and it
+  bundles the same Desktop Bridge plugin (1.39.0) as the releases before it, so
+  there's nothing to update in Figma. Upgrading the server is now a deliberate
+  version bump, tested in a live Figma session first. The Cursor, Codex and
+  generic adapters pin the same version.
+
+### Added
+
+- **The README says what ThroughLine runs on your machine**: one local MCP
+  server, the files it writes, and Chromatic uploads only if you set them up.
+- **Listing details.** `plugin.json` gains `displayName`, `homepage` and
+  `repository`, and the marketplace gains a description.
+
 ## [0.21.0] — 2026-09-30
 
 ### Breaking
@@ -1454,7 +1476,8 @@ components → Storybook on a pnpm + Turborepo + Next.js 16 + Tailwind v4 monore
 - Reference docs for coding level, manifest schema, sync adapters, Figma
   component standards, and brainstorm-before-build.
 
-[Unreleased]: https://github.com/jrpease/throughline/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/jrpease/throughline/compare/v0.21.1...HEAD
+[0.21.1]: https://github.com/jrpease/throughline/compare/v0.21.0...v0.21.1
 [0.21.0]: https://github.com/jrpease/throughline/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/jrpease/throughline/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/jrpease/throughline/compare/v0.18.0...v0.19.0
