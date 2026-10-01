@@ -78,6 +78,14 @@ Everything above was created during a single working session and synced directly
 | **Figma access token** | Required — read/write your file. The setup skill walks you through it; your token stays yours and is never shared in chat. |
 | **GitHub** (or similar) | Optional — only when you're ready to graduate to a real remote repo with PRs and CI. |
 
+### What it runs on your machine
+
+ThroughLine runs one local server, and it doesn't upload anything itself.
+
+- **One local MCP server.** Installing the plugin registers [`figma-console-mcp`](https://www.npmjs.com/package/figma-console-mcp), pinned to version 1.40.8, which your agent starts on your computer with `npx`. It reaches the Figma desktop app through the Desktop Bridge plugin you run in Figma. That's how ThroughLine reads and writes your file. It reads your `FIGMA_ACCESS_TOKEN` from your environment for the Figma calls the bridge can't make.
+- **Files in your repo.** The skills write design-system files where you point them: token sources, the Style Dictionary build, components, stories, `design-system.json`, and the proof records in `design-system/proof/`. The helper scripts they install read and write local files and make no network calls.
+- **Chromatic, if you choose it.** Setting up Chromatic adds a CI workflow that uploads your Storybook to your Chromatic project, using a `CHROMATIC_PROJECT_TOKEN` you place yourself. Skip that step and nothing goes to Chromatic.
+
 ### Install
 
 ThroughLine is authored as a Claude Code plugin and generated into adapters for other agents. Pick your tool:

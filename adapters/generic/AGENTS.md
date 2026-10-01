@@ -36,7 +36,7 @@ Add the following MCP server to your agent (Figma access):
       "command": "npx",
       "args": [
         "-y",
-        "figma-console-mcp@latest"
+        "figma-console-mcp@1.40.8"
       ],
       "env": {
         "FIGMA_ACCESS_TOKEN": "${FIGMA_ACCESS_TOKEN}"

@@ -1,6 +1,7 @@
 {
   "name": "throughline-marketplace",
   "owner": { "name": "Jordan Pease" },
+  "description": "ThroughLine, the design-system plugin: Figma to tokens to Storybook, in one unbroken line.",
   "plugins": [
     {
       "name": "throughline",
