@@ -21,9 +21,15 @@ function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
+// `${user_config.KEY}` only resolves inside Claude Code; other agents read the
+// same value from the environment variable of the uppercased key.
+export function userConfigToEnv(text) {
+  return text.replace(/\$\{user_config\.([A-Za-z_][A-Za-z0-9_]*)\}/g, (_, key) => `\${${key.toUpperCase()}}`);
+}
+
 export function readSources(repoRoot) {
   const plugin = readJson(join(repoRoot, '.claude-plugin', 'plugin.json'));
-  const mcp = readJson(join(repoRoot, '.mcp.json'));
+  const mcp = JSON.parse(userConfigToEnv(readFileSync(join(repoRoot, '.mcp.json'), 'utf8')));
 
   const skillsDir = join(repoRoot, 'skills');
   const skills = readdirSync(skillsDir, { withFileTypes: true })
