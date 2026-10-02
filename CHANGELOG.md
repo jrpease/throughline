@@ -6,6 +6,29 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.21.2] — 2026-10-02
+
+What the directory review asked for after 0.21.0. One change reaches you if
+you already set a Figma token, so read the first item.
+
+### Changed
+
+- **Claude Code now asks for your Figma access token instead of reading it
+  from your shell.** The token is a plugin setting: masked when you type it,
+  kept in your system's secure credential store, and optional. Leave it blank
+  and ThroughLine works through the Desktop Bridge, the same as before. To set
+  or change it, run `/plugin`, open **Installed**, pick ThroughLine and choose
+  **Configure options**. If you had `FIGMA_ACCESS_TOKEN` exported in your shell,
+  the plugin no longer reads it. Put the same token in that field once. The
+  Cursor, Codex and generic adapters still read `FIGMA_ACCESS_TOKEN` from the
+  environment, because they have nowhere else to keep it.
+
+### Added
+
+- **An icon** at `.claude-plugin/icon.png`, for the directory listing.
+- **A privacy policy link** in `plugin.json`, pointing at
+  [radicool.studio/throughline/privacy](https://www.radicool.studio/throughline/privacy).
+
 ## [0.21.1] — 2026-10-01
 
 Getting ready for Anthropic's plugin directory. Nothing about how ThroughLine
@@ -1476,7 +1499,8 @@ components → Storybook on a pnpm + Turborepo + Next.js 16 + Tailwind v4 monore
 - Reference docs for coding level, manifest schema, sync adapters, Figma
   component standards, and brainstorm-before-build.
 
-[Unreleased]: https://github.com/jrpease/throughline/compare/v0.21.1...HEAD
+[Unreleased]: https://github.com/jrpease/throughline/compare/v0.21.2...HEAD
+[0.21.2]: https://github.com/jrpease/throughline/compare/v0.21.1...v0.21.2
 [0.21.1]: https://github.com/jrpease/throughline/compare/v0.21.0...v0.21.1
 [0.21.0]: https://github.com/jrpease/throughline/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/jrpease/throughline/compare/v0.19.0...v0.20.0

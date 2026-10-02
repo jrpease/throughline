@@ -278,11 +278,20 @@ them through it:
 
 **Secret-handling rule (non-negotiable):** the token value must never pass
 through the chat. Do not ask the user to paste it to you. Instead, tell them
-exactly where it goes (the plugin's MCP configuration expects it in an
-environment variable named `FIGMA_ACCESS_TOKEN`) and have them place it there
-themselves, following the plugin's setup notes. If they're unsure where that is,
-walk them to it, but you never see or handle the token. Reassure them this is
-normal and good — their password-like token stays theirs.
+exactly where it goes and have them place it there themselves:
+
+- **Installed as a plugin through `/plugin`:** run `/plugin`, open the
+  **Installed** tab, select ThroughLine, and choose **Configure options**. The
+  token goes in the **Figma access token** field, which masks it and keeps it in
+  the system's secure credential store. The plugin may already have asked for it
+  when it was first turned on. A `FIGMA_ACCESS_TOKEN` set in their shell is not
+  read in this case.
+- **Otherwise:** the MCP configuration reads it from an environment variable
+  named `FIGMA_ACCESS_TOKEN`; follow the setup notes for their agent.
+
+If they're unsure where that is, walk them to it, but you never see or handle
+the token. Reassure them this is normal and good — their password-like token
+stays theirs.
 
 ### 4c. Run the desktop bridge plugin and pair
 
