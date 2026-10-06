@@ -23,6 +23,12 @@ own structure. Zero dependencies; stdlib only.
    Also checks the file and npm-script counts that prose restates about the docs
    set. Every other gate runs scripts in place, where every sibling exists, so a
    list missing a file stays green without this one.
+5. `node ci/check-pinned-runs.mjs` — every package any tracked file runs
+   (`npx`, `bunx`, `pnpm dlx`, `uvx`, …) carries an exact version, and no file
+   names an `@latest` or range. The marketplace source is `./`, so Anthropic's
+   directory review reads the whole repo, docs included. Also fails when the
+   README's pinned `@radicool/throughline@X` install command differs from
+   `package.json`, so every release bumps it.
 
 ## Run locally
 
@@ -31,6 +37,7 @@ node --test                  # all tests
 node ci/validate-plugin.mjs  # guard plugin manifests
 node ci/validate-skills.mjs  # guard skill/command/manifest-doc structure
 node ci/validate-install-sets.mjs  # guard install lists against missing imports
+node ci/check-pinned-runs.mjs      # guard every package run against unpinned versions
 node ci/compile-native-output.mjs <dir>  # compile generated Tokens.kt/.swift (not a CI gate)
 node ci/compile-native-output.mjs <dir> --allow-missing  # tolerate one absent toolchain
 ```

@@ -8,11 +8,11 @@
 
 Phase 1 shipped a source-preserving generator that turns the canonical Claude-native plugin into committed Cursor / Codex / generic adapters under `adapters/<target>/`, with a CI drift guard. What's missing is distribution: a user on Cursor, Codex, or a generic AGENTS.md agent has no way to get those adapters — plus the `references/` and `scripts/` they point at — into their own project.
 
-Phase 2 delivers `npx throughline init --target=…`, the installer that stamps a target's adapter tree and its runtime payload into the user's project non-destructively, plus a README rewrite that stops describing ThroughLine as only "a Claude Code plugin."
+Phase 2 delivers `throughline init --target=…`, the installer that stamps a target's adapter tree and its runtime payload into the user's project non-destructively, plus a README rewrite that stops describing ThroughLine as only "a Claude Code plugin."
 
 ## Decisions (resolved from the handoff's open items)
 
-1. **Distribution:** add a minimal root `package.json` with a `bin` entry so `npx throughline init` resolves. Zero dependencies — Node built-ins only, matching the existing dep-free `ci/` + `scripts/` tooling. This is the first thing in the repo that justifies a `package.json`; it stays minimal.
+1. **Distribution:** add a minimal root `package.json` with a `bin` entry so `throughline init` resolves through npx. Zero dependencies — Node built-ins only, matching the existing dep-free `ci/` + `scripts/` tooling. This is the first thing in the repo that justifies a `package.json`; it stays minimal.
 2. **Payload source:** the installer **copies the already-committed `adapters/<target>/` tree** rather than regenerating from source at install time. The committed tree is CI-drift-guarded, so a copy is deterministic and needs no source skills in the published package.
 3. **MCP wiring:** write project-local config directly where safe (Cursor `.cursor/mcp.json`); for Codex, land the `codex-mcp.toml` snippet in the tree and **print copy-paste instructions** rather than mutating the user's global `~/.codex` config. Generic carries the MCP JSON inline in `AGENTS.md`.
 4. **README rewrite:** done in this phase (it was requested and deferred pending the installer).
@@ -92,7 +92,7 @@ Run under `node --test` (already the CI command; auto-discovers `*.test.mjs`). U
 - Generalize the tagline / description away from "a Claude Code plugin" to a multi-tool design-system builder.
 - Add an upfront **supported tools** list and per-tool `###` getting-started subsections, mirroring the obra/superpowers structure:
   - Claude Code — plugin install (existing path).
-  - Cursor / Codex / generic — `npx throughline init --target=…`, with the per-tool MCP note.
+  - Cursor / Codex / generic — `throughline init --target=…`, with the per-tool MCP note.
 - Adjust Requirements / "connect to Figma" phrasings so they read for any supported tool.
 - Update `scripts/README.md`'s adapters section to mention the installer (`scripts/install.mjs`) alongside the generator.
 

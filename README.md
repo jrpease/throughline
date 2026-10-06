@@ -73,7 +73,7 @@ Everything above was created during a single working session and synced directly
 
 | | |
 |---|---|
-| **A supported agent** | Required — [Claude Code](https://docs.claude.com/en/docs/claude-code) (native plugin), or **Cursor**, **Codex**, or any **AGENTS.md**-aware agent via `npx @radicool/throughline init`. |
+| **A supported agent** | Required — [Claude Code](https://docs.claude.com/en/docs/claude-code) (native plugin), or **Cursor**, **Codex**, or any **AGENTS.md**-aware agent via `npx @radicool/throughline@0.21.3 init`. |
 | **Figma** | Required, **desktop app** (the browser version causes connection errors). **Professional plan or higher recommended** — multi-mode variables (Light/Dark, brand themes) need it. |
 | **Figma access token** | Required — read/write your file. The setup skill walks you through it; your token stays yours and is never shared in chat. |
 | **GitHub** (or similar) | Optional — only when you're ready to graduate to a real remote repo with PRs and CI. |
@@ -114,9 +114,9 @@ Update anytime with `/plugin marketplace update throughline-marketplace`.
 Run the installer in your project — it stamps in the skills, the reference docs, the scripts, and the Figma MCP config for your tool:
 
 ```
-npx @radicool/throughline init --target=cursor    # → .cursor/rules + .cursor/mcp.json
-npx @radicool/throughline init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
-npx @radicool/throughline init --target=generic    # → skills/ + AGENTS.md index
+npx @radicool/throughline@0.21.3 init --target=cursor    # → .cursor/rules + .cursor/mcp.json
+npx @radicool/throughline@0.21.3 init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
+npx @radicool/throughline@0.21.3 init --target=generic    # → skills/ + AGENTS.md index
 ```
 
 It's safe to re-run (it merges `AGENTS.md` and `.cursor/mcp.json` non-destructively) and stages everything the skills read into `.throughline/`. Then open the `figma-environment-setup` skill/rule/prompt for your tool to begin. For Codex, add the printed `codex-mcp.toml` block to your Codex config to enable Figma access.

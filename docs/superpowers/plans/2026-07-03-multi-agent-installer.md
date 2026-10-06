@@ -1,8 +1,8 @@
-# Multi-Agent Installer (`npx throughline init`) Implementation Plan
+# Multi-Agent Installer (`throughline init`) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship `npx throughline init --target=cursor|codex|generic`, which stamps a committed adapter tree plus its runtime payload into a user's project, non-destructively and idempotently.
+**Goal:** Ship `throughline init --target=cursor|codex|generic`, which stamps a committed adapter tree plus its runtime payload into a user's project, non-destructively and idempotently.
 
 **Architecture:** A minimal root `package.json` exposes `scripts/install.mjs` as the `throughline` bin. The installer copies the already-committed, CI-drift-guarded `adapters/<target>/` tree into the project, merges the two shared files (`AGENTS.md`, `.cursor/mcp.json`) instead of clobbering them, and stages `references/` + `scripts/` (minus `scripts/adapters/`) into `.throughline/`, path-rewriting `${CLAUDE_PLUGIN_ROOT}` → `.throughline` on text files via the canonical `rewritePluginRoot`. Pure merge/rewrite logic is factored out and unit-tested; the whole copy is exercised in a temp-dir integration test.
 
@@ -542,7 +542,7 @@ Replace:
 ```
 with:
 ```markdown
-| **A supported agent** | Required — [Claude Code](https://docs.claude.com/en/docs/claude-code) (native plugin), or **Cursor**, **Codex**, or any **AGENTS.md**-aware agent via `npx throughline init`. |
+| **A supported agent** | Required — [Claude Code](https://docs.claude.com/en/docs/claude-code) (native plugin), or **Cursor**, **Codex**, or any **AGENTS.md**-aware agent via `throughline init`. |
 ```
 
 - [ ] **Step 4: Rewrite the Install section** (`README.md:80-103`)
@@ -578,9 +578,9 @@ Update anytime with `/plugin marketplace update throughline-marketplace`.
 Run the installer in your project — it stamps in the skills, the reference docs, the scripts, and the Figma MCP config for your tool:
 
 ```
-npx throughline init --target=cursor    # → .cursor/rules + .cursor/mcp.json
-npx throughline init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
-npx throughline init --target=generic    # → skills/ + AGENTS.md index
+throughline init --target=cursor    # → .cursor/rules + .cursor/mcp.json
+throughline init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
+throughline init --target=generic    # → skills/ + AGENTS.md index
 ```
 
 It's safe to re-run (it merges `AGENTS.md` and `.cursor/mcp.json` non-destructively) and stages everything the skills read into `.throughline/`. Then open the `figma-environment-setup` skill/rule/prompt for your tool to begin. For Codex, add the printed `codex-mcp.toml` block to your Codex config to enable Figma access.
@@ -596,7 +596,7 @@ the committed `adapters/<target>/` tree plus the runtime payload
 (`references/` + `scripts/`, minus `scripts/adapters/`) into `.throughline/`,
 rewriting `${CLAUDE_PLUGIN_ROOT}` → `.throughline`:
 
-    npx throughline init --target=cursor|codex|generic
+    throughline init --target=cursor|codex|generic
 
 See `scripts/install.mjs` (pure core + CLI + `install.test.mjs`).
 ```

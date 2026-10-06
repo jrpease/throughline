@@ -62,7 +62,7 @@ The `agents/` files (`throughline:architect`, etc.) are **not registered as disp
 - `node ci/validate-plugin.mjs` → OK.
 - `node ci/validate-skills.mjs` → 12 skills, 5 commands, 4 agents OK.
 - `node scripts/adapters/generate.mjs --check` → adapters in sync (regenerate after any `SKILL.md` edit; `agents/` and `references/` are **not** bundled).
-- **CI/release now run on Node 24** (bumped from the deprecated Node 20; `npm@latest` dropped Node 20, which broke the first `v0.14.0` tag push before it was fixed and re-tagged).
+- **CI/release now run on Node 24** (bumped from the deprecated Node 20; the latest npm at the time dropped Node 20, which broke the first `v0.14.0` tag push before it was fixed and re-tagged).
 
 ## Deferred / known follow-ups
 

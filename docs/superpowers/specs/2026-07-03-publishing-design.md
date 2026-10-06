@@ -14,7 +14,7 @@ plugin-marketplace submission, and the launch polish around them.
 
 - The npm name `throughline` is **taken** by an unrelated, actively maintained
   package (kitepon-rgb/Throughline, 42 published versions). The README's
-  documented `npx throughline init` would install the wrong package today.
+  documented `npx` install of the unscoped `throughline` name would install the wrong package today.
 - The `@radicool` scope has no published packages (registry search returns
   zero), so it is very likely free; definitive confirmation happens when the
   org is created on npmjs.com. Fallback if claimed: `@radicoolstudio`.
@@ -54,7 +54,7 @@ plugin-marketplace submission, and the launch polish around them.
 - add `"publishConfig": { "access": "public" }` — scoped packages default to
   restricted and the publish would otherwise fail.
 - `bin` stays `{ "throughline": "scripts/install.mjs" }`. `npx
-  @radicool/throughline init` works because npx runs a package's single bin
+  @radicool/throughline@0.12.0 init` works because `npx` runs a package's single bin
   regardless of its name, and global installs still expose a `throughline`
   command.
 
@@ -65,7 +65,7 @@ file carrying a version; `marketplace.json` has none), keeping
 The Claude plugin name stays plain `throughline` — plugin marketplaces
 namespace independently of npm.
 
-Command references: update `npx throughline init` → `npx @radicool/throughline
+Command references: update the unscoped `throughline init` command → `npx @radicool/throughline@0.12.0
 init` in **README.md** and **scripts/README.md** (the latter ships in the npm
 payload). Historical specs and plans under `docs/superpowers/` are records of
 past work and are left unchanged. Re-run the adapter generator if any generated

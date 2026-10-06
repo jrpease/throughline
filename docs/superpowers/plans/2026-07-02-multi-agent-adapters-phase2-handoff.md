@@ -22,7 +22,7 @@ A source-preserving generator that turns the canonical Claude-native plugin into
 
 ## Phase 2 goal — the installer
 
-`npx throughline init --target=cursor|codex|generic` that stamps the adapters into a user's own project. Per the design spec:
+`throughline init --target=cursor|codex|generic` that stamps the adapters into a user's own project. Per the design spec:
 
 - Wraps the generator (or copies the committed `adapters/<target>/` tree).
 - Copies the target files into the user's project at conventional locations (`.cursor/…`, `AGENTS.md`, `prompts/…`).

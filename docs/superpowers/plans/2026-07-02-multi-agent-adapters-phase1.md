@@ -412,7 +412,7 @@ import assert from 'node:assert/strict';
 import { emitCodex } from './emit-codex.mjs';
 
 const model = {
-  mcp: { mcpServers: { 'figma-console': { command: 'npx', args: ['-y', 'figma-console-mcp@latest'], env: { FIGMA_ACCESS_TOKEN: '${FIGMA_ACCESS_TOKEN}' } } } },
+  mcp: { mcpServers: { 'figma-console': { command: 'npx', args: ['-y', 'figma-console-mcp@1.40.8'], env: { FIGMA_ACCESS_TOKEN: '${FIGMA_ACCESS_TOKEN}' } } } },
   skills: [{ name: 'token-builder', description: 'Build tokens. Use when X.', body: 'Use ${CLAUDE_PLUGIN_ROOT}/references/x.md.' }],
   commands: [{ name: 'start', description: 'Start it.', body: 'Invoke the `figma-environment-setup` skill.' }],
 };
@@ -434,7 +434,7 @@ test('emitCodex emits translated prompt bodies and a toml mcp config', () => {
   const toml = files.find((f) => f.path === 'codex-mcp.toml');
   assert.match(toml.content, /\[mcp_servers\.figma-console\]/);
   assert.match(toml.content, /command = "npx"/);
-  assert.match(toml.content, /args = \["-y", "figma-console-mcp@latest"\]/);
+  assert.match(toml.content, /args = \["-y", "figma-console-mcp@1.40.8"\]/);
 });
 ```
 
