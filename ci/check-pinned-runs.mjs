@@ -9,7 +9,7 @@
 //
 //   - `npx`, `bunx`, `pnpm dlx`, `yarn dlx`, `npm exec`: name@1.2.3
 //   - `uvx`, `pipx run`: name==1.2.3
-//   - any name@latest, @next, or @^/@~/@* range anywhere is unpinned
+//   - a "latest" or "next" tag, or a caret, tilde or star range, is unpinned
 //
 // Prose that names a runner without a package after it ("started by `npx`")
 // is not a run and passes. A run split across a line break is not seen.
