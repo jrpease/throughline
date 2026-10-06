@@ -39,6 +39,8 @@ jobs:
         run: node ci/validate-skills.mjs
       - name: Check install sets carry every file their scripts import
         run: node ci/validate-install-sets.mjs
+      - name: Check every package run is pinned to an exact version
+        run: node ci/check-pinned-runs.mjs
       - name: Check adapters are up to date
         run: node scripts/adapters/generate.mjs --check
       - name: Check doc-card builder is up to date
@@ -48,7 +50,7 @@ jobs:
       - name: Extract release notes
         run: node ci/extract-changelog.mjs "${GITHUB_REF_NAME#v}" > "$RUNNER_TEMP/notes.md"
       - name: Update npm (trusted publishing needs npm >= 11.5)
-        run: npm install -g npm@latest
+        run: npm install -g npm@12.2.0
       - name: Publish to npm
         run: npm publish --provenance
       - name: Create GitHub Release

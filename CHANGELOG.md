@@ -6,6 +6,31 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.21.3] — 2026-10-06
+
+Anthropic's reviewer turned down 0.21.1: the plugin "runs a package without an
+exact version … in its MCP launcher or in its skill or script text." The
+launcher was already pinned. The rest wasn't, because the marketplace source is
+`./`, so the whole repository is the plugin and the review reads all of it.
+
+### Changed
+
+- **Every package the repo runs is pinned to an exact version.** The README and
+  `scripts/README.md` install with `npx @radicool/throughline@0.21.3 init`. The
+  release workflow installs `npm@12.2.0` instead of whatever npm was newest. A
+  test fixture and the old design docs under `docs/superpowers/` stop naming
+  "latest" tags and `^` ranges. Where a doc quoted the never-published unscoped
+  install command, it now names the `throughline init` command, so nothing
+  points `npx` at the unrelated package that owns the `throughline` name.
+
+### Added
+
+- **`ci/check-pinned-runs.mjs`, a CI and release gate.** It fails on any
+  `npx`, `bunx`, `pnpm dlx`, `yarn dlx`, `npm exec`, `uvx` or `pipx run` without
+  an exact version in any tracked file, and on any `@latest` or `@^`/`@~` range.
+  It also fails when the README's pinned install version differs from
+  `package.json`, so every release has to bump it.
+
 ## [0.21.2] — 2026-10-02
 
 What the directory review asked for after 0.21.0. One change reaches you if
@@ -987,7 +1012,7 @@ Read this before upgrading; the full technical detail for each is below.
 ## [0.12.1] - 2026-07-03
 
 ### Fixed
-- **`npx @radicool/throughline init` silently did nothing.** npm invokes the bin
+- **`npx @radicool/throughline@0.12.0 init` silently did nothing.** npm invokes the bin
   through a `node_modules/.bin` symlink, which defeated the CLI's
   direct-invocation guard (`pathToFileURL(process.argv[1])` never matched the
   real module path), so the installer exited 0 without installing. The guard
@@ -998,7 +1023,7 @@ Read this before upgrading; the full technical detail for each is below.
 
 ### Added
 - **Published to npm as [`@radicool/throughline`](https://www.npmjs.com/package/@radicool/throughline).**
-  The multi-agent installer is now installable everywhere: `npx @radicool/throughline init`.
+  The multi-agent installer is now installable everywhere: `npx @radicool/throughline@0.12.0 init`.
   (The unscoped `throughline` npm name belongs to an unrelated package.)
 - **Tag-driven release automation.** Pushing a `vX.Y.Z` tag now runs the full CI
   validation, publishes to npm with provenance via trusted publishing, and creates
@@ -1006,8 +1031,8 @@ Read this before upgrading; the full technical detail for each is below.
   (`.github/workflows/release.yml` + `ci/extract-changelog.mjs`).
 
 ### Changed
-- **Install command for Cursor/Codex/AGENTS.md targets is now `npx @radicool/throughline init`**
-  (previously documented as `npx throughline init`, which was never published).
+- **Install command for Cursor/Codex/AGENTS.md targets is now `npx @radicool/throughline@0.12.0 init`**
+  (previously documented under the unscoped `throughline` name, which was never published).
 - README version badge now reads live from the npm registry.
 
 ## [0.11.0] - 2026-07-02
@@ -1499,7 +1524,8 @@ components → Storybook on a pnpm + Turborepo + Next.js 16 + Tailwind v4 monore
 - Reference docs for coding level, manifest schema, sync adapters, Figma
   component standards, and brainstorm-before-build.
 
-[Unreleased]: https://github.com/jrpease/throughline/compare/v0.21.2...HEAD
+[Unreleased]: https://github.com/jrpease/throughline/compare/v0.21.3...HEAD
+[0.21.3]: https://github.com/jrpease/throughline/compare/v0.21.2...v0.21.3
 [0.21.2]: https://github.com/jrpease/throughline/compare/v0.21.1...v0.21.2
 [0.21.1]: https://github.com/jrpease/throughline/compare/v0.21.0...v0.21.1
 [0.21.0]: https://github.com/jrpease/throughline/compare/v0.20.0...v0.21.0

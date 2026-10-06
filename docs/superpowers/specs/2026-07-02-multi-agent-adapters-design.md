@@ -64,7 +64,7 @@ Generate this repo's *own* adapters and commit them. Add `scripts/adapters/gener
 
 ### Installer (phase 2)
 
-`npx throughline init --target=cursor|codex|generic`:
+`throughline init --target=cursor|codex|generic`:
 - wraps the generator,
 - copies output + `references/` + `scripts/` into the user's project under `.throughline/` and the target's conventional locations,
 - is idempotent (safe to re-run),
@@ -73,7 +73,7 @@ Generate this repo's *own* adapters and commit them. Add `scripts/adapters/gener
 ## Phasing
 
 - **Phase 1 — prove the format:** translation layer, generator, three emitters, committed self-adapters, CI drift test. No installer.
-- **Phase 2 — distribution:** `npx throughline init` wrapper, non-destructive project merge, docs.
+- **Phase 2 — distribution:** `throughline init` wrapper, non-destructive project merge, docs.
 
 ## Non-goals
 

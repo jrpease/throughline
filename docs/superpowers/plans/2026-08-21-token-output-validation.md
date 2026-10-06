@@ -676,7 +676,7 @@ ls /tmp/vto-fixture/tokens | wc -l   # expect 15
 - [ ] **Step 2: Generate the known-bad native output**
 
 ```bash
-cd /tmp/vto-fixture && npm init -y >/dev/null && npm i style-dictionary@^4 --silent
+cd /tmp/vto-fixture && npm init -y >/dev/null && npm i style-dictionary@4.4.0 --silent
 cat > build.mjs <<'EOF'
 import SD from 'style-dictionary';
 const PRIMS = ['color-primitives','spacing-primitives','radius-primitives','stroke-primitives',

@@ -14,7 +14,7 @@
 - Version: `0.12.0` everywhere (`package.json`, `.claude-plugin/plugin.json`, CHANGELOG).
 - Bin name stays `throughline`; `bin` maps to `scripts/install.mjs` unchanged.
 - No new npm dependencies; new scripts are plain `.mjs` with `node --test` tests, matching `ci/` conventions (pure exported function + CLI guard via `pathToFileURL`).
-- Historical docs under `docs/superpowers/` keep the old `npx throughline init` text — do not edit them.
+- Historical docs under `docs/superpowers/` keep the old unscoped `throughline init` text — do not edit them.
 - Claude plugin name stays plain `throughline` in `.claude-plugin/plugin.json`.
 - Tasks 6–9 touch live infrastructure (pushed tags, npm registry, GitHub Releases, submission forms). Tasks 7 and 9 need the user at the keyboard (npm login, browser forms).
 
@@ -102,30 +102,30 @@ with the auto-updating npm badge (it renders "package not found" until Task 7 pu
 [![npm](https://img.shields.io/npm/v/%40radicool%2Fthroughline?color=6366f1&label=npm)](https://www.npmjs.com/package/@radicool/throughline)
 ```
 
-`README.md:76` — inside the requirements table row, replace `` `npx throughline init` `` with `` `npx @radicool/throughline init` ``.
+`README.md:76` — inside the requirements table row, replace the unscoped `` `throughline init` `` command with `` `npx @radicool/throughline@0.12.0 init` ``.
 
 `README.md:109-111` — replace the three command lines:
 
 ```
-npx throughline init --target=cursor    # → .cursor/rules + .cursor/mcp.json
-npx throughline init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
-npx throughline init --target=generic    # → skills/ + AGENTS.md index
+throughline init --target=cursor    # → .cursor/rules + .cursor/mcp.json
+throughline init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
+throughline init --target=generic    # → skills/ + AGENTS.md index
 ```
 
 with:
 
 ```
-npx @radicool/throughline init --target=cursor    # → .cursor/rules + .cursor/mcp.json
-npx @radicool/throughline init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
-npx @radicool/throughline init --target=generic    # → skills/ + AGENTS.md index
+npx @radicool/throughline@0.12.0 init --target=cursor    # → .cursor/rules + .cursor/mcp.json
+npx @radicool/throughline@0.12.0 init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
+npx @radicool/throughline@0.12.0 init --target=generic    # → skills/ + AGENTS.md index
 ```
 
-`scripts/README.md:76` — replace `npx throughline init --target=cursor|codex|generic` with `npx @radicool/throughline init --target=cursor|codex|generic`.
+`scripts/README.md:76` — replace the unscoped `throughline init --target=cursor|codex|generic` command with `npx @radicool/throughline@0.12.0 init --target=cursor|codex|generic`.
 
 - [ ] **Step 5: Verify nothing else references the bare command, and the suite is green**
 
 ```bash
-grep -rn "npx throughline" --include="*.md" --include="*.mjs" . | grep -v docs/superpowers | grep -v node_modules
+grep -rnE "npx +throughline" --include="*.md" --include="*.mjs" . | grep -v docs/superpowers | grep -v node_modules
 ```
 
 Expected: no output. (Hits under `docs/superpowers/` are historical records — leave them.)
@@ -162,7 +162,7 @@ Directly under `## [Unreleased]` (leaving that heading in place, blank line afte
 
 ### Added
 - **Published to npm as [`@radicool/throughline`](https://www.npmjs.com/package/@radicool/throughline).**
-  The multi-agent installer is now installable everywhere: `npx @radicool/throughline init`.
+  The multi-agent installer is now installable everywhere: `npx @radicool/throughline@0.12.0 init`.
   (The unscoped `throughline` npm name belongs to an unrelated package.)
 - **Tag-driven release automation.** Pushing a `vX.Y.Z` tag now runs the full CI
   validation, publishes to npm with provenance via trusted publishing, and creates
@@ -170,8 +170,8 @@ Directly under `## [Unreleased]` (leaving that heading in place, blank line afte
   (`.github/workflows/release.yml` + `ci/extract-changelog.mjs`).
 
 ### Changed
-- **Install command for Cursor/Codex/AGENTS.md targets is now `npx @radicool/throughline init`**
-  (previously documented as `npx throughline init`, which was never published).
+- **Install command for Cursor/Codex/AGENTS.md targets is now `npx @radicool/throughline@0.12.0 init`**
+  (previously documented under the unscoped `throughline` name, which was never published).
 - README version badge now reads live from the npm registry.
 ```
 
@@ -414,7 +414,7 @@ jobs:
       - name: Check adapters are up to date
         run: node scripts/adapters/generate.mjs --check
       - name: Update npm (trusted publishing needs npm >= 11.5)
-        run: npm install -g npm@latest
+        run: npm install -g npm@11.5.1
       - name: Publish to npm
         run: npm publish --provenance
       - name: Create GitHub Release
@@ -425,7 +425,7 @@ jobs:
           gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"
 ```
 
-Notes for the implementer: Node 20 bundles npm 10, which predates trusted publishing — the `npm install -g npm@latest` step is required, not cosmetic. No `NODE_AUTH_TOKEN` is set anywhere; auth is OIDC via the `id-token: write` permission.
+Notes for the implementer: Node 20 bundles npm 10, which predates trusted publishing — the npm upgrade step is required, not cosmetic. No `NODE_AUTH_TOKEN` is set anywhere; auth is OIDC via the `id-token: write` permission.
 
 - [ ] **Step 2: Sanity-check the YAML parses**
 
@@ -577,7 +577,7 @@ npm view @radicool/throughline version dist-tags
 Expected: `0.12.0`.
 
 ```bash
-cd "$(mktemp -d)" && npx @radicool/throughline init --target=generic && ls skills AGENTS.md && cd -
+cd "$(mktemp -d)" && npx @radicool/throughline@0.12.0 init --target=generic && ls skills AGENTS.md && cd -
 ```
 
 Expected: the installer runs and scaffolds `skills/` + `AGENTS.md` — the end-to-end proof the published payload works.

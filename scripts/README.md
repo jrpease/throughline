@@ -245,7 +245,7 @@ the committed `adapters/<target>/` tree plus the runtime payload
 (`references/` + `scripts/`, minus `scripts/adapters/`) into `.throughline/`,
 rewriting `${CLAUDE_PLUGIN_ROOT}` → `.throughline`:
 
-    npx @radicool/throughline init --target=cursor|codex|generic
+    npx @radicool/throughline@0.21.3 init --target=cursor|codex|generic
 
 See `scripts/install.mjs` (pure core + CLI + `install.test.mjs`).
 
