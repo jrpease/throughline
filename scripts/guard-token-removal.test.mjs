@@ -45,3 +45,12 @@ test('guard scans multiple symbols at once', () => {
   const files = findings.map((f) => f.file).sort();
   assert.deepEqual(files, ['app.tsx', 'clean.ts']);
 });
+
+test('guard blocks when the only reference is in a stylesheet or HTML file', () => {
+  const root = mkdtempSync(join(tmpdir(), 'guard-'));
+  writeFileSync(join(root, 'theme.scss'), '.a { color: $color-brand-old; }\n');
+  writeFileSync(join(root, 'theme.css'), '.b { color: var(--color-brand-css); }\n');
+  writeFileSync(join(root, 'page.html'), '<div style="color: var(--color-brand-html)"></div>\n');
+  const findings = guard(root, ['$color-brand-old', '--color-brand-css', '--color-brand-html']);
+  assert.deepEqual(findings.map((f) => f.file).sort(), ['page.html', 'theme.css', 'theme.scss']);
+});

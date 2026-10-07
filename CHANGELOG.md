@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The token-removal guard now reads stylesheets and HTML, not just `.ts` and
+  `.tsx`.** A token referenced only from a `.scss`, `.css` or `.html` file was
+  reported as unused and removed. The guard now scans every file type the shared
+  walker does.
+
 ## [0.21.3] — 2026-10-06
 
 Anthropic's reviewer turned down 0.21.1: the plugin "runs a package without an
