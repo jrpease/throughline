@@ -73,7 +73,7 @@ Everything above was created during a single working session and synced directly
 
 | | |
 |---|---|
-| **A supported agent** | Required — [Claude Code](https://docs.claude.com/en/docs/claude-code) (native plugin), or **Cursor**, **Codex**, or any **AGENTS.md**-aware agent via `npx @radicool/throughline@0.21.4 init`. |
+| **A supported agent** | Required — [Claude Code](https://docs.claude.com/en/docs/claude-code) (native plugin), or **Cursor**, **Codex**, or any **AGENTS.md**-aware agent via `npx @radicool/throughline@0.22.0 init`. |
 | **Figma** | Required, **desktop app** (the browser version causes connection errors). **Professional plan or higher recommended** — multi-mode variables (Light/Dark, brand themes) need it. |
 | **Figma access token** | Optional — only for the few Figma calls the Desktop Bridge can't make, like reading a published library. Without it, you work through the bridge alone. The setup skill walks you through it; your token stays yours and is never shared in chat. |
 | **GitHub** (or similar) | Optional — only when you're ready to graduate to a real remote repo with PRs and CI. |
@@ -114,9 +114,9 @@ Update anytime with `/plugin marketplace update throughline-marketplace`.
 Run the installer in your project — it stamps in the skills, the reference docs, the scripts, and the Figma MCP config for your tool:
 
 ```
-npx @radicool/throughline@0.21.4 init --target=cursor    # → .cursor/rules + .cursor/mcp.json
-npx @radicool/throughline@0.21.4 init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
-npx @radicool/throughline@0.21.4 init --target=generic    # → skills/ + AGENTS.md index
+npx @radicool/throughline@0.22.0 init --target=cursor    # → .cursor/rules + .cursor/mcp.json
+npx @radicool/throughline@0.22.0 init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
+npx @radicool/throughline@0.22.0 init --target=generic    # → skills/ + AGENTS.md index
 ```
 
 It's safe to re-run (it merges `AGENTS.md` and `.cursor/mcp.json` non-destructively) and stages everything the skills read into `.throughline/`. Then open the `figma-environment-setup` skill/rule/prompt for your tool to begin. For Codex, add the printed `codex-mcp.toml` block to your Codex config to enable Figma access.
@@ -162,7 +162,7 @@ For the technically curious — how the machine actually runs.
 
 **Modes, within Figma's limits.** Light/Dark lives on the semantic collections; brand variants live on the primitive palette. Splitting the two axes across two collections keeps each one under Figma's 4-modes-per-collection cap on the Professional plan while still resolving correctly (`bg/default` → `{gray/50}` → the active brand's gray).
 
-**Model routing.** ThroughLine routes work by *cognition, not guesswork* — the expensive thinking on the best model, the mechanical doing on a cheap one. Setup pins **Haiku** to keep first-run costs low. Inside a skill, the deciding — a token architecture, a variant matrix, a slot contract — is planned once on the strongest tier, while the long mechanical part — placing Figma nodes, transcribing component code, running SVGR — runs on a cheap tier and self-verifies. You get the best model where it matters and a cheap one where it doesn't, without micromanaging it. The recommended mapping is **Haiku → Sonnet → Opus** for the `fast < balanced < deep` tiers, but apart from setup's Haiku pin, nothing is hardcoded — the ladder resolves against whatever models your install actually has, and on hosts without subagents skills degrade cleanly to a single model. You can still steer the session yourself (`/model opus` for the heaviest authoring, back to `/model sonnet` after); nothing forces an expensive model on you.
+**Model routing.** ThroughLine routes work by *cognition, not guesswork* — the expensive thinking on the best model, the mechanical doing on a cheap one. Inside a skill, the deciding — a token architecture, a variant matrix, a slot contract — is planned once on the strongest tier, while the long mechanical part — placing Figma nodes, transcribing component code, running SVGR — runs on a cheap tier and self-verifies. You get the best model where it matters and a cheap one where it doesn't, without micromanaging it. The recommended mapping is **Haiku → Sonnet → Opus** for the `fast < balanced < deep` tiers, but nothing is hardcoded — the ladder resolves against whatever models your install actually has, and on hosts without subagents skills degrade cleanly to a single model. You can still steer the session yourself (`/model opus` for the heaviest authoring, back to `/model sonnet` after); nothing forces an expensive model on you.
 
 ## Who it's for
 

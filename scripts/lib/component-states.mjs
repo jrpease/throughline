@@ -1,13 +1,18 @@
 // The archetype baseline for `state-incomplete` (`docs/specs/2026-09-12-verification-proof-bundle.md`,
-// step 3). Source of truth for the prose is `references/figma-component-standards.md:126-138`.
+// step 3). The prose in `references/figma-component-standards.md` (State handling) points at
+// `references/state-baseline.md`, which is generated from this file.
 //
 // `default` is deliberately excluded from every baseline below: documenting the
 // resting state is not documentation, and the Figma matrix requirement for it is
 // the executor's, not this table's. Conditional states (`loading`, `error`,
-// `success`, `selected`) are deliberately excluded too — whether one applies to a
-// given component is a design judgment, not something a baseline can assert.
+// `success`) are deliberately excluded too — whether one applies to a given
+// component is a design judgment, not something a baseline can assert. `selected`
+// is not conditional for a choice control: a checkbox, radio, toggle, switch or
+// chip that cannot be selected is not one.
 //
-// MAINTENANCE: a change to the prose baseline must change this table.
+// This table is the single source for both checks. `scripts/build-state-baseline.mjs`
+// renders it into `references/state-baseline.md`, which the Figma executor reads;
+// CI fails when that file is stale. MAINTENANCE: change this table, then run it.
 
 import { normalizeName } from './source-scan.mjs';
 
@@ -16,7 +21,7 @@ export const ARCHETYPES = ['button', 'input', 'choice', 'card', 'modal', 'badge'
 export const BASELINE_STATES = {
   button: ['hover', 'focus', 'active', 'disabled'],
   input: ['hover', 'focus', 'disabled'],
-  choice: ['hover', 'focus', 'active', 'disabled'],
+  choice: ['hover', 'focus', 'active', 'selected', 'disabled'],
   card: [],
   modal: [],
   badge: [],
@@ -40,6 +45,14 @@ export const NAME_SYNONYMS = {
   tag: 'badge',
 };
 
+// Other names a recorded state goes by. shadcn and Radix call a checked checkbox
+// `checked` and a pressed-in toggle `on`; both are `selected` here. `pressed` is
+// not one: the standards use it for `active`.
+export const STATE_SYNONYMS = {
+  checked: 'selected',
+  on: 'selected',
+};
+
 export function resolveArchetype(record) {
   if (ARCHETYPES.includes(record.archetype)) return record.archetype;
   const bySynonym = NAME_SYNONYMS[normalizeName(record.name)];
@@ -51,6 +64,11 @@ export function missingStates(record) {
   if (archetype === null) return [];
   const baseline = BASELINE_STATES[archetype];
   if (baseline.length === 0) return [];
-  const recordedKeys = new Set(Object.keys(record.states ?? {}).map(normalizeName));
+  const recordedKeys = new Set(
+    Object.keys(record.states ?? {}).map((key) => {
+      const name = normalizeName(key);
+      return STATE_SYNONYMS[name] ?? name;
+    }),
+  );
   return baseline.filter((state) => !recordedKeys.has(normalizeName(state)));
 }

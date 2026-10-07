@@ -14,7 +14,8 @@ own structure. Zero dependencies; stdlib only.
    marketplace entry's `name` matches `plugin.json`.
 3. `node ci/validate-skills.mjs` — every `skills/*/SKILL.md` has `name`
    (matching its directory) and a `description` (≤ 1024 chars); every
-   `commands/*.md` has a `description`; and the `references/manifest-schema.md`
+   `commands/*.md` has a `description`; neither sets a `model:` (they run on the
+   session's model); and the `references/manifest-schema.md`
    example JSON parses with an integer `schemaVersion`.
 4. `node ci/validate-install-sets.mjs` — every documented install set carries
    every file its scripts import, followed transitively. Reads the lists from
@@ -24,11 +25,20 @@ own structure. Zero dependencies; stdlib only.
    set. Every other gate runs scripts in place, where every sibling exists, so a
    list missing a file stays green without this one.
 5. `node ci/check-pinned-runs.mjs` — every package any tracked file runs
-   (`npx`, `bunx`, `pnpm dlx`, `uvx`, …) carries an exact version, and no file
+   (`npx`, `bunx`, `pnpm dlx`, `uvx`, …) or installs (`pnpm add`, `npm i`,
+   `yarn add`, `bun add`) carries an exact version, and no file
    names an `@latest` or range. The marketplace source is `./`, so Anthropic's
    directory review reads the whole repo, docs included. Also fails when the
    README's pinned `@radicool/throughline@X` install command differs from
    `package.json`, so every release bumps it.
+6. `node scripts/adapters/generate.mjs --check`, `node scripts/build-doc-card-builder.mjs --check`
+   and `node scripts/build-native-adapter-config.mjs --check` — each generated
+   file (the adapters, the doc-card builder, the native adapter config) matches
+   what its generator emits from the sources.
+7. `node scripts/build-state-baseline.mjs --check` — `references/state-baseline.md`
+   matches `scripts/lib/component-states.mjs`. That table is the one list of which
+   components owe which interaction states, read by `verify:check` and by
+   `figma-executor`, so it cannot drift from the code.
 
 ## Run locally
 
@@ -38,6 +48,7 @@ node ci/validate-plugin.mjs  # guard plugin manifests
 node ci/validate-skills.mjs  # guard skill/command/manifest-doc structure
 node ci/validate-install-sets.mjs  # guard install lists against missing imports
 node ci/check-pinned-runs.mjs      # guard every package run against unpinned versions
+node scripts/build-state-baseline.mjs --check  # guard the generated state table
 node ci/compile-native-output.mjs <dir>  # compile generated Tokens.kt/.swift (not a CI gate)
 node ci/compile-native-output.mjs <dir> --allow-missing  # tolerate one absent toolchain
 ```

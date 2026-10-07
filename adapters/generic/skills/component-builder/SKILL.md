@@ -67,8 +67,9 @@ inconsistent output:
 - **Sizes** (sm, md, lg). Each size is its **own variant row**, not a state — see
   the layout law below.
 - **States** — **include the full relevant set, don't trim it.** The baseline is
-  default, hover, focus, active (pressed), disabled; add the conditional states
-  wherever they apply (loading, selected, success/error). Decide which conditional
+  the set `.throughline/references/state-baseline.md` owes that component
+  (default included); add the conditional states wherever they apply (loading,
+  success/error). Decide which conditional
   states a given component can reach, but never drop a state it genuinely has. See
   "State handling" in `.throughline/references/figma-component-standards.md`
   for the per-component checklist.
@@ -400,9 +401,9 @@ Offer next steps: build the code counterparts and stories
   auto-layout grid where **variants are rows and states are columns**: one row per
   variant (each `type`, and each `size`, since size is a variant) stepping through
   states across the columns, size groups stacked vertically (see the standards doc).
-- Never ship a component with only its `default` state — include the full relevant
-  state set (default/hover/focus/active/disabled plus applicable
-  loading/selected/success/error).
+- Never ship a component with only its `default` state — include every state
+  `.throughline/references/state-baseline.md` owes that component, plus
+  `default`, plus any applicable loading/success/error.
 - Never run the component header and the component area together with no division —
   every doc card segments the header from the component area with a divider line or
   a distinct header surface.

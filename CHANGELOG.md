@@ -6,6 +6,49 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.22.0] — 2026-10-07
+
+Two checks decided which states a component owes, and they disagreed. A Switch
+with no focus state passed in Figma. A Chip with no Selected state passed in code.
+Now there's one list, generated from code and read by both, which is why this is
+a minor release: it can fail a build that passed yesterday. The rest closes gaps
+the same review found. The architect checks which Figma file is open, Style
+Dictionary is pinned, and setup runs on your model instead of Haiku.
+
+### Breaking
+
+- **The CLI and Figma state checks now read one list (#159).** `references/state-baseline.md`
+  is generated from `scripts/lib/component-states.mjs`, and `figma-executor` and its
+  `focus-indicator` check read it. In the CLI, `verify:check` now also requires
+  `selected` on checkboxes, radios, toggles, switches and chips, so a Chip without it
+  fails `state-incomplete`. In Figma, a Switch or TextInput now owes its baseline
+  states and a focus ring (TextField already did), and a Switch also owes
+  `selected`, so one built without them returns `BLOCKED`.
+  A recorded `checked` or `on` counts as `selected`, since that's what shadcn and
+  Radix call it. Measured in `docs/notes/2026-10-07-state-list-measurement.md`.
+
+### Fixed
+
+- **The architect and reviewer now check which Figma file is active.** The executor
+  already did, but the architect read variables, styles and components from whichever
+  file happened to be open and could plan a spec with the wrong token names. Both
+  agents now return `BLOCKED` naming the two files on a mismatch, since neither can
+  navigate. The preflight test now covers agents as well as skills and commands.
+
+- **Style Dictionary is now pinned, and the pinning gate sees install lines.**
+  `token-sync-layer` said only "install Style Dictionary v4", so a consumer got
+  whatever release was newest. It now installs `style-dictionary@4.4.0`, the
+  version the generated config is verified against. `ci/check-pinned-runs.mjs`
+  also fails on `pnpm add`, `npm i`, `npm install`, `yarn add` and `bun add` lines
+  that name a package without an exact version.
+
+### Changed
+
+- **Setup no longer pins Haiku.** Setup is the most failure-prone conversation
+  (permission errors, pairing codes, connection failures), so it now runs on your
+  session's model like every other skill. The skill check now fails any skill or
+  command that sets a `model:`, so a pin can't come back.
+
 ## [0.21.4] — 2026-10-07
 
 An outside review of the whole plugin found places where the prose promised more
@@ -1550,7 +1593,8 @@ components → Storybook on a pnpm + Turborepo + Next.js 16 + Tailwind v4 monore
 - Reference docs for coding level, manifest schema, sync adapters, Figma
   component standards, and brainstorm-before-build.
 
-[Unreleased]: https://github.com/jrpease/throughline/compare/v0.21.4...HEAD
+[Unreleased]: https://github.com/jrpease/throughline/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/jrpease/throughline/compare/v0.21.4...v0.22.0
 [0.21.4]: https://github.com/jrpease/throughline/compare/v0.21.3...v0.21.4
 [0.21.3]: https://github.com/jrpease/throughline/compare/v0.21.2...v0.21.3
 [0.21.2]: https://github.com/jrpease/throughline/compare/v0.21.1...v0.21.2

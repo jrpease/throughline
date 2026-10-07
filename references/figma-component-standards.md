@@ -123,19 +123,17 @@ run, and it mirrors how the states/types map to code props.
 
 - **Always include every relevant state for the component — completeness is the
   default, not a judgment call.** A component's `state` axis must enumerate its full
-  applicable interaction surface, not just `default`. The baseline interactive set
-  is **default, hover, focus, active (pressed), disabled**; add the **conditional**
-  states whenever they apply to that component: **loading** (anything that triggers
-  async work — buttons, submit inputs), **selected** (toggles, segmented controls,
-  list/menu items, chips), and **success / error** (validated inputs, form fields,
-  async-result buttons). Decide *which* conditional states apply, but never drop a
-  state that does apply to keep the matrix small.
-  - **Button:** default, hover, focus, active (pressed), disabled — plus loading
-    (and selected / success / error where the button supports them).
-  - **Input / text field:** default, hover, focus, disabled — plus error, success,
-    and (where async) loading.
-  - **Checkbox / radio / toggle / chip:** default, hover, focus, active, disabled —
-    plus selected (and indeterminate where it applies).
+  applicable interaction surface, not just `default`. The states a component owes
+  come from the table in `references/state-baseline.md` (see below); add the
+  **conditional** states whenever they apply to that component: **loading** (anything
+  that triggers async work — buttons, submit inputs), **selected** for components the
+  table does not cover (segmented controls, list/menu items), and **success / error**
+  (validated inputs, form fields, async-result buttons). Decide *which* conditional
+  states apply, but never drop a state that does apply to keep the matrix small.
+  - **Which components owe which states is one table**, shared with the CLI's
+    `state-incomplete` check: `references/state-baseline.md`, generated from
+    `scripts/lib/component-states.mjs`. Add loading, success / error, and
+    indeterminate where they apply; those are not in the table.
 - Keep these on a `state` variant axis where they change appearance meaningfully;
   each becomes a column in the set per "Component set arrangement".
 - Distinguish *component states* (part of the component's definition) from
@@ -557,8 +555,8 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
    a header container whose surface fill differs from the component area (both
    token-bound). A card with no header/component segmentation is a fail.
 8. **States complete** — each component set's `state` axis includes every relevant
-   state for that component (default/hover/focus/active/disabled plus the applicable
-   conditional states — loading/selected/success/error), with variants (incl. each
+   state for that component (every state the table in `references/state-baseline.md`
+   owes it, plus default, plus the applicable loading/success/error), with variants (incl. each
    size) as rows and states as columns. A set shipping only `default` is a fail.
 9. **Focus state matches the library idiom** — the focus state is built as
    `project.uiFramework`'s real pattern (see "State handling"), not a house-style
@@ -581,10 +579,10 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
      error: fix and re-audit like any other item. If the ring is still missing
      when the pass budget below runs out, **stop the build** rather than hand off.
    - **Scope.** It runs only for a component whose name folds (lowercase,
-     punctuation stripped) to a Button, an Input / text field, or a Checkbox /
-     radio / toggle / chip, the same exact-name match as the state check. A Switch
-     or a TextInput isn't in that list, so neither Figma check reads it (the CLI's
-     `state-incomplete` does). It also
+     punctuation stripped) to a name in the table in `references/state-baseline.md`
+     (not its exempt list), the same
+     exact-name match as the state check and the same list the CLI's
+     `state-incomplete` reads. It also
      needs `project.uiFramework` to be exactly `shadcn`, `tailwind`, `mui`,
      `vanilla-css` or `vanilla`, or absent or `null`. Anything else (`ios-swift`,
      a tier-2 library, any other value) is skipped, and the skip is said.

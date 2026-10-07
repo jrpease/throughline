@@ -1193,7 +1193,7 @@ SCRATCH=/private/tmp/claude-501/-Users-jordansstudio-Dev-throughline/b59cc929-88
 rm -rf "$SCRATCH" && mkdir -p "$SCRATCH/tokens" "$SCRATCH/scripts/lib"
 cd "$SCRATCH"
 npm init -y >/dev/null
-npm i style-dictionary@4 >/dev/null 2>&1
+npm i style-dictionary@4.4.0 >/dev/null 2>&1
 node -p "JSON.parse(require('fs').readFileSync('node_modules/style-dictionary/package.json','utf8')).version"
 ```
 

@@ -1,7 +1,9 @@
 // Guards the gap #135 was filed over. #107 taught the figma-executor agent to
 // confirm it is writing to the right Figma file, but the skills that fall back
 // to building inline had no such step, so a host with no subagents could still
-// write into whichever file happened to be active.
+// write into whichever file happened to be active. Agents that talk to Figma
+// (architect, executor, reviewer) are held to the same rule, readers included:
+// a read from the wrong file plans or reviews against the wrong tokens.
 //
 // The rule: a skill or command that scripts Figma writes itself names the
 // active-file preflight. "Scripts Figma writes itself" is read as "mentions
@@ -17,6 +19,10 @@ const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const PREFLIGHT = 'active-file preflight';
 const ALSO_WRITES = ['commands/document-component.md'];
 
+const agentFiles = () =>
+  readdirSync(`${ROOT}agents`)
+    .filter((name) => name.endsWith('.md'))
+    .map((name) => `agents/${name}`);
 const skillFiles = () =>
   readdirSync(`${ROOT}skills`)
     .map((name) => `skills/${name}/SKILL.md`)
@@ -28,6 +34,10 @@ const commandFiles = () =>
 
 export function inlineFigmaWriters(paths, read, alsoWrites = ALSO_WRITES) {
   return paths.filter((path) => alsoWrites.includes(path) || read(path).includes('figma_execute'));
+}
+
+export function figmaAgents(paths, read) {
+  return paths.filter((path) => read(path).includes('mcp__figma-console__'));
 }
 
 export function missingPreflight(paths, read) {
@@ -57,4 +67,17 @@ test('every skill and command that writes to Figma inline names the active-file 
   const writers = inlineFigmaWriters([...skillFiles(), ...commandFiles()], read);
   assert.ok(writers.length >= 5, `found only ${writers.length} Figma writers — the detection has stopped working`);
   assert.deepEqual(missingPreflight(writers, read), []);
+});
+
+test('figmaAgents picks agents that list a Figma tool', () => {
+  const files = { 'a.md': 'tools: Read, mcp__figma-console__figma_get_status', 'b.md': 'tools: Read' };
+  assert.deepEqual(figmaAgents(Object.keys(files), (path) => files[path]), ['a.md']);
+});
+
+test('every agent that calls Figma names the active-file preflight', () => {
+  const agents = figmaAgents(agentFiles(), read);
+  for (const name of ['architect', 'figma-executor', 'reviewer']) {
+    assert.ok(agents.includes(`agents/${name}.md`), `${name} no longer detected as a Figma agent`);
+  }
+  assert.deepEqual(missingPreflight(agents, read), []);
 });

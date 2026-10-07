@@ -7,6 +7,11 @@ import { unpinnedRuns, staleSelfPins } from './check-pinned-runs.mjs';
 const NPX = ['np', 'x'].join('');
 const BUNX = ['bun', 'x'].join('');
 const UVX = ['uv', 'x'].join('');
+const NPM_I = ['npm', ' i'].join('');
+const NPM_INSTALL = ['npm', ' install'].join('');
+const PNPM_ADD = ['pnpm', ' add'].join('');
+const YARN_ADD = ['yarn', ' add'].join('');
+const BUN_ADD = ['bun', ' add'].join('');
 const LATEST = ['@', 'latest'].join('');
 const CARET = ['@', '^'].join('');
 
@@ -22,16 +27,28 @@ test('unpinnedRuns flags runners without an exact version', () => {
 
 test('unpinnedRuns flags latest tags and ranges outside a runner', () => {
   assert.deepEqual(runs(`"args": ["-y", "figma-console-mcp${LATEST}"]`), [`figma-console-mcp${LATEST}`]);
-  assert.deepEqual(runs(`npm install -g npm${LATEST}`), [`npm${LATEST}`]);
-  assert.deepEqual(runs(`npm i style-dictionary${CARET}4`), [`style-dictionary${CARET}4`]);
+  assert.deepEqual(runs(`${NPM_INSTALL} -g npm${LATEST}`), [`${NPM_INSTALL} -g npm${LATEST}`]);
+  assert.deepEqual(runs(`${NPM_I} style-dictionary${CARET}4`), [`${NPM_I} style-dictionary${CARET}4`]);
+});
+
+test('unpinnedRuns flags install lines that name a package without an exact version', () => {
+  assert.deepEqual(runs(`${PNPM_ADD} -D style-dictionary`), [`${PNPM_ADD} -D style-dictionary`]);
+  assert.deepEqual(runs(`${NPM_I} style-dictionary@4`), [`${NPM_I} style-dictionary@4`]);
+  assert.deepEqual(runs(`${YARN_ADD} pkg${CARET}1.2.0`), [`${YARN_ADD} pkg${CARET}1.2.0`]);
+  assert.deepEqual(runs(`${BUN_ADD} pkg${LATEST}`), [`${BUN_ADD} pkg${LATEST}`]);
+  assert.deepEqual(runs(`${NPM_INSTALL} -D @scope/pkg`), [`${NPM_INSTALL} -D @scope/pkg`]);
 });
 
 test('unpinnedRuns passes exact pins, prose and placeholders', () => {
   assert.deepEqual(runs(`${NPX} -y figma-console-mcp@1.40.8`), []);
   assert.deepEqual(runs(`${NPX} @radicool/throughline@0.21.3 init`), []);
+  assert.deepEqual(runs(`${PNPM_ADD} -D style-dictionary@4.4.0`), []);
+  assert.deepEqual(runs(`${NPM_INSTALL} @scope/pkg@1.2.3 --silent`), []);
+  assert.deepEqual(runs(`${NPM_INSTALL}`), []);
+  assert.deepEqual(runs(`${NPM_INSTALL} && ${NPM_I}`), []);
   assert.deepEqual(runs(`${UVX} tool==1.2.3`), []);
   assert.deepEqual(runs(`started on demand by \`${NPX}\`. If it fails`), []);
-  assert.deepEqual(runs('npm install style-dictionary@<v> --prefix <dir>'), []);
+  assert.deepEqual(runs(`${NPM_INSTALL} style-dictionary@<v> --prefix <dir>`), []);
 });
 
 test('staleSelfPins flags an install pin that differs from the release', () => {

@@ -42,3 +42,33 @@ test('missingStates: Card has an empty baseline', () => {
 test('missingStates: Button with no states key returns the whole baseline', () => {
   assert.deepEqual(missingStates({ name: 'Button' }), ['hover', 'focus', 'active', 'disabled']);
 });
+
+test('missingStates: a Chip with no selected state owes it', () => {
+  assert.deepEqual(
+    missingStates({ name: 'Chip', states: { hover: '', focus: '', active: '', disabled: '' } }),
+    ['selected'],
+  );
+});
+
+test('missingStates: Switch, Toggle, Checkbox and Radio all owe selected', () => {
+  for (const name of ['Switch', 'Toggle', 'Checkbox', 'Radio']) {
+    assert.deepEqual(
+      missingStates({ name, states: { hover: '', focus: '', active: '', disabled: '' } }),
+      ['selected'],
+      name,
+    );
+  }
+});
+
+test('resolveArchetype: switch, textfield and textinput fold to an archetype', () => {
+  assert.equal(resolveArchetype({ name: 'Switch' }), 'choice');
+  assert.equal(resolveArchetype({ name: 'TextField' }), 'input');
+  assert.equal(resolveArchetype({ name: 'Text Input' }), 'input');
+});
+
+test('missingStates: checked and on count as selected', () => {
+  const base = { hover: '…', focus: '…', active: '…', disabled: '…' };
+  assert.deepEqual(missingStates({ name: 'Checkbox', states: { ...base, checked: '…' } }), []);
+  assert.deepEqual(missingStates({ name: 'Toggle', states: { ...base, on: '…' } }), []);
+  assert.deepEqual(missingStates({ name: 'Toggle', states: { ...base, pressed: '…' } }), ['selected']);
+});

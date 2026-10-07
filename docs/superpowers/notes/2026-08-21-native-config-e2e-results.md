@@ -14,7 +14,7 @@ source, each validated with `tokens:validate-output`.
 
 ## Harness
 
-- **Style Dictionary:** `4.4.0` (fresh `npm i style-dictionary@4` in a scratch
+- **Style Dictionary:** `4.4.0` (fresh `npm i style-dictionary@4.4.0` in a scratch
   directory, nothing from the throughline repo's own tree).
 - **Installed by copy, not symlink** — proving the Task 6 install list is
   complete: `scripts/lib/sd-native.mjs`, `scripts/lib/dtcg.mjs`,
