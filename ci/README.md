@@ -25,7 +25,8 @@ own structure. Zero dependencies; stdlib only.
    set. Every other gate runs scripts in place, where every sibling exists, so a
    list missing a file stays green without this one.
 5. `node ci/check-pinned-runs.mjs` — every package any tracked file runs
-   (`npx`, `bunx`, `pnpm dlx`, `uvx`, …) carries an exact version, and no file
+   (`npx`, `bunx`, `pnpm dlx`, `uvx`, …) or installs (`pnpm add`, `npm i`,
+   `yarn add`, `bun add`) carries an exact version, and no file
    names an `@latest` or range. The marketplace source is `./`, so Anthropic's
    directory review reads the whole repo, docs included. Also fails when the
    README's pinned `@radicool/throughline@X` install command differs from

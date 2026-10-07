@@ -9,6 +9,9 @@
 //
 //   - `npx`, `bunx`, `pnpm dlx`, `yarn dlx`, `npm exec`: name@1.2.3
 //   - `uvx`, `pipx run`: name==1.2.3
+//   - `pnpm add`, `npm i`, `npm install`, `yarn add`, `bun add`: name@1.2.3 —
+//     an install line is the version a consumer runs, so it is held to the same
+//     bar. A bare `npm install` with no package installs the lockfile and passes
 //   - a "latest" or "next" tag, or a caret, tilde or star range, is unpinned
 //
 // Prose that names a runner without a package after it ("started by `npx`")
@@ -23,10 +26,11 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const NPM_RUNNER = /(?<![\w-])(?:npx|bunx|pnpm dlx|yarn dlx|npm exec)((?:\s+-{1,2}[a-z][\w-]*)*)\s+(@?[a-z0-9][\w./-]*(?:@[^\s`'")\]|,]*)?)/gi;
+const NPM_INSTALL = /(?<![\w-])(?:pnpm add|npm (?:i|install|add)|yarn add|bun add)((?:\s+-{1,2}[a-z][\w-]*)*)\s+(@?[a-z0-9][\w./-]*(?:@[^\s`'")\]|,]*)?)/gi;
 const PY_RUNNER = /(?<![\w-])(?:uvx|pipx run)((?:\s+-{1,2}[a-z][\w-]*)*)\s+([a-z0-9][\w.-]*(?:[=<>~!]=?[^\s`'")\]|,]*)?)/gi;
 const LOOSE_TAG = /(?<![\w-])(@?[a-z0-9][\w./-]*@(?:latest|next|[\^~*][^\s`'")\]|,]*))/gi;
 
-const EXACT_NPM = /^(?:@[\w.-]+\/)?[\w.-]+@\d+\.\d+\.\d+(?:-[\w.]+)?$/;
+const EXACT_NPM = /^(?:@[\w.-]+\/)?[\w.-]+@(?:\d+\.\d+\.\d+(?:-[\w.]+)?|<[\w.-]+>)$/;
 const EXACT_PY = /^[\w.-]+==\d+(?:\.\d+)*$/;
 
 export function unpinnedRuns(text) {
@@ -34,6 +38,9 @@ export function unpinnedRuns(text) {
   const lines = text.split('\n');
   lines.forEach((line, i) => {
     for (const m of line.matchAll(NPM_RUNNER)) {
+      if (!EXACT_NPM.test(m[2])) found.push({ line: i + 1, run: m[0].trim() });
+    }
+    for (const m of line.matchAll(NPM_INSTALL)) {
       if (!EXACT_NPM.test(m[2])) found.push({ line: i + 1, run: m[0].trim() });
     }
     for (const m of line.matchAll(PY_RUNNER)) {

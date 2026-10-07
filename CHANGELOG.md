@@ -14,6 +14,13 @@ to [Semantic Versioning](https://semver.org).
   agents now return `BLOCKED` naming the two files on a mismatch, since neither can
   navigate. The preflight test now covers agents as well as skills and commands.
 
+- **Style Dictionary is now pinned, and the pinning gate sees install lines.**
+  `token-sync-layer` said only "install Style Dictionary v4", so a consumer got
+  whatever release was newest. It now installs `style-dictionary@4.4.0`, the
+  version the generated config is verified against. `ci/check-pinned-runs.mjs`
+  also fails on `pnpm add`, `npm i`, `npm install`, `yarn add` and `bun add` lines
+  that name a package without an exact version.
+
 ### Changed
 
 - **Setup no longer pins Haiku.** Setup is the most failure-prone conversation

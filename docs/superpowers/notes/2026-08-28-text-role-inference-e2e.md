@@ -16,7 +16,7 @@ zygarden's DTCG source — before and after, × two viewport pins, × light and 
 
 ## Harness
 
-- **Style Dictionary:** `4.4.0` (fresh `npm i style-dictionary@4` in a scratch
+- **Style Dictionary:** `4.4.0` (fresh `npm i style-dictionary@4.4.0` in a scratch
   directory outside this repo; nothing from the throughline tree, and the repo
   gained no dependency, lockfile or `node_modules`).
 - **Installed by copy, not symlink.**

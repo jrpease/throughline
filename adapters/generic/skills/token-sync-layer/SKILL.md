@@ -140,7 +140,10 @@ fit in the adapter output.
 
 ## Step 3 — Set up Style Dictionary + adapters
 
-Install and configure Style Dictionary v4 in `packages/tokens/`. For each chosen
+Install Style Dictionary pinned to an exact version with
+`pnpm add -D style-dictionary@4.4.0` (or the project's package manager) in
+`packages/tokens/`; the generated config is verified against 4.4.0, and a newer
+release can rename or add stock transforms. Then configure it. For each chosen
 platform, apply its adapter preset (per `.throughline/references/sync-adapters.md`):
 register the platform, transform group, format, and `outputReferences`
 (true for web → preserves the semantic→primitive cascade; false for native →
