@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.21.4] — 2026-10-07
+
+An outside review of the whole plugin found places where the prose promised more
+than the code did. Most were wording. One wasn't: the token-removal guard only read
+TypeScript, so it could delete a token that a stylesheet still used. This release
+fixes all of it before the directory takes another look.
+
 ### Fixed
 
 - **README and setup prose no longer overclaim.** The reference-doc count is gone,
@@ -1543,7 +1550,8 @@ components → Storybook on a pnpm + Turborepo + Next.js 16 + Tailwind v4 monore
 - Reference docs for coding level, manifest schema, sync adapters, Figma
   component standards, and brainstorm-before-build.
 
-[Unreleased]: https://github.com/jrpease/throughline/compare/v0.21.3...HEAD
+[Unreleased]: https://github.com/jrpease/throughline/compare/v0.21.4...HEAD
+[0.21.4]: https://github.com/jrpease/throughline/compare/v0.21.3...v0.21.4
 [0.21.3]: https://github.com/jrpease/throughline/compare/v0.21.2...v0.21.3
 [0.21.2]: https://github.com/jrpease/throughline/compare/v0.21.1...v0.21.2
 [0.21.1]: https://github.com/jrpease/throughline/compare/v0.21.0...v0.21.1
