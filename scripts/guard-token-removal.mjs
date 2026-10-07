@@ -1,4 +1,4 @@
-// Repo-wide token-removal guard: grep .ts/.tsx (minus generated + tests) for
+// Repo-wide token-removal guard: grep source files (minus generated + tests) for
 // references to about-to-be-deleted symbols. Zero dependencies.
 //
 // Cleanup must not proceed until this returns zero references — deleted Tailwind
@@ -33,9 +33,9 @@ export function scanFile(path, symbols) {
 
 export function guard(root, symbols, excludes = DEFAULT_EXCLUDES) {
   const findings = [];
-  // .ts/.tsx is this guard's own contract, so the filter stays here rather
-  // than moving into the shared walker's default.
-  for (const file of walk(root, { excludes, fileFilter: /\.tsx?$/ })) {
+  // A token can be referenced from a stylesheet or markup as easily as from
+  // TypeScript, so this reads every file type the shared walker defaults to.
+  for (const file of walk(root, { excludes })) {
     for (const hit of scanFile(file, symbols)) {
       findings.push({ file: relative(root, file), ...hit });
     }

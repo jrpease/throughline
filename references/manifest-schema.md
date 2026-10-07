@@ -162,10 +162,12 @@ bailing or running silently.
   - `syncLayer` — `style-dictionary.config.js` or `*.style-dictionary.js` files present at the project root or within immediate subdirectories
 
 ### `figma`
-- `mechanism` — which write mechanism is active. One of `"console-mcp"`
-  (default, recommended) or `"official-plugin"` (lower-setup fallback). Set by
-  skill 0. The adapter layer in every Figma skill reads this to know which tool
-  names to use.
+- `mechanism` — which write mechanism is active. `"console-mcp"` is the only
+  supported value. Set by skill 0. The adapter layer in every Figma skill reads
+  this to know which tool names to use. A manifest written by an earlier version
+  may hold `"official-plugin"`; that value is unsupported (no agent or bundled
+  MCP server backs it), and re-running `figma-environment-setup` resets it to
+  `"console-mcp"`.
 - `fileKey` — the Figma file key the system writes into (extracted from the
   file URL). Lets skills target the right file without re-asking.
 - `connected` — whether setup completed successfully at least once. Note this is

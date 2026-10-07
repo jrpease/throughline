@@ -66,8 +66,8 @@ it.
 
 ## Step 2 — Extract Figma variables to DTCG JSON
 
-Using the active write mechanism (`figma.mechanism`, default Console MCP —
-prefer its full-design-system extraction, which works on any Figma plan), read
+The plugin talks to Figma through Console MCP. If `figma.mechanism` holds anything other than `console-mcp`, say that value is no longer supported and offer `figma-environment-setup` to reset it. Using Console MCP's
+full-design-system extraction (which works on any Figma plan), read
 **every variable collection** (there are now several per tier, e.g.
 `_Color/Primitive`, `Spacing/Primitive`, `Color/Semantic`, …) and normalize them
 into **DTCG-format JSON** (`$value`, `$type`, with semantic tokens expressed as

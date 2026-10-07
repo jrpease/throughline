@@ -5,9 +5,9 @@
 // extensions it yielded. The duplication was the shape #57 was filed for: two
 // definitions of one rule, agreeing today, with nothing keeping them in step.
 //
-// The file filter is the caller's, not a built-in: a colour scan wants
-// stylesheets and a symbol guard does not, and neither should have to fork the
-// walker to say so.
+// The file filter is the caller's, not a built-in: a caller that
+// wants stylesheets and HTML takes them, and one that wants only .ts/.tsx can
+// narrow it, without forking the walker.
 import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 

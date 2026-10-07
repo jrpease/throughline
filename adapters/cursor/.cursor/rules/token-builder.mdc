@@ -39,7 +39,7 @@ now. If it isn't, say so plainly and offer to run the `figma-environment-setup`
 skill first: "Figma isn't connected yet — want me to set that up? It's a
 one-time thing." Don't proceed until Figma is reachable.
 
-Use the write mechanism recorded in `figma.mechanism` (default `console-mcp`).
+The plugin writes to Figma through Console MCP. If `figma.mechanism` holds anything other than `console-mcp`, say that value is no longer supported and offer `figma-environment-setup` to reset it.
 With Console MCP, prefer `figma_execute` to create variables in scripted loops
 rather than one tool call per variable — this is dramatically more
 token-efficient for the potentially hundreds of primitives across modes.

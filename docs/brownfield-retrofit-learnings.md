@@ -122,7 +122,7 @@ Generalizable scripts the retrofit leaned on — worth shipping, not just descri
 - **Color-usage grep** — the surface-measurement worklist generator.
 - **Crosswalk builder + reverse index + validator** — the backbone + its CI gate.
 - **Binding-survival audit** — count Figma bindings before/after a rename.
-- **Repo-wide token-removal guard** — grep all `.tsx/.ts` (minus generated/tests)
+- **Repo-wide token-removal guard** — grep all source files, stylesheets included (minus generated/tests)
   for references to about-to-be-deleted utilities.
 
 ---

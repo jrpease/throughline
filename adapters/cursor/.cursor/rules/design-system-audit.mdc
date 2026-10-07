@@ -26,7 +26,9 @@ across levels.
 
 Read the manifest. This skill needs Figma connected (`figma.connected: true`) for the
 inventory step, and a repo path for the code-surface step (`workspace.localPath`). If
-Figma isn't connected, offer to run `figma-environment-setup` first. The code-surface
+Figma isn't connected, offer to run `figma-environment-setup` first. Before the
+inventory, do a cheap liveness read to confirm the connection is actually live right
+now; if it fails, offer `figma-environment-setup`. The code-surface
 step works on any repo regardless of `workspace.stage`.
 
 ## Step 1 — Size the code surface

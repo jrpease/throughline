@@ -6,6 +6,32 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.21.4] — 2026-10-07
+
+An outside review of the whole plugin found places where the prose promised more
+than the code did. Most were wording. One wasn't: the token-removal guard only read
+TypeScript, so it could delete a token that a stylesheet still used. This release
+fixes all of it before the directory takes another look.
+
+### Fixed
+
+- **README and setup prose no longer overclaim.** The reference-doc count is gone,
+  setup is described as pinning Haiku, setup's "every other Figma skill checks
+  liveness" is now true (the audit and Storybook skills gained the check), and the
+  accessibility gate is described as unit-tested rather than proven on a real app.
+- **Setup no longer offers an "Official Figma plugin" fallback.** No agent or
+  bundled MCP server supported it, so choosing it dead-ended at the first skill
+  that writes. Console MCP is now the only path, and an existing
+  `"official-plugin"` value in `design-system.json` is documented as unsupported.
+- **The README no longer says the Figma access token is required.** It is
+  optional, and setup now lets you skip it. Without it you work through the
+  Desktop Bridge alone and lose only the REST-only calls, like reading a
+  published library.
+- **The token-removal guard now reads stylesheets and HTML, not just `.ts` and
+  `.tsx`.** A token referenced only from a `.scss`, `.css` or `.html` file was
+  reported as unused and removed. The guard now scans every file type the shared
+  walker does.
+
 ## [0.21.3] — 2026-10-06
 
 Anthropic's reviewer turned down 0.21.1: the plugin "runs a package without an
@@ -1524,7 +1550,8 @@ components → Storybook on a pnpm + Turborepo + Next.js 16 + Tailwind v4 monore
 - Reference docs for coding level, manifest schema, sync adapters, Figma
   component standards, and brainstorm-before-build.
 
-[Unreleased]: https://github.com/jrpease/throughline/compare/v0.21.3...HEAD
+[Unreleased]: https://github.com/jrpease/throughline/compare/v0.21.4...HEAD
+[0.21.4]: https://github.com/jrpease/throughline/compare/v0.21.3...v0.21.4
 [0.21.3]: https://github.com/jrpease/throughline/compare/v0.21.2...v0.21.3
 [0.21.2]: https://github.com/jrpease/throughline/compare/v0.21.1...v0.21.2
 [0.21.1]: https://github.com/jrpease/throughline/compare/v0.21.0...v0.21.1

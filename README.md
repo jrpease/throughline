@@ -73,9 +73,9 @@ Everything above was created during a single working session and synced directly
 
 | | |
 |---|---|
-| **A supported agent** | Required — [Claude Code](https://docs.claude.com/en/docs/claude-code) (native plugin), or **Cursor**, **Codex**, or any **AGENTS.md**-aware agent via `npx @radicool/throughline@0.21.3 init`. |
+| **A supported agent** | Required — [Claude Code](https://docs.claude.com/en/docs/claude-code) (native plugin), or **Cursor**, **Codex**, or any **AGENTS.md**-aware agent via `npx @radicool/throughline@0.21.4 init`. |
 | **Figma** | Required, **desktop app** (the browser version causes connection errors). **Professional plan or higher recommended** — multi-mode variables (Light/Dark, brand themes) need it. |
-| **Figma access token** | Required — read/write your file. The setup skill walks you through it; your token stays yours and is never shared in chat. |
+| **Figma access token** | Optional — only for the few Figma calls the Desktop Bridge can't make, like reading a published library. Without it, you work through the bridge alone. The setup skill walks you through it; your token stays yours and is never shared in chat. |
 | **GitHub** (or similar) | Optional — only when you're ready to graduate to a real remote repo with PRs and CI. |
 
 ### What it runs on your machine
@@ -114,9 +114,9 @@ Update anytime with `/plugin marketplace update throughline-marketplace`.
 Run the installer in your project — it stamps in the skills, the reference docs, the scripts, and the Figma MCP config for your tool:
 
 ```
-npx @radicool/throughline@0.21.3 init --target=cursor    # → .cursor/rules + .cursor/mcp.json
-npx @radicool/throughline@0.21.3 init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
-npx @radicool/throughline@0.21.3 init --target=generic    # → skills/ + AGENTS.md index
+npx @radicool/throughline@0.21.4 init --target=cursor    # → .cursor/rules + .cursor/mcp.json
+npx @radicool/throughline@0.21.4 init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
+npx @radicool/throughline@0.21.4 init --target=generic    # → skills/ + AGENTS.md index
 ```
 
 It's safe to re-run (it merges `AGENTS.md` and `.cursor/mcp.json` non-destructively) and stages everything the skills read into `.throughline/`. Then open the `figma-environment-setup` skill/rule/prompt for your tool to begin. For Codex, add the printed `codex-mcp.toml` block to your Codex config to enable Figma access.
@@ -127,7 +127,7 @@ ThroughLine is more than a pile of skills — it's a small system designed to st
 
 **🛠 Twelve skills — the steps.** Each owns one stage of the journey, from connecting Figma to retrofitting an existing system to standing up CI. They're sequenced, and each knows its prerequisites.
 
-**📐 Ten reference docs — the constitution.** Shared standards every skill obeys: Figma component rules (auto-layout-on-everything, slot contracts, naming-as-contract, a required post-build audit), the brainstorm-before-build protocol, the sync-adapter specs, the manifest schema, coding-level adaptivity, the publishing flow, and the brownfield-retrofit discipline (read-before-assert, the safe migration sequence, the crosswalk contract). This is *why* two different runs produce the same structure — the rules live in one place, not scattered per skill.
+**📐 The reference docs — the constitution.** Shared standards every skill obeys: Figma component rules (auto-layout-on-everything, slot contracts, naming-as-contract, a required post-build audit), the brainstorm-before-build protocol, the sync-adapter specs, the manifest schema, coding-level adaptivity, the publishing flow, and the brownfield-retrofit discipline (read-before-assert, the safe migration sequence, the crosswalk contract). This is *why* two different runs produce the same structure — the rules live in one place, not scattered per skill.
 
 **🧭 An orchestration layer — the memory.** A `design-system.json` manifest in your project records exactly what's set up, with a versioned schema and immutability rules. Every skill reads it, tells you what it's about to do, and offers to run anything missing first. Run **`/design-system-status`** anytime for a plain-language picture of where you stand.
 
@@ -162,7 +162,7 @@ For the technically curious — how the machine actually runs.
 
 **Modes, within Figma's limits.** Light/Dark lives on the semantic collections; brand variants live on the primitive palette. Splitting the two axes across two collections keeps each one under Figma's 4-modes-per-collection cap on the Professional plan while still resolving correctly (`bg/default` → `{gray/50}` → the active brand's gray).
 
-**Model routing.** ThroughLine routes work by *cognition, not guesswork* — the expensive thinking on the best model, the mechanical doing on a cheap one. Setup runs on **Haiku** automatically to keep first-run costs low. Inside a skill, the deciding — a token architecture, a variant matrix, a slot contract — is planned once on the strongest tier, while the long mechanical part — placing Figma nodes, transcribing component code, running SVGR — runs on a cheap tier and self-verifies. You get the best model where it matters and a cheap one where it doesn't, without micromanaging it. The recommended mapping is **Haiku → Sonnet → Opus** for the `fast < balanced < deep` tiers, but nothing is hardcoded — the ladder resolves against whatever models your install actually has, and on hosts without subagents skills degrade cleanly to a single model. You can still steer the session yourself (`/model opus` for the heaviest authoring, back to `/model sonnet` after); nothing forces an expensive model on you.
+**Model routing.** ThroughLine routes work by *cognition, not guesswork* — the expensive thinking on the best model, the mechanical doing on a cheap one. Setup pins **Haiku** to keep first-run costs low. Inside a skill, the deciding — a token architecture, a variant matrix, a slot contract — is planned once on the strongest tier, while the long mechanical part — placing Figma nodes, transcribing component code, running SVGR — runs on a cheap tier and self-verifies. You get the best model where it matters and a cheap one where it doesn't, without micromanaging it. The recommended mapping is **Haiku → Sonnet → Opus** for the `fast < balanced < deep` tiers, but apart from setup's Haiku pin, nothing is hardcoded — the ladder resolves against whatever models your install actually has, and on hosts without subagents skills degrade cleanly to a single model. You can still steer the session yourself (`/model opus` for the heaviest authoring, back to `/model sonnet` after); nothing forces an expensive model on you.
 
 ## Who it's for
 
@@ -212,7 +212,7 @@ Future improvements and planned capabilities. Have a request? **[Open an issue](
 - **Deeper Code Connect coverage** — richer Figma-to-code mappings as more plans support it.
 - **Expanded component starters** — a larger foundational kit out of the box.
 - **Richer status & auditing** — more from `/design-system-status`, including drift detection between Figma and code.
-- **Built-in accessibility checks** — the color half is shipped. Eight semantic text-on-surface pairs are checked against WCAG AA's 4.5:1 when tokens are created in Figma, and derived again from the token source when they sync to code — in every mode, so a system that clears in light and fails in dark fails. A failing pair stops the build rather than warning. Components are checked too: on web frameworks, a Figma build stops when a focus state has no visible ring, and in JSX code the adherence gate fails an icon-only button with no accessible name and a status badge that relies on color alone. Still ahead: focus-ring contrast (WCAG's 3:1 for non-text).
+- **Built-in accessibility checks** — the color half is shipped. Eight semantic text-on-surface pairs are checked against WCAG AA's 4.5:1 when tokens are created in Figma, and derived again from the token source when they sync to code — in every mode, so a system that clears in light and fails in dark fails. A failing pair stops the build rather than warning. Components are checked too: on web frameworks, a Figma build stops when a focus state has no visible ring, and in JSX code the adherence gate is built to fail an icon-only button with no accessible name and a status badge that relies on color alone — proven by unit tests. The one real app it has run on had almost nothing for it to check, so it hasn't caught a bug in the wild yet. Still ahead: focus-ring contrast (WCAG's 3:1 for non-text).
 - **Token fan-out to more platforms** — the DTCG token source is platform-neutral, and web targets are in daily use. Every target is **validated per build, not assumed**: `tokens:validate-output` checks generated output against its source, native Swift and Kotlin as well as web CSS, because the stock transforms have been measured emitting wrong-but-compiling values. iOS/Swift is a curated adapter whose Style Dictionary configuration ships as tested code, and Android/Kotlin uses the same configuration through the Tier 2 protocol. JavaScript theme output (MUI, a Tailwind v3 config) isn't checked yet.
 - **Native component code generation** — producing a SwiftUI view or a Compose composable the way Storybook components are produced for React. This does not exist yet; it is a separate, larger effort than token fan-out, and the two were previously described as one roadmap item.
 

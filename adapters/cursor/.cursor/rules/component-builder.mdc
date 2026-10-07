@@ -12,7 +12,7 @@ translate cleanly to code later.
 
 Needs tokens (`tokens.semanticBuilt` true) — offer to run `token-builder` if
 missing. Needs a live Figma connection (offer `figma-environment-setup` if not).
-Use the mechanism in `figma.mechanism`.
+The plugin writes to Figma through Console MCP. If `figma.mechanism` holds anything other than `console-mcp`, say that value is no longer supported and offer `figma-environment-setup` to reset it.
 
 **Before scripting any `figma_execute`, read
 `.throughline/references/figma-scripting.md`** — the single-bridge-instance
