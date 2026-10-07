@@ -29,6 +29,7 @@ tested here; copied verbatim by `token-crosswalk-builder` into the user's
 | `lib/component-states.mjs` | The archetype table and resolver behind `state-incomplete` — which baseline interaction states each kind of component owes, and when to abstain. `validate-adherence.mjs` also uses it to find Badges. | copied alongside `verify-check.mjs` and `validate-adherence.mjs` |
 | `lib/contrast.mjs` | The WCAG contrast maths and the semantic colour pairs behind `color-contrast` — which text role must clear which surface, in every mode, and where the rule deliberately abstains. | copied alongside `verify-check.mjs` |
 | `build-doc-card-builder.mjs` | Generate `references/doc-card-builder.md` from the planner + the Figma renderer template (`lib/doc-card-render.figma.js`). `--check` gates CI. | plugin-internal (not installed) |
+| `build-state-baseline.mjs` | Generate `references/state-baseline.md`, the table of which components owe which interaction states, from `lib/component-states.mjs`. The Figma executor reads the table; `verify:check` reads the module. `--check` gates CI. | plugin-internal (not installed) |
 | `build-native-adapter-config.mjs` | Generate `references/native-adapter-config.md` by slicing `lib/sd-native.mjs` on its `@doc-section` markers and interleaving each fragment under its prose. Fails when module code falls outside every section, so the doc cannot silently ship incomplete. `--check` gates CI. | plugin-internal (not installed) |
 
 **Documentation scripts — install as a set.** Copying these files without

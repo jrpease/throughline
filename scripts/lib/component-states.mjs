@@ -4,10 +4,14 @@
 // `default` is deliberately excluded from every baseline below: documenting the
 // resting state is not documentation, and the Figma matrix requirement for it is
 // the executor's, not this table's. Conditional states (`loading`, `error`,
-// `success`, `selected`) are deliberately excluded too — whether one applies to a
-// given component is a design judgment, not something a baseline can assert.
+// `success`) are deliberately excluded too — whether one applies to a given
+// component is a design judgment, not something a baseline can assert. `selected`
+// is not conditional for a choice control: a checkbox, radio, toggle, switch or
+// chip that cannot be selected is not one.
 //
-// MAINTENANCE: a change to the prose baseline must change this table.
+// This table is the single source for both checks. `scripts/build-state-baseline.mjs`
+// renders it into `references/state-baseline.md`, which the Figma executor reads;
+// CI fails when that file is stale. MAINTENANCE: change this table, then run it.
 
 import { normalizeName } from './source-scan.mjs';
 
@@ -16,7 +20,7 @@ export const ARCHETYPES = ['button', 'input', 'choice', 'card', 'modal', 'badge'
 export const BASELINE_STATES = {
   button: ['hover', 'focus', 'active', 'disabled'],
   input: ['hover', 'focus', 'disabled'],
-  choice: ['hover', 'focus', 'active', 'disabled'],
+  choice: ['hover', 'focus', 'active', 'selected', 'disabled'],
   card: [],
   modal: [],
   badge: [],

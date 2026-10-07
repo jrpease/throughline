@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Breaking
+
+- **The CLI and Figma state checks now read one list (#159).** `references/state-baseline.md`
+  is generated from `scripts/lib/component-states.mjs`, and `figma-executor` and its
+  `focus-indicator` check read it. In the CLI, `verify:check` now also requires
+  `selected` on checkboxes, radios, toggles, switches and chips, so a Chip without it
+  fails `state-incomplete`. In Figma, a Switch, TextField or TextInput now owes its
+  baseline states and a focus ring, so one built without them returns `BLOCKED`.
+  Measured in `docs/notes/2026-10-07-state-list-measurement.md`.
+
 ### Fixed
 
 - **The architect and reviewer now check which Figma file is active.** The executor

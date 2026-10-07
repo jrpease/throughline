@@ -31,6 +31,10 @@ own structure. Zero dependencies; stdlib only.
    directory review reads the whole repo, docs included. Also fails when the
    README's pinned `@radicool/throughline@X` install command differs from
    `package.json`, so every release bumps it.
+6. `node scripts/build-state-baseline.mjs --check` — `references/state-baseline.md`
+   matches `scripts/lib/component-states.mjs`. That table is the one list of which
+   components owe which interaction states, read by `verify:check` and by
+   `figma-executor`, so it cannot drift from the code.
 
 ## Run locally
 
@@ -40,6 +44,7 @@ node ci/validate-plugin.mjs  # guard plugin manifests
 node ci/validate-skills.mjs  # guard skill/command/manifest-doc structure
 node ci/validate-install-sets.mjs  # guard install lists against missing imports
 node ci/check-pinned-runs.mjs      # guard every package run against unpinned versions
+node scripts/build-state-baseline.mjs --check  # guard the generated state table
 node ci/compile-native-output.mjs <dir>  # compile generated Tokens.kt/.swift (not a CI gate)
 node ci/compile-native-output.mjs <dir> --allow-missing  # tolerate one absent toolchain
 ```
