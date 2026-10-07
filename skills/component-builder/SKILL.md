@@ -72,8 +72,9 @@ inconsistent output:
 - **Sizes** (sm, md, lg). Each size is its **own variant row**, not a state — see
   the layout law below.
 - **States** — **include the full relevant set, don't trim it.** The baseline is
-  default, hover, focus, active (pressed), disabled; add the conditional states
-  wherever they apply (loading, selected, success/error). Decide which conditional
+  the set `${CLAUDE_PLUGIN_ROOT}/references/state-baseline.md` owes that component
+  (default included); add the conditional states wherever they apply (loading,
+  success/error). Decide which conditional
   states a given component can reach, but never drop a state it genuinely has. See
   "State handling" in `${CLAUDE_PLUGIN_ROOT}/references/figma-component-standards.md`
   for the per-component checklist.

@@ -123,13 +123,13 @@ run, and it mirrors how the states/types map to code props.
 
 - **Always include every relevant state for the component — completeness is the
   default, not a judgment call.** A component's `state` axis must enumerate its full
-  applicable interaction surface, not just `default`. The baseline interactive set
-  is **default, hover, focus, active (pressed), disabled**; add the **conditional**
-  states whenever they apply to that component: **loading** (anything that triggers
-  async work — buttons, submit inputs), **selected** (toggles, segmented controls,
-  list/menu items, chips), and **success / error** (validated inputs, form fields,
-  async-result buttons). Decide *which* conditional states apply, but never drop a
-  state that does apply to keep the matrix small.
+  applicable interaction surface, not just `default`. The states a component owes
+  come from the table in `references/state-baseline.md` (see below); add the
+  **conditional** states whenever they apply to that component: **loading** (anything
+  that triggers async work — buttons, submit inputs), **selected** for components the
+  table does not cover (segmented controls, list/menu items), and **success / error**
+  (validated inputs, form fields, async-result buttons). Decide *which* conditional
+  states apply, but never drop a state that does apply to keep the matrix small.
   - **Which components owe which states is one table**, shared with the CLI's
     `state-incomplete` check: `references/state-baseline.md`, generated from
     `scripts/lib/component-states.mjs`. Add loading, success / error, and
@@ -555,8 +555,8 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
    a header container whose surface fill differs from the component area (both
    token-bound). A card with no header/component segmentation is a fail.
 8. **States complete** — each component set's `state` axis includes every relevant
-   state for that component (default/hover/focus/active/disabled plus the applicable
-   conditional states — loading/selected/success/error), with variants (incl. each
+   state for that component (every state the table in `references/state-baseline.md`
+   owes it, plus default, plus the applicable loading/success/error), with variants (incl. each
    size) as rows and states as columns. A set shipping only `default` is a fail.
 9. **Focus state matches the library idiom** — the focus state is built as
    `project.uiFramework`'s real pattern (see "State handling"), not a house-style
