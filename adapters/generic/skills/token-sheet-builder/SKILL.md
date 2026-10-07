@@ -24,7 +24,7 @@ a sensible companion step — the sheet and the synced code both reflect Figma.)
 
 Needs tokens in Figma (`tokens.semanticBuilt` true) and a live Figma connection.
 If tokens don't exist, offer to run `token-builder`. If Figma isn't connected,
-offer `figma-environment-setup`. Use the mechanism in `figma.mechanism`.
+offer `figma-environment-setup`. The plugin writes to Figma through Console MCP. If `figma.mechanism` holds anything other than `console-mcp`, say that value is no longer supported and offer `figma-environment-setup` to reset it.
 
 **Before scripting any `figma_execute`, read
 `.throughline/references/figma-scripting.md`.** This sheet builds large
