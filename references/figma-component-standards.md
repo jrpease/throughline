@@ -579,7 +579,8 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
      error: fix and re-audit like any other item. If the ring is still missing
      when the pass budget below runs out, **stop the build** rather than hand off.
    - **Scope.** It runs only for a component whose name folds (lowercase,
-     punctuation stripped) to a name in `references/state-baseline.md`, the same
+     punctuation stripped) to a name in the table in `references/state-baseline.md`
+     (not its exempt list), the same
      exact-name match as the state check and the same list the CLI's
      `state-incomplete` reads. It also
      needs `project.uiFramework` to be exactly `shadcn`, `tailwind`, `mui`,

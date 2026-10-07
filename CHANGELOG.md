@@ -12,8 +12,9 @@ to [Semantic Versioning](https://semver.org).
   is generated from `scripts/lib/component-states.mjs`, and `figma-executor` and its
   `focus-indicator` check read it. In the CLI, `verify:check` now also requires
   `selected` on checkboxes, radios, toggles, switches and chips, so a Chip without it
-  fails `state-incomplete`. In Figma, a Switch, TextField or TextInput now owes its
-  baseline states and a focus ring, so one built without them returns `BLOCKED`.
+  fails `state-incomplete`. In Figma, a Switch or TextInput now owes its baseline
+  states and a focus ring (TextField already did), and a Switch also owes
+  `selected`, so one built without them returns `BLOCKED`.
   Measured in `docs/notes/2026-10-07-state-list-measurement.md`.
 
 ### Fixed

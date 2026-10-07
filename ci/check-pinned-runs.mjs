@@ -11,7 +11,9 @@
 //   - `uvx`, `pipx run`: name==1.2.3
 //   - `pnpm add`, `npm i`, `npm install`, `yarn add`, `bun add`: name@1.2.3 —
 //     an install line is the version a consumer runs, so it is held to the same
-//     bar. A bare `npm install` with no package installs the lockfile and passes
+//     bar. A bare `npm install` with no package installs the lockfile and passes,
+//     — but in prose, any word after the install verb reads as a package name
+//     and fails, so write an install command on its own
 //   - a "latest" or "next" tag, or a caret, tilde or star range, is unpinned
 //
 // Prose that names a runner without a package after it ("started by `npx`")
