@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.22.0] — 2026-10-07
+
+Two checks decided which states a component owes, and they disagreed. A Switch
+with no focus state passed in Figma. A Chip with no Selected state passed in code.
+Now there's one list, generated from code and read by both, which is why this is
+a minor release: it can fail a build that passed yesterday. The rest closes gaps
+the same review found. The architect checks which Figma file is open, Style
+Dictionary is pinned, and setup runs on your model instead of Haiku.
+
 ### Breaking
 
 - **The CLI and Figma state checks now read one list (#159).** `references/state-baseline.md`
@@ -15,7 +24,8 @@ to [Semantic Versioning](https://semver.org).
   fails `state-incomplete`. In Figma, a Switch or TextInput now owes its baseline
   states and a focus ring (TextField already did), and a Switch also owes
   `selected`, so one built without them returns `BLOCKED`.
-  Measured in `docs/notes/2026-10-07-state-list-measurement.md`.
+  A recorded `checked` or `on` counts as `selected`, since that's what shadcn and
+  Radix call it. Measured in `docs/notes/2026-10-07-state-list-measurement.md`.
 
 ### Fixed
 
@@ -1583,7 +1593,8 @@ components → Storybook on a pnpm + Turborepo + Next.js 16 + Tailwind v4 monore
 - Reference docs for coding level, manifest schema, sync adapters, Figma
   component standards, and brainstorm-before-build.
 
-[Unreleased]: https://github.com/jrpease/throughline/compare/v0.21.4...HEAD
+[Unreleased]: https://github.com/jrpease/throughline/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/jrpease/throughline/compare/v0.21.4...v0.22.0
 [0.21.4]: https://github.com/jrpease/throughline/compare/v0.21.3...v0.21.4
 [0.21.3]: https://github.com/jrpease/throughline/compare/v0.21.2...v0.21.3
 [0.21.2]: https://github.com/jrpease/throughline/compare/v0.21.1...v0.21.2

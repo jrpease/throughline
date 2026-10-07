@@ -45,6 +45,14 @@ export const NAME_SYNONYMS = {
   tag: 'badge',
 };
 
+// Other names a recorded state goes by. shadcn and Radix call a checked checkbox
+// `checked` and a pressed-in toggle `on`; both are `selected` here. `pressed` is
+// not one: the standards use it for `active`.
+export const STATE_SYNONYMS = {
+  checked: 'selected',
+  on: 'selected',
+};
+
 export function resolveArchetype(record) {
   if (ARCHETYPES.includes(record.archetype)) return record.archetype;
   const bySynonym = NAME_SYNONYMS[normalizeName(record.name)];
@@ -56,6 +64,11 @@ export function missingStates(record) {
   if (archetype === null) return [];
   const baseline = BASELINE_STATES[archetype];
   if (baseline.length === 0) return [];
-  const recordedKeys = new Set(Object.keys(record.states ?? {}).map(normalizeName));
+  const recordedKeys = new Set(
+    Object.keys(record.states ?? {}).map((key) => {
+      const name = normalizeName(key);
+      return STATE_SYNONYMS[name] ?? name;
+    }),
+  );
   return baseline.filter((state) => !recordedKeys.has(normalizeName(state)));
 }

@@ -6,12 +6,13 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { ARCHETYPES, BASELINE_STATES, NAME_SYNONYMS } from './lib/component-states.mjs';
+import { ARCHETYPES, BASELINE_STATES, NAME_SYNONYMS, STATE_SYNONYMS } from './lib/component-states.mjs';
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const OUT = join(REPO_ROOT, 'references', 'state-baseline.md');
 
-export function render(states = BASELINE_STATES, synonyms = NAME_SYNONYMS, archetypes = ARCHETYPES) {
+export function render(states = BASELINE_STATES, synonyms = NAME_SYNONYMS, archetypes = ARCHETYPES, stateSynonyms = STATE_SYNONYMS) {
+  const aliases = Object.keys(stateSynonyms).map((s) => `\`${s}\` counts as \`${stateSynonyms[s]}\``).join(', and ');
   const owing = archetypes.filter((a) => (states[a] ?? []).length > 0);
   const rows = owing.map((a) => {
     const names = Object.keys(synonyms).filter((n) => synonyms[n] === a);
@@ -38,7 +39,7 @@ ${rows.join('\n')}
 
 Every state in the table must be a value on the component's \`state\` axis. On the
 Figma side the matrix also carries \`default\` as the resting state; the CLI does not
-count it. Conditional states (\`loading\`, \`error\`, \`success\`) are not in the table:
+count it. ${aliases}, since that is what shadcn and Radix call it. Conditional states (\`loading\`, \`error\`, \`success\`) are not in the table:
 whether one applies is a design judgment.
 
 Names that fold to ${exemptNames.map((n) => `\`${n}\``).join(', ')} owe none, so neither check asserts states on them.

@@ -19,7 +19,7 @@ matches nothing owes no states.
 
 Every state in the table must be a value on the component's `state` axis. On the
 Figma side the matrix also carries `default` as the resting state; the CLI does not
-count it. Conditional states (`loading`, `error`, `success`) are not in the table:
+count it. `checked` counts as `selected`, and `on` counts as `selected`, since that is what shadcn and Radix call it. Conditional states (`loading`, `error`, `success`) are not in the table:
 whether one applies is a design judgment.
 
 Names that fold to `card`, `modal`, `dialog`, `badge`, `tag` owe none, so neither check asserts states on them.

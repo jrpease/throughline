@@ -45,7 +45,8 @@ the change doesn't touch them.
   `Input`, `Checkbox`, `Card` and `ButtonGroup`. `Checkbox` is the only one the
   new `selected` requirement would reach, and `checkbox.tsx` has `checked` as a
   prop and styles `data-[state=checked]`, so a record for it would have
-  something to say.
+  something to say. After this note, `checked` and `on` were made
+  to count as `selected`, so a record that uses shadcn's word passes.
 - zygarden's one record is `SurfaceCard`, which resolves to no archetype
   (`archetype-unknown`, informational) before and after.
 - zygarden is Angular. A file search for `chip`, `switch`, `toggle`, `radio`,

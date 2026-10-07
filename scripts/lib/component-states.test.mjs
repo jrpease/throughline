@@ -65,3 +65,10 @@ test('resolveArchetype: switch, textfield and textinput fold to an archetype', (
   assert.equal(resolveArchetype({ name: 'TextField' }), 'input');
   assert.equal(resolveArchetype({ name: 'Text Input' }), 'input');
 });
+
+test('missingStates: checked and on count as selected', () => {
+  const base = { hover: '…', focus: '…', active: '…', disabled: '…' };
+  assert.deepEqual(missingStates({ name: 'Checkbox', states: { ...base, checked: '…' } }), []);
+  assert.deepEqual(missingStates({ name: 'Toggle', states: { ...base, on: '…' } }), []);
+  assert.deepEqual(missingStates({ name: 'Toggle', states: { ...base, pressed: '…' } }), ['selected']);
+});
