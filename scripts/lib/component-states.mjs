@@ -1,5 +1,6 @@
 // The archetype baseline for `state-incomplete` (`docs/specs/2026-09-12-verification-proof-bundle.md`,
-// step 3). Source of truth for the prose is `references/figma-component-standards.md:126-138`.
+// step 3). The prose in `references/figma-component-standards.md` (State handling) points at
+// `references/state-baseline.md`, which is generated from this file.
 //
 // `default` is deliberately excluded from every baseline below: documenting the
 // resting state is not documentation, and the Figma matrix requirement for it is

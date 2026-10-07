@@ -31,7 +31,11 @@ own structure. Zero dependencies; stdlib only.
    directory review reads the whole repo, docs included. Also fails when the
    README's pinned `@radicool/throughline@X` install command differs from
    `package.json`, so every release bumps it.
-6. `node scripts/build-state-baseline.mjs --check` — `references/state-baseline.md`
+6. `node scripts/adapters/generate.mjs --check`, `node scripts/build-doc-card-builder.mjs --check`
+   and `node scripts/build-native-adapter-config.mjs --check` — each generated
+   file (the adapters, the doc-card builder, the native adapter config) matches
+   what its generator emits from the sources.
+7. `node scripts/build-state-baseline.mjs --check` — `references/state-baseline.md`
    matches `scripts/lib/component-states.mjs`. That table is the one list of which
    components owe which interaction states, read by `verify:check` and by
    `figma-executor`, so it cannot drift from the code.

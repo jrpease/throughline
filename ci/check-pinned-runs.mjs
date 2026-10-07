@@ -15,7 +15,8 @@
 //   - a "latest" or "next" tag, or a caret, tilde or star range, is unpinned
 //
 // Prose that names a runner without a package after it ("started by `npx`")
-// is not a run and passes. A run split across a line break is not seen.
+// is not a run and passes. A run split across a line break is not seen,
+// and only the first package on an install line is checked.
 //
 // Pinning the README's own install command means every release must bump it,
 // so this also fails when a pinned @radicool/throughline differs from
