@@ -26,7 +26,7 @@ dispatcher holds the cross-task context to resolve it.
 
 Figma work has no diff. **Concurrency:** 1 (bridge-locked) — never screenshot while another Figma-touching subagent runs.
 
-1. Preflight `figma_get_status`; locate the finalized component by name via `figma_search_components`.
+1. Preflight `figma_get_status`, then confirm the active file is the target (see the active-file preflight in `${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md`): read `figma.fileKey` from `design-system.json` at the working-directory root and compare it with `currentFileKey` from `figma_get_status`. You cannot navigate, so on a mismatch, or if `figma.fileKey` is absent, return `BLOCKED` naming both files and telling the dispatcher to switch files and re-run you; otherwise you would review a different file's component than the one built. Then locate the finalized component by name via `figma_search_components`.
 2. Take your **own fresh** `figma_capture_screenshot` (independence — do not rely on the executor's shot; you may need state it did not capture).
 3. Analyze **design quality** against the spec — alignment, spacing, proportion, spec fidelity. The executor already checked structural correctness; focus on quality, not re-checking node placement.
 4. Report `approved` / `changes-requested` with findings ranked most-severe first. Flag anything you cannot verify from the screenshot as `⚠️ cannot verify`.

@@ -68,7 +68,8 @@ wrong document.
 Run this before the first write, and again right before any replace — the
 build-verify-then-replace finalize deletes the existing node, so it is the write
 that destroys work in the wrong file. The `figma-executor` agent runs it as step 1
-of its contract. **When a skill builds inline instead** (a host with no subagent
+of its contract; the `architect` and `reviewer` agents, which read Figma but cannot
+navigate, run the compare and return `BLOCKED` on a mismatch. **When a skill builds inline instead** (a host with no subagent
 dispatch, or a write-back the skill does itself), nothing runs it for you: the
 skill has to.
 

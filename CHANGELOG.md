@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The architect and reviewer now check which Figma file is active.** The executor
+  already did, but the architect read variables, styles and components from whichever
+  file happened to be open and could plan a spec with the wrong token names. Both
+  agents now return `BLOCKED` naming the two files on a mismatch, since neither can
+  navigate. The preflight test now covers agents as well as skills and commands.
+
 ### Changed
 
 - **Setup no longer pins Haiku.** Setup is the most failure-prone conversation
