@@ -230,7 +230,8 @@ Explain there are two ways to connect Codex to Figma, and recommend the first:
 - **Figma Console MCP (recommended).** More capable — it can create many
   variables at once efficiently (which saves time and usage), and it can read
   your variables on any Figma plan, including free and Pro. Slightly more setup:
-  you'll create one access token and run a small helper plugin inside Figma.
+  you'll run a small helper plugin inside Figma, and can optionally create one
+  access token.
 - **Official Figma plugin (simpler fallback).** Less setup, but more limited —
   some bulk operations are slower, and reading variables through it can be
   restricted on non-Enterprise plans. Fine if the user wants the lightest path.
@@ -257,10 +258,16 @@ browser version of Figma causes connection and token errors that are painful to
 debug. If they don't have the desktop app, point them to figma.com/downloads to
 install it first. Desktop app, every time.
 
-### 4b. Create a Figma access token
+### 4b. Create a Figma access token (optional)
 
-A token is like a password that lets Codex talk to Figma on your behalf. Walk
-them through it:
+A token is like a password that lets Codex talk to Figma on your behalf. It's
+**optional**: the desktop bridge does the reading and writing on its own. The
+token only adds the few calls the bridge can't make, such as reading a published
+library or a file's version history. Offer it, and say plainly that they can skip
+it and add it later in **Configure options**. If they skip, record nothing about
+it, leave the field blank, and go straight to 4c. Nothing later in setup needs it.
+
+If they want it, walk them through it:
 
 1. In a browser, go to figma.com and sign in (same account as the desktop app).
 2. Click your account menu, then Settings.
@@ -384,7 +391,7 @@ tokens or pairing here is useless. Diagnose in order:
 
 **B. The server started but the connection failed.** If there's no launch error
 and the server is clearly running, diagnose gently and in order: Is the desktop
-app open with the file? Was the token placed correctly (have them re-check,
+app open with the file? If they added a token, was it placed correctly (have them re-check,
 without showing you the value)? Is the bridge plugin running and paired? Did the
 client need a restart? Walk them back through the relevant sub-step.
 
@@ -400,7 +407,8 @@ neutral placeholder built against nothing.
 
 - Create one trivial throwaway node (e.g. a small frame or text node named
   `__throughline write test`) on any page.
-- Confirm it landed with a quick read or `figma_capture_screenshot`.
+- Confirm it landed with a quick read or `figma_capture_screenshot`. Neither needs
+  a token.
 - **Delete it.** If both the write and the delete succeed, writes are proven.
 
 Leave `figma.coverPageBuilt` = `false` here — that flag is set later, when the
@@ -445,7 +453,9 @@ restore point:
   `figma_get_file_versions`) or have the user name a Figma version so there's a known-good
   point to restore to. The plugin can read versions; it does not auto-create named
   versions, so if none exists, ask the user to add one ("File → Save to version
-  history") and record that you did.
+  history") and record that you did. If the user skipped the access token and
+  the version read fails, say in one sentence that you can't read version history
+  without it, and have them name the version themselves.
 - **Token export** — if the repo already emits tokens, snapshot the current generated
   output (git is the natural baseline once `workspace.stage` is `local-git`+).
 

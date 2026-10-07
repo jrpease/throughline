@@ -75,7 +75,7 @@ Everything above was created during a single working session and synced directly
 |---|---|
 | **A supported agent** | Required — [Claude Code](https://docs.claude.com/en/docs/claude-code) (native plugin), or **Cursor**, **Codex**, or any **AGENTS.md**-aware agent via `npx @radicool/throughline@0.21.3 init`. |
 | **Figma** | Required, **desktop app** (the browser version causes connection errors). **Professional plan or higher recommended** — multi-mode variables (Light/Dark, brand themes) need it. |
-| **Figma access token** | Required — read/write your file. The setup skill walks you through it; your token stays yours and is never shared in chat. |
+| **Figma access token** | Optional — only for the few Figma calls the Desktop Bridge can't make, like reading a published library. Without it, you work through the bridge alone. The setup skill walks you through it; your token stays yours and is never shared in chat. |
 | **GitHub** (or similar) | Optional — only when you're ready to graduate to a real remote repo with PRs and CI. |
 
 ### What it runs on your machine

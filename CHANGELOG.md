@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org).
 
 ### Fixed
 
+- **The README no longer says the Figma access token is required.** It is
+  optional, and setup now lets you skip it. Without it you work through the
+  Desktop Bridge alone and lose only the REST-only calls, like reading a
+  published library.
 - **The token-removal guard now reads stylesheets and HTML, not just `.ts` and
   `.tsx`.** A token referenced only from a `.scss`, `.css` or `.html` file was
   reported as unused and removed. The guard now scans every file type the shared
