@@ -223,29 +223,23 @@ Make clear it changes only how much detail they get, never what they can build.
 This is set now because it colors every later interaction. The Figma phase
 itself doesn't lean on it much, but the code phase (repo, sync, Storybook) does.
 
-## Step 3 — Choose the Figma write mechanism
+## Step 3 — Figma write mechanism
 
-Explain there are two ways to connect Codex to Figma, and recommend the first:
+ThroughLine connects to Figma through the **Figma Console MCP**. It can create
+many variables at once efficiently (which saves time and usage), and it can read
+your variables on any Figma plan, including free and Pro. The setup is light:
+you'll run a small helper plugin inside Figma, and can optionally create one
+access token.
 
-- **Figma Console MCP (recommended).** More capable — it can create many
-  variables at once efficiently (which saves time and usage), and it can read
-  your variables on any Figma plan, including free and Pro. Slightly more setup:
-  you'll run a small helper plugin inside Figma, and can optionally create one
-  access token.
-- **Official Figma plugin (simpler fallback).** Less setup, but more limited —
-  some bulk operations are slower, and reading variables through it can be
-  restricted on non-Enterprise plans. Fine if the user wants the lightest path.
-
-Let the user choose. Record their choice in `figma.mechanism`
-(`"console-mcp"` or `"official-plugin"`). Default to `console-mcp` if they have
-no preference.
+Record `figma.mechanism` as `"console-mcp"`. There is nothing for the user to
+choose.
 
 The MCP server configuration ships **bundled with this plugin** (in the plugin's
 `.mcp.json`), so the user does not hand-edit any config files. The one thing the
 bundle can't contain is their personal access token — that's a per-user secret,
 handled in the next step.
 
-## Step 4 — Connect to Figma (Console MCP path)
+## Step 4 — Connect to Figma
 
 Walk through these one at a time, confirming each before moving on. Never rush
 the user past a step.
@@ -315,14 +309,6 @@ Codex and Figma are linked for this session."
 
 If the config was just added (token placed for the first time), the MCP client
 may need a restart to load it. Tell them how, simply, and confirm they're back.
-
-## Step 4 (alt) — Connect to Figma (official plugin path)
-
-If the user chose the official plugin, the flow is lighter: install the official
-Figma plugin for Codex per its setup, ensure the desktop app is open with
-the file, and authenticate through the desktop app (again: desktop, not
-browser). The same secret-handling rule applies — any token goes into config by
-the user, never through the chat.
 
 ## Step 5 — Capture the file key
 

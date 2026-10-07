@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org).
 
 ### Fixed
 
+- **Setup no longer offers an "Official Figma plugin" fallback.** No agent or
+  bundled MCP server supported it, so choosing it dead-ended at the first skill
+  that writes. Console MCP is now the only path, and an existing
+  `"official-plugin"` value in `design-system.json` is documented as unsupported.
 - **The README no longer says the Figma access token is required.** It is
   optional, and setup now lets you skip it. Without it you work through the
   Desktop Bridge alone and lose only the REST-only calls, like reading a
