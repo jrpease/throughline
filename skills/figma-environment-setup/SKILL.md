@@ -1,7 +1,6 @@
 ---
 name: figma-environment-setup
 description: "Set up the local working folder and connect Claude to Figma so the design-system skills can read and write variables, styles, and components. Run this BEFORE brainstorming and before any other design-system skill. Invoke it immediately when the user wants to start, set up, or begin building a design system — phrases like 'let's setup my design system', 'let's get started', 'connect Figma', or 'build my design system' should all trigger this skill first, ahead of brainstorming. Also trigger when the user wants to fix a broken Figma connection, or mentions the Figma Console MCP, the desktop bridge plugin, or a Figma access token."
-model: haiku
 ---
 
 # Figma environment setup

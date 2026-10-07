@@ -14,7 +14,8 @@ own structure. Zero dependencies; stdlib only.
    marketplace entry's `name` matches `plugin.json`.
 3. `node ci/validate-skills.mjs` — every `skills/*/SKILL.md` has `name`
    (matching its directory) and a `description` (≤ 1024 chars); every
-   `commands/*.md` has a `description`; and the `references/manifest-schema.md`
+   `commands/*.md` has a `description`; neither sets a `model:` (they run on the
+   session's model); and the `references/manifest-schema.md`
    example JSON parses with an integer `schemaVersion`.
 4. `node ci/validate-install-sets.mjs` — every documented install set carries
    every file its scripts import, followed transitively. Reads the lists from

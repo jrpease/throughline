@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Changed
+
+- **Setup no longer pins Haiku.** Setup is the most failure-prone conversation
+  (permission errors, pairing codes, connection failures), so it now runs on your
+  session's model like every other skill. The skill check now fails any skill or
+  command that sets a `model:`, so a pin can't come back.
+
 ## [0.21.4] — 2026-10-07
 
 An outside review of the whole plugin found places where the prose promised more

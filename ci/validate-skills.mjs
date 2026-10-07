@@ -25,6 +25,9 @@ export function validateSkill({ dirName, source }) {
   } else if (data.description.length > MAX_DESCRIPTION) {
     problems.push(`skills/${dirName}/SKILL.md: "description" is ${data.description.length} chars (max ${MAX_DESCRIPTION})`);
   }
+  if ('model' in data) {
+    problems.push(`skills/${dirName}/SKILL.md: "model" must not be set (skills run on the session's model; never hardcode one)`);
+  }
   return problems;
 }
 
@@ -38,6 +41,9 @@ export function validateCommand({ fileName, source }) {
   const problems = [];
   if (!isNonEmptyString(data.description)) {
     problems.push(`commands/${fileName}: "description" is required`);
+  }
+  if ('model' in data) {
+    problems.push(`commands/${fileName}: "model" must not be set (commands run on the session's model; never hardcode one)`);
   }
   return problems;
 }

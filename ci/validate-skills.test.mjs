@@ -133,3 +133,15 @@ test('agent-routing doc missing a tier is flagged', () => {
   const problems = validateAgentRouting(src);
   assert.ok(problems.some((p) => /deep/.test(p)));
 });
+
+test('flags a skill that sets a model', () => {
+  const src = '---\nname: demo\ndescription: a skill\nmodel: haiku\n---\nbody\n';
+  const problems = validateSkill({ dirName: 'demo', source: src });
+  assert.ok(problems.some((p) => /"model" must not be set/.test(p)));
+});
+
+test('flags a command that sets a model', () => {
+  const src = '---\ndescription: do a thing\nmodel: haiku\n---\nbody\n';
+  const problems = validateCommand({ fileName: 'demo.md', source: src });
+  assert.ok(problems.some((p) => /"model" must not be set/.test(p)));
+});
