@@ -13,8 +13,10 @@ This skill does three foundational jobs, in order:
 3. **Connect Cursor to Figma** so later skills can read and write the file,
    then verify the connection works.
 
-It is the required first step. Every other Figma skill does a cheap liveness
-check and, if it fails, points the user back here.
+It is the required first step. Every other skill that calls Figma itself does a
+cheap liveness check and, if it fails, points the user back here. (The orchestrators
+`component-pipeline` and `retrofit-planner` call Figma only through the skills they
+invoke, and `token-crosswalk-builder` works from the manifest and token files.)
 
 ## Who you're talking to
 

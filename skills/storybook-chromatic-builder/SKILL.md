@@ -21,6 +21,10 @@ This skill needs:
 - Figma components (`components.built`) with their slot contracts, so stories
   reflect the real component APIs.
 
+The Figma-touching steps (Code Connect in Step 5, the doc-card write-back in Step 6)
+also need a live Figma connection — do a cheap liveness read before the first Figma
+call; if it fails, offer `figma-environment-setup`.
+
 Strongly recommend `github` stage so Chromatic's CI integration works; it can be
 set up locally first and wired to CI when the remote exists.
 

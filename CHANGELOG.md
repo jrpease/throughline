@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org).
 
 ### Fixed
 
+- **README and setup prose no longer overclaim.** The reference-doc count is gone,
+  setup is described as pinning Haiku, setup's "every other Figma skill checks
+  liveness" is now true (the audit and Storybook skills gained the check), and the
+  accessibility gate is described as unit-tested rather than proven on a real app.
 - **Setup no longer offers an "Official Figma plugin" fallback.** No agent or
   bundled MCP server supported it, so choosing it dead-ended at the first skill
   that writes. Console MCP is now the only path, and an existing
