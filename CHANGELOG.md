@@ -6,6 +6,28 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Breaking
+
+- **Figma builds are now checked against what was built, not only the spec.**
+  After a component build, the executor and the inline path read the set back and
+  fail it unless its variant combinations are exactly the spec's matrix (axis
+  names and values compared ignoring case and punctuation), its state axis holds
+  every state the table owes plus `default`, and every focus variant carries its
+  framework's ring. A deliberately sparse set now fails, as it did under the old
+  count check. A build that drifted from its spec used to pass if the spec was
+  right.
+
+### Changed
+
+- **The Figma stop conditions are one committed script.** The COMPONENT_SET,
+  state and focus checks used to be prose the model rewrote every run, in three
+  places. They're now `references/figma-checks.md`, generated from a pure checker
+  (`scripts/lib/figma-checks.mjs`, with a fixture per recipe branch) and the state
+  table, and CI fails when it goes stale. The architect's spec gains a
+  `controlLayer` for wrapped controls such as an Input with a label. Only the
+  `shadcn` recipe has been run against a live Figma file; `mui`, `vanilla-css`,
+  `tailwind` and the skip path are tested on hand-written fixtures only.
+
 ## [0.22.0] — 2026-10-07
 
 Two checks decided which states a component owes, and they disagreed. A Switch
