@@ -330,12 +330,12 @@ uses **build-verify-then-replace**:
 2. **Verify the working frame green before touching anything real** — a
    screenshot alone is **insufficient**: 10 tone-colored frames render
    identically to 10 real variants, so a fast model can build plain frames and
-   self-report success. The gate is a **programmatic read-back** (`figma_execute`)
-   that asserts `node.type === 'COMPONENT_SET'` (never `'FRAME'`), the child count
-   matches the variant matrix with every child a `'COMPONENT'`,
-   `variantGroupProperties` names the expected axes, and a spot-check of ≥2
-   variants shows fills/strokes/radius bound to variables (not raw values) with
-   the expected `clipsContent`. A `figma_capture_screenshot` is a **secondary**
+   self-report success. The gate is a **programmatic read-back** (`figma_execute`):
+   for a component set, run the checks in `references/figma-checks.md` (the script
+   is the rule for the `COMPONENT_SET` structure, the state matrix and the focus
+   ring), plus a spot-check of ≥2 variants showing fills/strokes/radius bound to
+   variables (not raw values) with the expected `clipsContent`. A
+   `figma_capture_screenshot` is a **secondary**
    check (create → read-back → screenshot → iterate, max ~3), never the sole one.
 3. **Only then finalize:** remove/replace any existing same-named component,
    rename the working frame's component set to the real `<ComponentName>`, **and

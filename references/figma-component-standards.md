@@ -557,7 +557,9 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
 8. **States complete** — each component set's `state` axis includes every relevant
    state for that component (every state the table in `references/state-baseline.md`
    owes it, plus default, plus the applicable loading/success/error), with variants (incl. each
-   size) as rows and states as columns. A set shipping only `default` is a fail.
+   size) as rows and states as columns. A set shipping only `default` is a fail. The
+   programmatic half (the state matrix and the `COMPONENT_SET` structure) is the
+   script in `references/figma-checks.md`; the script is the rule.
 9. **Focus state matches the library idiom** — the focus state is built as
    `project.uiFramework`'s real pattern (see "State handling"), not a house-style
    stroke, and with no padded wrapper inflating the component. Shadow-based recipes: a
@@ -570,49 +572,17 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
    wrapper, an inside-aligned stroke, or a transparent variant with no ring at all must
    be retrofitted to the current recipe (see "State handling").
 
-   **The `focus-indicator` check** is the programmatic half of this item. Run it
-   with `figma_execute`. What a miss does depends on who designed the ring:
+   **The `focus-indicator` check** is the programmatic half of this item, run by
+   the script in `references/figma-checks.md`; the script is the rule for which
+   frameworks and components it covers, how it finds the focus variants and the
+   control, what counts as a focus variable, and what each recipe must carry. What
+   a miss does depends on who designed the ring:
    - **`figma-executor` returns `BLOCKED`** on a miss, naming the variant. It
      builds from an architect spec, and adding a ring the spec didn't give is a
      design decision it doesn't make.
    - **Building inline**, you designed the ring yourself, so a miss is a build
      error: fix and re-audit like any other item. If the ring is still missing
      when the pass budget below runs out, **stop the build** rather than hand off.
-   - **Scope.** It runs only for a component whose name folds (lowercase,
-     punctuation stripped) to a name in the table in `references/state-baseline.md`
-     (not its exempt list), the same
-     exact-name match as the state check and the same list the CLI's
-     `state-incomplete` reads. It also
-     needs `project.uiFramework` to be exactly `shadcn`, `tailwind`, `mui`,
-     `vanilla-css` or `vanilla`, or absent or `null`. Anything else (`ios-swift`,
-     a tier-2 library, any other value) is skipped, and the skip is said.
-   - **What it reads.** Every child `COMPONENT` of the set whose
-     `variantProperties` has a key folding to `state` with a value folding to
-     exactly `focus`. `Focused` or `focus-visible` isn't read. The ring is looked
-     for on that variant, or, where the variant wraps the control in other content
-     (an Input with a label or helper text), on the child frame that is the
-     control, the node the recipe above puts the ring on. Reading **zero** focus
-     variants on an in-scope component is not a pass: it means the `state` axis
-     has no `focus` value, which the state check stops on.
-   - **A focus variable** is any variable whose name has a `focus` segment:
-     `border/focus`, `color/border/focus`, `color/focus/ring` and
-     `color/focus/ringOnFill` all count. Systems name their ring role differently,
-     and a collection prefix is common. A raw colour, or a variable with no `focus`
-     segment, doesn't count.
-   - **Ring recipes** (`shadcn`, `tailwind`, absent or `null`; `mui` on anything
-     but an input). The control has either a `DROP_SHADOW` effect with
-     `visible !== false`, `spread > 0` and `boundVariables.color` on a focus
-     variable, or a direct child with `layoutPositioning = "ABSOLUTE"` and
-     `strokeAlign = "OUTSIDE"` whose stroke is bound to a focus variable.
-     `spread > 0` matters: binding an effect's colour can silently zero its spread
-     (see `figma-scripting.md`), which leaves a ring that is bound and invisible.
-     Only the ring is asserted. The recipe's border recolour is styling, and a
-     control whose border keeps its normal colour beside a correct ring passes.
-   - **`mui` inputs.** The control's own stroke is bound to a focus variable, and its
-     weight to a variable (the recipe's `width/focus`).
-   - **`vanilla-css` / `vanilla`.** The control or a direct child carries a stroke
-     bound to a focus variable with `strokeAlign = "OUTSIDE"`. The `offset/focus` gap
-     isn't asserted.
    - **The result.** On a miss, stop and name the variant and what it lacks. On a
      pass, `component-builder` records `focus-indicator` as an attested check. A
      skip records nothing.

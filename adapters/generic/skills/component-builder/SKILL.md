@@ -173,8 +173,12 @@ deterministic naming):
   re-screenshot) **and its "Post-build audit (REQUIRED before handoff)"
   read-back checklist** (container type, auto layout, bound variables,
   deterministic names) before the checkpoint. When you build inline, with no
-  `figma-executor`, that includes item 9's `focus-indicator` check: a miss stops
-  the build, as it would for the executor.
+  `figma-executor`, run `.throughline/references/figma-checks.md` the
+  way the executor does: `'spec'` mode before the first write and `'built'` mode
+  in the self-verify loop, with `EXPECT` built from your own matrix. You are the
+  architect here, so you name `controlLayer` yourself for a wrapped control (an
+  Input with a label or helper text). A `fail` on the `focus-indicator` check
+  stops the build, as it would for the executor.
 
 Checkpoint after each component: show all variants, confirm before the next.
 
