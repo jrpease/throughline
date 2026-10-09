@@ -25,8 +25,8 @@ export function render(states = BASELINE_STATES, synonyms = NAME_SYNONYMS, arche
 
 Which interaction states a component owes. This is the one list both checks read:
 \`verify:check\` (\`state-incomplete\`) reads it from \`scripts/lib/component-states.mjs\`,
-and \`figma-executor\` (its state check and the \`focus-indicator\` check) reads
-this table. CI fails when the table is stale.
+and the Figma checks script (\`references/figma-checks.md\`) inlines the same module,
+so this table is the human-readable view of both. CI fails when it is stale.
 
 A component name matches a row when it folds (lowercase, punctuation and spaces
 stripped) to exactly one of that row's names. \`Text Field\` folds to \`textfield\`.

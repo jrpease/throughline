@@ -7,7 +7,7 @@
 // controlLayer. Untested in Node, like the doc-card renderer; the pure checker
 // it feeds is unit-tested.
 //
-// In-scope globals when assembled: normalizeName, STATE_SYNONYMS (inlined
+// In-scope globals when assembled: normalizeName (inlined
 // component-states.mjs), checkSpec, checkBuilt (bound from withTable) and the
 // caller-filled slots EXPECT and MODE (passed to runFigmaChecks). The snapshot
 // shape is documented at the top of scripts/lib/figma-checks.mjs.
@@ -60,12 +60,27 @@ async function readFocusTree(node) {
   return focus;
 }
 
+// The getter throws when Figma flags the set as conflicting (duplicate variant
+// combinations). Fall back to the axes the children declare, so the structural
+// check names the duplicates instead of the read throwing.
+function groupProperties(set) {
+  try {
+    return set.variantGroupProperties;
+  } catch {
+    const axes = {};
+    for (const child of set.children) {
+      for (const axis of Object.keys(child.variantProperties || {})) axes[axis] = { values: [] };
+    }
+    return axes;
+  }
+}
+
 async function readComponentSet(expect) {
   await figma.currentPage.loadAsync();
   const frameName = `WIP: ${expect.name}`;
   const frame = figma.currentPage.findOne((n) => n.name === frameName);
   if (!frame) throw new Error(`no node named "${frameName}" on the current page`);
-  const set = (frame.children || []).find((c) => c.type === 'COMPONENT_SET');
+  const set = frame.type === 'COMPONENT_SET' ? frame : (frame.children || []).find((c) => c.type === 'COMPONENT_SET');
   // A frame holding plain FRAMEs where the set should be is a failed assertion,
   // not a missing target: report what is there so the structural check names it.
   if (!set) {
@@ -76,7 +91,7 @@ async function readComponentSet(expect) {
   const isFocusState = (props) =>
     Object.entries(props || {}).some(([k, v]) => {
       const state = normalizeName(v);
-      return normalizeName(k) === 'state' && (STATE_SYNONYMS[state] ?? state) === 'focus';
+      return normalizeName(k) === 'state' && state === 'focus';
     });
 
   const children = [];
@@ -93,7 +108,7 @@ async function readComponentSet(expect) {
   }
   return {
     type: set.type,
-    variantGroupProperties: set.variantGroupProperties,
+    variantGroupProperties: groupProperties(set),
     children,
   };
 }

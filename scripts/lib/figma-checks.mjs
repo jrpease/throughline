@@ -183,8 +183,11 @@ export function withTable({ resolveArchetype, BASELINE_STATES, STATE_SYNONYMS, n
   function focusIndicator(snapshot, expect) {
     const name = 'focus-indicator';
     const archetype = resolveArchetype({ name: expect.name });
-    if (archetype === null || BASELINE_STATES[archetype].length === 0) {
+    if (archetype === null) {
       return { name, result: 'skip', detail: `"${expect.name}" is not a name in the state table` };
+    }
+    if (BASELINE_STATES[archetype].length === 0) {
+      return { name, result: 'skip', detail: `"${expect.name}" is a ${archetype}, which owes no states, so no focus ring is checked` };
     }
     const recipe = frameworkRecipe(expect.uiFramework);
     if (recipe === null) {

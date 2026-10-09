@@ -58,7 +58,7 @@ missed one.
 | Do the checker and its fixtures ship to consumers | No. `lib/figma-checks.mjs` and `lib/fixtures/` join `PLUGIN_INTERNAL` with the generator and the reader | Consumers get the generated reference, the only form the executor uses; nothing in their repo would import the checker | Copying an unused checker into every consumer's `scripts/` |
 | What the model supplies | One `const EXPECT = { name, matrix: { axis: [values] }, uiFramework, controlLayer? }` slot. `name` is the component's real name, used for matching against the state table. The executor already reads `uiFramework` from `design-system.json` at step 1. `controlLayer` names the layer that is the actual control in a wrapped control (an Input with a label); the ring is checked on it, or on the variant itself when it's absent | Turns the prose judgment "the child frame that is the control" into a name | A layer-finding convention in code |
 | Who supplies `controlLayer` | The architect. Its per-component spec gains a `controlLayer` field for wrapped controls, and the executor copies it into `EXPECT`. On the inline path, component-builder names it the same way | The decision stays with the deciding tier; the executor still decides nothing | The executor deriving it by convention |
-| Which node built mode checks | The COMPONENT_SET inside the frame named `WIP: <name>` on the current page; it throws if that's missing | That's the node the self-verify loop is building. Searching by the real name finds nothing on a first build, and the old live component on a rebuild | An explicit node field in `EXPECT` |
+| Which node built mode checks | The COMPONENT_SET inside the frame named `WIP: <name>` on the current page; it throws only if the frame is missing (see Where it diverged) | That's the node the self-verify loop is building. Searching by the real name finds nothing on a first build, and the old live component on a rebuild | An explicit node field in `EXPECT` |
 | How it's tested without Figma | Split it in two. A thin reader turns the live node into plain JSON and stays untested, like the doc-card renderer. The pure checker takes that JSON and returns the result, and Node unit-tests it against fixture JSON | Tests the rules, which is where the recorded variance was, without writing a fake of a large API | A mock `figma` global; live-only testing |
 | How the reader gets variable names | It resolves names (`getVariableByIdAsync`) only for bindings on focus variants and their control layer: effects and strokes. Fixtures carry resolved names | Keeps lookups proportional to the number of focus variants, inside the ~30 s cap | Resolving every binding in the set |
 | What the state check reads | Both, in one script. `MODE: 'spec'` checks `EXPECT.matrix` against the state table with no node, before anything is written. `MODE: 'built'` reads the node and runs all three checks | The pre-write check is cheap and caught Chip before anything was written; the post-build check catches a build that drifted from its spec. One script, one table | The pre-write check staying prose; dropping either check |
@@ -127,6 +127,31 @@ missed one.
   focus rule wrong on its first live run (2026-09-30); flaky binds that stuck on
   a re-run. No case of the model's read-back script itself being wrong.
 
+## Where it diverged
+
+Steps 1–6 are built; Step 7 (the live run) is not, so Status stays `planned`.
+
+- **A frame with no set is data, not a throw.** The plan had built mode throw
+  when the `WIP:` frame held no COMPONENT_SET. That's the fabricated-DONE case
+  (plain FRAMEs) the structural check exists for, and the Decisions row "Result
+  shape and failure" says a failed assertion is data. The reader now reports the
+  frame's first child type, and the structural check names it. It throws only
+  when the frame itself is missing.
+- **A conflicting set is data too.** `variantGroupProperties` throws in the
+  plugin API when Figma flags duplicate combinations. The reader catches it and
+  derives the axes from the children, so the structural check names the
+  duplicates. Not provable in Node, and the live run won't build a conflicting
+  set; this rests on the whole-branch review's reasoning.
+- **Judgment calls in the transcription,** each ruled faithful to main's prose
+  by the whole-branch review: a focus variable needs a `/`-separated segment
+  equal to `focus`; zero focus variants on an in-scope component fails; a name
+  not in the table or an exempt archetype skips; `mui` counts as an input when the
+  archetype resolves to `input`; the ring child needs ABSOLUTE + OUTSIDE, the
+  outline recipe needs OUTSIDE only; a named `controlLayer` is the only place the
+  ring is checked; duplicate combinations are reported.
+- **Unproven until Step 7:** whether `figma_execute` surfaces a top-level
+  `return` from the snippet. The doc-card precedent never uses one.
+
 ## Plan
 
 ### Step 1 — Make `component-states.mjs` inlinable
@@ -168,7 +193,7 @@ Files: `scripts/lib/figma-checks-read.figma.js`
 Change: Not a Node module (header like `doc-card-render.figma.js:1-10`). An
 async `readComponentSet(expect)` that finds the frame named `WIP: ${expect.name}`
 with `figma.currentPage.findOne` (after `figma.currentPage.loadAsync()`), takes
-its `COMPONENT_SET` child, throws if either is missing, and returns the
+its `COMPONENT_SET` child, throws if the frame is missing (a frame with no set is reported, not thrown; see Where it diverged), and returns the
 snapshot shape from Step 2, resolving variable names with
 `figma.variables.getVariableByIdAsync` only on focus variants and their
 `controlLayer`. Then `runFigmaChecks(EXPECT, MODE)`: spec mode calls

@@ -16,8 +16,10 @@ const read = (path) => readFileSync(`${ROOT}${path}`, 'utf8');
 export function slice(text, start, end) {
   const from = text.indexOf(start);
   assert.notEqual(from, -1, `anchor not found: ${start}`);
-  const to = end === undefined ? -1 : text.indexOf(end, from + start.length);
-  return to === -1 ? text.slice(from) : text.slice(from, to);
+  if (end === undefined) return text.slice(from);
+  const to = text.indexOf(end, from + start.length);
+  assert.notEqual(to, -1, `end anchor not found after ${start}: ${JSON.stringify(end)}`);
+  return text.slice(from, to);
 }
 
 const SITES = [
