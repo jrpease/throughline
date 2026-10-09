@@ -419,7 +419,12 @@ async function readComponentSet(expect) {
   const frame = figma.currentPage.findOne((n) => n.name === frameName);
   if (!frame) throw new Error(`no node named "${frameName}" on the current page`);
   const set = (frame.children || []).find((c) => c.type === 'COMPONENT_SET');
-  if (!set) throw new Error(`"${frameName}" has no COMPONENT_SET child`);
+  // A frame holding plain FRAMEs where the set should be is a failed assertion,
+  // not a missing target: report what is there so the structural check names it.
+  if (!set) {
+    const first = (frame.children || [])[0];
+    return { type: first ? first.type : 'NONE', variantGroupProperties: {}, children: [] };
+  }
 
   const isFocusState = (props) =>
     Object.entries(props || {}).some(([k, v]) => {
