@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveArchetype, missingStates } from './component-states.mjs';
+import { normalizeName } from './source-scan.mjs';
+import { readFileSync } from 'node:fs';
 
 test('resolveArchetype: explicit archetype wins over name', () => {
   assert.equal(resolveArchetype({ archetype: 'input', name: 'Button' }), 'input');
@@ -71,4 +73,12 @@ test('missingStates: checked and on count as selected', () => {
   assert.deepEqual(missingStates({ name: 'Checkbox', states: { ...base, checked: '…' } }), []);
   assert.deepEqual(missingStates({ name: 'Toggle', states: { ...base, on: '…' } }), []);
   assert.deepEqual(missingStates({ name: 'Toggle', states: { ...base, pressed: '…' } }), ['selected']);
+});
+
+test('the local fold matches source-scan normalizeName', () => {
+  const src = readFileSync(new URL('./component-states.mjs', import.meta.url), 'utf8');
+  const local = new Function(`${src.match(/const normalizeName = .*;/)[0]} return normalizeName;`)();
+  for (const name of ['Text Field', 'IconButton', 'check-box', 'Focus Visible']) {
+    assert.equal(local(name), normalizeName(name));
+  }
 });

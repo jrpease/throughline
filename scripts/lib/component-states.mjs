@@ -14,7 +14,10 @@
 // renders it into `references/state-baseline.md`, which the Figma executor reads;
 // CI fails when that file is stale. MAINTENANCE: change this table, then run it.
 
-import { normalizeName } from './source-scan.mjs';
+// Defined here rather than imported from source-scan.mjs so this module has no
+// imports and can be inlined into the Figma checks script. A test keeps the two
+// copies in step.
+const normalizeName = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 
 export const ARCHETYPES = ['button', 'input', 'choice', 'card', 'modal', 'badge', 'other'];
 
