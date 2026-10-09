@@ -1,0 +1,94 @@
+{
+  "covers": "transparent variant: ABSOLUTE OUTSIDE ring child, uiFramework null",
+  "expect": {
+    "name": "Button",
+    "matrix": {
+      "variant": [
+        "outline"
+      ],
+      "state": [
+        "default",
+        "hover",
+        "focus",
+        "active",
+        "disabled"
+      ]
+    },
+    "uiFramework": null
+  },
+  "snapshot": {
+    "type": "COMPONENT_SET",
+    "variantGroupProperties": {
+      "Variant": {
+        "values": [
+          "Outline"
+        ]
+      },
+      "State": {
+        "values": [
+          "Default",
+          "Hover",
+          "Focus",
+          "Active",
+          "Disabled"
+        ]
+      }
+    },
+    "children": [
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Outline",
+          "State": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Outline",
+          "State": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Outline",
+          "State": "Focus"
+        },
+        "effects": [],
+        "strokeAlign": "INSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "children": [
+          {
+            "layoutPositioning": "ABSOLUTE",
+            "strokeAlign": "OUTSIDE",
+            "strokeVariables": [
+              "border/focus"
+            ],
+            "strokeWeightBound": true
+          }
+        ]
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Outline",
+          "State": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Outline",
+          "State": "Disabled"
+        }
+      }
+    ]
+  },
+  "expected": {
+    "structural-read-back": "pass",
+    "state-baseline": "pass",
+    "focus-indicator": "pass"
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "covers": "mui on a non-input uses the ring recipe",
+  "expect": {
+    "name": "Button",
+    "matrix": {
+      "variant": [
+        "primary"
+      ],
+      "state": [
+        "default",
+        "hover",
+        "focus",
+        "active",
+        "disabled"
+      ]
+    },
+    "uiFramework": "mui"
+  },
+  "snapshot": {
+    "type": "COMPONENT_SET",
+    "variantGroupProperties": {
+      "Variant": {
+        "values": [
+          "Primary"
+        ]
+      },
+      "State": {
+        "values": [
+          "Default",
+          "Hover",
+          "Focus",
+          "Active",
+          "Disabled"
+        ]
+      }
+    },
+    "children": [
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Focus"
+        },
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 3,
+            "colorVariable": "Color/Border/Focus"
+          }
+        ],
+        "strokeAlign": "INSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "children": []
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Disabled"
+        }
+      }
+    ]
+  },
+  "expected": {
+    "structural-read-back": "pass",
+    "state-baseline": "pass",
+    "focus-indicator": "pass"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "covers": "name not in the state table: state and focus checks skip",
+  "expect": {
+    "name": "Avatar",
+    "matrix": {
+      "size": [
+        "sm",
+        "md"
+      ]
+    },
+    "uiFramework": "shadcn"
+  },
+  "snapshot": {
+    "type": "COMPONENT_SET",
+    "variantGroupProperties": {
+      "Size": {
+        "values": [
+          "sm",
+          "md"
+        ]
+      }
+    },
+    "children": [
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Size": "sm"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Size": "md"
+        }
+      }
+    ]
+  },
+  "expected": {
+    "structural-read-back": "pass",
+    "state-baseline": "skip",
+    "focus-indicator": "skip"
+  }
+}

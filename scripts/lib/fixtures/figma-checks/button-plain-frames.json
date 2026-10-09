@@ -1,0 +1,92 @@
+{
+  "covers": "plain FRAMEs instead of a COMPONENT_SET of COMPONENTs",
+  "expect": {
+    "name": "Button",
+    "matrix": {
+      "variant": [
+        "primary"
+      ],
+      "state": [
+        "default",
+        "hover",
+        "focus",
+        "active",
+        "disabled"
+      ]
+    },
+    "uiFramework": "shadcn"
+  },
+  "snapshot": {
+    "type": "FRAME",
+    "variantGroupProperties": {
+      "Variant": {
+        "values": [
+          "Primary"
+        ]
+      },
+      "State": {
+        "values": [
+          "Default",
+          "Hover",
+          "Focus",
+          "Active",
+          "Disabled"
+        ]
+      }
+    },
+    "children": [
+      {
+        "type": "FRAME",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Default"
+        }
+      },
+      {
+        "type": "FRAME",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Hover"
+        }
+      },
+      {
+        "type": "FRAME",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Focus"
+        },
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 3,
+            "colorVariable": "Color/Border/Focus"
+          }
+        ],
+        "strokeAlign": "INSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "children": []
+      },
+      {
+        "type": "FRAME",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Active"
+        }
+      },
+      {
+        "type": "FRAME",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Disabled"
+        }
+      }
+    ]
+  },
+  "expected": {
+    "structural-read-back": "fail",
+    "state-baseline": "pass",
+    "focus-indicator": "fail"
+  }
+}

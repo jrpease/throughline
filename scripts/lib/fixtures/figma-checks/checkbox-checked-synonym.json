@@ -1,0 +1,87 @@
+{
+  "covers": "checked stands for selected",
+  "expect": {
+    "name": "Checkbox",
+    "matrix": {
+      "state": [
+        "default",
+        "hover",
+        "focus",
+        "active",
+        "checked",
+        "disabled"
+      ]
+    },
+    "uiFramework": "shadcn"
+  },
+  "snapshot": {
+    "type": "COMPONENT_SET",
+    "variantGroupProperties": {
+      "State": {
+        "values": [
+          "Default",
+          "Hover",
+          "Focus",
+          "Active",
+          "Disabled",
+          "Checked"
+        ]
+      }
+    },
+    "children": [
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "State": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "State": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "State": "Focus"
+        },
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 3,
+            "colorVariable": "Color/Border/Focus"
+          }
+        ],
+        "strokeAlign": "INSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "children": []
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "State": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "State": "Disabled"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "State": "Checked"
+        }
+      }
+    ]
+  },
+  "expected": {
+    "structural-read-back": "pass",
+    "state-baseline": "pass",
+    "focus-indicator": "pass"
+  }
+}

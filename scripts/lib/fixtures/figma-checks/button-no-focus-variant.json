@@ -1,0 +1,71 @@
+{
+  "covers": "zero focus variants on an in-scope component is not a pass",
+  "expect": {
+    "name": "Button",
+    "matrix": {
+      "variant": [
+        "primary"
+      ],
+      "state": [
+        "default",
+        "hover",
+        "active",
+        "disabled"
+      ]
+    },
+    "uiFramework": "shadcn"
+  },
+  "snapshot": {
+    "type": "COMPONENT_SET",
+    "variantGroupProperties": {
+      "Variant": {
+        "values": [
+          "Primary"
+        ]
+      },
+      "State": {
+        "values": [
+          "Default",
+          "Hover",
+          "Active",
+          "Disabled"
+        ]
+      }
+    },
+    "children": [
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Disabled"
+        }
+      }
+    ]
+  },
+  "expected": {
+    "structural-read-back": "pass",
+    "state-baseline": "fail",
+    "focus-indicator": "fail"
+  }
+}

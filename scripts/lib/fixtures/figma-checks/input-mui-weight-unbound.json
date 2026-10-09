@@ -1,0 +1,66 @@
+{
+  "covers": "mui input with a bound colour but a raw stroke weight",
+  "expect": {
+    "name": "Input",
+    "matrix": {
+      "state": [
+        "default",
+        "hover",
+        "focus",
+        "disabled"
+      ]
+    },
+    "uiFramework": "mui"
+  },
+  "snapshot": {
+    "type": "COMPONENT_SET",
+    "variantGroupProperties": {
+      "State": {
+        "values": [
+          "Default",
+          "Hover",
+          "Focus",
+          "Disabled"
+        ]
+      }
+    },
+    "children": [
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "State": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "State": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "State": "Focus"
+        },
+        "effects": [],
+        "strokeAlign": "INSIDE",
+        "strokeVariables": [
+          "border/focus"
+        ],
+        "strokeWeightBound": false,
+        "children": []
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "State": "Disabled"
+        }
+      }
+    ]
+  },
+  "expected": {
+    "structural-read-back": "pass",
+    "state-baseline": "pass",
+    "focus-indicator": "fail"
+  }
+}
