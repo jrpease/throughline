@@ -31,3 +31,5 @@ jobs:
         run: node scripts/build-native-adapter-config.mjs --check
       - name: Check state baseline table is up to date
         run: node scripts/build-state-baseline.mjs --check
+      - name: Check Figma checks reference is up to date
+        run: node scripts/build-figma-checks.mjs --check

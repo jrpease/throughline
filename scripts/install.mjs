@@ -99,18 +99,23 @@ function stagePayload(srcRoot, destRoot, skip) {
   return written;
 }
 
-// Scripts that never run from a consuming repo: the installer itself, the two
-// reference-doc generators, and the renderer template one of them inlines (the
-// renderer reaches Figma pre-inlined inside references/doc-card-builder.md).
+// Scripts that never run from a consuming repo: the installer itself, the
+// reference-doc generators, and the Figma sources they inline (the doc-card
+// renderer and the Figma checks reach Figma pre-inlined inside
+// references/doc-card-builder.md and references/figma-checks.md). Test fixtures
+// under lib/fixtures/ are dropped too.
 const PLUGIN_INTERNAL = new Set([
   'install.mjs',
   'build-doc-card-builder.mjs',
   'build-native-adapter-config.mjs',
   'lib/doc-card-render.figma.js',
+  'build-figma-checks.mjs',
+  'lib/figma-checks-read.figma.js',
+  'lib/figma-checks.mjs',
 ]);
 
 export const skipScript = (relPosix) =>
-  relPosix.startsWith('adapters/') || relPosix.endsWith('.test.mjs') || PLUGIN_INTERNAL.has(relPosix);
+  relPosix.startsWith('adapters/') || relPosix.startsWith('lib/fixtures/') || relPosix.endsWith('.test.mjs') || PLUGIN_INTERNAL.has(relPosix);
 
 export function install({ target, dir, pkgRoot = PKG_ROOT }) {
   if (!TARGETS.includes(target)) {
