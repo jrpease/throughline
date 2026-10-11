@@ -195,3 +195,12 @@ test('built mode with no children does not throw', () => {
   const res = checkBuilt({ type: 'COMPONENT_SET', children: [] }, { name: 'Button', matrix: { state: ['default'] } });
   assert.equal(res.pass, false);
 });
+
+test('a selection axis satisfies selected; no selection at all still fails', () => {
+  const states = ['default', 'hover', 'focus', 'active', 'disabled'];
+  for (const axis of ['checked', 'Selected', 'on']) {
+    const res = checkSpec({ name: 'Chip', matrix: { state: states, [axis]: ['false', 'true'] } });
+    assert.equal(byName(res, 'state-baseline').result, 'pass', axis);
+  }
+  assert.equal(byName(checkSpec({ name: 'Chip', matrix: { state: states, tone: ['a', 'b'] } }), 'state-baseline').result, 'fail');
+});

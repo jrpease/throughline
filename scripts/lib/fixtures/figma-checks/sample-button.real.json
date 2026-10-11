@@ -1,0 +1,1497 @@
+{
+  "covers": "live capture, Throughline Plugin Test Button 10:872 (2026-10-11): 108 variants, 18 focus variants with a 4px DROP_SHADOW ring; read in 25 ms",
+  "expect": {
+    "name": "Button",
+    "matrix": {
+      "variant": [
+        "default",
+        "secondary",
+        "outline",
+        "ghost",
+        "link",
+        "destructive"
+      ],
+      "size": [
+        "sm",
+        "md",
+        "lg"
+      ],
+      "state": [
+        "Default",
+        "Hover",
+        "Focus",
+        "Disabled",
+        "Loading",
+        "Active"
+      ]
+    },
+    "uiFramework": "shadcn"
+  },
+  "expected": {
+    "structural-read-back": "pass",
+    "state-baseline": "pass",
+    "focus-indicator": "pass"
+  },
+  "snapshot": {
+    "type": "COMPONENT_SET",
+    "variantGroupProperties": {
+      "variant": {
+        "values": [
+          "default",
+          "secondary",
+          "outline",
+          "ghost",
+          "link",
+          "destructive"
+        ]
+      },
+      "size": {
+        "values": [
+          "sm",
+          "md",
+          "lg"
+        ]
+      },
+      "state": {
+        "values": [
+          "Default",
+          "Hover",
+          "Focus",
+          "Disabled",
+          "Loading",
+          "Active"
+        ]
+      }
+    },
+    "children": [
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "default",
+          "size": "sm",
+          "state": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "default",
+          "size": "sm",
+          "state": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "default",
+          "size": "sm",
+          "state": "Focus"
+        },
+        "strokeAlign": "OUTSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 4,
+            "colorVariable": "color/focus/ringOnFill"
+          }
+        ],
+        "children": [
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "OUTSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          }
+        ]
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "default",
+          "size": "sm",
+          "state": "Disabled"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "default",
+          "size": "sm",
+          "state": "Loading"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "default",
+          "size": "sm",
+          "state": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "default",
+          "size": "md",
+          "state": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "default",
+          "size": "md",
+          "state": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "default",
+          "size": "md",
+          "state": "Focus"
+        },
+        "strokeAlign": "OUTSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 4,
+            "colorVariable": "color/focus/ringOnFill"
+          }
+        ],
+        "children": [
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "OUTSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          }
+        ]
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "default",
+          "size": "md",
+          "state": "Disabled"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "default",
+          "size": "md",
+          "state": "Loading"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "default",
+          "size": "md",
+          "state": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "default",
+          "size": "lg",
+          "state": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "default",
+          "size": "lg",
+          "state": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "default",
+          "size": "lg",
+          "state": "Focus"
+        },
+        "strokeAlign": "OUTSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 4,
+            "colorVariable": "color/focus/ringOnFill"
+          }
+        ],
+        "children": [
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "OUTSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          }
+        ]
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "default",
+          "size": "lg",
+          "state": "Disabled"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "default",
+          "size": "lg",
+          "state": "Loading"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "default",
+          "size": "lg",
+          "state": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "secondary",
+          "size": "sm",
+          "state": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "secondary",
+          "size": "sm",
+          "state": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "secondary",
+          "size": "sm",
+          "state": "Focus"
+        },
+        "strokeAlign": "OUTSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 4,
+            "colorVariable": "color/focus/ring"
+          }
+        ],
+        "children": [
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "OUTSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          }
+        ]
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "secondary",
+          "size": "sm",
+          "state": "Disabled"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "secondary",
+          "size": "sm",
+          "state": "Loading"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "secondary",
+          "size": "sm",
+          "state": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "secondary",
+          "size": "md",
+          "state": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "secondary",
+          "size": "md",
+          "state": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "secondary",
+          "size": "md",
+          "state": "Focus"
+        },
+        "strokeAlign": "OUTSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 4,
+            "colorVariable": "color/focus/ring"
+          }
+        ],
+        "children": [
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "OUTSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          }
+        ]
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "secondary",
+          "size": "md",
+          "state": "Disabled"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "secondary",
+          "size": "md",
+          "state": "Loading"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "secondary",
+          "size": "md",
+          "state": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "secondary",
+          "size": "lg",
+          "state": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "secondary",
+          "size": "lg",
+          "state": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "secondary",
+          "size": "lg",
+          "state": "Focus"
+        },
+        "strokeAlign": "OUTSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 4,
+            "colorVariable": "color/focus/ring"
+          }
+        ],
+        "children": [
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "OUTSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          }
+        ]
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "secondary",
+          "size": "lg",
+          "state": "Disabled"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "secondary",
+          "size": "lg",
+          "state": "Loading"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "secondary",
+          "size": "lg",
+          "state": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "outline",
+          "size": "sm",
+          "state": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "outline",
+          "size": "sm",
+          "state": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "outline",
+          "size": "sm",
+          "state": "Focus"
+        },
+        "strokeAlign": "OUTSIDE",
+        "strokeVariables": [
+          "color/border/default"
+        ],
+        "strokeWeightBound": false,
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 4,
+            "colorVariable": "color/focus/ring"
+          }
+        ],
+        "children": [
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "OUTSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          }
+        ]
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "outline",
+          "size": "sm",
+          "state": "Disabled"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "outline",
+          "size": "sm",
+          "state": "Loading"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "outline",
+          "size": "sm",
+          "state": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "outline",
+          "size": "md",
+          "state": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "outline",
+          "size": "md",
+          "state": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "outline",
+          "size": "md",
+          "state": "Focus"
+        },
+        "strokeAlign": "OUTSIDE",
+        "strokeVariables": [
+          "color/border/default"
+        ],
+        "strokeWeightBound": false,
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 4,
+            "colorVariable": "color/focus/ring"
+          }
+        ],
+        "children": [
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "OUTSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          }
+        ]
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "outline",
+          "size": "md",
+          "state": "Disabled"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "outline",
+          "size": "md",
+          "state": "Loading"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "outline",
+          "size": "md",
+          "state": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "outline",
+          "size": "lg",
+          "state": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "outline",
+          "size": "lg",
+          "state": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "outline",
+          "size": "lg",
+          "state": "Focus"
+        },
+        "strokeAlign": "OUTSIDE",
+        "strokeVariables": [
+          "color/border/default"
+        ],
+        "strokeWeightBound": false,
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 4,
+            "colorVariable": "color/focus/ring"
+          }
+        ],
+        "children": [
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "OUTSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          }
+        ]
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "outline",
+          "size": "lg",
+          "state": "Disabled"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "outline",
+          "size": "lg",
+          "state": "Loading"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "outline",
+          "size": "lg",
+          "state": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "ghost",
+          "size": "sm",
+          "state": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "ghost",
+          "size": "sm",
+          "state": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "ghost",
+          "size": "sm",
+          "state": "Focus"
+        },
+        "strokeAlign": "OUTSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 4,
+            "colorVariable": "color/focus/ring"
+          }
+        ],
+        "children": [
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "OUTSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          }
+        ]
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "ghost",
+          "size": "sm",
+          "state": "Disabled"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "ghost",
+          "size": "sm",
+          "state": "Loading"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "ghost",
+          "size": "sm",
+          "state": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "ghost",
+          "size": "md",
+          "state": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "ghost",
+          "size": "md",
+          "state": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "ghost",
+          "size": "md",
+          "state": "Focus"
+        },
+        "strokeAlign": "OUTSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 4,
+            "colorVariable": "color/focus/ring"
+          }
+        ],
+        "children": [
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "OUTSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          }
+        ]
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "ghost",
+          "size": "md",
+          "state": "Disabled"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "ghost",
+          "size": "md",
+          "state": "Loading"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "ghost",
+          "size": "md",
+          "state": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "ghost",
+          "size": "lg",
+          "state": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "ghost",
+          "size": "lg",
+          "state": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "ghost",
+          "size": "lg",
+          "state": "Focus"
+        },
+        "strokeAlign": "OUTSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 4,
+            "colorVariable": "color/focus/ring"
+          }
+        ],
+        "children": [
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "OUTSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          }
+        ]
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "ghost",
+          "size": "lg",
+          "state": "Disabled"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "ghost",
+          "size": "lg",
+          "state": "Loading"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "ghost",
+          "size": "lg",
+          "state": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "link",
+          "size": "sm",
+          "state": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "link",
+          "size": "sm",
+          "state": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "link",
+          "size": "sm",
+          "state": "Focus"
+        },
+        "strokeAlign": "OUTSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 4,
+            "colorVariable": "color/focus/ring"
+          }
+        ],
+        "children": [
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "OUTSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          }
+        ]
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "link",
+          "size": "sm",
+          "state": "Disabled"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "link",
+          "size": "sm",
+          "state": "Loading"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "link",
+          "size": "sm",
+          "state": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "link",
+          "size": "md",
+          "state": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "link",
+          "size": "md",
+          "state": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "link",
+          "size": "md",
+          "state": "Focus"
+        },
+        "strokeAlign": "OUTSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 4,
+            "colorVariable": "color/focus/ring"
+          }
+        ],
+        "children": [
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "OUTSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          }
+        ]
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "link",
+          "size": "md",
+          "state": "Disabled"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "link",
+          "size": "md",
+          "state": "Loading"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "link",
+          "size": "md",
+          "state": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "link",
+          "size": "lg",
+          "state": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "link",
+          "size": "lg",
+          "state": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "link",
+          "size": "lg",
+          "state": "Focus"
+        },
+        "strokeAlign": "OUTSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 4,
+            "colorVariable": "color/focus/ring"
+          }
+        ],
+        "children": [
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "OUTSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          }
+        ]
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "link",
+          "size": "lg",
+          "state": "Disabled"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "link",
+          "size": "lg",
+          "state": "Loading"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "link",
+          "size": "lg",
+          "state": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "destructive",
+          "size": "sm",
+          "state": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "destructive",
+          "size": "sm",
+          "state": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "destructive",
+          "size": "sm",
+          "state": "Focus"
+        },
+        "strokeAlign": "OUTSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 4,
+            "colorVariable": "color/focus/ringOnFill"
+          }
+        ],
+        "children": [
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "OUTSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          }
+        ]
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "destructive",
+          "size": "sm",
+          "state": "Disabled"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "destructive",
+          "size": "sm",
+          "state": "Loading"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "destructive",
+          "size": "sm",
+          "state": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "destructive",
+          "size": "md",
+          "state": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "destructive",
+          "size": "md",
+          "state": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "destructive",
+          "size": "md",
+          "state": "Focus"
+        },
+        "strokeAlign": "OUTSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 4,
+            "colorVariable": "color/focus/ringOnFill"
+          }
+        ],
+        "children": [
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "OUTSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          }
+        ]
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "destructive",
+          "size": "md",
+          "state": "Disabled"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "destructive",
+          "size": "md",
+          "state": "Loading"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "destructive",
+          "size": "md",
+          "state": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "destructive",
+          "size": "lg",
+          "state": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "destructive",
+          "size": "lg",
+          "state": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "destructive",
+          "size": "lg",
+          "state": "Focus"
+        },
+        "strokeAlign": "OUTSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 4,
+            "colorVariable": "color/focus/ringOnFill"
+          }
+        ],
+        "children": [
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "OUTSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          },
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          }
+        ]
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "destructive",
+          "size": "lg",
+          "state": "Disabled"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "destructive",
+          "size": "lg",
+          "state": "Loading"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "variant": "destructive",
+          "size": "lg",
+          "state": "Active"
+        }
+      }
+    ]
+  }
+}

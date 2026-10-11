@@ -188,6 +188,11 @@ function isFocusVariable(name) {
   return typeof name === 'string' && name.split('/').some((seg) => seg.trim().toLowerCase() === 'focus');
 }
 
+// A choice control may carry selection on its own axis instead of as a `selected`
+// value on the state axis: the sample's Checkbox has `checked: false | true |
+// indeterminate`. An axis with one of these names satisfies `selected`.
+const SELECTION_AXES = ['selected', 'checked', 'on'];
+
 const hasFocusStroke = (node) => (node.strokeVariables ?? []).some(isFocusVariable);
 
 function lacksRing(target, recipe, isInput) {
@@ -293,6 +298,7 @@ function withTable({ resolveArchetype, BASELINE_STATES, STATE_SYNONYMS, normaliz
       return { name, result: 'skip', detail: `"${expect.name}" is a ${archetype}, which owes no states beyond default` };
     }
     const present = new Set(entries.filter(([axis]) => fold(axis) === 'state').map(([, value]) => foldState(value)));
+    if (entries.some(([axis]) => SELECTION_AXES.includes(fold(axis)))) present.add('selected');
     const required = ['default', ...baseline];
     const missing = required.filter((s) => !present.has(foldState(s)));
     return missing.length
@@ -335,7 +341,7 @@ function withTable({ resolveArchetype, BASELINE_STATES, STATE_SYNONYMS, normaliz
     }
     return misses.length
       ? { name, result: 'fail', detail: misses.join('; ') }
-      : { name, result: 'pass', detail: `all ${variants.length} focus variants carry the ${recipe} ring` };
+      : { name, result: 'pass', detail: `all ${variants.length} focus variants carry a ${recipe}-recipe focus indicator` };
   }
 
   // Before anything is written: the matrix the spec asks for against the state table.

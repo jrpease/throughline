@@ -17,6 +17,14 @@ to [Semantic Versioning](https://semver.org).
   count check. A build that drifted from its spec used to pass if the spec was
   right.
 
+### Fixed
+
+- **A choice control can carry `selected` on its own axis in Figma.** 0.22.0
+  required a `selected` value on the `state` axis, so a Checkbox or Switch built
+  with a separate `checked: false | true` axis, as the sample file's are, failed
+  the state check. An axis named `selected`, `checked` or `on` now satisfies it.
+  Found in the live run.
+
 ### Changed
 
 - **The Figma stop conditions are one committed script.** The COMPONENT_SET,

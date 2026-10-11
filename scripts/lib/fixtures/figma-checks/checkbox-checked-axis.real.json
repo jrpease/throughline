@@ -1,0 +1,245 @@
+{
+  "covers": "live capture, Throughline Plugin Test Checkbox 12:499 (2026-10-11): selection on its own `checked` axis satisfies `selected`; the ring sits on the `box` control layer",
+  "expect": {
+    "name": "Checkbox",
+    "matrix": {
+      "state": [
+        "Disabled",
+        "Default",
+        "Hover",
+        "Focus",
+        "Active"
+      ],
+      "checked": [
+        "false",
+        "true",
+        "indeterminate"
+      ]
+    },
+    "uiFramework": "shadcn",
+    "controlLayer": "box"
+  },
+  "expected": {
+    "structural-read-back": "pass",
+    "state-baseline": "pass",
+    "focus-indicator": "pass"
+  },
+  "snapshot": {
+    "type": "COMPONENT_SET",
+    "variantGroupProperties": {
+      "state": {
+        "values": [
+          "Disabled",
+          "Default",
+          "Hover",
+          "Focus",
+          "Active"
+        ]
+      },
+      "checked": {
+        "values": [
+          "false",
+          "true",
+          "indeterminate"
+        ]
+      }
+    },
+    "children": [
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "state": "Disabled",
+          "checked": "false"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "state": "Disabled",
+          "checked": "true"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "state": "Disabled",
+          "checked": "indeterminate"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "state": "Default",
+          "checked": "false"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "state": "Default",
+          "checked": "true"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "state": "Default",
+          "checked": "indeterminate"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "state": "Hover",
+          "checked": "false"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "state": "Hover",
+          "checked": "true"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "state": "Hover",
+          "checked": "indeterminate"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "state": "Focus",
+          "checked": "false"
+        },
+        "strokeAlign": "INSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "effects": [],
+        "children": [
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [
+              "color/border/default"
+            ],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          }
+        ],
+        "controlLayer": {
+          "strokeAlign": "INSIDE",
+          "strokeVariables": [
+            "color/border/default"
+          ],
+          "strokeWeightBound": false,
+          "effects": [
+            {
+              "type": "DROP_SHADOW",
+              "visible": true,
+              "spread": 4,
+              "colorVariable": "color/focus/ring"
+            }
+          ],
+          "children": []
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "state": "Focus",
+          "checked": "true"
+        },
+        "strokeAlign": "INSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "effects": [],
+        "children": [
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [
+              "color/border/default"
+            ],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          }
+        ],
+        "controlLayer": {
+          "strokeAlign": "INSIDE",
+          "strokeVariables": [
+            "color/border/default"
+          ],
+          "strokeWeightBound": false,
+          "effects": [
+            {
+              "type": "DROP_SHADOW",
+              "visible": true,
+              "spread": 4,
+              "colorVariable": "color/focus/ring"
+            }
+          ],
+          "children": []
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "state": "Focus",
+          "checked": "indeterminate"
+        },
+        "strokeAlign": "INSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "effects": [],
+        "children": [
+          {
+            "strokeAlign": "INSIDE",
+            "strokeVariables": [
+              "color/border/default"
+            ],
+            "strokeWeightBound": false,
+            "layoutPositioning": "AUTO"
+          }
+        ],
+        "controlLayer": {
+          "strokeAlign": "INSIDE",
+          "strokeVariables": [
+            "color/border/default"
+          ],
+          "strokeWeightBound": false,
+          "effects": [
+            {
+              "type": "DROP_SHADOW",
+              "visible": true,
+              "spread": 4,
+              "colorVariable": "color/focus/ring"
+            }
+          ],
+          "children": []
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "state": "Active",
+          "checked": "false"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "state": "Active",
+          "checked": "true"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "state": "Active",
+          "checked": "indeterminate"
+        }
+      }
+    ]
+  }
+}

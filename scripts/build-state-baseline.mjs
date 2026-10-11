@@ -37,7 +37,9 @@ matches nothing owes no states.
 |---|---|---|
 ${rows.join('\n')}
 
-Every state in the table must be a value on the component's \`state\` axis. On the
+Every state in the table must be a value on the component's \`state\` axis, with one
+exception in Figma: a choice control may carry \`selected\` on its own axis named
+\`selected\`, \`checked\` or \`on\`. On the
 Figma side the matrix also carries \`default\` as the resting state; the CLI does not
 count it. ${aliases}, since that is what shadcn and Radix call it. Conditional states (\`loading\`, \`error\`, \`success\`) are not in the table:
 whether one applies is a design judgment.
