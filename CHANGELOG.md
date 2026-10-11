@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.23.0] — 2026-10-11
+
+The three Figma checks that can stop a build used to be paragraphs the model
+rewrote every run, in three places, with no test. Now they're one script, built
+from tested code, and both the executor and the inline build run it as written.
+The first live run on the sample file found a rule that was wrong, and it was
+0.22.0's: a Checkbox that keeps "checked" on its own axis failed for a state it
+had. That's fixed here too.
+
 ### Breaking
 
 - **Figma builds are now checked against what was built, not only the spec.**
@@ -1623,7 +1632,8 @@ components → Storybook on a pnpm + Turborepo + Next.js 16 + Tailwind v4 monore
 - Reference docs for coding level, manifest schema, sync adapters, Figma
   component standards, and brainstorm-before-build.
 
-[Unreleased]: https://github.com/jrpease/throughline/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/jrpease/throughline/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/jrpease/throughline/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/jrpease/throughline/compare/v0.21.4...v0.22.0
 [0.21.4]: https://github.com/jrpease/throughline/compare/v0.21.3...v0.21.4
 [0.21.3]: https://github.com/jrpease/throughline/compare/v0.21.2...v0.21.3

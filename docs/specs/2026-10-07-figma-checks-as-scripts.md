@@ -1,6 +1,6 @@
 # Figma stop conditions as committed scripts
 
-Status: planned
+Status: built
 Reviewed: 2026-10-09 — needs revision (second pass: built mode targeted the wrong node, controlLayer had no supplier, install leaked the checker). Revised: the owner settled Q20–Q27 and the Plan was amended to match.
 Date: 2026-10-07
 Backlog: #112, Phase 4¾
@@ -72,11 +72,11 @@ missed one.
 
 ## Open questions
 
-- **Will the reader fit the ~30 s `figma_execute` cap on a large set, such as
-  the 108-variant Button?** The reader resolves variable names only on focus
-  variants (Decisions), which bounds the cost. The live run measures it. If it
-  doesn't fit, split by variant the way builds already are. Unresolved until
-  measured.
+- None left from the design. The one it had, whether the reader fits the
+  ~30 s cap, was answered by the live run: the 108-variant Button reads in 25 ms.
+- **Raised by the live run, for #158:** the built Chip, Toggle and Switch passed
+  the focus check with rings nobody can see, because `color/focus/ring` sits too
+  close to the fills. The script checks that a ring exists, not that it's visible.
 
 ## Constraints the build follows
 
@@ -128,9 +128,16 @@ missed one.
   focus rule wrong on its first live run (2026-09-30); flaky binds that stuck on
   a re-run. No case of the model's read-back script itself being wrong.
 
-## Where it diverged
+## What shipped
 
-Steps 1–6 are built; Step 7 (the live run) is not, so Status stays `planned`.
+- `scripts/lib/figma-checks.mjs`: the pure checker and the focus-framework rules, with 25 fixtures, two of them live captures.
+- `scripts/lib/figma-checks-read.figma.js`: the Figma reader.
+- `scripts/build-figma-checks.mjs` → `references/figma-checks.md`, with `--check` in CI and release.
+- `scripts/lib/component-states.mjs`: import-free, so it inlines.
+- Prose: executor step 4, architect `controlLayer`, `figma-scripting.md`, standards items 8 and 9, component-builder's inline path, all pointing at the script, with `ci/figma-checks-pointers.test.mjs` holding them there.
+- `docs/notes/2026-10-11-figma-checks-live-run.md`: the Step 7 run.
+
+## Where it diverged
 
 - **A frame with no set is data, not a throw.** The plan had built mode throw
   when the `WIP:` frame held no COMPONENT_SET. That's the fabricated-DONE case
@@ -150,8 +157,15 @@ Steps 1–6 are built; Step 7 (the live run) is not, so Status stays `planned`.
   archetype resolves to `input`; the ring child needs ABSOLUTE + OUTSIDE, the
   outline recipe needs OUTSIDE only; a named `controlLayer` is the only place the
   ring is checked; duplicate combinations are reported.
-- **Unproven until Step 7:** whether `figma_execute` surfaces a top-level
-  `return` from the snippet. The doc-card precedent never uses one.
+- **A rule from 0.22.0 was wrong, and is fixed here.** The live run found the
+  sample's Checkbox and Switch carry selection on a `checked` axis and failed the
+  state check while correctly built. The owner settled it during the run (see the
+  Decisions row on `selected`), and the fix ships with this work.
+- **The live run read three existing sets, not one,** and built a fresh Switch
+  alongside Chip and Toggle, all into `WIP:` frames that were never finalized,
+  because the file already had a Switch. The section was removed afterwards.
+- **A top-level `return` works** in `figma_execute`, settling the one unknown
+  the plan carried into Step 7.
 
 ## Plan
 
