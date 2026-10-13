@@ -1,0 +1,112 @@
+{
+  "covers": "a translucent surface is skipped and counted; nothing compared is a skip",
+  "expect": {
+    "name": "Button",
+    "matrix": {
+      "variant": [
+        "primary"
+      ],
+      "state": [
+        "default",
+        "hover",
+        "focus",
+        "active",
+        "disabled"
+      ]
+    },
+    "uiFramework": "shadcn",
+    "surfaces": [
+      "color/bg/overlay"
+    ]
+  },
+  "snapshot": {
+    "type": "COMPONENT_SET",
+    "variantGroupProperties": {
+      "Variant": {
+        "values": [
+          "Primary"
+        ]
+      },
+      "State": {
+        "values": [
+          "Default",
+          "Hover",
+          "Focus",
+          "Active",
+          "Disabled"
+        ]
+      }
+    },
+    "children": [
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Focus"
+        },
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 3,
+            "colorVariable": "color/focus/ring"
+          }
+        ],
+        "strokeAlign": "INSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "children": []
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Disabled"
+        }
+      }
+    ],
+    "colors": {
+      "color/focus/ring": {
+        "modes": {
+          "Light": "#169c46",
+          "Dark": "#1db954"
+        },
+        "defaultMode": "Light"
+      },
+      "color/bg/overlay": {
+        "modes": {
+          "Default": "#ffffff80"
+        },
+        "defaultMode": "Default"
+      }
+    },
+    "missingSurfaces": []
+  },
+  "expected": {
+    "structural-read-back": "pass",
+    "state-baseline": "pass",
+    "focus-indicator": "pass",
+    "focus-contrast": "skip"
+  }
+}

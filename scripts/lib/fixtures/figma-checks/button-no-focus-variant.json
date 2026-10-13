@@ -66,6 +66,7 @@
   "expected": {
     "structural-read-back": "pass",
     "state-baseline": "fail",
-    "focus-indicator": "fail"
+    "focus-indicator": "fail",
+    "focus-contrast": "skip"
   }
 }

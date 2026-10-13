@@ -1,0 +1,169 @@
+{
+  "covers": "sample 2026-10-13: ring and ringOnFill variants on color/bg/canvas clear 3:1 in both modes",
+  "expect": {
+    "name": "Button",
+    "matrix": {
+      "variant": [
+        "primary",
+        "secondary"
+      ],
+      "state": [
+        "default",
+        "hover",
+        "focus",
+        "active",
+        "disabled"
+      ]
+    },
+    "uiFramework": "shadcn",
+    "surfaces": [
+      "color/bg/canvas"
+    ]
+  },
+  "snapshot": {
+    "type": "COMPONENT_SET",
+    "variantGroupProperties": {
+      "Variant": {
+        "values": [
+          "Primary",
+          "Secondary"
+        ]
+      },
+      "State": {
+        "values": [
+          "Default",
+          "Hover",
+          "Focus",
+          "Active",
+          "Disabled"
+        ]
+      }
+    },
+    "children": [
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Focus"
+        },
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 3,
+            "colorVariable": "color/focus/ringOnFill"
+          }
+        ],
+        "strokeAlign": "INSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "children": []
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Disabled"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Secondary",
+          "State": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Secondary",
+          "State": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Secondary",
+          "State": "Focus"
+        },
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 3,
+            "colorVariable": "color/focus/ring"
+          }
+        ],
+        "strokeAlign": "INSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "children": []
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Secondary",
+          "State": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Secondary",
+          "State": "Disabled"
+        }
+      }
+    ],
+    "colors": {
+      "color/focus/ring": {
+        "modes": {
+          "Light": "#169c46",
+          "Dark": "#1db954"
+        },
+        "defaultMode": "Light"
+      },
+      "color/focus/ringOnFill": {
+        "modes": {
+          "Light": "#242424",
+          "Dark": "#f9f9f9"
+        },
+        "defaultMode": "Light"
+      },
+      "color/bg/canvas": {
+        "modes": {
+          "Light": "#ffffff",
+          "Dark": "#181818"
+        },
+        "defaultMode": "Light"
+      }
+    },
+    "missingSurfaces": []
+  },
+  "expected": {
+    "structural-read-back": "pass",
+    "state-baseline": "pass",
+    "focus-indicator": "pass",
+    "focus-contrast": "pass"
+  }
+}

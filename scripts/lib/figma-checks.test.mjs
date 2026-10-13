@@ -4,8 +4,18 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { FRAMEWORKS, withTable } from './figma-checks.mjs';
 import { resolveArchetype, BASELINE_STATES, STATE_SYNONYMS } from './component-states.mjs';
 import { normalizeName } from './source-scan.mjs';
+import { contrastRatio, composite, parseHex, AA_NON_TEXT } from './contrast.mjs';
 
-const { checkSpec, checkBuilt } = withTable({ resolveArchetype, BASELINE_STATES, STATE_SYNONYMS, normalizeName });
+const { checkSpec, checkBuilt } = withTable({
+  resolveArchetype,
+  BASELINE_STATES,
+  STATE_SYNONYMS,
+  normalizeName,
+  contrastRatio,
+  composite,
+  parseHex,
+  AA_NON_TEXT,
+});
 
 const DIR = new URL('./fixtures/figma-checks/', import.meta.url);
 const fixtures = Object.fromEntries(
@@ -33,7 +43,7 @@ for (const [file, fx] of Object.entries(fixtures)) {
     const res = checkBuilt(fx.snapshot, fx.expect);
     assert.deepEqual(
       res.checks.map((c) => c.name),
-      ['structural-read-back', 'state-baseline', 'focus-indicator'],
+      ['structural-read-back', 'state-baseline', 'focus-indicator', 'focus-contrast'],
     );
     assert.deepEqual(
       Object.fromEntries(res.checks.map((c) => [c.name, c.result])),
@@ -203,4 +213,84 @@ test('a selection axis satisfies selected; no selection at all still fails', () 
     assert.equal(byName(res, 'state-baseline').result, 'pass', axis);
   }
   assert.equal(byName(checkSpec({ name: 'Chip', matrix: { state: states, tone: ['a', 'b'] } }), 'state-baseline').result, 'fail');
+});
+
+// focus-contrast: the details say which pair failed, in which mode, at what ratio.
+test('focus-contrast: names the failing mode only, at the measured ratio', () => {
+  const fx = fixtures['zygarden-ring-light-fails'];
+  const check = byName(checkBuilt(fx.snapshot, fx.expect), 'focus-contrast');
+  assert.equal(check.detail, 'color/stroke/focus on color/bg/canvas in Light: 2.37:1, needs 3:1');
+});
+
+test('focus-contrast: compares raw and prints rounded down, so 2.997 fails as 2.99', () => {
+  const fx = fixtures['sample-ring-on-muted-raw'];
+  const check = byName(checkBuilt(fx.snapshot, fx.expect), 'focus-contrast');
+  assert.equal(check.result, 'fail');
+  assert.match(check.detail, /color\/focus\/ring on color\/bg\/muted in Light: 2\.99:1/);
+  assert.doesNotMatch(check.detail, /Dark/);
+});
+
+test('focus-contrast: every ring the variants bind is compared, in every mode', () => {
+  const fx = fixtures['sample-ring-passes'];
+  assert.equal(byName(checkBuilt(fx.snapshot, fx.expect), 'focus-contrast').detail, '4 ring/surface pair(s) clear 3:1 across 2 mode(s)');
+});
+
+test('focus-contrast: a single-mode side reads its one value in every mode of the other', () => {
+  for (const [file, modes] of [['surface-single-mode', 2], ['ring-single-mode', 2]]) {
+    const fx = fixtures[file];
+    assert.equal(byName(checkBuilt(fx.snapshot, fx.expect), 'focus-contrast').detail, `${modes} ring/surface pair(s) clear 3:1 across ${modes} mode(s)`, file);
+  }
+});
+
+test('focus-contrast: a translucent ring is composited over the surface before comparing', () => {
+  const fx = clone(fixtures['ring-translucent']);
+  assert.match(byName(checkBuilt(fx.snapshot, fx.expect), 'focus-contrast').detail, /in Default: 1\.6\d:1/);
+  fx.snapshot.colors['color/focus/ring'].modes.Default = '#00000080';
+  assert.equal(byName(checkBuilt(fx.snapshot, fx.expect), 'focus-contrast').result, 'pass');
+});
+
+test('focus-contrast: skips say why', () => {
+  const missing = byName(checkBuilt(fixtures['surface-missing'].snapshot, fixtures['surface-missing'].expect), 'focus-contrast');
+  assert.equal(missing.detail, 'no local colour variable named: color/bg/canvsa');
+  const translucent = byName(checkBuilt(fixtures['surface-translucent'].snapshot, fixtures['surface-translucent'].expect), 'focus-contrast');
+  assert.match(translucent.detail, /2 skipped for a translucent surface/);
+  const noSurfaces = byName(checkBuilt(fixtures['button-shadcn-filled'].snapshot, fixtures['button-shadcn-filled'].expect), 'focus-contrast');
+  assert.match(noSurfaces.detail, /no surfaces named/);
+  const noRing = byName(checkBuilt(fixtures['indicator-failed'].snapshot, fixtures['indicator-failed'].expect), 'focus-contrast');
+  assert.match(noRing.detail, /focus-indicator did not pass/);
+});
+
+test('focus-contrast: a ring on the control layer is the one measured', () => {
+  const fx = clone(fixtures['input-control-layer']);
+  fx.expect.surfaces = ['color/bg/canvas'];
+  const layerRing = fx.snapshot.children.find((c) => c.controlLayer).controlLayer;
+  const ringName = layerRing.effects?.find((e) => e.colorVariable)?.colorVariable ?? layerRing.children.find((c) => c.strokeVariables?.length)?.strokeVariables[0];
+  fx.snapshot.colors = { [ringName]: { modes: { Default: '#eeeeee' }, defaultMode: 'Default' }, 'color/bg/canvas': { modes: { Default: '#ffffff' }, defaultMode: 'Default' } };
+  fx.snapshot.missingSurfaces = [];
+  assert.match(byName(checkBuilt(fx.snapshot, fx.expect), 'focus-contrast').detail, new RegExp(`${ringName} on color/bg/canvas in Default`));
+});
+
+test('focus-contrast: the outline and mui recipes hand their ring to the contrast check', () => {
+  const surface = { 'color/bg/canvas': { modes: { Default: '#ffffff' }, defaultMode: 'Default' } };
+  for (const file of ['button-vanilla-outside', 'input-mui']) {
+    const fx = clone(fixtures[file]);
+    assert.equal(byName(checkBuilt(fx.snapshot, fx.expect), 'focus-indicator').result, 'pass', file);
+    const rings = new Set();
+    for (const c of fx.snapshot.children) {
+      for (const n of [c, ...(c.children ?? [])]) for (const v of n.strokeVariables ?? []) rings.add(v);
+    }
+    fx.expect.surfaces = ['color/bg/canvas'];
+    fx.snapshot.missingSurfaces = [];
+    fx.snapshot.colors = { ...surface, ...Object.fromEntries([...rings].map((r) => [r, { modes: { Default: '#eeeeee' }, defaultMode: 'Default' }])) };
+    const check = byName(checkBuilt(fx.snapshot, fx.expect), 'focus-contrast');
+    assert.equal(check.result, 'fail', `${file}: ${check.detail}`);
+    assert.match(check.detail, /on color\/bg\/canvas in Default: 1\.\d\d:1/);
+  }
+});
+
+test('focus-contrast: two single-mode sides with different mode names compare once', () => {
+  const fx = clone(fixtures['ring-translucent']);
+  fx.snapshot.colors['color/focus/ring'].modes = { Default: '#000000' };
+  fx.snapshot.colors['color/bg/canvas'] = { modes: { 'Mode 1': '#ffffff' }, defaultMode: 'Mode 1' };
+  assert.equal(byName(checkBuilt(fx.snapshot, fx.expect), 'focus-contrast').detail, '1 ring/surface pair(s) clear 3:1 across 1 mode(s)');
 });

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   AA_NORMAL_TEXT,
+  AA_NON_TEXT,
   CONTRAST_PAIRS,
   contrastRatio,
   parseHex,
@@ -57,4 +58,8 @@ test('CONTRAST_PAIRS: has 8 entries, all at AA_NORMAL_TEXT, none touching disabl
     assert.ok(!pair.fg.toLowerCase().includes('disabled'));
     assert.ok(typeof pair.why === 'string' && pair.why.length > 0);
   }
+});
+
+test('AA_NON_TEXT is WCAG 1.4.11\'s 3:1', () => {
+  assert.equal(AA_NON_TEXT, 3);
 });

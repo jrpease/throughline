@@ -1,0 +1,113 @@
+{
+  "covers": "Zygarden 2026-10-13: color/stroke/focus on color/bg/canvas is 2.378:1 in Light, passes in Dark",
+  "expect": {
+    "name": "Button",
+    "matrix": {
+      "variant": [
+        "primary"
+      ],
+      "state": [
+        "default",
+        "hover",
+        "focus",
+        "active",
+        "disabled"
+      ]
+    },
+    "uiFramework": "shadcn",
+    "surfaces": [
+      "color/bg/canvas"
+    ]
+  },
+  "snapshot": {
+    "type": "COMPONENT_SET",
+    "variantGroupProperties": {
+      "Variant": {
+        "values": [
+          "Primary"
+        ]
+      },
+      "State": {
+        "values": [
+          "Default",
+          "Hover",
+          "Focus",
+          "Active",
+          "Disabled"
+        ]
+      }
+    },
+    "children": [
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Focus"
+        },
+        "effects": [
+          {
+            "type": "DROP_SHADOW",
+            "visible": true,
+            "spread": 3,
+            "colorVariable": "color/stroke/focus"
+          }
+        ],
+        "strokeAlign": "INSIDE",
+        "strokeVariables": [],
+        "strokeWeightBound": false,
+        "children": []
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Active"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "Variant": "Primary",
+          "State": "Disabled"
+        }
+      }
+    ],
+    "colors": {
+      "color/stroke/focus": {
+        "modes": {
+          "Light": "#14b8d4",
+          "Dark": "#22d3ee"
+        },
+        "defaultMode": "Light"
+      },
+      "color/bg/canvas": {
+        "modes": {
+          "Light": "#ffffff",
+          "Dark": "#070a10"
+        },
+        "defaultMode": "Light"
+      }
+    },
+    "missingSurfaces": []
+  },
+  "expected": {
+    "structural-read-back": "pass",
+    "state-baseline": "pass",
+    "focus-indicator": "pass",
+    "focus-contrast": "fail"
+  }
+}

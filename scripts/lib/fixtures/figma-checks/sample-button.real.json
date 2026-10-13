@@ -30,7 +30,8 @@
   "expected": {
     "structural-read-back": "pass",
     "state-baseline": "pass",
-    "focus-indicator": "pass"
+    "focus-indicator": "pass",
+    "focus-contrast": "skip"
   },
   "snapshot": {
     "type": "COMPONENT_SET",

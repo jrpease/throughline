@@ -38,6 +38,7 @@
   "expected": {
     "structural-read-back": "pass",
     "state-baseline": "skip",
-    "focus-indicator": "skip"
+    "focus-indicator": "skip",
+    "focus-contrast": "skip"
   }
 }

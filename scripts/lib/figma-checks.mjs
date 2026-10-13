@@ -1,26 +1,35 @@
 // The Figma stop conditions as a pure checker: the COMPONENT_SET assertion against
-// the full variant matrix, the state matrix, and the focus ring. ZERO imports,
+// the full variant matrix, the state matrix, the focus ring, and the focus ring's
+// contrast against the surfaces it sits on. ZERO imports,
 // `export const`/`export function` only. This module is inlined, with
-// component-states.mjs above it, into the generated Figma script
+// component-states.mjs and contrast.mjs above it, into the generated Figma script
 // (references/figma-checks.md) by build-figma-checks.mjs, so it must run in both
 // Node and the Figma plugin sandbox.
 //
 // The state table is not imported. `withTable({ resolveArchetype, BASELINE_STATES,
-// STATE_SYNONYMS, normalizeName })` takes it, and the fold, from the caller and
-// returns { checkSpec, checkBuilt }. In the generated script the caller passes the
+// STATE_SYNONYMS, normalizeName, contrastRatio, composite, parseHex, AA_NON_TEXT })`
+// takes it, the fold and the contrast maths from the caller and returns
+// { checkSpec, checkBuilt }. In the generated script the caller passes the
 // inlined component-states.mjs names; in tests it passes the module's own exports.
 //
 // Spec: docs/specs/2026-10-07-figma-checks-as-scripts.md
 // Rules: references/figma-component-standards.md (State handling; audit items 8, 9)
 //
-// EXPECT: { name, matrix: { axis: [values] }, uiFramework, controlLayer? }
+// Spec (focus contrast): docs/specs/2026-10-13-focus-ring-contrast.md
+//
+// EXPECT: { name, matrix: { axis: [values] }, uiFramework, controlLayer?, surfaces? }
+//   surfaces: colour-variable names of the page surfaces the component sits on.
 //
 // SNAPSHOT (what the reader returns for the COMPONENT_SET in `WIP: <name>`):
 //   {
 //     type,                               // the set's node type, 'COMPONENT_SET'
 //     variantGroupProperties: { Axis: { values: [...] }, ... },   // only the keys are read
-//     children: [ VARIANT, ... ]
+//     children: [ VARIANT, ... ],
+//     colors: { [variableName]: { modes: { [modeName]: '#rrggbb' | '#rrggbbaa' | null }, defaultMode } },
+//     missingSurfaces: [name, ...]          // EXPECT.surfaces names with no local colour variable
 //   }
+//   `colors` holds every colour variable read on focus variants and their
+//   controlLayer, plus each EXPECT.surfaces name that was found.
 //   VARIANT (every child):  { type, variantProperties: { Axis: 'Value' } }
 //   A VARIANT whose state value folds to `focus` also carries FOCUS NODE fields
 //   (below), plus `controlLayer` when EXPECT names one.
@@ -36,6 +45,8 @@
 //   Variable names are resolved by the reader and only for focus variants and their controlLayer.
 //
 // RESULT: { pass, checks: [{ name, result: 'pass' | 'fail' | 'skip', detail }] }
+//   built mode returns four checks: structural-read-back, state-baseline,
+//   focus-indicator, focus-contrast.
 //   `pass` ignores skips. A failed assertion is data; nothing here throws.
 
 // The in-scope `uiFramework` values and the focus recipe each one uses. An absent or
@@ -102,7 +113,34 @@ function lacksRing(target, recipe, isInput) {
       ];
 }
 
-export function withTable({ resolveArchetype, BASELINE_STATES, STATE_SYNONYMS, normalizeName }) {
+// The focus-variable names that make up the ring `lacksRing` accepted, for the
+// contrast check. Same recipes, same tests.
+function ringVariables(target, recipe, isInput) {
+  const children = target.children ?? [];
+  const focusStrokes = (node) => (node.strokeVariables ?? []).filter(isFocusVariable);
+  if (recipe === 'mui' && isInput) return focusStrokes(target);
+  if (recipe === 'outline') {
+    return [target, ...children].filter((n) => n.strokeAlign === 'OUTSIDE').flatMap(focusStrokes);
+  }
+  const shadows = (target.effects ?? [])
+    .filter((e) => e.type === 'DROP_SHADOW' && e.visible !== false && e.spread > 0 && isFocusVariable(e.colorVariable))
+    .map((e) => e.colorVariable);
+  const ringChildren = children
+    .filter((c) => c.layoutPositioning === 'ABSOLUTE' && c.strokeAlign === 'OUTSIDE')
+    .flatMap(focusStrokes);
+  return [...shadows, ...ringChildren];
+}
+
+export function withTable({
+  resolveArchetype,
+  BASELINE_STATES,
+  STATE_SYNONYMS,
+  normalizeName,
+  contrastRatio,
+  composite,
+  parseHex,
+  AA_NON_TEXT,
+}) {
   const fold = normalizeName;
   const foldState = (value) => {
     const name = fold(value);
@@ -121,6 +159,10 @@ export function withTable({ resolveArchetype, BASELINE_STATES, STATE_SYNONYMS, n
       .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
       .map(([k, v]) => `${k}=${v}`)
       .join(', ');
+
+  const isFocusVariant = (child) =>
+    child.type === 'COMPONENT' &&
+    Object.entries(child.variantProperties ?? {}).some(([k, v]) => fold(k) === 'state' && fold(v) === 'focus');
 
   function crossProduct(matrix) {
     let combos = [{}];
@@ -199,9 +241,6 @@ export function withTable({ resolveArchetype, BASELINE_STATES, STATE_SYNONYMS, n
     if (recipe === null) {
       return { name, result: 'skip', detail: `uiFramework "${expect.uiFramework}" is out of scope for the focus check` };
     }
-    const isFocusVariant = (child) =>
-      child.type === 'COMPONENT' &&
-      Object.entries(child.variantProperties ?? {}).some(([k, v]) => fold(k) === 'state' && fold(v) === 'focus');
     const variants = (snapshot.children ?? []).filter(isFocusVariant);
     if (variants.length === 0) {
       return { name, result: 'fail', detail: 'no COMPONENT variant has a state of focus, so no ring can be read; the state check stops on this' };
@@ -224,6 +263,100 @@ export function withTable({ resolveArchetype, BASELINE_STATES, STATE_SYNONYMS, n
       : { name, result: 'pass', detail: `all ${variants.length} focus variants carry a ${recipe}-recipe focus indicator` };
   }
 
+  // WCAG 1.4.11: each ring colour against each named surface, in every mode either
+  // side has. Runs only on a ring focusIndicator accepted.
+  function focusContrast(snapshot, expect, indicator) {
+    const name = 'focus-contrast';
+    if (indicator.result !== 'pass') {
+      return { name, result: 'skip', detail: 'focus-indicator did not pass, so there is no ring to measure' };
+    }
+    const surfaces = expect.surfaces ?? [];
+    if (surfaces.length === 0) {
+      return {
+        name,
+        result: 'skip',
+        detail: 'no surfaces named; the architect names the colour variables of the surfaces the component sits on',
+      };
+    }
+    const missing = snapshot.missingSurfaces ?? [];
+    if (missing.length) {
+      return { name, result: 'fail', detail: `no local colour variable named: ${missing.join(', ')}` };
+    }
+
+    const recipe = frameworkRecipe(expect.uiFramework);
+    const isInput = resolveArchetype({ name: expect.name }) === 'input';
+    const hasLayer = expect.controlLayer !== undefined && expect.controlLayer !== null;
+    const rings = new Set();
+    for (const variant of (snapshot.children ?? []).filter(isFocusVariant)) {
+      const target = hasLayer ? variant.controlLayer : variant;
+      if (target) for (const ring of ringVariables(target, recipe, isInput)) rings.add(ring);
+    }
+
+    const colors = snapshot.colors ?? {};
+    // A mode's value: the same-named mode after the fold, else the default.
+    const valueIn = (entry, foldedMode) => {
+      const modes = entry?.modes ?? {};
+      const hit = Object.keys(modes).find((m) => fold(m) === foldedMode);
+      if (hit !== undefined) return modes[hit];
+      return entry?.defaultMode !== undefined ? modes[entry.defaultMode] ?? null : null;
+    };
+    const skipped = { unresolved: 0, translucentSurface: 0 };
+    const failures = [];
+    const modesSeen = new Set();
+    let pairs = 0;
+    for (const ring of [...rings].sort()) {
+      for (const surface of [...surfaces].sort()) {
+        const ringEntry = colors[ring];
+        const surfaceEntry = colors[surface];
+        // Modes come from the side(s) with more than one: a single-mode collection
+        // reads the same value in every mode, so its own mode name adds nothing.
+        // When both are single-mode, the ring's one mode is the only comparison.
+        const entries = [ringEntry, surfaceEntry];
+        const multi = entries.filter((e) => Object.keys(e?.modes ?? {}).length > 1);
+        const single = Object.keys(ringEntry?.modes ?? {}).length ? [ringEntry] : [surfaceEntry];
+        const modeNames = new Map();
+        for (const entry of multi.length ? multi : single) {
+          for (const m of Object.keys(entry?.modes ?? {})) if (!modeNames.has(fold(m))) modeNames.set(fold(m), m);
+        }
+        if (modeNames.size === 0) {
+          skipped.unresolved += 1;
+          continue;
+        }
+        for (const [foldedMode, mode] of [...modeNames].sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))) {
+          const ringHex = valueIn(ringEntry, foldedMode);
+          const surfaceHex = valueIn(surfaceEntry, foldedMode);
+          const surfaceParsed = parseHex(surfaceHex);
+          if (parseHex(ringHex) === null || surfaceParsed === null) {
+            skipped.unresolved += 1;
+            continue;
+          }
+          if (surfaceParsed.a < 1) {
+            skipped.translucentSurface += 1;
+            continue;
+          }
+          const surfaceOpaque = surfaceHex.slice(0, 7);
+          const ratio = contrastRatio(composite(ringHex, surfaceOpaque), surfaceOpaque);
+          pairs += 1;
+          modesSeen.add(foldedMode);
+          if (ratio < AA_NON_TEXT) {
+            const shown = (Math.floor(ratio * 100) / 100).toFixed(2);
+            failures.push(`${ring} on ${surface} in ${mode}: ${shown}:1, needs ${AA_NON_TEXT}:1`);
+          }
+        }
+      }
+    }
+    const skipNote = [
+      skipped.unresolved && `${skipped.unresolved} skipped as unresolved or not a colour`,
+      skipped.translucentSurface && `${skipped.translucentSurface} skipped for a translucent surface`,
+    ].filter(Boolean);
+    if (failures.length) return { name, result: 'fail', detail: failures.join('; ') };
+    if (pairs === 0) {
+      return { name, result: 'skip', detail: `no ring/surface pair could be compared: ${skipNote.join(', ') || 'no ring colour found'}` };
+    }
+    const passed = `${pairs} ring/surface pair(s) clear ${AA_NON_TEXT}:1 across ${modesSeen.size} mode(s)`;
+    return { name, result: 'pass', detail: skipNote.length ? `${passed}; ${skipNote.join(', ')}` : passed };
+  }
+
   // Before anything is written: the matrix the spec asks for against the state table.
   function checkSpec(expect) {
     const entries = Object.entries(expect.matrix ?? {}).flatMap(([axis, values]) => values.map((v) => [axis, v]));
@@ -233,7 +366,13 @@ export function withTable({ resolveArchetype, BASELINE_STATES, STATE_SYNONYMS, n
   // After the build: the node as read.
   function checkBuilt(snapshot, expect) {
     const entries = (snapshot.children ?? []).flatMap((c) => Object.entries(c.variantProperties ?? {}));
-    return result([structural(snapshot, expect), stateBaseline(expect, entries), focusIndicator(snapshot, expect)]);
+    const indicator = focusIndicator(snapshot, expect);
+    return result([
+      structural(snapshot, expect),
+      stateBaseline(expect, entries),
+      indicator,
+      focusContrast(snapshot, expect, indicator),
+    ]);
   }
 
   return { checkSpec, checkBuilt };

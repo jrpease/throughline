@@ -6,6 +6,8 @@
 // MAINTENANCE: a change to the semantic role set must change this table.
 
 export const AA_NORMAL_TEXT = 4.5;
+// WCAG 1.4.11 non-text contrast, used by the Figma `focus-contrast` check.
+export const AA_NON_TEXT = 3;
 
 // `text/disabled` is excluded: WCAG 1.4.3 exempts inactive user-interface
 // components from the contrast minimum, and a disabled role is deliberately
@@ -15,8 +17,9 @@ export const AA_NORMAL_TEXT = 4.5;
 // questions) — a system is free to use those roles for non-text surfaces, so
 // pairing them risks the first false failures in the table.
 //
-// `border/*` needs the 3:1 non-text threshold (WCAG 1.4.11) and is a separate
-// table; this one is text-on-surface only.
+// This table is text-on-surface only. Focus-ring contrast, the 3:1 non-text case
+// (WCAG 1.4.11), is checked in the Figma checks (`figma-checks.mjs`,
+// `focus-contrast`), where the build knows which ring sits on which surface.
 //
 // One threshold is applied to every pair because a colour role does not say
 // what text size it is used at — `text/primary` is body copy as well as
