@@ -118,17 +118,22 @@ const SCALE_UTILITY =
 // Sizing the gate doesn't read: an arbitrary size that isn't a variable, and a
 // width or height declaration with a raw length (percentages are layout).
 const RAW_SIZE = [
-  /(?<![\w-])(?:[\w-]+:)*(?:w|h|size|min-w|min-h|max-w|max-h)-\[(?!var\()[^\]\s]+\]/g,
+  /(?<![\w-])(?:[\w-]+:)*(?:w|h|size|min-w|min-h|max-w|max-h)-\[(?!var\()(?!\d+(?:\.\d+)?(?:%|[dsl]?v[hw])\])[^\]\s]+\]/g,
   /(?<![\w-])(?:min-?|max-?)?(?:width|height|[wW]idth|[hH]eight)\s*:\s*['"]?-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em)?(?![\w%.])/g,
 ];
 const NATIVE_CONTROL = /<(button|input|select|textarea)\b/g;
-// Every import: named, default, namespace, type-only or side-effect.
-const ANY_IMPORT = /^\s*import\s+(?:[^'";]*?\s+from\s+)?['"]([^'"]+)['"]/gm;
+// Every module reference: a static import (named, default, namespace,
+// type-only, side-effect), a re-export, a dynamic import() and a require().
+const ANY_IMPORT = [
+  /^\s*(?:import|export)\s+(?:[^'";]*?\s+from\s+)?['"]([^'"]+)['"]/gm,
+  /(?<![\w$.])(?:import|require)\s*\(\s*['"]([^'"]+)['"]/g,
+];
 const REACT = /^react(?:-dom)?(?:\/.*)?$/;
 
 const lineOf = (text, i) => text.slice(0, i).split('\n').length;
 
 export function gateFile({ file, text, plan, manifest, index, tokenDicts, pkg }) {
+  const marked = readMarker(text);
   const extracted = extract(text, pkg, file);
   const r = validate({
     built: manifest?.components?.built ?? [],
@@ -145,16 +150,19 @@ export function gateFile({ file, text, plan, manifest, index, tokenDicts, pkg })
   const failures = r.failures.filter((f) => f.rule !== 'variant-rule-inert');
   const advisories = [...r.advisories, ...r.failures.filter((f) => f.rule === 'variant-rule-inert')];
 
+  // Without the marker, the next run treats this file as a person's.
+  if (marked !== plan?.screen) failures.push({ rule: 'marker', written: marked || '(none)', expected: plan?.screen, file, line: 1 });
+
   for (const l of extracted.literals) failures.push({ rule: 'raw-value', written: l.value, file, line: l.line });
   for (const d of extracted.dimensions) failures.push({ rule: 'raw-value', written: d.written, file, line: d.line });
 
   const code = blankComments(text, file);
   for (const re of RAW_SIZE) for (const m of code.matchAll(re)) failures.push({ rule: 'raw-value', written: m[0], file, line: lineOf(code, m.index) });
   for (const m of code.matchAll(SCALE_UTILITY)) failures.push({ rule: 'scale-utility', written: m[0], file, line: lineOf(code, m.index) });
-  for (const m of code.matchAll(ANY_IMPORT)) {
+  for (const re of ANY_IMPORT) for (const m of code.matchAll(re)) {
     const from = m[1];
     if (from === pkg || from.startsWith(`${pkg}/`) || REACT.test(from)) continue;
-    failures.push({ rule: 'off-plan', written: `import from '${from}'`, file, line: lineOf(code, m.index + m[0].indexOf('import')) });
+    failures.push({ rule: 'off-plan', written: `import from '${from}'`, file, line: lineOf(code, m.index + m[0].search(/\S/)) });
   }
   for (const m of code.matchAll(NATIVE_CONTROL)) failures.push({ rule: 'off-plan', written: `<${m[1]}>`, file, line: lineOf(code, m.index) });
 
@@ -169,6 +177,7 @@ export function gateFile({ file, text, plan, manifest, index, tokenDicts, pkg })
 }
 
 const COMPOSER_RULES = {
+  marker: (f) => `${f.file} is marked for ${f.written}, not "${f.expected}" — its first line (second after a directive) must be ${COMPOSED_MARKER(f.expected)}`,
   'raw-value': (f) => `${f.written} at ${f.file}:${f.line} — write a token variable, not a raw value`,
   'scale-utility': (f) => `${f.written} at ${f.file}:${f.line} — Tailwind's default scale, not a token; use a token variable (\`-[var(--…)]\`)`,
   'off-plan': (f) => f.written.startsWith('import')
@@ -240,10 +249,16 @@ function main() {
     process.exit(res.ok ? 0 : 1);
   }
 
+  // The gate holds a file to a plan check accepts, never to a rejected one.
+  const checked = checkPlan(plan, inventory);
+  if (!checked.ok) {
+    console.error(`the plan doesn't check: ${checked.errors.map((e) => `${e.kind} at ${e.path}`).join(', ')}. Run check and fix it first.`);
+    process.exit(2);
+  }
   const r = gateFile({
     file: values.file,
     text: read(values.file, 'the screen file', false),
-    plan: checkPlan(plan, inventory).plan ?? plan,
+    plan: checked.plan,
     manifest,
     index,
     tokenDicts: values.tokens.map((f) => read(f, 'a token source')),

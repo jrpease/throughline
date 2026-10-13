@@ -31,9 +31,14 @@ The first live run caught me out. A fresh agent pulled an arrow icon from
     written as your token variables or the utilities your preset generates from
     them. A raw hex fails even when no token matches it, and so does Tailwind's
     own `gap-4` or `text-lg`, since those are Tailwind's numbers, not yours.
-  - **Nothing off the plan.** A hand-built `<button>`, a component the plan didn't
-    list, or an import from anywhere but your system's package and React fails
-    the gate. That last one is the icon the live run caught.
+  - **Nothing off the plan.** A hand-built `<button>` or `<input>`, a component
+    from your package the plan didn't list, or an import from anywhere but your
+    system's package and React fails the gate. That last one is the icon the live
+    run caught. A lookalike built from plain `div`s still gets past it, so the
+    command tells the agent never to build one.
+
+  The gate also checks the file's first line, which marks it as composed for
+  this screen.
 
   It never overwrites a file a person wrote. A re-run replaces a file only when
   its first line marks it as composed for the same screen. A failing file gets

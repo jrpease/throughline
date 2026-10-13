@@ -24,7 +24,9 @@ rather than re-asking them. Scale explanation to `user.codingLevel`.
    Its components, with their variant axes, values, states, `whenToUse` and
    `whenNotToUse`, are the only components the screen may use. Read a listed
    component's own source for its prop names and exported sub-parts
-   (`CardHeader`); the inventory records neither. Token variable names come from
+   (`CardHeader`); the inventory records neither. Find it by resolving the
+   package specifier: a workspace package in a monorepo, or the app's
+   `node_modules` otherwise. Token variable names come from
    the system's generated CSS (the file its styles import), and the utilities
    from its Tailwind preset; read both.
 5. **Plan.** Write the plan as JSON to a scratch file:
@@ -41,7 +43,9 @@ rather than re-asking them. Scale explanation to `user.codingLevel`.
    from the repo root. If it returns errors, nothing has been written: fix the
    plan (a `missing-component` error goes back to the user as in step 5) and check
    again. A `name-taken` error means the file at that path wasn't composed for
-   this screen: ask for another path, or for the user to move that file. Write
+   this screen: ask for another path, or for the user to move that file. A
+   re-run replaces an earlier composed file only when the screen name matches
+   its marker exactly, so reuse the name as written. Write
    the variant values in the casing the returned plan uses.
 7. **Write.** Put the marker `// Composed by throughline: <screen>.` on the first
    line, or on the second after a `'use client'` directive. Import components only
@@ -53,8 +57,12 @@ rather than re-asking them. Scale explanation to `user.codingLevel`.
    (`gap-[var(--space-gap-md)]`, `style={{ padding: 'var(--space-4)' }}`) or the
    utilities the system's preset generates from tokens (`bg-primary`,
    `rounded-md`). Never a raw value, and never Tailwind's default scale
-   (`gap-4`, `text-lg`, `font-semibold`). Percentages, fractions and `w-full`
-   are layout and fine. A size no token holds (a 400px card) can't be bound:
+   (`gap-4`, `text-lg`, `font-semibold`). Percentages, viewport units,
+   fractions (`w-1/2`) and keywords (`w-full`) are layout and fine. The gate
+   reads class names anywhere in the file, so visible copy that spells one
+   (`text-sm`) fails too; reword the copy rather than the rule. The gate can't
+   see a lookalike built from plain elements (a `div` with `role="switch"`), so
+   that one is yours to refuse. A size no token holds (a 400px card) can't be bound:
    use a fraction or a keyword and say so in the report. Handlers are stubs; data and state are the app's.
 8. **Gate.** Run the script with
    `gate --system <dir> --package <spec> --plan <plan file> --file <screen file>`,

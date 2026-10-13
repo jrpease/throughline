@@ -71,13 +71,15 @@ one-off.
   fail its token-backed `gap-4`. Throughline's own preset doesn't generate one, so
   v1 flags every default-scale utility. Recommendation: read the preset's theme
   keys when a real system needs it.
-- **Re-checking the marker at write time.** Figma's `finalize` re-checks because
-  the file can change between calls. Here the agent checks, then writes seconds
-  later. Recommendation: leave it; `gate` is run on the written file anyway.
+- **A lookalike built from plain elements.** `off-plan` catches four lowercase
+  controls, package components and foreign imports, but not a `div` with
+  `role="switch"` or a component defined in the same file. Recommendation: flag
+  interactive `role` attributes and local capitalised components when a real
+  screen does it; until then it rests on the command's prose.
 
 ## What shipped
 
-- `scripts/compose-code.mjs` and `scripts/compose-code.test.mjs`: `inventory`, `check`, `gate`, with the marker, plan resolution (casing, sub-parts) and the three composer rules. 18 tests, each rule mutation-checked by hand.
+- `scripts/compose-code.mjs` and `scripts/compose-code.test.mjs`: `inventory`, `check`, `gate`, with the marker, plan resolution (casing, sub-parts) and the three composer rules. 19 tests, each rule mutation-checked by hand.
 - `commands/compose-code.md`, with adapters regenerated.
 - `scripts/install.mjs`: `lib/figma-compose.mjs` leaves `PLUGIN_INTERNAL`, and `install.test.mjs` asserts both files install.
 - `scripts/README.md` rows, the README paragraph, the CHANGELOG 0.27.0 entry, and the version bump.
@@ -88,6 +90,7 @@ one-off.
 - **`off-plan` also flags imports.** The agent-driven run imported `ArrowRight` from `lucide-react`, and the gate passed it. Now any import other than the system's package (and its subpaths) and React is `off-plan`, relative imports included. The Decisions row described only elements and components.
 - **The command's prose gained five things the run lacked:** repeated `--tokens`, where token variable names and preset utilities live, suggesting alternatives by `whenToUse` rather than the spelling-based `nearest`, a size no token holds, and mounting in an app with no router.
 - **The live run's screen sits in a card about a third of the window wide, not 400px.** The sample has no sizing token, so a fixed width can't be bound; the composer approximates and reports it, as the command now says.
+- **The whole-branch review added three gate checks.** `gate` now fails a file whose marker is missing or names another screen (the Open question about re-checking at write time assumed it already did), refuses a plan `check` would reject (exit 2), and reads re-exports, `import()` and `require()` as imports. Relative arbitrary sizes (`w-[50%]`, `h-[100dvh]`) pass, as the prose already said.
 - **Icons are a gap on the sample.** `@ds/ui` doesn't re-export the Lucide icons Button's icon slots take, so the Figma screen's arrow has no code equivalent.
 
 ## Plan
@@ -96,7 +99,7 @@ one-off.
 
 Files: `scripts/compose-code.mjs`, `scripts/compose-code.test.mjs`, `scripts/install.mjs` (`lib/figma-compose.mjs` leaves `PLUGIN_INTERNAL`), `scripts/install.test.mjs` (drop its assertion for that entry; add `compose-code.mjs` and `lib/figma-compose.mjs` to the must-install list)
 Change: Pure exports:
-- `COMPOSED_MARKER(screen)` and `readMarker(text)` → the screen name or `null`; the marker is accepted on line 1, or line 2 after a directive string.
+- `COMPOSED_MARKER(screen)` and `readMarker(text)` → the screen name or `''`; the marker is accepted on line 1, or line 2 after a directive string.
 - `codeInventory({ manifest, index, pkg })` → `{ package, components: [{ name, documented, summary, whenToUse, whenNotToUse, variants: { axis: [values] }, states }] }`, built from `components.built` joined to `index.json` by `normalizeName`.
 - `checkPlan(plan, inventory, { existing })`, where `plan = { screen, file, components: [{ name, variants? }] }` and `existing` is `null` or the marker's screen name (`''` for an unmarked file) → `{ ok, errors, plan }`, where `plan` carries each component's record name and variants in the record's casing. Errors and kinds as in Decisions; paths like `components[2].variants.size`.
 - `gateFile({ file, text, plan, manifest, index, tokenDicts, pkg })` → the gate's `validate` result for that file with `variant-rule-inert` moved to advisories, plus `raw-value`, `scale-utility` and `off-plan` failures with line numbers.

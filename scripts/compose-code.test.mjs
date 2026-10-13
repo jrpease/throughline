@@ -129,7 +129,7 @@ test('gate: default-scale utilities fail; token utilities, var(), keywords and f
 });
 
 test('gate: a raw size the gate does not read is a raw value; a percentage is not', () => {
-  const r = gate(screen('      <div className="w-[320px] md:max-w-[40rem]" style={{ width: 320, minHeight: \'2rem\', maxWidth: \'100%\' }} />'));
+  const r = gate(screen('      <div className="w-[320px] md:max-w-[40rem] w-[50%] h-[100dvh] min-h-[100vh]" style={{ width: 320, minHeight: \'2rem\', maxWidth: \'100%\' }} />'));
   assert.deepEqual(r.failures.filter((f) => f.rule === 'raw-value').map((f) => f.written),
     ['w-[320px]', 'md:max-w-[40rem]', 'width: 320', "minHeight: '2rem"]);
 });
@@ -154,6 +154,15 @@ test('gate: imports from anywhere but the system package and React are off-plan'
   const text = screen('').replace("import {", `import * as React from 'react';\nimport { createPortal } from 'react-dom';\nimport type { FC } from 'react';\nimport '@ds/ui/styles';\nimport { ArrowRight } from 'lucide-react';\nimport Local from './Local';\nimport {`);
   assert.deepEqual(gate(text).failures.map((f) => [f.rule, f.written]),
     [['off-plan', "import from 'lucide-react'"], ['off-plan', "import from './Local'"]]);
+  const more = screen('').replace('export function', `export { Grid } from 'grid-lib';\nconst L = await import('lodash');\nconst R = require('react-router-dom');\nconst D = require('react-dom');\nexport function`);
+  assert.deepEqual(gate(more).failures.map((f) => f.written),
+    ["import from 'grid-lib'", "import from 'lodash'", "import from 'react-router-dom'"]);
+});
+
+test('gate: the file must carry the marker for the plan\'s screen', () => {
+  assert.deepEqual(gate(screen('').replace(COMPOSED_MARKER('Sign in'), '// mine')).failures.map((f) => [f.rule, f.written]), [['marker', '(none)']]);
+  assert.deepEqual(gate(screen('').replace(COMPOSED_MARKER('Sign in'), COMPOSED_MARKER('Sign up'))).failures.map((f) => [f.rule, f.written]), [['marker', 'Sign up']]);
+  assert.equal(gate(`'use client';\n${screen('')}`).ok, true);
 });
 
 test('gate: a sub-part of a planned component is on plan', () => {
@@ -193,6 +202,10 @@ test('CLI: check reads the marker of the file at the plan\'s path, and gate exit
   writeFileSync(join(dir, 'SignIn.tsx'), screen(''));
   assert.equal(run('gate', '--plan', 'plan.json', '--file', 'SignIn.tsx', '--tokens', 'tokens.json').status, 0);
   assert.equal(run('gate', '--plan', 'plan.json', '--file', 'SignIn.tsx').status, 2);
+  writeFileSync(join(dir, 'bad.json'), JSON.stringify({ ...goodPlan, components: [{ name: 'DatePicker' }] }));
+  const bad = run('gate', '--plan', 'bad.json', '--file', 'SignIn.tsx', '--tokens', 'tokens.json');
+  assert.equal(bad.status, 2);
+  assert.match(bad.stderr, /missing-component/);
   assert.equal(run('inventory').status, 0);
 
   // gate resolves the plan itself, so a listed part admits its siblings.
