@@ -564,6 +564,11 @@ async function variableColors(variable) {
 // whole description resolves. Every choice of key, value and variable is made by
 // the unit-tested resolveScreen; this file only applies its plan. Untested in Node
 // beyond the generator's fake-Figma test.
+// Awaits are few and fixed, not per node: every font the screen needs is loaded
+// in one batch before writing, and every text style is applied in one batch
+// after. Live on 2026-10-13, a build awaiting per text layer stalled after about
+// twenty awaits and timed out; the bridge then resumed it only when later calls
+// arrived (references/figma-scripting.md, "Pass an explicit timeout").
 //
 // Entry point: runCompose(MODE, SPEC), MODE one of
 //   'inventory' SPEC = { componentsPage, iconsPage? }               → { summary }
@@ -643,7 +648,12 @@ async function composeReadInventory(spec) {
     }
     variables.push({ name: variable.name, id: variable.id, kinds });
   }
-  const textStyles = (await figma.getLocalTextStylesAsync()).map((s) => ({ name: s.name, id: s.id }));
+  const styleNodes = new Map();
+  const textStyles = [];
+  for (const style of await figma.getLocalTextStylesAsync()) {
+    styleNodes.set(style.id, style);
+    textStyles.push({ name: style.name, id: style.id });
+  }
   const collectionNodes = new Map();
   const collections = [];
   for (const collection of await figma.variables.getLocalVariableCollectionsAsync()) {
@@ -652,7 +662,7 @@ async function composeReadInventory(spec) {
   }
   return {
     inventory: { sets, components, variables, textStyles, collections, target: null },
-    live: { setNodes, variableNodes, collectionNodes },
+    live: { setNodes, variableNodes, collectionNodes, styleNodes, styled: [] },
   };
 }
 
@@ -703,18 +713,40 @@ function composeStyleFrame(frame, plan, live) {
   if (plan.radius) for (const corner of COMPOSE_CORNERS) frame.setBoundVariable(corner, v(plan.radius));
 }
 
-async function composeLoadFonts(text) {
-  if (text.fontName !== figma.mixed) return figma.loadFontAsync(text.fontName);
-  const fonts = text.getRangeAllFontNames(0, text.characters.length);
-  await Promise.all(fonts.map((f) => figma.loadFontAsync(f)));
+const composeFontKey = (f) => `${f.family}\u0000${f.style}`;
+
+// Every font the plan can touch: each text style it uses, every text layer in
+// each component set it places (any variant can be switched to), and Inter
+// Regular, which a new text node starts in.
+function composeFontsFor(plan, live) {
+  const fonts = new Map([[composeFontKey({ family: 'Inter', style: 'Regular' }), { family: 'Inter', style: 'Regular' }]]);
+  const add = (f) => fonts.set(composeFontKey(f), { family: f.family, style: f.style });
+  const seenSets = new Set();
+  const walk = (node) => {
+    if (!node) return;
+    if (node.type === 'text') add(live.styleNodes.get(node.styleId).fontName);
+    if (node.type === 'component' && !seenSets.has(node.setId)) {
+      seenSets.add(node.setId);
+      for (const text of live.setNodes.get(node.setId).findAll((n) => n.type === 'TEXT')) {
+        if (text.fontName !== figma.mixed) add(text.fontName);
+        else for (const f of text.getRangeAllFontNames(0, text.characters.length)) add(f);
+      }
+    }
+    for (const child of node.children || []) walk(child);
+    for (const slot of node.slots || []) slot.nodes.forEach(walk);
+  };
+  walk(plan.root);
+  return [...fonts.values()];
 }
 
-async function composeNode(plan, parent, live) {
+// Synchronous: fonts are already loaded, and text styles are applied afterwards
+// in one batch from live.styled.
+function composeNode(plan, parent, live) {
   if (plan.type === 'frame') {
     const frame = figma.createFrame();
     parent.appendChild(frame);
     composeStyleFrame(frame, plan, live);
-    for (const child of plan.children) await composeNode(child, frame, live);
+    for (const child of plan.children) composeNode(child, frame, live);
     composeSizing(frame, plan.sizing);
     return frame;
   }
@@ -722,13 +754,10 @@ async function composeNode(plan, parent, live) {
     const text = figma.createText();
     parent.appendChild(text);
     text.name = plan.name;
-    const style = await figma.getStyleByIdAsync(plan.styleId);
-    await figma.loadFontAsync(style.fontName);
-    // Style before characters: a new text node is Inter Regular until styled.
-    await text.setTextStyleIdAsync(plan.styleId);
     text.characters = plan.characters;
     text.fills = [composeBoundPaint(live.variableNodes.get(plan.color))];
     composeSizing(text, plan.sizing);
+    live.styled.push([text, plan.styleId]);
     return text;
   }
   const set = live.setNodes.get(plan.setId);
@@ -736,19 +765,15 @@ async function composeNode(plan, parent, live) {
   parent.appendChild(instance);
   instance.name = plan.name;
   // Variant first: switching variant can swap the text layers the TEXT props drive.
+  // Variant first: switching variant can swap the text layers the TEXT props drive.
   if (Object.keys(plan.variantProps).length) instance.setProperties(plan.variantProps);
-  for (const key of Object.keys(plan.otherProps)) {
-    if (typeof plan.otherProps[key] !== 'string') continue;
-    const driven = instance.findAll((n) => n.type === 'TEXT' && n.componentPropertyReferences && n.componentPropertyReferences.characters === key);
-    for (const text of driven) await composeLoadFonts(text);
-  }
   if (Object.keys(plan.otherProps).length) instance.setProperties(plan.otherProps);
   for (const slotPlan of plan.slots) {
     const slot = instance.findAll((n) => n.type === 'SLOT')
       .find((n) => n.componentPropertyReferences && n.componentPropertyReferences.slotContentId === slotPlan.key);
     if (!slot) throw new Error(`no slot ${slotPlan.key} on ${set.name}`);
     for (const placeholder of [...slot.children]) placeholder.remove();
-    for (const child of slotPlan.nodes) await composeNode(child, slot, live);
+    for (const child of slotPlan.nodes) composeNode(child, slot, live);
   }
   composeSizing(instance, plan.sizing);
   return instance;
@@ -766,6 +791,7 @@ async function composeBuild(spec) {
   const resolved = resolveScreen(d, inventory);
   if (!resolved.ok) return { ok: false, errors: resolved.errors };
   const plan = resolved.plan;
+  await Promise.all(composeFontsFor(plan, live).map((f) => figma.loadFontAsync(f)));
   if (!page) {
     page = figma.createPage();
     page.name = plan.page;
@@ -786,7 +812,8 @@ async function composeBuild(spec) {
   for (const { collectionId, modeId } of plan.modes) {
     root.setExplicitVariableModeForCollection(live.collectionNodes.get(collectionId), modeId);
   }
-  for (const child of plan.root.children) await composeNode(child, root, live);
+  for (const child of plan.root.children) composeNode(child, root, live);
+  await Promise.all(live.styled.map(([text, styleId]) => text.setTextStyleIdAsync(styleId)));
   return { ok: true, wipId: root.id, wipName, link: composeLink(spec.fileKey || figma.fileKey, root.id), ms: Date.now() - started };
 }
 

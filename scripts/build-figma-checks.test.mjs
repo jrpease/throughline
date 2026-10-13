@@ -266,8 +266,7 @@ function fakeComposeFigma({ screens = [] } = {}) {
     createText: () => node('TEXT'),
     createPage: () => { const p = node('PAGE', { loadAsync: async () => {} }); root.appendChild(p); return p; },
     loadFontAsync: async (f) => log.push(`font ${f.family} ${f.style}`),
-    getLocalTextStylesAsync: async () => [{ id: 'S:1', name: 'Heading/L' }],
-    getStyleByIdAsync: async () => ({ fontName: { family: 'Inter', style: 'Bold' } }),
+    getLocalTextStylesAsync: async () => [{ id: 'S:1', name: 'Heading/L', fontName: { family: 'Inter', style: 'Bold' } }],
     variables: {
       getLocalVariablesAsync: async () => vars,
       getLocalVariableCollectionsAsync: async () => [{ id: 'C:1', name: 'Color / Semantic', modes: [{ name: 'Light', modeId: 'M:2' }] }],
@@ -276,7 +275,7 @@ function fakeComposeFigma({ screens = [] } = {}) {
   };
   // Text nodes take a style through an async setter.
   const createText = figma.createText;
-  figma.createText = () => { const t = createText(); t.setTextStyleIdAsync = async (id) => { t.textStyleId = id; log.push(`style before characters: ${t.characters === undefined}`); }; return t; };
+  figma.createText = () => { const t = createText(); t.setTextStyleIdAsync = async (id) => { t.textStyleId = id; log.push(`style ${id}`); }; return t; };
   return figma;
 }
 
@@ -312,14 +311,18 @@ test('compose build: writes a marked WIP frame with bound values and the props i
   assert.equal(text.characters, 'Welcome');
   assert.deepEqual(text.fills.map((f) => f.bound), ['color/bg/canvas']);
   assert.equal(instance.type, 'INSTANCE');
-  const calls = figma.log.filter((l) => l.startsWith('setProperties') || l.startsWith('style') || l.startsWith('mode'));
-  assert.deepEqual(calls, [
+  // One batch of fonts before any write (the text style's, the set's, and the
+  // Inter Regular a new text node starts in), variant props before the rest, and
+  // text styles applied once everything is placed.
+  assert.deepEqual(figma.log, [
+    'font Inter Regular',
+    'font Inter Bold',
+    'font Inter Medium',
     'mode Color / Semantic=M:2',
-    'style before characters: true',
     'setProperties {"variant":"secondary"}',
     'setProperties {"label#1:1":"Go","hasIcon#1:2":true}',
+    'style S:1',
   ]);
-  assert.ok(figma.log.indexOf('font Inter Medium') < figma.log.indexOf('setProperties {"label#1:1":"Go","hasIcon#1:2":true}'));
   assert.equal(result.link, `https://www.figma.com/design/TEST?node-id=${wip.id.replace(':', '-')}`);
 });
 
