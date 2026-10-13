@@ -8,8 +8,11 @@
 //   references/figma-adherence.md — the screen adherence gate: the pure checker
 //     (lib/figma-adherence.mjs), then lib/figma-variables-read.figma.js and the
 //     screen reader (lib/figma-adherence-read.figma.js).
-// Mirrors build-doc-card-builder.mjs: run bare to write both, run with --check to
-// gate CI on both. Zero dependencies.
+//   references/figma-compose.md — screen composition: lib/figma-adherence.mjs (for
+//     dimensionBuckets), the pure resolver (lib/figma-compose.mjs),
+//     lib/figma-variables-read.figma.js, then the writer (lib/figma-compose.figma.js).
+// Mirrors build-doc-card-builder.mjs: run bare to write all three, run with --check
+// to gate CI on all three. Zero dependencies.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -22,8 +25,11 @@ const READER = join(REPO_ROOT, 'scripts', 'lib', 'figma-checks-read.figma.js');
 const VARIABLES = join(REPO_ROOT, 'scripts', 'lib', 'figma-variables-read.figma.js');
 const ADHERENCE = join(REPO_ROOT, 'scripts', 'lib', 'figma-adherence.mjs');
 const ADHERENCE_READER = join(REPO_ROOT, 'scripts', 'lib', 'figma-adherence-read.figma.js');
+const COMPOSE = join(REPO_ROOT, 'scripts', 'lib', 'figma-compose.mjs');
+const COMPOSE_WRITER = join(REPO_ROOT, 'scripts', 'lib', 'figma-compose.figma.js');
 const OUT = join(REPO_ROOT, 'references', 'figma-checks.md');
 const ADHERENCE_OUT = join(REPO_ROOT, 'references', 'figma-adherence.md');
+const COMPOSE_OUT = join(REPO_ROOT, 'references', 'figma-compose.md');
 
 const BIND = 'const { checkSpec, checkBuilt, checkExisting } = withTable({ resolveArchetype, BASELINE_STATES, STATE_SYNONYMS, normalizeName, contrastRatio, composite, parseHex, AA_NON_TEXT });';
 
@@ -143,6 +149,69 @@ const ADHERENCE_HEADER = [
   '```js',
 ].join('\n');
 
+const COMPOSE_HEADER = [
+  '# Figma screen composition (GENERATED)',
+  '',
+  '> **GENERATED FILE — do not edit by hand.** Sources: `scripts/lib/figma-adherence.mjs`',
+  '> (for `dimensionBuckets`), `scripts/lib/figma-compose.mjs` (the pure resolver,',
+  '> unit-tested in Node), `scripts/lib/figma-variables-read.figma.js` +',
+  '> `scripts/lib/figma-compose.figma.js` (the reader and writer). Regenerate with',
+  '> `node scripts/build-figma-checks.mjs`; CI gates freshness with `--check`.',
+  '',
+  'The canonical `figma_execute` snippet that composes a screen from the file\'s own',
+  'component sets, variables and text styles. A screen is a short JSON description',
+  'written only in those names (the shape is documented at the top of the snippet).',
+  'The whole description is checked before anything is written: an unknown component,',
+  'property, option, variable or text style, a variable of the wrong kind, or a name',
+  'already held by a screen a person made, comes back as a list of errors and the file',
+  'is untouched. A component the file lacks is a `missing-component` error with the',
+  'nearest names: report it as a gap, never draw a lookalike. Every value the script',
+  'writes is bound to a variable. The script is the rule; do not re-write it by hand.',
+  '',
+  '## How to call it',
+  '',
+  '1. Paste the snippet below into `figma_execute` with `timeout: 30000`, and end it',
+  '   with `return await runCompose(MODE, SPEC);`, one mode per call:',
+  '   - `\'inventory\'`, `SPEC = { componentsPage, iconsPage }`: read-only. Returns',
+  '     `{ summary }`: each set\'s properties and options, swap targets, variables by',
+  '     kind (colour, gap, radius), text styles and modes. Plan only from these names.',
+  '     `iconsPage` is optional; pass it when a swap property needs its targets.',
+  '   - `\'build\'`, `SPEC = { componentsPage, iconsPage, description, fileKey }`:',
+  '     returns `{ ok: false, errors }` with nothing written, or builds the screen into',
+  '     a top-level frame `WIP: <screen>` on the description\'s page (created if',
+  '     missing) and returns `{ ok: true, wipId, wipName, link, ms }`.',
+  '   - `\'finalize\'`, `SPEC = { page, screen, fileKey }`: renames `WIP: <screen>` to',
+  '     `<screen>`, replacing a screen of that name only if throughline composed it.',
+  '     Returns `{ id, link, replaced }`.',
+  '   - `\'discard\'`, `SPEC = { page, screen }`: removes `WIP: <screen>`. Only when',
+  '     the user asks.',
+  '2. Between `build` and `finalize`, run the screen gate',
+  '   (`references/figma-adherence.md`) with `screens: [\'WIP: <screen>\']`. Finalize',
+  '   only a passing screen. A failure is a composer bug: report it and leave the',
+  '   `WIP:` frame.',
+  '3. Pages are found by exact name, or else the one page whose trimmed name matches.',
+  '   Only the named pages are loaded. Components and variables are the file\'s local',
+  '   ones.',
+  '',
+  '```js',
+  'const MODE = \'build\';',
+  'const SPEC = { componentsPage: \'Components\', iconsPage: \'Icons\', fileKey: \'<figma.fileKey>\', description: {',
+  '  screen: \'Sign in\', page: \'Screens\', width: 390, modes: { \'Color / Semantic\': \'Light\' },',
+  '  root: { layout: \'vertical\', gap: \'space/gap/md\', padding: \'space/inset/lg\', fill: \'color/bg/canvas\', children: [',
+  '    { text: \'Sign in\', style: \'Heading/L\', color: \'color/text/primary\' },',
+  '    { component: \'Input\', props: { placeholder: \'Email\' }, sizing: { horizontal: \'fill\' } },',
+  '    { component: \'Button\', props: { label: \'Sign in\', hasTrailing: true, trailingIcon: \'icon/arrow-right\' } },',
+  '  ] },',
+  '} };',
+  '// … the generated snippet …',
+  'return await runCompose(MODE, SPEC);',
+  '```',
+  '',
+  '## The snippet',
+  '',
+  '```js',
+].join('\n');
+
 const FOOTER = ['```', ''].join('\n');
 
 const stripExports = (src) =>
@@ -170,6 +239,13 @@ export function buildFigmaAdherence({ checkerSource, variablesSource, readerSour
   return `${ADHERENCE_HEADER}\n${checker}\n${variablesSource}\n${readerSource}${FOOTER}`;
 }
 
+export function buildFigmaCompose({ adherenceSource, composeSource, variablesSource, writerSource }) {
+  const adherence = stripExports(adherenceSource);
+  const compose = stripExports(composeSource);
+  assertInlinable([['figma-adherence.mjs', adherence], ['figma-compose.mjs', compose], ['figma-variables-read.figma.js', variablesSource], ['figma-compose.figma.js', writerSource]]);
+  return `${COMPOSE_HEADER}\n${adherence}\n${compose}\n${variablesSource}\n${writerSource}${FOOTER}`;
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const result = buildFigmaChecks({
     statesSource: readFileSync(STATES, 'utf8'),
@@ -183,9 +259,16 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     variablesSource: readFileSync(VARIABLES, 'utf8'),
     readerSource: readFileSync(ADHERENCE_READER, 'utf8'),
   });
+  const compose = buildFigmaCompose({
+    adherenceSource: readFileSync(ADHERENCE, 'utf8'),
+    composeSource: readFileSync(COMPOSE, 'utf8'),
+    variablesSource: readFileSync(VARIABLES, 'utf8'),
+    writerSource: readFileSync(COMPOSE_WRITER, 'utf8'),
+  });
   const outputs = [
     [OUT, result, 'references/figma-checks.md', 'figma checks'],
     [ADHERENCE_OUT, adherence, 'references/figma-adherence.md', 'figma adherence'],
+    [COMPOSE_OUT, compose, 'references/figma-compose.md', 'figma compose'],
   ];
   if (process.argv.includes('--check')) {
     let stale = false;

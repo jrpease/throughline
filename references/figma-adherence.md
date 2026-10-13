@@ -345,6 +345,15 @@ function overriddenRecords(instance, path, underDetached) {
   return records;
 }
 
+// The SLOT nodes that belong to this instance, not to an instance nested in it.
+function slotsOf(instance) {
+  return instance.findAll((n) => n.type === 'SLOT').filter((slot) => {
+    let owner = slot.parent;
+    while (owner && owner.type !== 'INSTANCE') owner = owner.parent;
+    return owner === instance;
+  });
+}
+
 function screensOn(page, names) {
   const all = [];
   for (const top of page.children) {
@@ -405,6 +414,14 @@ async function readScreens(target) {
     if (node.visible === false) return;
     if (node.type === 'INSTANCE') {
       nodes.push(...overriddenRecords(node, path, insideDetached));
+      // Content added to a slot is the screen's own, and isn't listed in
+      // instance.overrides. A slot's placeholder children keep instance-sublayer
+      // ids ('I…;…') and stay part of the component.
+      for (const slot of slotsOf(node)) {
+        for (const child of slot.children) {
+          if (!String(child.id).startsWith('I')) walk(child, `${path} / ${slot.name} / ${child.name}`, false, insideDetached);
+        }
+      }
       return;
     }
     const mixedPaints = node.fills === figma.mixed;

@@ -164,6 +164,8 @@ test('skipScript excludes plugin-internal scripts, adapters and tests', () => {
   assert.ok(skipScript('lib/figma-variables-read.figma.js'), 'read only by the generator');
   assert.ok(skipScript('lib/figma-adherence.mjs'), 'inlined into the generated reference, imported by nothing downstream');
   assert.ok(skipScript('lib/figma-adherence-read.figma.js'), 'read only by the generator');
+  assert.ok(skipScript('lib/figma-compose.mjs'), 'inlined into the generated reference, imported by nothing downstream');
+  assert.ok(skipScript('lib/figma-compose.figma.js'), 'read only by the generator');
   assert.ok(skipScript('lib/fixtures/figma-checks/shadcn-button.json'), 'test fixtures stay in the plugin');
   assert.ok(skipScript('docs-check.test.mjs'), 'tests stay in the plugin');
   assert.ok(skipScript('adapters/generate.mjs'), 'adapters have their own target');

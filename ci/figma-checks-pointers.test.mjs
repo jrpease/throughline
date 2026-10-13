@@ -69,6 +69,13 @@ test('check-figma runs both generated scripts, and the existing-set mode', () =>
   assert.ok(command.includes("MODE = 'existing'"));
 });
 
+test('compose-figma runs the generated compose script and gates with the screen gate', () => {
+  const command = read('commands/compose-figma.md');
+  assert.ok(command.includes('references/figma-compose.md'));
+  assert.ok(command.includes('references/figma-adherence.md'));
+  assert.ok(command.includes("MODE = 'finalize'"));
+});
+
 test('the pointer target exists', () => {
   assert.ok(read(POINTER).includes('## How to call it'));
 });

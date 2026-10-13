@@ -1,7 +1,7 @@
 # Compose a screen in Figma from library components
 
 Status: planned
-Reviewed: 2026-10-13 — needs revision (finalize/marker and WIP-collision gaps, variant picking in untested code, text-prop fonts, reviewer can't find a screen, sizing vocabulary, gate retry loop retried the unfixable, slot placeholders, late name collision, live-run honesty). Revised the same day after two more probes on the sample; every finding is addressed.
+Reviewed: 2026-10-13 — needs revision (finalize/marker and WIP-collision gaps, variant picking in untested code, text-prop fonts, reviewer can't find a screen, sizing vocabulary, gate retry loop retried the unfixable, slot placeholders, late name collision, live-run honesty). Revised the same day after two more probes on the sample. Re-reviewed: all of those resolved; needs revision narrowly (text-node order, how a SLOT is matched to its property, WIP marker at finalize, page lookup). Revised again; every finding is addressed.
 Date: 2026-10-13
 Backlog: #112, Phase 5 — #42
 Builds on: `docs/specs/2026-10-13-figma-adherence-gate.md` (the screen gate this runs before handing a screen over), `docs/specs/2026-10-07-figma-checks-as-scripts.md` (the generated-script machinery)
@@ -112,6 +112,11 @@ removed temporary components and instances on the Cover page.
   `instance.overrides`. Placeholder children have instance-sublayer ids
   (`I439:1282;439:1281`); appended ones don't (`439:1289`). A default slot has
   layout NONE, and setting `layoutSizingHorizontal = 'FILL'` inside it throws.
+- On Zygarden's `SurfaceCard`, the SLOT node in the default variant carries
+  `componentPropertyReferences: { slotContentId: 'Body#591:25' }`, the slot
+  property's key. That is how a SLOT node is matched to its property.
+- `figma_capture_screenshot` takes a `nodeId` argument (its tool schema), so the
+  reviewer can screenshot one screen.
 - Variant probe on the sample: a Button instance from `defaultVariant`
   (`variant=default, size=sm`) switched to `secondary, lg` by `setProperties`;
   `hasTrailing` and `trailingIcon` (given `icon/arrow-right`'s component id) set
@@ -198,6 +203,9 @@ Change: not a Node module. Takes `MODE` and `SPEC`:
 - `'inventory'` — `SPEC = { componentsPage, iconsPage? }`. Loads only those pages;
   reads COMPONENT_SETs and standalone COMPONENTs with `findAllWithCriteria`;
   local variables tagged by kind (COLOR → `colour`; FLOAT → `dimensionBuckets`);
+  for each SLOT property, `slotLayout` from the SLOT node in the set's
+  `defaultVariant` whose `componentPropertyReferences.slotContentId` is that
+  property's key;
   local text styles; collections and modes. Returns the INVENTORY, plus a compact
   `summary` (sets with prop names and options) for the planner to read.
 - `'build'` — `SPEC = { componentsPage, iconsPage?, description, fileKey }`. Reads
@@ -211,17 +219,24 @@ Change: not a Node module. Takes `MODE` and `SPEC`:
   instances via `set.defaultVariant.createInstance()`, then
   `setProperties(variantProps)`, then the Constraints' font loading for TEXT
   props, then `setProperties(otherProps)`; slot content appended to the
-  instance's SLOT (found by `componentPropertyReferences.slotContentId` equal to
-  the prop key) after removing its default children; sizing set after a node is
-  appended to its parent; text with its style's font loaded, `characters`, then
-  `setTextStyleIdAsync` and a bound fill. Applies `modes` on the root. Returns
+  instance's SLOT (among `findAllWithCriteria({ types: ['SLOT'] })` on the
+  instance, the one whose `componentPropertyReferences.slotContentId` equals the
+  prop key; this tells two slots in one set apart) after removing its default
+  children; sizing set after a node is
+  appended to its parent; text: load the style's font, `setTextStyleIdAsync`,
+  then `characters` (`createText()` starts as Inter Regular, so writing
+  characters first throws when that font isn't loaded; `references/figma-scripting.md`
+  says the same), then a bound fill. Applies `modes` on the root. Returns
   `{ wipId, wipName, link, ms }`.
 - `'finalize'` — `SPEC = { page, screen, fileKey }`. Finds `WIP: <screen>` (exactly
-  one; throws otherwise). If a top-level frame named `<screen>` exists: marked →
+  one, and marked; throws otherwise, since the file can change between calls). If a top-level frame named `<screen>` exists: marked →
   take its x/y and remove it; unmarked → throw naming the collision, leaving the
   WIP frame. Renames. Returns `{ id, link, replaced }`.
-- `'discard'` — `SPEC = { page, screen }`. Removes a marked `WIP: <screen>`; run
-  only when the user asks.
+- `'discard'` — `SPEC = { page, screen }`. Removes a marked `WIP: <screen>`, and
+  throws on an unmarked one; run only when the user asks.
+- Every mode finds a page by its exact name, else the one page whose trimmed name
+  matches (as the gate's `findPage`, which isn't inlined here, so the writer has
+  its own under a different name). Collection and mode names fold, in the resolver.
 Async APIs only; never `mainComponent`; never `getNodeByIdAsync` in a loop (ids
 come from the inventory and are resolved through the loaded page).
 Verify: exercised by Step 4's fake-Figma test and Step 6's live run.
@@ -303,7 +318,7 @@ Checkbox, and a Button with a trailing icon swap; gate it; finalize; screenshot.
 Then: re-run to confirm a marked screen is replaced in place; draw an unmarked
 frame named "Sign up", compose a "Sign up" screen, and confirm `build` returns
 `name-taken` with nothing written; ask for a `DatePicker` and confirm
-`missing-component` with nothing written. Once, dispatch a fresh agent to drive
+`missing-component` with nothing written; then remove the "Sign up" frame. Once, dispatch a fresh agent to drive
 `/throughline:compose-figma` end to end from `commands/compose-figma.md` for a
 small second screen, and record whether it followed the command without help; if
 this isn't done, the note says so. Record each `figma_execute` call's time. For slots, create a temporary `TMP Panel` component with a `Body` slot

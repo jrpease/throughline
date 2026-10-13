@@ -102,8 +102,8 @@ function stagePayload(srcRoot, destRoot, skip) {
 // Scripts that never run from a consuming repo: the installer itself, the
 // reference-doc generators, and the Figma sources they inline (the doc-card
 // renderer and the Figma checks reach Figma pre-inlined inside
-// references/doc-card-builder.md, references/figma-checks.md and
-// references/figma-adherence.md). Test fixtures
+// references/doc-card-builder.md, references/figma-checks.md,
+// references/figma-adherence.md and references/figma-compose.md). Test fixtures
 // under lib/fixtures/ are dropped too.
 const PLUGIN_INTERNAL = new Set([
   'install.mjs',
@@ -116,6 +116,8 @@ const PLUGIN_INTERNAL = new Set([
   'lib/figma-variables-read.figma.js',
   'lib/figma-adherence.mjs',
   'lib/figma-adherence-read.figma.js',
+  'lib/figma-compose.mjs',
+  'lib/figma-compose.figma.js',
 ]);
 
 export const skipScript = (relPosix) =>

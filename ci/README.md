@@ -45,8 +45,10 @@ own structure. Zero dependencies; stdlib only.
    `figma-variables-read.figma.js`, `figma-checks-read.figma.js`), and
    `references/figma-adherence.md` matches its checker and readers
    (`figma-adherence.mjs`, `figma-variables-read.figma.js`,
-   `figma-adherence-read.figma.js`), so both Figma scripts run the code that
-   is tested in Node.
+   `figma-adherence-read.figma.js`), and `references/figma-compose.md` matches
+   its resolver and writer (`figma-adherence.mjs`, `figma-compose.mjs`,
+   `figma-variables-read.figma.js`, `figma-compose.figma.js`), so all three
+   Figma scripts run the code that is tested in Node.
 
 ## Run locally
 
