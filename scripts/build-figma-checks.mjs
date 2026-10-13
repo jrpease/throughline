@@ -1,10 +1,15 @@
-// Generates references/figma-checks.md — the canonical figma_execute snippet
-// that runs the Figma stop conditions (COMPONENT_SET assertion, state matrix,
-// focus ring, focus-ring contrast) — by inlining the state table
-// (lib/component-states.mjs), the contrast maths (lib/contrast.mjs) and the
-// pure checker (lib/figma-checks.mjs) above the Figma reader
-// (lib/figma-checks-read.figma.js). Mirrors build-doc-card-builder.mjs: run
-// bare to write, run with --check to gate CI. Zero dependencies.
+// Generates the two canonical figma_execute snippets by inlining tested Node
+// modules above their Figma readers:
+//   references/figma-checks.md — the Figma stop conditions (COMPONENT_SET
+//     assertion, state matrix, focus ring, focus-ring contrast): the state table
+//     (lib/component-states.mjs), the contrast maths (lib/contrast.mjs) and the pure
+//     checker (lib/figma-checks.mjs), then lib/figma-variables-read.figma.js and the
+//     reader (lib/figma-checks-read.figma.js).
+//   references/figma-adherence.md — the screen adherence gate: the pure checker
+//     (lib/figma-adherence.mjs), then lib/figma-variables-read.figma.js and the
+//     screen reader (lib/figma-adherence-read.figma.js).
+// Mirrors build-doc-card-builder.mjs: run bare to write both, run with --check to
+// gate CI on both. Zero dependencies.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -14,7 +19,11 @@ const STATES = join(REPO_ROOT, 'scripts', 'lib', 'component-states.mjs');
 const CONTRAST = join(REPO_ROOT, 'scripts', 'lib', 'contrast.mjs');
 const CHECKER = join(REPO_ROOT, 'scripts', 'lib', 'figma-checks.mjs');
 const READER = join(REPO_ROOT, 'scripts', 'lib', 'figma-checks-read.figma.js');
+const VARIABLES = join(REPO_ROOT, 'scripts', 'lib', 'figma-variables-read.figma.js');
+const ADHERENCE = join(REPO_ROOT, 'scripts', 'lib', 'figma-adherence.mjs');
+const ADHERENCE_READER = join(REPO_ROOT, 'scripts', 'lib', 'figma-adherence-read.figma.js');
 const OUT = join(REPO_ROOT, 'references', 'figma-checks.md');
+const ADHERENCE_OUT = join(REPO_ROOT, 'references', 'figma-adherence.md');
 
 const BIND = 'const { checkSpec, checkBuilt } = withTable({ resolveArchetype, BASELINE_STATES, STATE_SYNONYMS, normalizeName, contrastRatio, composite, parseHex, AA_NON_TEXT });';
 
@@ -72,21 +81,76 @@ const HEADER = [
   '```js',
 ].join('\n');
 
+const ADHERENCE_HEADER = [
+  '# Figma screen adherence gate (GENERATED)',
+  '',
+  '> **GENERATED FILE — do not edit by hand.** Sources: `scripts/lib/figma-adherence.mjs`',
+  '> (the pure checker, unit-tested in Node), `scripts/lib/figma-variables-read.figma.js`',
+  '> (colour-variable resolution) + `scripts/lib/figma-adherence-read.figma.js` (the',
+  '> screen reader). Regenerate with `node scripts/build-figma-checks.mjs`; CI gates',
+  '> freshness with `--check`.',
+  '',
+  'The canonical `figma_execute` snippet that checks Figma screens against the design',
+  'system, read-only. It fails a frame detached from a component, a raw colour that a',
+  'colour variable has, and a raw gap, padding or corner radius that a number variable',
+  'scoped for it has, naming the variable to bind. A raw value no variable has is an',
+  'advisory, not a failure. A rule that had nothing to compare against fails by name',
+  '(`nothing-scanned`, `colour-rule-inert`, `dimension-rule-inert`). The script is the',
+  'rule; do not re-write it by hand.',
+  '',
+  '## How to call it',
+  '',
+  '1. Paste the snippet below into `figma_execute`, with the two slots filled above it:',
+  '   - `const TARGET = { page, screens }` — `page` is the page name, exactly; `screens`',
+  '     is an optional list of screen names (top-level frames, or frames directly',
+  '     inside a top-level section). Without it, every screen on the page is read.',
+  '   - `const SKIP = []` — rule names to switch off (`detached-component`,',
+  '     `raw-colour`, `raw-dimension`); a skipped rule\'s inert check is skipped too.',
+  '2. End the script with `return await runScreenGate(TARGET, SKIP);` and pass',
+  '   `timeout: 30000`.',
+  '3. Read the result, `{ pass, failures, advisories, counts, skipped }`. Each failure',
+  '   and advisory has `rule`, `path`, `detail` and a `link` to the node. Report every',
+  '   failure with its link. Never edit the file to make it pass.',
+  '4. Only the named page is loaded, and tokens are the file\'s local variables. A file',
+  '   whose variables all come from a published library fails as inert.',
+  '',
+  '```js',
+  'const TARGET = { page: \'Templates\' };',
+  'const SKIP = [];',
+  '// … the generated snippet …',
+  'return await runScreenGate(TARGET, SKIP);',
+  '```',
+  '',
+  '## The snippet',
+  '',
+  '```js',
+].join('\n');
+
 const FOOTER = ['```', ''].join('\n');
 
 const stripExports = (src) =>
   src.replace(/^export const /gm, 'const ').replace(/^export function /gm, 'function ');
 
-export function buildFigmaChecks({ statesSource, contrastSource, checkerSource, readerSource }) {
-  const states = stripExports(statesSource);
-  const contrast = stripExports(contrastSource);
-  const checker = stripExports(checkerSource);
-  for (const [name, src] of [['component-states.mjs', states], ['contrast.mjs', contrast], ['figma-checks.mjs', checker], ['figma-checks-read.figma.js', readerSource]]) {
+function assertInlinable(sources) {
+  for (const [name, src] of sources) {
     if (/^\s*(import|export)\b/m.test(src)) {
       throw new Error(`${name} must stay import-free (only top-level \`export const\`/\`export function\` allowed) — it is inlined into the Figma snippet where no module system exists`);
     }
   }
-  return `${HEADER}\n${states}\n${contrast}\n${checker}\n${BIND}\n\n${readerSource}${FOOTER}`;
+}
+
+export function buildFigmaChecks({ statesSource, contrastSource, checkerSource, variablesSource, readerSource }) {
+  const states = stripExports(statesSource);
+  const contrast = stripExports(contrastSource);
+  const checker = stripExports(checkerSource);
+  assertInlinable([['component-states.mjs', states], ['contrast.mjs', contrast], ['figma-checks.mjs', checker], ['figma-variables-read.figma.js', variablesSource], ['figma-checks-read.figma.js', readerSource]]);
+  return `${HEADER}\n${states}\n${contrast}\n${checker}\n${BIND}\n\n${variablesSource}\n${readerSource}${FOOTER}`;
+}
+
+export function buildFigmaAdherence({ checkerSource, variablesSource, readerSource }) {
+  const checker = stripExports(checkerSource);
+  assertInlinable([['figma-adherence.mjs', checker], ['figma-variables-read.figma.js', variablesSource], ['figma-adherence-read.figma.js', readerSource]]);
+  return `${ADHERENCE_HEADER}\n${checker}\n${variablesSource}\n${readerSource}${FOOTER}`;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -94,18 +158,35 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     statesSource: readFileSync(STATES, 'utf8'),
     contrastSource: readFileSync(CONTRAST, 'utf8'),
     checkerSource: readFileSync(CHECKER, 'utf8'),
+    variablesSource: readFileSync(VARIABLES, 'utf8'),
     readerSource: readFileSync(READER, 'utf8'),
   });
+  const adherence = buildFigmaAdherence({
+    checkerSource: readFileSync(ADHERENCE, 'utf8'),
+    variablesSource: readFileSync(VARIABLES, 'utf8'),
+    readerSource: readFileSync(ADHERENCE_READER, 'utf8'),
+  });
+  const outputs = [
+    [OUT, result, 'references/figma-checks.md', 'figma checks'],
+    [ADHERENCE_OUT, adherence, 'references/figma-adherence.md', 'figma adherence'],
+  ];
   if (process.argv.includes('--check')) {
-    let onDisk = null;
-    try { onDisk = readFileSync(OUT, 'utf8'); } catch { /* missing counts as drift */ }
-    if (onDisk !== result) {
-      console.error('✗ references/figma-checks.md out of date; run: node scripts/build-figma-checks.mjs');
-      process.exit(1);
+    let stale = false;
+    for (const [path, content, label, what] of outputs) {
+      let onDisk = null;
+      try { onDisk = readFileSync(path, 'utf8'); } catch { /* missing counts as drift */ }
+      if (onDisk !== content) {
+        console.error(`✗ ${label} out of date; run: node scripts/build-figma-checks.mjs`);
+        stale = true;
+      } else {
+        console.log(`✓ ${what} in sync`);
+      }
     }
-    console.log('✓ figma checks in sync');
+    if (stale) process.exit(1);
   } else {
-    writeFileSync(OUT, result);
-    console.log('✓ wrote references/figma-checks.md');
+    for (const [path, content, label] of outputs) {
+      writeFileSync(path, content);
+      console.log(`✓ wrote ${label}`);
+    }
   }
 }

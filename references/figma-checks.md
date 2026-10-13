@@ -636,33 +636,14 @@ function withTable({
 
 const { checkSpec, checkBuilt } = withTable({ resolveArchetype, BASELINE_STATES, STATE_SYNONYMS, normalizeName, contrastRatio, composite, parseHex, AA_NON_TEXT });
 
-// Figma plugin-API reader for the stop-condition checks. This file is NOT a
-// Node module — build-figma-checks.mjs concatenates it after the inlined
-// component-states.mjs, contrast.mjs and figma-checks.mjs into
-// references/figma-checks.md, and
-// the result runs inside figma_execute (dynamic-page mode). Constraints honored
-// here (see references/figma-scripting.md): async getters only, variable names
-// and per-mode colour values resolved with getVariableByIdAsync and only for
-// focus variants and their controlLayer, plus the EXPECT.surfaces names, which
-// are looked up among the file's LOCAL colour variables only (a surface from a
-// published library reads as missing). Untested in Node, like the doc-card
-// renderer; the pure checker it feeds is unit-tested.
-//
-// In-scope globals when assembled: normalizeName (inlined
-// component-states.mjs), checkSpec, checkBuilt (bound from withTable) and the
-// caller-filled slots EXPECT and MODE (passed to runFigmaChecks). The snapshot
-// shape is documented at the top of scripts/lib/figma-checks.mjs.
+// Figma plugin-API helpers for reading colour variables, shared by the Figma
+// checks reader and the screen reader. This file is NOT a Node module:
+// build-figma-checks.mjs inlines it into both generated scripts
+// (references/figma-checks.md, references/figma-adherence.md). It depends on
+// nothing else, so it carries its own mode-name fold. Async getters only
+// (references/figma-scripting.md). Untested in Node, like the readers.
 
-// Colour variables read on focus nodes, by name, for the contrast check.
-const readVariables = new Map();
-
-async function variableName(alias) {
-  if (!alias || !alias.id) return null;
-  const variable = await figma.variables.getVariableByIdAsync(alias.id);
-  if (!variable) return null;
-  if (variable.resolvedType === 'COLOR') readVariables.set(variable.name, variable);
-  return variable.name;
-}
+const foldModeName = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 
 function colorHex(value) {
   if (!value || typeof value !== 'object' || !('r' in value)) return null;
@@ -677,7 +658,7 @@ async function resolveColor(variable, modeName, hops) {
   if (!variable || hops > 10) return null;
   const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
   if (!collection) return null;
-  const mode = collection.modes.find((m) => normalizeName(m.name) === normalizeName(modeName));
+  const mode = collection.modes.find((m) => foldModeName(m.name) === foldModeName(modeName));
   const value = variable.valuesByMode[mode ? mode.modeId : collection.defaultModeId];
   if (value && value.type === 'VARIABLE_ALIAS') {
     return resolveColor(await figma.variables.getVariableByIdAsync(value.id), modeName, hops + 1);
@@ -693,6 +674,35 @@ async function variableColors(variable) {
   for (const mode of collection.modes) modes[mode.name] = await resolveColor(variable, mode.name, 0);
   const fallback = collection.modes.find((m) => m.modeId === collection.defaultModeId);
   return { modes, defaultMode: fallback ? fallback.name : undefined };
+}
+
+// Figma plugin-API reader for the stop-condition checks. This file is NOT a
+// Node module — build-figma-checks.mjs concatenates it after the inlined
+// component-states.mjs, contrast.mjs, figma-checks.mjs and
+// figma-variables-read.figma.js into references/figma-checks.md, and
+// the result runs inside figma_execute (dynamic-page mode). Constraints honored
+// here (see references/figma-scripting.md): async getters only, variable names
+// and per-mode colour values resolved with getVariableByIdAsync and only for
+// focus variants and their controlLayer, plus the EXPECT.surfaces names, which
+// are looked up among the file's LOCAL colour variables only (a surface from a
+// published library reads as missing). Untested in Node, like the doc-card
+// renderer; the pure checker it feeds is unit-tested.
+//
+// In-scope globals when assembled: normalizeName (inlined
+// component-states.mjs), variableColors (figma-variables-read.figma.js),
+// checkSpec, checkBuilt (bound from withTable) and the
+// caller-filled slots EXPECT and MODE (passed to runFigmaChecks). The snapshot
+// shape is documented at the top of scripts/lib/figma-checks.mjs.
+
+// Colour variables read on focus nodes, by name, for the contrast check.
+const readVariables = new Map();
+
+async function variableName(alias) {
+  if (!alias || !alias.id) return null;
+  const variable = await figma.variables.getVariableByIdAsync(alias.id);
+  if (!variable) return null;
+  if (variable.resolvedType === 'COLOR') readVariables.set(variable.name, variable);
+  return variable.name;
 }
 
 // The fields the focus check reads from a variant, a control layer or a direct child.

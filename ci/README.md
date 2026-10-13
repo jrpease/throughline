@@ -40,9 +40,12 @@ own structure. Zero dependencies; stdlib only.
    components owe which interaction states, read by `verify:check` and by
    `figma-executor`, so it cannot drift from the code.
 8. `node scripts/build-figma-checks.mjs --check` — `references/figma-checks.md`
-   matches the state table, the contrast maths, the checker and the reader it
+   matches the state table, the contrast maths, the checker and the readers it
    inlines (`scripts/lib/component-states.mjs`, `contrast.mjs`, `figma-checks.mjs`,
-   `figma-checks-read.figma.js`), so the Figma stop conditions run the code that
+   `figma-variables-read.figma.js`, `figma-checks-read.figma.js`), and
+   `references/figma-adherence.md` matches its checker and readers
+   (`figma-adherence.mjs`, `figma-variables-read.figma.js`,
+   `figma-adherence-read.figma.js`), so both Figma scripts run the code that
    is tested in Node.
 
 ## Run locally
