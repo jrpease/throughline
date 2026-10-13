@@ -62,6 +62,13 @@ test('the executor copies surfaces from the spec', () => {
   assert.ok(slice(read('agents/figma-executor.md'), '4. **Structural self-verify loop**', '\n5. ').includes('`surfaces`'));
 });
 
+test('check-figma runs both generated scripts, and the existing-set mode', () => {
+  const command = read('commands/check-figma.md');
+  assert.ok(command.includes('references/figma-adherence.md'));
+  assert.ok(command.includes(POINTER));
+  assert.ok(command.includes("MODE = 'existing'"));
+});
+
 test('the pointer target exists', () => {
   assert.ok(read(POINTER).includes('## How to call it'));
 });

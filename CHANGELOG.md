@@ -6,6 +6,22 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Added
+
+- **`/throughline:check-figma` checks what's already in Figma (#40, #170).** Until
+  now every Figma check ran on a component the plugin had just built. Screens
+  assembled by hand, and the library you already had, were never looked at. The
+  new command reads a page of screens and fails three things: a frame someone
+  detached from a component, a colour that's hardcoded when a colour token has
+  that exact value, and a gap, padding or radius in the same state. Each failure
+  names the token to bind and links to the node. A hardcoded value no token has is
+  listed as an advisory, not a failure, for the same reason the code gate does it:
+  it might be a deliberate one-off. The same command runs the state, focus-ring and
+  focus-contrast checks over your existing component sets. It never edits the
+  file. What it can't see yet: a frame drawn from scratch to look like a
+  component, variables that live only in a published library, and focus states
+  drawn as an inside border (#169).
+
 ## [0.24.0] — 2026-10-13
 
 0.21.0 checked that every focus state has a ring. It never asked whether anyone

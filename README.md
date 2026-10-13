@@ -107,6 +107,8 @@ Then start with:
 
 This is the reliable entry point — it runs environment setup first, ahead of anything else. (You can also just say *"let's set up my design system"*, but if you have other plugins installed that grab "let's build…" style phrases, the slash command guarantees ThroughLine takes the wheel.)
 
+Already have screens or components in Figma? `/throughline:check-figma` checks them against the system without touching the file: it flags a component someone detached, and a colour, gap, padding or radius that's hardcoded when a token already has that value. It also runs the state, focus-ring and focus-contrast checks over the components already in your library.
+
 Update anytime with `/plugin marketplace update throughline-marketplace`.
 
 #### Cursor, Codex, or a generic AGENTS.md agent
