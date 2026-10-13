@@ -6,20 +6,8 @@
 // BEFORE .characters, fonts loaded up front, resize() sizing modes re-asserted,
 // bound paints seeded light-gray (never pure black).
 //
-// In-scope globals when assembled: planDocCard, DOC_CARD_RENDERER_VERSION
-// (inlined planner) and the caller-filled slots RECORD, CANONICAL_FP.
-
-// 32-bit FNV-1a — the render hash. Only ever compared against itself (the
-// manifest's surfaces.docCard.render), so it does not need to match the
-// sha256-based canonical fingerprint, which cannot run in the Figma sandbox.
-function fnv1a(str) {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 0x01000193) >>> 0;
-  }
-  return h.toString(16).padStart(8, '0');
-}
+// In-scope globals when assembled: planDocCard, DOC_CARD_RENDERER_VERSION,
+// fnv1a, statusChipHint (inlined planner) and the caller-filled slots RECORD, CANONICAL_FP.
 
 const REQUIRED_VARS = [
   'textDefault', 'textMuted', 'tonePositive', 'toneNegative', 'border',
@@ -151,7 +139,13 @@ async function renderDocCard({ card, record, vars, bodyTextStyle }) {
   const descAmbiguous = !named && descCandidates.length > 1;
 
   const missingAnchors = [];
-  if (!hasStatusAnchor) missingAnchors.push('status (title row must contain a descendant named "Status Pill" or "Status")');
+  if (!hasStatusAnchor) {
+    const hint = statusChipHint(titleRow);
+    missingAnchors.push('status (title row must contain a descendant named "Status Pill" or "Status"'
+      + (hint ? ' — frame ' + hint.id + ' "' + hint.name + '" holding "' + hint.label
+        + '" looks like the status chip; rename it "Status Pill" and re-run' : '')
+      + ')');
+  }
   if (!headerDescCandidate) {
     missingAnchors.push(descAmbiguous
       ? 'description (found ' + descCandidates.length + ' candidate TEXT children, cannot tell which is the description — name the right one "Header Description" by hand and re-run)'

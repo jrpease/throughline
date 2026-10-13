@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DOC_CARD_RENDERER_VERSION, columnUnit, cardColumns, planDocCard } from './doc-card-plan.mjs';
+import { DOC_CARD_RENDERER_VERSION, columnUnit, cardColumns, planDocCard, fnv1a, statusChipHint } from './doc-card-plan.mjs';
 
 test('DOC_CARD_RENDERER_VERSION is the string "4"', () => {
   assert.equal(DOC_CARD_RENDERER_VERSION, '4');
@@ -152,4 +152,32 @@ test('plan header is always strings, so the render hash stays stable', () => {
   const plan = planDocCard({ name: 'Button', description: 'x' }, { fontSize: 16 });
   assert.deepEqual(plan.header, { summary: '', updatedAt: '' });
   assert.doesNotThrow(() => JSON.stringify(plan));
+});
+
+test('fnv1a: 32-bit FNV-1a, 8 lowercase hex chars', () => {
+  assert.equal(fnv1a(''), '811c9dc5');      // the offset basis
+  assert.equal(fnv1a('a'), 'e40c292c');     // published FNV-1a test vector
+  assert.match(fnv1a(JSON.stringify({ x: 1 })), /^[0-9a-f]{8}$/);
+});
+
+const text = (id, characters) => ({ id, type: 'TEXT', name: characters, characters });
+const frame = (id, name, children) => ({ id, type: 'FRAME', name, children });
+
+test('statusChipHint names a misnamed chip: a frame whose only child is TEXT', () => {
+  // The legacy Select Menu card: title TEXT + an unnamed pill frame around "Stable".
+  const titleRow = frame('24:775', 'Frame', [text('24:776', 'Select Menu'), frame('24:777', 'Frame', [text('24:778', 'Stable')])]);
+  assert.deepEqual(statusChipHint(titleRow), { id: '24:777', name: 'Frame', label: 'Stable' });
+});
+
+test('statusChipHint finds a chip nested below the title row', () => {
+  const titleRow = frame('1:1', 'Title', [text('1:2', 'Badge'), frame('1:3', 'Right', [frame('1:4', 'Pill', [text('1:5', 'Draft')]), text('1:6', 'v2')])]);
+  assert.deepEqual(statusChipHint(titleRow), { id: '1:4', name: 'Pill', label: 'Draft' });
+});
+
+test('statusChipHint gives no hint when it cannot tell which frame is the chip', () => {
+  const two = frame('1:1', 'Title', [frame('1:2', 'A', [text('1:3', 'Stable')]), frame('1:4', 'B', [text('1:5', 'Beta')])]);
+  assert.equal(statusChipHint(two), null);
+  assert.equal(statusChipHint(frame('1:1', 'Title', [text('1:2', 'Name')])), null);
+  assert.equal(statusChipHint(text('1:1', 'not a frame')), null);
+  assert.equal(statusChipHint(undefined), null);
 });

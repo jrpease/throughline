@@ -16,6 +16,9 @@ made. Getting there took two bugs I wouldn't have found without running it live.
 A fresh agent following only the command's instructions found the second one on
 its first try.
 
+It also carries a smaller fix for doc cards: one command now builds the render
+call, so a card no longer depends on pasting 25 KB by hand.
+
 ### Added
 
 - **`/throughline:compose-figma` builds a screen from your library (#42).** You
@@ -35,6 +38,13 @@ its first try.
 
   It fills slots too, so a card or a modal can hold real content. On the sample
   file a sign-in screen builds in about 130 ms.
+- **`scripts/doc-card-payload.mjs` builds the doc-card render call for you.** Rendering
+  a card meant splicing the record, its fingerprint, nine variable lookups and a
+  ~25 KB generated snippet into one `figma_execute` call by hand. Now one command
+  writes that body to a file and prints the `renderHash` the render should return,
+  so a payload that got mangled in transit shows up as a hash mismatch instead of
+  a quietly wrong card. `/throughline:document-component` and `component-builder`
+  use it.
 
 ### Changed
 
@@ -44,6 +54,12 @@ its first try.
   the screen, while the component's own placeholder is left alone. Neither
   Zygarden's nor 01. Design System's screen pages use a slot, so their counts
   didn't move.
+- **A misnamed status chip now gets a named fix.** The builder still refuses a
+  header it can't read, but when the title row has no `Status Pill`/`Status` node
+  and exactly one frame there wraps a single text node, the error names that
+  frame — id, name and label — and says to rename it `Status Pill`. The legacy
+  Select Menu card in the sample repo failed exactly this way. Render output is
+  unchanged, so `DOC_CARD_RENDERER_VERSION` stays `'4'`.
 
 ## [0.25.0] — 2026-10-13
 

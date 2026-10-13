@@ -146,7 +146,10 @@ export function copyClaimProblems({ label, source, entries, docsSet }) {
   let claims = 0;
   const listed = new Set(entries.map((entry) => entry.src));
   const inDocsSet = new Set((docsSet?.entries ?? []).map((entry) => entry.src));
-  for (const paragraph of source.split(/\n\s*\n/)) {
+  // A tight numbered list has no blank lines between its steps, so each
+  // top-level step counts as its own paragraph — otherwise one step's copy
+  // claim would reach every script a sibling step merely runs.
+  for (const paragraph of source.split(/\n\s*\n|\n(?=\d+\. )/)) {
     if (!COPY_VERB.test(paragraph)) continue;
     // scripts/README.md is where a set is documented, not something copied.
     const named = [...paragraph.matchAll(PLUGIN_SCRIPT)].map((match) => match[1]).filter((path) => path !== 'README.md');
