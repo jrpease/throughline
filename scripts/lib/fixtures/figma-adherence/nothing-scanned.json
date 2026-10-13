@@ -1,0 +1,49 @@
+{
+  "covers": "no nodes read fails",
+  "snapshot": {
+    "fileKey": "FILE",
+    "screens": [
+      {
+        "id": "0:1",
+        "name": "Screen"
+      }
+    ],
+    "nodes": [],
+    "tokens": {
+      "colours": {
+        "#ffffff": [
+          "color/bg/canvas"
+        ],
+        "#111827": [
+          "color/text/primary"
+        ]
+      },
+      "gap": {
+        "8": [
+          "spacing/2"
+        ],
+        "12": [
+          "spacing/3"
+        ],
+        "16": [
+          "spacing/4"
+        ]
+      },
+      "radius": {
+        "8": [
+          "radius/md"
+        ],
+        "32": [
+          "radius/xl"
+        ]
+      }
+    }
+  },
+  "expected": {
+    "pass": false,
+    "failures": [
+      "nothing-scanned"
+    ],
+    "advisories": 0
+  }
+}

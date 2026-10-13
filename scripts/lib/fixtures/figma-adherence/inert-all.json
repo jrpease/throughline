@@ -1,0 +1,45 @@
+{
+  "covers": "a file with no colour or dimension variables fails both inert checks",
+  "tokens": {
+    "colours": {},
+    "gap": {},
+    "radius": {}
+  },
+  "snapshot": {
+    "fileKey": "FILE",
+    "screens": [
+      {
+        "id": "0:1",
+        "name": "Screen"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "1:1",
+        "path": "Templates / Screen / Node",
+        "isRoot": false,
+        "inInstance": false,
+        "overridden": [],
+        "paints": [],
+        "mixedPaints": false,
+        "gap": null,
+        "padding": [],
+        "radius": [],
+        "detached": null
+      }
+    ],
+    "tokens": {
+      "colours": {},
+      "gap": {},
+      "radius": {}
+    }
+  },
+  "expected": {
+    "pass": false,
+    "failures": [
+      "colour-rule-inert",
+      "dimension-rule-inert"
+    ],
+    "advisories": 0
+  }
+}

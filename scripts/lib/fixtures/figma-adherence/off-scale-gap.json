@@ -1,0 +1,65 @@
+{
+  "covers": "Zygarden 2026-10-13: a 200 gap no token has is an advisory",
+  "snapshot": {
+    "fileKey": "FILE",
+    "screens": [
+      {
+        "id": "0:1",
+        "name": "Screen"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "1:1",
+        "path": "Templates / bg",
+        "isRoot": false,
+        "inInstance": false,
+        "overridden": [],
+        "paints": [],
+        "mixedPaints": false,
+        "gap": {
+          "value": 200,
+          "bound": false,
+          "renders": true
+        },
+        "padding": [],
+        "radius": [],
+        "detached": null
+      }
+    ],
+    "tokens": {
+      "colours": {
+        "#ffffff": [
+          "color/bg/canvas"
+        ],
+        "#111827": [
+          "color/text/primary"
+        ]
+      },
+      "gap": {
+        "8": [
+          "spacing/2"
+        ],
+        "12": [
+          "spacing/3"
+        ],
+        "16": [
+          "spacing/4"
+        ]
+      },
+      "radius": {
+        "8": [
+          "radius/md"
+        ],
+        "32": [
+          "radius/xl"
+        ]
+      }
+    }
+  },
+  "expected": {
+    "pass": true,
+    "failures": [],
+    "advisories": 1
+  }
+}

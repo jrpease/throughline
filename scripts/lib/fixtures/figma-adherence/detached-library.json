@@ -1,0 +1,87 @@
+{
+  "covers": "01. Design System 2026-10-13: a frame detached from a library component, and one from a local component on another page",
+  "snapshot": {
+    "fileKey": "FILE",
+    "screens": [
+      {
+        "id": "0:1",
+        "name": "Screen"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "4:1",
+        "path": "Archtypes / hud-Jordan",
+        "isRoot": false,
+        "inInstance": false,
+        "overridden": [],
+        "paints": [],
+        "mixedPaints": false,
+        "gap": null,
+        "padding": [],
+        "radius": [],
+        "detached": {
+          "kind": "library",
+          "name": null,
+          "id": null,
+          "key": "4412e315f15a0af7a26382d2b05781f7974a30d9"
+        }
+      },
+      {
+        "id": "4:2",
+        "path": "Archtypes / hud-maria",
+        "isRoot": false,
+        "inInstance": false,
+        "overridden": [],
+        "paints": [],
+        "mixedPaints": false,
+        "gap": null,
+        "padding": [],
+        "radius": [],
+        "detached": {
+          "kind": "local",
+          "name": null,
+          "id": "9:9",
+          "key": null
+        }
+      }
+    ],
+    "tokens": {
+      "colours": {
+        "#ffffff": [
+          "color/bg/canvas"
+        ],
+        "#111827": [
+          "color/text/primary"
+        ]
+      },
+      "gap": {
+        "8": [
+          "spacing/2"
+        ],
+        "12": [
+          "spacing/3"
+        ],
+        "16": [
+          "spacing/4"
+        ]
+      },
+      "radius": {
+        "8": [
+          "radius/md"
+        ],
+        "32": [
+          "radius/xl"
+        ]
+      }
+    }
+  },
+  "expected": {
+    "pass": false,
+    "failures": [
+      "detached-component",
+      "detached-component"
+    ],
+    "advisories": 0
+  }
+}

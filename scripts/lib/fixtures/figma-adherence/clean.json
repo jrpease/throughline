@@ -1,0 +1,90 @@
+{
+  "covers": "everything bound passes with no advisories",
+  "snapshot": {
+    "fileKey": "FILE",
+    "screens": [
+      {
+        "id": "0:1",
+        "name": "Screen"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "1:1",
+        "path": "Templates / Screen / Node",
+        "isRoot": false,
+        "inInstance": false,
+        "overridden": [],
+        "paints": [
+          {
+            "kind": "fill",
+            "hex": "#ffffff",
+            "bound": true,
+            "styled": false
+          },
+          {
+            "kind": "stroke",
+            "hex": "#111827",
+            "bound": false,
+            "styled": true
+          }
+        ],
+        "mixedPaints": false,
+        "gap": {
+          "value": 12,
+          "bound": true,
+          "renders": true
+        },
+        "padding": [
+          {
+            "side": "top",
+            "value": 16,
+            "bound": true
+          }
+        ],
+        "radius": [
+          {
+            "corner": "all",
+            "value": 8,
+            "bound": true
+          }
+        ],
+        "detached": null
+      }
+    ],
+    "tokens": {
+      "colours": {
+        "#ffffff": [
+          "color/bg/canvas"
+        ],
+        "#111827": [
+          "color/text/primary"
+        ]
+      },
+      "gap": {
+        "8": [
+          "spacing/2"
+        ],
+        "12": [
+          "spacing/3"
+        ],
+        "16": [
+          "spacing/4"
+        ]
+      },
+      "radius": {
+        "8": [
+          "radius/md"
+        ],
+        "32": [
+          "radius/xl"
+        ]
+      }
+    }
+  },
+  "expected": {
+    "pass": true,
+    "failures": [],
+    "advisories": 0
+  }
+}

@@ -1,0 +1,208 @@
+{
+  "covers": "Zygarden 2026-10-13: 8 text fills #e8e7e7, which no token has: advisories, not failures",
+  "snapshot": {
+    "fileKey": "FILE",
+    "screens": [
+      {
+        "id": "0:1",
+        "name": "Screen"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "10:1",
+        "path": "Templates / Example 1 / My tournaments",
+        "isRoot": false,
+        "inInstance": false,
+        "overridden": [],
+        "paints": [
+          {
+            "kind": "fill",
+            "hex": "#e8e7e7",
+            "bound": false,
+            "styled": false
+          }
+        ],
+        "mixedPaints": false,
+        "gap": null,
+        "padding": [],
+        "radius": [],
+        "detached": null
+      },
+      {
+        "id": "10:2",
+        "path": "Templates / Example 2 / My tournaments",
+        "isRoot": false,
+        "inInstance": false,
+        "overridden": [],
+        "paints": [
+          {
+            "kind": "fill",
+            "hex": "#e8e7e7",
+            "bound": false,
+            "styled": false
+          }
+        ],
+        "mixedPaints": false,
+        "gap": null,
+        "padding": [],
+        "radius": [],
+        "detached": null
+      },
+      {
+        "id": "10:3",
+        "path": "Templates / Example 3 / My tournaments",
+        "isRoot": false,
+        "inInstance": false,
+        "overridden": [],
+        "paints": [
+          {
+            "kind": "fill",
+            "hex": "#e8e7e7",
+            "bound": false,
+            "styled": false
+          }
+        ],
+        "mixedPaints": false,
+        "gap": null,
+        "padding": [],
+        "radius": [],
+        "detached": null
+      },
+      {
+        "id": "10:4",
+        "path": "Templates / Example 4 / My tournaments",
+        "isRoot": false,
+        "inInstance": false,
+        "overridden": [],
+        "paints": [
+          {
+            "kind": "fill",
+            "hex": "#e8e7e7",
+            "bound": false,
+            "styled": false
+          }
+        ],
+        "mixedPaints": false,
+        "gap": null,
+        "padding": [],
+        "radius": [],
+        "detached": null
+      },
+      {
+        "id": "10:5",
+        "path": "Templates / Example 5 / My tournaments",
+        "isRoot": false,
+        "inInstance": false,
+        "overridden": [],
+        "paints": [
+          {
+            "kind": "fill",
+            "hex": "#e8e7e7",
+            "bound": false,
+            "styled": false
+          }
+        ],
+        "mixedPaints": false,
+        "gap": null,
+        "padding": [],
+        "radius": [],
+        "detached": null
+      },
+      {
+        "id": "10:6",
+        "path": "Templates / Example 6 / My tournaments",
+        "isRoot": false,
+        "inInstance": false,
+        "overridden": [],
+        "paints": [
+          {
+            "kind": "fill",
+            "hex": "#e8e7e7",
+            "bound": false,
+            "styled": false
+          }
+        ],
+        "mixedPaints": false,
+        "gap": null,
+        "padding": [],
+        "radius": [],
+        "detached": null
+      },
+      {
+        "id": "10:7",
+        "path": "Templates / Example 7 / My tournaments",
+        "isRoot": false,
+        "inInstance": false,
+        "overridden": [],
+        "paints": [
+          {
+            "kind": "fill",
+            "hex": "#e8e7e7",
+            "bound": false,
+            "styled": false
+          }
+        ],
+        "mixedPaints": false,
+        "gap": null,
+        "padding": [],
+        "radius": [],
+        "detached": null
+      },
+      {
+        "id": "10:8",
+        "path": "Templates / Example 8 / My tournaments",
+        "isRoot": false,
+        "inInstance": false,
+        "overridden": [],
+        "paints": [
+          {
+            "kind": "fill",
+            "hex": "#e8e7e7",
+            "bound": false,
+            "styled": false
+          }
+        ],
+        "mixedPaints": false,
+        "gap": null,
+        "padding": [],
+        "radius": [],
+        "detached": null
+      }
+    ],
+    "tokens": {
+      "colours": {
+        "#ffffff": [
+          "color/bg/canvas"
+        ],
+        "#111827": [
+          "color/text/primary"
+        ]
+      },
+      "gap": {
+        "8": [
+          "spacing/2"
+        ],
+        "12": [
+          "spacing/3"
+        ],
+        "16": [
+          "spacing/4"
+        ]
+      },
+      "radius": {
+        "8": [
+          "radius/md"
+        ],
+        "32": [
+          "radius/xl"
+        ]
+      }
+    }
+  },
+  "expected": {
+    "pass": true,
+    "failures": [],
+    "advisories": 8
+  }
+}
