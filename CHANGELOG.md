@@ -6,6 +6,46 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.27.0] — 2026-10-13
+
+0.26.0 composed a screen in Figma. This one does it in code. Ask for a screen and
+the agent checks its plan against your system before writing a line, writes one
+file that uses only your components and your tokens, and gates that file before
+you see it. The rule on gaps is the same on both sides: a component you don't
+have gets reported, not faked.
+
+The first live run caught me out. A fresh agent pulled an arrow icon from
+`lucide-react`, and the gate waved it through. It doesn't now.
+
+### Added
+
+- **`/throughline:compose-code` writes a screen in your app from your design
+  system (#41).** It's React for shadcn and Tailwind systems, one screen per run,
+  written to a path you name. Three checks hold it to the system:
+  - **The plan is checked before any code exists.** The agent lists the
+    components it means to use and the variants it will set. A component you
+    don't have, an axis it doesn't have, or a value that axis doesn't take all
+    come back at once, with the nearest names you do have. Nothing is written
+    until you decide.
+  - **Every value is a token.** Colour, spacing, sizing, type size and weight are
+    written as your token variables or the utilities your preset generates from
+    them. A raw hex fails even when no token matches it, and so does Tailwind's
+    own `gap-4` or `text-lg`, since those are Tailwind's numbers, not yours.
+  - **Nothing off the plan.** A hand-built `<button>`, a component the plan didn't
+    list, or an import from anywhere but your system's package and React fails
+    the gate. That last one is the icon the live run caught.
+
+  It never overwrites a file a person wrote. A re-run replaces a file only when
+  its first line marks it as composed for the same screen. A failing file gets
+  three tries, then stops and stays put with its failures listed. It doesn't touch
+  your router; the report tells you where to mount the screen.
+
+### Changed
+
+- **`scripts/lib/figma-compose.mjs` now ships in the Cursor, Codex and generic
+  installs.** `compose-code.mjs` borrows its nearest-name matching, so both
+  composers suggest alternatives the same way.
+
 ## [0.26.0] — 2026-10-13
 
 Last release taught the plugin to read your screens. This one lets it make them.

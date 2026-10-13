@@ -1,6 +1,6 @@
 # Compose a screen in code from the design system
 
-Status: planned
+Status: built
 Reviewed: 2026-10-13 — needs revision (lookalikes pass both checks, raw values only fail when they duplicate a token, no spacing scale on the sample, the script would be dropped from the adapter payload, casing, marker scope, after-the-cap behaviour, Plan commands that don't exist, live-run setup). Revised the same day. Re-reviewed: resolved except, narrowly, how `scale-utility` is defined, sub-parts in the plan, sizing and weight, and live-run dependencies. Revised again with the code; every finding is addressed.
 Date: 2026-10-13
 Backlog: #112, Phase 5 — #41
@@ -74,6 +74,21 @@ one-off.
 - **Re-checking the marker at write time.** Figma's `finalize` re-checks because
   the file can change between calls. Here the agent checks, then writes seconds
   later. Recommendation: leave it; `gate` is run on the written file anyway.
+
+## What shipped
+
+- `scripts/compose-code.mjs` and `scripts/compose-code.test.mjs`: `inventory`, `check`, `gate`, with the marker, plan resolution (casing, sub-parts) and the three composer rules. 18 tests, each rule mutation-checked by hand.
+- `commands/compose-code.md`, with adapters regenerated.
+- `scripts/install.mjs`: `lib/figma-compose.mjs` leaves `PLUGIN_INTERNAL`, and `install.test.mjs` asserts both files install.
+- `scripts/README.md` rows, the README paragraph, the CHANGELOG 0.27.0 entry, and the version bump.
+- `docs/notes/2026-10-13-compose-code-live-run.md`.
+
+## Where it diverged
+
+- **`off-plan` also flags imports.** The agent-driven run imported `ArrowRight` from `lucide-react`, and the gate passed it. Now any import other than the system's package (and its subpaths) and React is `off-plan`, relative imports included. The Decisions row described only elements and components.
+- **The command's prose gained five things the run lacked:** repeated `--tokens`, where token variable names and preset utilities live, suggesting alternatives by `whenToUse` rather than the spelling-based `nearest`, a size no token holds, and mounting in an app with no router.
+- **The live run's screen sits in a card about a third of the window wide, not 400px.** The sample has no sizing token, so a fixed width can't be bound; the composer approximates and reports it, as the command now says.
+- **Icons are a gap on the sample.** `@ds/ui` doesn't re-export the Lucide icons Button's icon slots take, so the Figma screen's arrow has no code equivalent.
 
 ## Plan
 
