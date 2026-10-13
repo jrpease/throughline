@@ -6,7 +6,7 @@ import { resolveArchetype, BASELINE_STATES, STATE_SYNONYMS } from './component-s
 import { normalizeName } from './source-scan.mjs';
 import { contrastRatio, composite, parseHex, AA_NON_TEXT } from './contrast.mjs';
 
-const { checkSpec, checkBuilt } = withTable({
+const { checkSpec, checkBuilt, checkExisting } = withTable({
   resolveArchetype,
   BASELINE_STATES,
   STATE_SYNONYMS,
@@ -299,4 +299,24 @@ test('focus-contrast: two single-mode sides with different mode names compare on
   fx.snapshot.colors['color/focus/ring'].modes = { Default: '#000000' };
   fx.snapshot.colors['color/bg/canvas'] = { modes: { 'Mode 1': '#ffffff' }, defaultMode: 'Mode 1' };
   assert.equal(byName(checkBuilt(fx.snapshot, fx.expect), 'focus-contrast').detail, '1 ring/surface pair(s) clear 3:1 across 1 mode(s)');
+});
+
+test('existing mode: three checks, no structural, read from the set itself', () => {
+  const fx = fixtures['sample-button.real'];
+  const res = checkExisting(fx.snapshot, { name: 'Button', uiFramework: 'shadcn' });
+  assert.deepEqual(res.checks.map((c) => c.name), ['state-baseline', 'focus-indicator', 'focus-contrast']);
+  assert.equal(res.pass, true);
+});
+
+test('existing mode: a sparse set is not failed for its missing combinations', () => {
+  const fx = fixtures['button-sparse'];
+  assert.equal(byName(checkBuilt(fx.snapshot, fx.expect), 'structural-read-back').result, 'fail');
+  const res = checkExisting(fx.snapshot, { name: fx.expect.name, uiFramework: fx.expect.uiFramework });
+  assert.equal(byName(res, 'state-baseline').result, 'pass');
+  assert.equal(res.checks.some((c) => c.name === 'structural-read-back'), false);
+});
+
+test('existing mode: a set with no ring still fails focus-indicator', () => {
+  const fx = fixtures['button-spread-zero'];
+  assert.equal(byName(checkExisting(fx.snapshot, fx.expect), 'focus-indicator').result, 'fail');
 });

@@ -29,7 +29,7 @@ test('build: inlines all five sources, no module syntax survives', () => {
   assert.match(md, /const AA_NON_TEXT = 3;/);
   assert.match(md, /async function variableColors\(/);
   assert.match(md, /async function runFigmaChecks\(/);
-  assert.match(md, /const \{ checkSpec, checkBuilt \} = withTable\(\{ resolveArchetype, BASELINE_STATES, STATE_SYNONYMS, normalizeName, contrastRatio, composite, parseHex, AA_NON_TEXT \}\);/);
+  assert.match(md, /const \{ checkSpec, checkBuilt, checkExisting \} = withTable\(\{ resolveArchetype, BASELINE_STATES, STATE_SYNONYMS, normalizeName, contrastRatio, composite, parseHex, AA_NON_TEXT \}\);/);
   assert.ok(!/^\s*(import|export)\b/m.test(snippetOf(md)), 'snippet must contain no import/export lines');
 });
 

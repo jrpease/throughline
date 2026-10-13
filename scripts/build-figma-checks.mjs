@@ -25,7 +25,7 @@ const ADHERENCE_READER = join(REPO_ROOT, 'scripts', 'lib', 'figma-adherence-read
 const OUT = join(REPO_ROOT, 'references', 'figma-checks.md');
 const ADHERENCE_OUT = join(REPO_ROOT, 'references', 'figma-adherence.md');
 
-const BIND = 'const { checkSpec, checkBuilt } = withTable({ resolveArchetype, BASELINE_STATES, STATE_SYNONYMS, normalizeName, contrastRatio, composite, parseHex, AA_NON_TEXT });';
+const BIND = 'const { checkSpec, checkBuilt, checkExisting } = withTable({ resolveArchetype, BASELINE_STATES, STATE_SYNONYMS, normalizeName, contrastRatio, composite, parseHex, AA_NON_TEXT });';
 
 const HEADER = [
   '# Figma stop-condition checks (GENERATED)',
@@ -54,7 +54,7 @@ const HEADER = [
   '     component sits on, copied from the architect\'s spec. Without it the',
   '     focus-contrast check is skipped. Surfaces are looked up among the file\'s',
   '     local variables only.',
-  '   - `const MODE = \'spec\'` or `\'built\'`.',
+  '   - `const MODE = \'spec\'`, `\'built\'` or `\'existing\'`.',
   '2. End the script with `return await runFigmaChecks(EXPECT, MODE);` and pass',
   '   `timeout: 30000`.',
   '3. Read the result, `{ pass, checks: [{ name, result, detail }] }`. `result` is',
@@ -68,6 +68,13 @@ const HEADER = [
   '   COMPONENT_SET inside the frame named `WIP: <name>` on the current page and runs',
   '   in the self-verify loop. It throws only if that frame is missing; a frame with',
   '   no set, or a set Figma reports as conflicting, fails the structural check.',
+  '5. `\'existing\'` checks a set already in the library, read-only: the first',
+  '   COMPONENT_SET on any page whose name matches `name` ignoring case and',
+  '   punctuation. `matrix` is not needed. It runs the state, focus-ring and',
+  '   focus-contrast checks against the set\'s own variants, not the structural',
+  '   check. A set whose focus state is drawn some other way, such as an INSIDE',
+  '   stroke, fails the focus-ring check and skips contrast. It throws when no set',
+  '   has that name.',
   '',
   '```js',
   'const EXPECT = { name: \'Chip\', matrix: { state: [\'default\', \'hover\'] }, uiFramework: \'shadcn\' };',
