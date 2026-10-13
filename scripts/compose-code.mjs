@@ -4,8 +4,8 @@
 //
 //   node scripts/compose-code.mjs inventory --system <dir> --package <spec>
 //   node scripts/compose-code.mjs check --system <dir> --package <spec> --plan <plan.json>
-//   node scripts/compose-code.mjs gate --system <dir> --package <spec> --tokens <file>...
-//        --plan <plan.json> --file <screen.tsx>
+//   node scripts/compose-code.mjs gate --system <dir> --package <spec> --plan <plan.json>
+//        --file <screen.tsx> --tokens <file> [--tokens <file>...]
 //
 // PLAN: { screen, file, components: [{ name, variants?: { [axis]: value } }] }
 //   `file` is resolved against the working directory. Sub-parts (CardHeader)
@@ -119,7 +119,7 @@ const SCALE_UTILITY =
 // width or height declaration with a raw length (percentages are layout).
 const RAW_SIZE = [
   /(?<![\w-])(?:[\w-]+:)*(?:w|h|size|min-w|min-h|max-w|max-h)-\[(?!var\()(?!\d+(?:\.\d+)?(?:%|[dsl]?v[hw])\])[^\]\s]+\]/g,
-  /(?<![\w-])(?:min-?|max-?)?(?:width|height|[wW]idth|[hH]eight)\s*:\s*['"]?-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em)?(?![\w%.])/g,
+  /(?<![\w-])(?:min-?|max-?)?(?:[wW]idth|[hH]eight)\s*:\s*['"]?-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em)?(?![\w%.])/g,
 ];
 const NATIVE_CONTROL = /<(button|input|select|textarea)\b/g;
 // Every module reference: a static import (named, default, namespace,
