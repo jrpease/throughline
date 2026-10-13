@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.24.0] — 2026-10-13
+
+0.21.0 checked that every focus state has a ring. It never asked whether anyone
+could see it. Now a Figma build measures each ring against the surfaces it sits
+on, at WCAG's 3:1, in every mode, and stops when it falls short. The first live
+run found a real one: Zygarden's light-mode focus colour is 2.37:1 on its own
+canvas. The same release fixes the focus check for systems that name their focus
+colours like `border-primary-focus`, which it used to reject outright.
+
 ### Breaking
 
 - **A focus ring nobody can see now stops a Figma build (#158).** The focus check
