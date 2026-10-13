@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.25.0] — 2026-10-13
+
+Every Figma check this plugin had ran on a component it had just built. The
+screens your team assembled by hand, and the library you already had, were never
+looked at. Now one command reads them, without touching the file. The first runs
+on two real systems found 8 components detached from the library on one, and 28
+hardcoded gaps the tokens already covered across both. They also turned up two
+ways the gate itself was wrong, both narrowed before it shipped.
+
 ### Added
 
 - **`/throughline:check-figma` checks what's already in Figma (#40, #170).** Until
