@@ -207,6 +207,7 @@ keyed by component?"
 | `state-baseline` | attested | `component-builder` |
 | `figma-name` | attested | `component-builder` |
 | `focus-indicator` | attested | `component-builder` |
+| `focus-contrast` | attested | `component-builder` |
 | `review` | attested | the dispatching skill |
 | `build` | attested | `storybook-chromatic-builder` |
 | `orphan-token` | derived | not recorded: re-derived on every `verify:check` run |

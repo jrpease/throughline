@@ -586,6 +586,14 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
    - **The result.** On a miss, stop and name the variant and what it lacks. On a
      pass, `component-builder` records `focus-indicator` as an attested check. A
      skip records nothing.
+
+   **The `focus-contrast` check** is the same script's measure of whether the ring
+   can be seen: each ring colour against each surface the architect names in
+   `surfaces`, at WCAG 1.4.11's 3:1, in every mode. The script is the rule for
+   which pairs and modes it compares and when it skips. A fail is a token problem,
+   not a build error: `figma-executor` returns `BLOCKED` at once, and inline you
+   stop the build. Neither changes a variable or swaps the ring to make it pass.
+   On a pass, `component-builder` records `focus-contrast` as an attested check.
 10. **Visual** — the screenshot (from the validation loop) shows no overlaps,
    misalignment, lopsided hug/fill sizing, or clipped strokes/focus rings.
 11. **Usage band rendered by the builder** — the card's `Usage` frame was

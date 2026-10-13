@@ -181,8 +181,12 @@ deterministic naming):
   way the executor does: `'spec'` mode before the first write and `'built'` mode
   in the self-verify loop, with `EXPECT` built from your own matrix. You are the
   architect here, so you name `controlLayer` yourself for a wrapped control (an
-  Input with a label or helper text). A `fail` on the `focus-indicator` check
-  stops the build, as it would for the executor.
+  Input with a label or helper text), and `surfaces` yourself: the colour-variable
+  names of the page surfaces the component sits on. A `fail` on the
+  `focus-indicator` check stops the build, as it would for the executor. A `fail`
+  on `focus-contrast` stops it too, naming its detail. A ring below 3:1 is fixed by
+  a token value, so don't change a variable or swap the ring to another one to make
+  it pass; a surface the file doesn't have is a wrong name in `surfaces`.
 
 Checkpoint after each component: show all variants, confirm before the next.
 
@@ -370,8 +374,8 @@ any component built with the toggle + manual-swap fallback is listed in
 component-builder --subject <Name> --entry <tmp>.json`. Build `<tmp>.json` with
 `at` (an ISO timestamp you supply), `changed` (what was built), the attested checks `structural-read-back`,
 `state-baseline` and `figma-name` from what the `figma-executor` returned (or
-what your inline read-back found), `focus-indicator` when that check ran and
-passed (not when it was skipped),
+what your inline read-back found), `focus-indicator` and `focus-contrast`
+each when that check ran and passed (not when it was skipped),
 `review` when a reviewer ran, `screenshot` when one was captured, and
 `advancedBecause`. The entry shape is
 `.throughline/references/proof-bundle.md` — don't restate it here. Write

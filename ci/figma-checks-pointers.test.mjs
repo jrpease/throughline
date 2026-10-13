@@ -49,6 +49,19 @@ test('the executor copies controlLayer from the spec', () => {
   assert.ok(slice(read('agents/figma-executor.md'), '4. **Structural self-verify loop**', '\n5. ').includes('controlLayer'));
 });
 
+test('the architect spec carries surfaces for the focus-contrast check', () => {
+  assert.ok(read('agents/architect.md').includes('`surfaces`'));
+});
+
+test('the inline path names surfaces itself', () => {
+  const inline = slice(read('skills/component-builder/SKILL.md'), 'When you build inline, with no', 'Checkpoint after each component');
+  assert.ok(inline.includes('`surfaces`'));
+});
+
+test('the executor copies surfaces from the spec', () => {
+  assert.ok(slice(read('agents/figma-executor.md'), '4. **Structural self-verify loop**', '\n5. ').includes('`surfaces`'));
+});
+
 test('the pointer target exists', () => {
   assert.ok(read(POINTER).includes('## How to call it'));
 });

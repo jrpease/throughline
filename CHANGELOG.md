@@ -6,6 +6,21 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Breaking
+
+- **A focus ring nobody can see now stops a Figma build (#158).** The focus check
+  asked whether a ring exists. Now the same script also asks whether you can see
+  it: each ring colour against each page surface the architect names, at WCAG
+  1.4.11's 3:1, in every mode. Below that, the executor returns `BLOCKED` straight
+  away instead of retrying, because the fix is a token value and no rebuild
+  changes it. Neither the executor nor an inline build will edit a variable to get
+  past it. The architect's spec gains a `surfaces` field, colour-variable names
+  like `color/bg/canvas`. Until a spec names them, the check skips and says so,
+  so a build from an older spec isn't blocked. Surfaces have to be local variables
+  in the file. A pass is recorded as the attested check `focus-contrast`. Measured
+  before it shipped: Zygarden's light-mode ring is 2.37:1 on its canvas, and the
+  sample's ring on its muted surface is 2.997:1, which fails.
+
 ## [0.23.0] — 2026-10-11
 
 The three Figma checks that can stop a build used to be paragraphs the model
