@@ -27,7 +27,8 @@ rather than re-asking them. Scale explanation to `user.codingLevel`.
    (`CardHeader`); the inventory records neither.
 5. **Plan.** Write the plan as JSON to a scratch file:
    `{ "screen", "file", "components": [{ "name", "variants": { "<axis>": "<value>" } }] }`,
-   one entry per component the screen uses, with the variant values it sets. When
+   one entry per component the screen uses, with the variant values it sets. A
+   sub-part (`CardHeader`) comes with its owner (`Card`) and needs no entry. When
    the request needs a component the inventory doesn't have, say so before
    writing and ask: leave it out, use a named existing component instead, or stop.
    Never build a lookalike.
@@ -41,12 +42,14 @@ rather than re-asking them. Scale explanation to `user.codingLevel`.
    line, or on the second after a `'use client'` directive. Import components only
    from the package specifier. Plain elements carry layout only (flex, grid, gap,
    padding, sizing); visible text uses semantic elements (`h1`, `p`, `label`);
-   everything the user operates is a system component from the plan. Write
-   colour, spacing, sizing and type size only as token variables
+   everything the user operates is a system component from the plan (a link may
+   be a plain `<a>`). Write colour, spacing, sizing, type size and font weight
+   only as token variables
    (`gap-[var(--space-gap-md)]`, `style={{ padding: 'var(--space-4)' }}`) or the
    utilities the system's preset generates from tokens (`bg-primary`,
    `rounded-md`). Never a raw value, and never Tailwind's default scale
-   (`gap-4`, `text-lg`). Handlers are stubs; data and state are the app's.
+   (`gap-4`, `text-lg`, `font-semibold`). Percentages, fractions and `w-full`
+   are layout and fine. Handlers are stubs; data and state are the app's.
 8. **Gate.** Run the script with
    `gate --system <dir> --package <spec> --tokens <file>... --plan <plan file> --file <screen file>`.
    On a failure, fix the file and run it again, up to three attempts in all. If

@@ -122,9 +122,27 @@ test('gate: raw values fail whether or not a token holds them', () => {
   assert.equal(r.ok, false);
 });
 
-test('gate: default-scale utilities fail; token utilities, var() and w-full do not', () => {
-  const r = gate(screen('      <div className="gap-4 md:text-lg p-0 w-full h-full bg-primary" />'));
-  assert.deepEqual(r.failures.map((f) => [f.rule, f.written]), [['scale-utility', 'gap-4'], ['scale-utility', 'md:text-lg']]);
+test('gate: default-scale utilities fail; token utilities, var(), keywords and fractions do not', () => {
+  const r = gate(screen('      <div className={cn("gap-4 md:text-lg -mt-2 font-semibold max-w-sm", "p-0 w-full h-full w-1/2 bg-primary text-primary text-foreground font-sans h-[var(--x)]")} />'));
+  assert.deepEqual(r.failures.map((f) => [f.rule, f.written]),
+    [['scale-utility', 'gap-4'], ['scale-utility', 'md:text-lg'], ['scale-utility', '-mt-2'], ['scale-utility', 'font-semibold'], ['scale-utility', 'max-w-sm']]);
+});
+
+test('gate: a raw size the gate does not read is a raw value; a percentage is not', () => {
+  const r = gate(screen('      <div className="w-[320px] md:max-w-[40rem]" style={{ width: 320, minHeight: \'2rem\', maxWidth: \'100%\' }} />'));
+  assert.deepEqual(r.failures.filter((f) => f.rule === 'raw-value').map((f) => f.written),
+    ['w-[320px]', 'md:max-w-[40rem]', 'width: 320', "minHeight: '2rem"]);
+});
+
+test('check: a listed sub-part resolves to its owner', () => {
+  const res = checkPlan(plan([{ name: 'CardHeader' }, { name: 'CardTitle', variants: { size: 'lg' } }]), inventory);
+  assert.deepEqual(kinds(res), ['unknown-prop']);
+  assert.deepEqual(checkPlan(plan([{ name: 'CardHeader' }]), inventory).plan.components, [{ name: 'CardHeader', partOf: 'Card', variants: {} }]);
+});
+
+test('gate: a part is on plan through its owner, also when the plan lists only the part', () => {
+  const text = `${COMPOSED_MARKER('Sign in')}\nimport { CardTitle } from '@ds/ui';\nexport const S = () => <CardTitle />;\n`;
+  assert.ok(!gate(text, { components: [{ name: 'CardHeader', partOf: 'Card' }] }).failures.some((f) => f.rule === 'off-plan'));
 });
 
 test('gate: a hand-built control and an unplanned package component are off-plan', () => {
@@ -170,4 +188,10 @@ test('CLI: check reads the marker of the file at the plan\'s path, and gate exit
   assert.equal(run('gate', '--plan', 'plan.json', '--file', 'SignIn.tsx', '--tokens', 'tokens.json').status, 0);
   assert.equal(run('gate', '--plan', 'plan.json', '--file', 'SignIn.tsx').status, 2);
   assert.equal(run('inventory').status, 0);
+
+  // gate resolves the plan itself, so a listed part admits its siblings.
+  writeFileSync(join(dir, 'parts.json'), JSON.stringify({ screen: 'Sign in', file: 'Parts.tsx', components: [{ name: 'CardHeader' }] }));
+  writeFileSync(join(dir, 'Parts.tsx'), `${COMPOSED_MARKER('Sign in')}\nimport { CardTitle } from '@ds/ui';\nexport const S = () => <CardTitle />;\n`);
+  const parts = run('gate', '--plan', 'parts.json', '--file', 'Parts.tsx', '--tokens', 'tokens.json');
+  assert.doesNotMatch(parts.stdout, /off-plan/);
 });

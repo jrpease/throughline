@@ -8,7 +8,9 @@
 //        --plan <plan.json> --file <screen.tsx>
 //
 // PLAN: { screen, file, components: [{ name, variants?: { [axis]: value } }] }
-//   `file` is resolved against the working directory.
+//   `file` is resolved against the working directory. Sub-parts (CardHeader)
+//   come with their owner and need no entry. `gate` compares the file to the
+//   resolved plan, case-folded.
 //
 // Exit: 0 ok, 1 errors or failures, 2 usage or unreadable input.
 //
@@ -78,6 +80,13 @@ export function checkPlan(plan, inventory, { existing = null } = {}) {
     if (!isObject(c) || typeof c.name !== 'string') { err('invalid', path, c); continue; }
     for (const key of Object.keys(c)) if (!['name', 'variants'].includes(key)) err('invalid', `${path}.${key}`, c[key]);
     const found = inventory.components.find((x) => fold(x.name) === fold(c.name));
+    // A sub-part (CardHeader) needs no entry, but one listed resolves to its owner.
+    const owner = found ? null : partOwner(c.name, inventory.components.map((x) => x.name));
+    if (owner) {
+      if (c.variants !== undefined) err('unknown-prop', `${path}.variants`, c.variants);
+      resolved.push({ name: c.name, partOf: owner, variants: {} });
+      continue;
+    }
     if (!found) {
       err('missing-component', `${path}.name`, c.name, { nearest: nearestNames(c.name, inventory.components.map((x) => x.name)) });
       continue;
@@ -98,12 +107,20 @@ export function checkPlan(plan, inventory, { existing = null } = {}) {
   return { ok, errors, plan: ok ? { screen: plan.screen, file: plan.file, components: resolved } : null };
 }
 
-// Default-scale Tailwind spacing, sizing and type-size utilities. Throughline's
-// generated preset extends only colours, radius and font family, so these are
-// Tailwind's own values, not tokens. 0 is allowed; arbitrary values (`-[…]`) are
-// the gate's.
+// Default-scale Tailwind spacing, sizing, type-size and weight utilities, after
+// any variants (`md:`) and as negatives. Throughline's generated preset extends
+// only colours, radius and font family, so these are Tailwind's own values, not
+// tokens. Read anywhere in the file, so cn() and template strings count. Passes:
+// 0, fractions (`w-1/2`), keywords (`full`, `auto`, `screen`), preset names
+// (`text-primary`, `font-sans`) and `[var(--…)]`.
 const SCALE_UTILITY =
-  /(?<![\w-])(?:[\w-]+:)*-?(?:p[xytrblse]?|m[xytrblse]?|gap(?:-[xy])?|space-[xy]|w|h|size|min-w|min-h|max-w|max-h|inset(?:-[xy])?|top|right|bottom|left|text|leading|tracking)-(?:0\.\d+|[1-9]\d*(?:\.\d+)?|px|xs|sm|base|lg|xl|[2-9]xl)(?![\w-])/g;
+  /(?<![\w-])(?:[\w-]+:)*-?(?:(?:p[xytrblse]?|m[xytrblse]?|gap(?:-[xy])?|space-[xy]|w|h|size|min-w|min-h|max-w|max-h|inset(?:-[xy])?|top|right|bottom|left|text|leading|tracking)-(?:0\.\d+|[1-9]\d*(?:\.\d+)?|px|xs|sm|base|lg|xl|[2-9]xl)|font-(?:thin|extralight|light|normal|medium|semibold|bold|extrabold|black))(?![\w/-])/g;
+// Sizing the gate doesn't read: an arbitrary size that isn't a variable, and a
+// width or height declaration with a raw length (percentages are layout).
+const RAW_SIZE = [
+  /(?<![\w-])(?:[\w-]+:)*(?:w|h|size|min-w|min-h|max-w|max-h)-\[(?!var\()[^\]\s]+\]/g,
+  /(?<![\w-])(?:min-?|max-?)?(?:width|height|[wW]idth|[hH]eight)\s*:\s*['"]?-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em)?(?![\w%.])/g,
+];
 const NATIVE_CONTROL = /<(button|input|select|textarea)\b/g;
 
 const lineOf = (text, i) => text.slice(0, i).split('\n').length;
@@ -129,10 +146,11 @@ export function gateFile({ file, text, plan, manifest, index, tokenDicts, pkg })
   for (const d of extracted.dimensions) failures.push({ rule: 'raw-value', written: d.written, file, line: d.line });
 
   const code = blankComments(text, file);
+  for (const re of RAW_SIZE) for (const m of code.matchAll(re)) failures.push({ rule: 'raw-value', written: m[0], file, line: lineOf(code, m.index) });
   for (const m of code.matchAll(SCALE_UTILITY)) failures.push({ rule: 'scale-utility', written: m[0], file, line: lineOf(code, m.index) });
   for (const m of code.matchAll(NATIVE_CONTROL)) failures.push({ rule: 'off-plan', written: `<${m[1]}>`, file, line: lineOf(code, m.index) });
 
-  const planned = (plan?.components ?? []).map((c) => c.name);
+  const planned = (plan?.components ?? []).map((c) => c.partOf ?? c.name);
   const plannedKeys = new Set(planned.map(fold));
   for (const e of extracted.elements) {
     if (plannedKeys.has(fold(e.component)) || partOwner(e.component, planned)) continue;
@@ -215,7 +233,7 @@ function main() {
   const r = gateFile({
     file: values.file,
     text: read(values.file, 'the screen file', false),
-    plan,
+    plan: checkPlan(plan, inventory).plan ?? plan,
     manifest,
     index,
     tokenDicts: values.tokens.map((f) => read(f, 'a token source')),
