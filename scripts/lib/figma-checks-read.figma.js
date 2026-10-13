@@ -1,21 +1,60 @@
 // Figma plugin-API reader for the stop-condition checks. This file is NOT a
 // Node module — build-figma-checks.mjs concatenates it after the inlined
-// component-states.mjs and figma-checks.mjs into references/figma-checks.md, and
+// component-states.mjs, contrast.mjs and figma-checks.mjs into
+// references/figma-checks.md, and
 // the result runs inside figma_execute (dynamic-page mode). Constraints honored
 // here (see references/figma-scripting.md): async getters only, variable names
-// resolved with getVariableByIdAsync and only for focus variants and their
-// controlLayer. Untested in Node, like the doc-card renderer; the pure checker
-// it feeds is unit-tested.
+// and per-mode colour values resolved with getVariableByIdAsync and only for
+// focus variants and their controlLayer, plus the EXPECT.surfaces names, which
+// are looked up among the file's LOCAL colour variables only (a surface from a
+// published library reads as missing). Untested in Node, like the doc-card
+// renderer; the pure checker it feeds is unit-tested.
 //
 // In-scope globals when assembled: normalizeName (inlined
 // component-states.mjs), checkSpec, checkBuilt (bound from withTable) and the
 // caller-filled slots EXPECT and MODE (passed to runFigmaChecks). The snapshot
 // shape is documented at the top of scripts/lib/figma-checks.mjs.
 
+// Colour variables read on focus nodes, by name, for the contrast check.
+const readVariables = new Map();
+
 async function variableName(alias) {
   if (!alias || !alias.id) return null;
   const variable = await figma.variables.getVariableByIdAsync(alias.id);
-  return variable ? variable.name : null;
+  if (!variable) return null;
+  if (variable.resolvedType === 'COLOR') readVariables.set(variable.name, variable);
+  return variable.name;
+}
+
+function colorHex(value) {
+  if (!value || typeof value !== 'object' || !('r' in value)) return null;
+  const byte = (x) => Math.round(x * 255).toString(16).padStart(2, '0');
+  const alpha = value.a === undefined ? 1 : value.a;
+  return `#${byte(value.r)}${byte(value.g)}${byte(value.b)}${alpha < 1 ? byte(alpha) : ''}`;
+}
+
+// The value of `variable` in the mode named `modeName` (after the fold), else
+// its collection's default mode, following aliases up to 10 hops.
+async function resolveColor(variable, modeName, hops) {
+  if (!variable || hops > 10) return null;
+  const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
+  if (!collection) return null;
+  const mode = collection.modes.find((m) => normalizeName(m.name) === normalizeName(modeName));
+  const value = variable.valuesByMode[mode ? mode.modeId : collection.defaultModeId];
+  if (value && value.type === 'VARIABLE_ALIAS') {
+    return resolveColor(await figma.variables.getVariableByIdAsync(value.id), modeName, hops + 1);
+  }
+  return colorHex(value);
+}
+
+// { modes: { [modeName]: hex | null }, defaultMode } over the variable's own collection.
+async function variableColors(variable) {
+  const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
+  if (!collection) return { modes: {}, defaultMode: undefined };
+  const modes = {};
+  for (const mode of collection.modes) modes[mode.name] = await resolveColor(variable, mode.name, 0);
+  const fallback = collection.modes.find((m) => m.modeId === collection.defaultModeId);
+  return { modes, defaultMode: fallback ? fallback.name : undefined };
 }
 
 // The fields the focus check reads from a variant, a control layer or a direct child.
@@ -76,6 +115,7 @@ function groupProperties(set) {
 }
 
 async function readComponentSet(expect) {
+  readVariables.clear();
   await figma.currentPage.loadAsync();
   const frameName = `WIP: ${expect.name}`;
   const frame = figma.currentPage.findOne((n) => n.name === frameName);
@@ -106,10 +146,24 @@ async function readComponentSet(expect) {
     }
     children.push(read);
   }
+  const colors = {};
+  for (const [name, variable] of readVariables) colors[name] = await variableColors(variable);
+  const missingSurfaces = [];
+  const surfaces = expect.surfaces || [];
+  if (surfaces.length) {
+    const local = await figma.variables.getLocalVariablesAsync('COLOR');
+    for (const name of surfaces) {
+      const variable = local.find((v) => v.name === name);
+      if (variable) colors[name] = await variableColors(variable);
+      else missingSurfaces.push(name);
+    }
+  }
   return {
     type: set.type,
     variantGroupProperties: groupProperties(set),
     children,
+    colors,
+    missingSurfaces,
   };
 }
 
