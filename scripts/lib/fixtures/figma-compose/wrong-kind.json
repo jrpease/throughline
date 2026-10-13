@@ -1,0 +1,5 @@
+{
+  "covers": "a gap bound to a font size and a fill bound to a spacing variable",
+  "description": { "screen": "X", "page": "Screens", "width": 390, "root": { "layout": "vertical", "gap": "font/size/400", "fill": "space/4" } },
+  "expected": { "ok": false, "errors": ["variable-kind", "variable-kind"] }
+}

@@ -1,0 +1,9 @@
+{
+  "covers": "content in a slot with auto layout resolves, fill included",
+  "description": { "screen": "Panel", "page": "Screens", "width": 390, "root": { "layout": "vertical", "children": [
+    { "component": "Panel", "props": { "title": "Account" }, "slots": { "Body": [
+      { "text": "Hello", "style": "Body/Default", "color": "color/text/primary", "sizing": { "horizontal": "fill" } }
+    ] } }
+  ] } },
+  "expected": { "ok": true, "errors": [] }
+}

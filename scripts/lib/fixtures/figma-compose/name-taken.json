@@ -1,0 +1,6 @@
+{
+  "covers": "an unmarked frame already named like the screen stops the build",
+  "description": { "screen": "Sign up", "page": "Screens", "width": 390, "root": { "layout": "vertical" } },
+  "target": { "screen": "unmarked", "wip": null },
+  "expected": { "ok": false, "errors": ["name-taken"] }
+}

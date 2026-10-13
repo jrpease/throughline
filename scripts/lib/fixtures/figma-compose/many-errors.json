@@ -1,0 +1,8 @@
+{
+  "covers": "every problem is reported in one pass",
+  "description": { "screen": "X", "page": "Screens", "width": 390, "modes": { "Color / Semantic": "Sepia" }, "root": { "layout": "diagonal", "children": [
+    { "text": "Hi", "style": "Heading/XXL", "color": "color/text/primary" },
+    { "component": "Carousel" }
+  ] } },
+  "expected": { "ok": false, "errors": ["unknown-mode", "invalid", "unknown-text-style", "missing-component"] }
+}

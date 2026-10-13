@@ -1,0 +1,7 @@
+{
+  "covers": "a prop the set lacks and an option the variant lacks",
+  "description": { "screen": "X", "page": "Screens", "width": 390, "root": { "layout": "vertical", "children": [
+    { "component": "Button", "props": { "colour": "red", "size": "xl" } }
+  ] } },
+  "expected": { "ok": false, "errors": ["unknown-prop", "unknown-option"] }
+}

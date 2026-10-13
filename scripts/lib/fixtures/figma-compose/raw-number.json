@@ -1,0 +1,5 @@
+{
+  "covers": "a raw number where a variable name belongs",
+  "description": { "screen": "X", "page": "Screens", "width": 390, "root": { "layout": "vertical", "gap": 16 } },
+  "expected": { "ok": false, "errors": ["invalid"] }
+}

@@ -1,0 +1,7 @@
+{
+  "covers": "a component the file lacks is a gap, with the nearest names",
+  "description": { "screen": "Booking", "page": "Screens", "width": 390, "root": { "layout": "vertical", "children": [
+    { "component": "DatePicker" }
+  ] } },
+  "expected": { "ok": false, "errors": ["missing-component"] }
+}

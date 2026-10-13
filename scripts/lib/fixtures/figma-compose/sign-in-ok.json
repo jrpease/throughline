@@ -1,0 +1,16 @@
+{
+  "covers": "frames, styled text, Button with a variant, text, boolean and icon swap, Input, Checkbox and a mode resolve",
+  "description": {
+    "screen": "Sign in", "page": "Screens", "width": 390, "modes": { "Color / Semantic": "Light" },
+    "root": { "layout": "vertical", "gap": "space/gap/md", "padding": "space/inset/lg", "fill": "color/bg/canvas", "children": [
+      { "text": "Sign in", "style": "Heading/L", "color": "color/text/primary" },
+      { "component": "Input", "props": { "placeholder": "Email" }, "sizing": { "horizontal": "fill" } },
+      { "component": "Input", "props": { "placeholder": "Password" }, "sizing": { "horizontal": "fill" } },
+      { "layout": "horizontal", "gap": "space/4", "align": { "main": "space-between", "cross": "center" }, "sizing": { "horizontal": "fill" }, "children": [
+        { "component": "Checkbox", "props": { "checked": "true" } },
+        { "component": "Button", "props": { "variant": "secondary", "size": "lg", "label": "Sign in", "hasTrailing": true, "trailingIcon": "icon/arrow-right" } }
+      ] }
+    ] }
+  },
+  "expected": { "ok": true, "errors": [] }
+}

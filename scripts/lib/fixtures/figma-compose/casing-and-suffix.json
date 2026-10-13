@@ -1,0 +1,8 @@
+{
+  "covers": "set, prop and option names match case-folded and without the #id suffix",
+  "description": { "screen": "Menu", "page": "Screens", "width": 390, "root": { "layout": "vertical", "children": [
+    { "component": "select menu item", "props": { "state": "SELECTED", "label": "One" } },
+    { "component": "BUTTON", "props": { "State": "default", "LABEL": "Go" } }
+  ] } },
+  "expected": { "ok": true, "errors": [] }
+}

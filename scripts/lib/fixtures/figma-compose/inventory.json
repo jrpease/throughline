@@ -1,0 +1,55 @@
+{
+  "covers": "the shared inventory every case resolves against, modelled on the sample file (2026-10-13)",
+  "sets": [
+    { "name": "Button", "id": "10:1", "page": "Components", "props": [
+      { "key": "label#10:273", "name": "label", "type": "TEXT" },
+      { "key": "hasTrailing#10:455", "name": "hasTrailing", "type": "BOOLEAN" },
+      { "key": "trailingIcon#11:91", "name": "trailingIcon", "type": "INSTANCE_SWAP" },
+      { "key": "variant", "name": "variant", "type": "VARIANT", "options": ["default", "secondary", "outline", "ghost", "link", "destructive"] },
+      { "key": "size", "name": "size", "type": "VARIANT", "options": ["sm", "md", "lg"] },
+      { "key": "state", "name": "state", "type": "VARIANT", "options": ["Default", "Hover", "Focus", "Disabled", "Loading", "Active"] }
+    ] },
+    { "name": "Input", "id": "12:1", "page": "Components", "props": [
+      { "key": "placeholder#12:200", "name": "placeholder", "type": "TEXT" },
+      { "key": "size", "name": "size", "type": "VARIANT", "options": ["sm", "md", "lg"] },
+      { "key": "state", "name": "state", "type": "VARIANT", "options": ["Default", "Focus", "Disabled", "Error", "Hover", "Active"] }
+    ] },
+    { "name": "Checkbox", "id": "13:1", "page": "Components", "props": [
+      { "key": "state", "name": "state", "type": "VARIANT", "options": ["Disabled", "Default", "Hover", "Focus", "Active"] },
+      { "key": "checked", "name": "checked", "type": "VARIANT", "options": ["false", "true", "indeterminate"] }
+    ] },
+    { "name": "Select Menu Item", "id": "23:1", "page": "Components", "props": [
+      { "key": "Label#23:242", "name": "Label", "type": "TEXT" },
+      { "key": "State", "name": "State", "type": "VARIANT", "options": ["Default", "Hover", "Focused", "Selected", "Disabled"] }
+    ] },
+    { "name": "Panel", "id": "40:1", "page": "Components", "props": [
+      { "key": "Body#40:2", "name": "Body", "type": "SLOT", "slotLayout": "VERTICAL" },
+      { "key": "title#40:3", "name": "title", "type": "TEXT" }
+    ] },
+    { "name": "Sheet", "id": "41:1", "page": "Components", "props": [
+      { "key": "Content#41:2", "name": "Content", "type": "SLOT", "slotLayout": "NONE" }
+    ] }
+  ],
+  "components": [
+    { "name": "icon/arrow-right", "id": "6:553", "page": "Icons" },
+    { "name": "icon/check", "id": "6:560", "page": "Icons" }
+  ],
+  "variables": [
+    { "name": "color/bg/canvas", "id": "V:1", "kinds": ["colour"] },
+    { "name": "color/text/primary", "id": "V:2", "kinds": ["colour"] },
+    { "name": "color/border/default", "id": "V:3", "kinds": ["colour"] },
+    { "name": "space/gap/md", "id": "V:4", "kinds": ["gap"] },
+    { "name": "space/inset/lg", "id": "V:5", "kinds": ["gap"] },
+    { "name": "space/4", "id": "V:6", "kinds": ["gap"] },
+    { "name": "radius/md", "id": "V:7", "kinds": ["radius"] },
+    { "name": "font/size/400", "id": "V:8", "kinds": [] }
+  ],
+  "textStyles": [
+    { "name": "Heading/L", "id": "S:1" },
+    { "name": "Body/Default", "id": "S:2" }
+  ],
+  "collections": [
+    { "name": "Color / Semantic", "id": "C:1", "modes": [{ "name": "Dark", "id": "M:1" }, { "name": "Light", "id": "M:2" }] }
+  ],
+  "target": null
+}

@@ -1,0 +1,7 @@
+{
+  "covers": "fill inside a slot with no auto layout would throw in Figma, so it is rejected first",
+  "description": { "screen": "X", "page": "Screens", "width": 390, "root": { "layout": "vertical", "children": [
+    { "component": "Sheet", "slots": { "Content": [ { "layout": "vertical", "sizing": { "horizontal": "fill" } } ] } }
+  ] } },
+  "expected": { "ok": false, "errors": ["invalid"] }
+}
