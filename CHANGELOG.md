@@ -6,6 +6,25 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Added
+
+- **`scripts/doc-card-payload.mjs` builds the doc-card render call for you.** Rendering
+  a card meant splicing the record, its fingerprint, nine variable lookups and a
+  ~25 KB generated snippet into one `figma_execute` call by hand. Now one command
+  writes that body to a file and prints the `renderHash` the render should return,
+  so a payload that got mangled in transit shows up as a hash mismatch instead of
+  a quietly wrong card. `/throughline:document-component` and `component-builder`
+  use it.
+
+### Changed
+
+- **A misnamed status chip now gets a named fix.** The builder still refuses a
+  header it can't read, but when the title row has no `Status Pill`/`Status` node
+  and exactly one frame there wraps a single text node, the error names that
+  frame — id, name and label — and says to rename it `Status Pill`. The legacy
+  Select Menu card in the sample repo failed exactly this way. Render output is
+  unchanged, so `DOC_CARD_RENDERER_VERSION` stays `'4'`.
+
 ## [0.25.0] — 2026-10-13
 
 Every Figma check this plugin had ran on a component it had just built. The

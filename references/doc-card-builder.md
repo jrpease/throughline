@@ -14,6 +14,18 @@ it reads the specimen and never writes it. The status chip keeps its own owner
 
 ## How to call it
 
+Steps 1–4 are one command once `figma.docCardVariables` is recorded:
+
+```sh
+node scripts/doc-card-payload.mjs design-system/docs/components/<Name>.doc.json <cardNodeId> --out <scratch>/payload.js
+```
+
+It writes the complete `figma_execute` body — record, fingerprint, the nine
+role lookups by recorded name, `Body/Default`, the snippet and the call — and
+prints the `expectedRenderHash` to stderr. Pass the file's contents as the
+`code` unchanged, then do steps 5–6. The steps below are what it does, and
+what to do by hand when the mapping isn't recorded yet.
+
 1. Load the record and compute its canonical fingerprint in Node
    (`canonicalFingerprint` in `scripts/lib/doc-record.mjs`).
 2. Read `figma.docCardVariables` from `design-system.json`.
@@ -82,6 +94,10 @@ const summary = await renderDocCard({ card, record: RECORD, vars, bodyTextStyle 
    `cardWidth` — not from a screenshot, then stamp the manifest from it:
    `surfaces.docCard = { src: summary.fingerprint, render: summary.renderHash,
    renderer: summary.rendererVersion }`. Never re-read the card to stamp.
+   With the payload script, first check `summary.renderHash` equals the
+   `expectedRenderHash` it printed. A mismatch means the payload changed on
+   the way in, or `Body/Default` isn't the size the script assumed — the
+   summary's `bodyFontSize` says which; re-run with `--font-size`.
 
 ## The snippet
 
@@ -188,20 +204,11 @@ function planDocCard(record, bodyTextStyle) {
   };
 }
 
-// Figma plugin-API renderer for the doc-card Usage band. This file is NOT a
-// Node module — build-doc-card-builder.mjs concatenates it after the inlined
-// planner (doc-card-plan.mjs) into references/doc-card-builder.md, and the
-// result runs inside figma_execute (dynamic-page mode). Constraints honored
-// here (see references/figma-scripting.md): async APIs only, style/font set
-// BEFORE .characters, fonts loaded up front, resize() sizing modes re-asserted,
-// bound paints seeded light-gray (never pure black).
-//
-// In-scope globals when assembled: planDocCard, DOC_CARD_RENDERER_VERSION
-// (inlined planner) and the caller-filled slots RECORD, CANONICAL_FP.
-
-// 32-bit FNV-1a — the render hash. Only ever compared against itself (the
-// manifest's surfaces.docCard.render), so it does not need to match the
-// sha256-based canonical fingerprint, which cannot run in the Figma sandbox.
+// 32-bit FNV-1a — the render hash: fnv1a(JSON.stringify(plan)). Only ever
+// compared against itself (the manifest's surfaces.docCard.render), so it does
+// not need to match the sha256-based canonical fingerprint, which cannot run in
+// the Figma sandbox. Lives here, not in the renderer, so Node can compute the
+// hash a render should return (doc-card-payload.mjs) with the same code.
 function fnv1a(str) {
   let h = 0x811c9dc5;
   for (let i = 0; i < str.length; i++) {
@@ -210,6 +217,40 @@ function fnv1a(str) {
   }
   return h.toString(16).padStart(8, '0');
 }
+
+// When a header's title row has no node named `Status Pill`/`Status`, name the
+// node that most likely IS the chip so the error can say what to rename. Never
+// used to pick a node to write — the renderer still refuses to guess. A
+// candidate is a FRAME below the title row whose only child is a TEXT node
+// (the chip shape: a pill frame around its label). Exactly one candidate or
+// no hint. Reads only type/name/id/characters/children, so it runs on Figma
+// nodes and on plain test objects alike.
+function statusChipHint(titleRow) {
+  if (!titleRow || titleRow.type !== 'FRAME') return null;
+  const found = [];
+  const walk = (node) => {
+    for (const child of node.children || []) {
+      if (child.type === 'FRAME' && child.children && child.children.length === 1
+        && child.children[0].type === 'TEXT') {
+        found.push({ id: child.id, name: child.name, label: child.children[0].characters });
+      }
+      walk(child);
+    }
+  };
+  walk(titleRow);
+  return found.length === 1 ? found[0] : null;
+}
+
+// Figma plugin-API renderer for the doc-card Usage band. This file is NOT a
+// Node module — build-doc-card-builder.mjs concatenates it after the inlined
+// planner (doc-card-plan.mjs) into references/doc-card-builder.md, and the
+// result runs inside figma_execute (dynamic-page mode). Constraints honored
+// here (see references/figma-scripting.md): async APIs only, style/font set
+// BEFORE .characters, fonts loaded up front, resize() sizing modes re-asserted,
+// bound paints seeded light-gray (never pure black).
+//
+// In-scope globals when assembled: planDocCard, DOC_CARD_RENDERER_VERSION,
+// fnv1a, statusChipHint (inlined planner) and the caller-filled slots RECORD, CANONICAL_FP.
 
 const REQUIRED_VARS = [
   'textDefault', 'textMuted', 'tonePositive', 'toneNegative', 'border',
@@ -341,7 +382,13 @@ async function renderDocCard({ card, record, vars, bodyTextStyle }) {
   const descAmbiguous = !named && descCandidates.length > 1;
 
   const missingAnchors = [];
-  if (!hasStatusAnchor) missingAnchors.push('status (title row must contain a descendant named "Status Pill" or "Status")');
+  if (!hasStatusAnchor) {
+    const hint = statusChipHint(titleRow);
+    missingAnchors.push('status (title row must contain a descendant named "Status Pill" or "Status"'
+      + (hint ? ' — frame ' + hint.id + ' "' + hint.name + '" holding "' + hint.label
+        + '" looks like the status chip; rename it "Status Pill" and re-run' : '')
+      + ')');
+  }
   if (!headerDescCandidate) {
     missingAnchors.push(descAmbiguous
       ? 'description (found ' + descCandidates.length + ' candidate TEXT children, cannot tell which is the description — name the right one "Header Description" by hand and re-run)'

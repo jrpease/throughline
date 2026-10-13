@@ -24,8 +24,9 @@ Ask which component to document (e.g. "Button"), then:
 2. **Project it.** Write `design-system/docs/components/<Name>.doc.json`, set the
    Figma component `description`, rebuild the doc card's `Usage` band with the
    canonical builder (`.throughline/references/doc-card-builder.md` —
-   verify its returned summary and stamp `surfaces.docCard.{src,render,renderer}`
-   from it), and (if the repo/code side exists) render MDX/JSDoc and run
+   assemble the call with `node .throughline/scripts/doc-card-payload.mjs`,
+   check the returned `renderHash` against the one it printed, verify the
+   returned summary and stamp `surfaces.docCard.{src,render,renderer}` from it), and (if the repo/code side exists) render MDX/JSDoc and run
    `docs:digest` per the `storybook-chromatic-builder` render step.
    Before the Figma writes, run the active-file preflight in
    `.throughline/references/figma-scripting.md` — this command writes

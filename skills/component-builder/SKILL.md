@@ -332,9 +332,11 @@ reference register, not this skill's guide voice.
   always last.
 - **Doc card body.** Render the card's `Usage` band with the canonical builder
   snippet in `${CLAUDE_PLUGIN_ROOT}/references/doc-card-builder.md` (via
-  `figma_execute` with an explicit `timeout`, one card per call): fill the
-  RECORD/CANONICAL_FP slots, resolve the nine required semantic variables and
-  the `Body/Default` text style per that file's call contract, run it, and
+  `figma_execute` with an explicit `timeout`, one card per call): assemble the
+  call with `node ${CLAUDE_PLUGIN_ROOT}/scripts/doc-card-payload.mjs <record> <cardNodeId>`
+  (it fills the RECORD/CANONICAL_FP slots and resolves the nine semantic
+  variables and `Body/Default` per that file's call contract), run it, check
+  `summary.renderHash` against the `expectedRenderHash` it printed, and
   verify the returned summary (`rowsRendered`, `blocksCreated`, `cardWidth`) —
   not a screenshot. The builder creates the `Doc Fingerprint` node itself and
   is the only thing that may build the usage body — never hand-assemble it.

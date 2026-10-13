@@ -213,3 +213,17 @@ test('copyClaimProblems: "copy" as a noun beside the README is not an install cl
   assert.deepEqual(problems, []);
   assert.equal(claims, 0);
 });
+
+test('copyClaimProblems: each step of a tight numbered list is its own paragraph', () => {
+  const source = [
+    '1. **Project it.** Run `node ${CLAUDE_PLUGIN_ROOT}/scripts/doc-card-payload.mjs` and render.',
+    '2. **Reconcile.** Refresh the repo copy per **Documentation scripts — install as a set**',
+    '   in `${CLAUDE_PLUGIN_ROOT}/scripts/README.md`.',
+  ].join('\n');
+  // Step 2 makes the install claim; step 1 only runs a script, so it is not checked against the set.
+  assert.deepEqual(copyClaimProblems({ label: 'x.md', source, entries: [], docsSet: DOCS }).problems, []);
+  // The same claim inside one step still has to hold.
+  const oneStep = '1. Run `${CLAUDE_PLUGIN_ROOT}/scripts/doc-card-payload.mjs`, then refresh per **Documentation scripts — install as a set**.';
+  assert.deepEqual(copyClaimProblems({ label: 'x.md', source: oneStep, entries: [], docsSet: DOCS }).problems,
+    ['x.md: a copy paragraph names `doc-card-payload.mjs`, which is not in the docs install set']);
+});

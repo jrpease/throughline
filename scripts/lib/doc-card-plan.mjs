@@ -99,3 +99,40 @@ export function planDocCard(record, bodyTextStyle) {
     rows,
   };
 }
+
+// 32-bit FNV-1a — the render hash: fnv1a(JSON.stringify(plan)). Only ever
+// compared against itself (the manifest's surfaces.docCard.render), so it does
+// not need to match the sha256-based canonical fingerprint, which cannot run in
+// the Figma sandbox. Lives here, not in the renderer, so Node can compute the
+// hash a render should return (doc-card-payload.mjs) with the same code.
+export function fnv1a(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, '0');
+}
+
+// When a header's title row has no node named `Status Pill`/`Status`, name the
+// node that most likely IS the chip so the error can say what to rename. Never
+// used to pick a node to write — the renderer still refuses to guess. A
+// candidate is a FRAME below the title row whose only child is a TEXT node
+// (the chip shape: a pill frame around its label). Exactly one candidate or
+// no hint. Reads only type/name/id/characters/children, so it runs on Figma
+// nodes and on plain test objects alike.
+export function statusChipHint(titleRow) {
+  if (!titleRow || titleRow.type !== 'FRAME') return null;
+  const found = [];
+  const walk = (node) => {
+    for (const child of node.children || []) {
+      if (child.type === 'FRAME' && child.children && child.children.length === 1
+        && child.children[0].type === 'TEXT') {
+        found.push({ id: child.id, name: child.name, label: child.children[0].characters });
+      }
+      walk(child);
+    }
+  };
+  walk(titleRow);
+  return found.length === 1 ? found[0] : null;
+}
