@@ -72,11 +72,17 @@ function frameworkRecipe(uiFramework) {
     : null;
 }
 
-// A focus variable is any variable whose name has a `focus` segment:
-// `border/focus`, `color/border/focus` and `color/focus/ring` count; `focusRing` and
-// a raw colour (null) do not.
+// A focus variable is any variable whose name has `focus` as a whole word: in a
+// `/` segment of its own, or inside one split on `-`, `_`, spaces or a camelCase
+// boundary. `border/focus`, `color/focus/ring`, `color/focusRing` and
+// `interaction/border-primary-focus` count; `color/bg/focused` and a raw colour
+// (null) do not.
 function isFocusVariable(name) {
-  return typeof name === 'string' && name.split('/').some((seg) => seg.trim().toLowerCase() === 'focus');
+  if (typeof name !== 'string') return false;
+  const words = name
+    .split('/')
+    .flatMap((seg) => seg.replace(/([a-z0-9])([A-Z])/g, '$1 $2').split(/[\s_-]+/));
+  return words.some((word) => word.toLowerCase() === 'focus');
 }
 
 // A choice control may carry selection on its own axis instead of as a `selected`

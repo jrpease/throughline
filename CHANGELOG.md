@@ -21,6 +21,16 @@ to [Semantic Versioning](https://semver.org).
   before it shipped: Zygarden's light-mode ring is 2.37:1 on its canvas, and the
   sample's ring on its muted surface is 2.997:1, which fails.
 
+### Fixed
+
+- **A focus colour named like `border-primary-focus` now counts as a focus
+  variable.** The focus check only accepted `focus` as a whole `/` segment, so a
+  system that names its roles `interaction/border-primary-focus` or
+  `border/greyscale-focus`, as 01. Design System does, failed every component
+  build however correct the ring was. `focus` now counts as a whole word anywhere
+  in the name, split on `-`, `_`, spaces and camelCase. `color/bg/focused` still
+  doesn't.
+
 ## [0.23.0] — 2026-10-11
 
 The three Figma checks that can stop a build used to be paragraphs the model

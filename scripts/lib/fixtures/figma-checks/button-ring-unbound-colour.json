@@ -1,5 +1,5 @@
 {
-  "covers": "shadow with a raw colour and a variable with no focus segment",
+  "covers": "shadow with a raw colour and a variable with no focus word",
   "expect": {
     "name": "Button",
     "matrix": {
@@ -66,7 +66,7 @@
             "type": "DROP_SHADOW",
             "visible": true,
             "spread": 3,
-            "colorVariable": "color/focusRing"
+            "colorVariable": "color/border/default"
           }
         ],
         "strokeAlign": "INSIDE",

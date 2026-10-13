@@ -136,14 +136,20 @@ test('focus: the INSIDE vanilla stroke is a fail, flipping it to OUTSIDE passes'
   assert.equal(byName(checkBuilt(fx.snapshot, fx.expect), 'focus-indicator').result, 'pass');
 });
 
-test('focus: a focus variable needs a focus segment', () => {
+test('focus: a focus variable has focus as a whole word in its name', () => {
   const base = fixtures['button-shadcn-filled'];
   for (const [name, expected] of [
     ['border/focus', 'pass'],
     ['color/border/focus', 'pass'],
     ['color/focus/ring', 'pass'],
     ['color/focus/ringOnFill', 'pass'],
-    ['color/focusRing', 'fail'],
+    ['color/stroke/focus', 'pass'],
+    ['color/focusRing', 'pass'],
+    ['interaction/border-primary-focus', 'pass'],
+    ['border/greyscale-focus', 'pass'],
+    ['color/focus_ring', 'pass'],
+    ['color/bg/focused', 'fail'],
+    ['color/unfocus', 'fail'],
     ['color/border/default', 'fail'],
     [null, 'fail'],
   ]) {
