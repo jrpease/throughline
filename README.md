@@ -73,7 +73,7 @@ Everything above was created during a single working session and synced directly
 
 | | |
 |---|---|
-| **A supported agent** | Required — [Claude Code](https://docs.claude.com/en/docs/claude-code) (native plugin), or **Cursor**, **Codex**, or any **AGENTS.md**-aware agent via `npx @radicool/throughline@0.25.0 init`. |
+| **A supported agent** | Required — [Claude Code](https://docs.claude.com/en/docs/claude-code) (native plugin), or **Cursor**, **Codex**, or any **AGENTS.md**-aware agent via `npx @radicool/throughline@0.26.0 init`. |
 | **Figma** | Required, **desktop app** (the browser version causes connection errors). **Professional plan or higher recommended** — multi-mode variables (Light/Dark, brand themes) need it. |
 | **Figma access token** | Optional — only for the few Figma calls the Desktop Bridge can't make, like reading a published library. Without it, you work through the bridge alone. The setup skill walks you through it; your token stays yours and is never shared in chat. |
 | **GitHub** (or similar) | Optional — only when you're ready to graduate to a real remote repo with PRs and CI. |
@@ -109,6 +109,8 @@ This is the reliable entry point — it runs environment setup first, ahead of a
 
 Already have screens or components in Figma? `/throughline:check-figma` checks them against the system without touching the file: it flags a component someone detached, and a colour, gap, padding or radius that's hardcoded when a token already has that value. It also runs the state, focus-ring and focus-contrast checks over the components already in your library.
 
+Need a new screen? `/throughline:compose-figma` builds it in Figma from your own components and tokens, every value bound. If the screen needs something your system doesn't have, it says so instead of drawing a lookalike, and it runs the same check before handing the screen over.
+
 Update anytime with `/plugin marketplace update throughline-marketplace`.
 
 #### Cursor, Codex, or a generic AGENTS.md agent
@@ -116,9 +118,9 @@ Update anytime with `/plugin marketplace update throughline-marketplace`.
 Run the installer in your project — it stamps in the skills, the reference docs, the scripts, and the Figma MCP config for your tool:
 
 ```
-npx @radicool/throughline@0.25.0 init --target=cursor    # → .cursor/rules + .cursor/mcp.json
-npx @radicool/throughline@0.25.0 init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
-npx @radicool/throughline@0.25.0 init --target=generic    # → skills/ + AGENTS.md index
+npx @radicool/throughline@0.26.0 init --target=cursor    # → .cursor/rules + .cursor/mcp.json
+npx @radicool/throughline@0.26.0 init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
+npx @radicool/throughline@0.26.0 init --target=generic    # → skills/ + AGENTS.md index
 ```
 
 It's safe to re-run (it merges `AGENTS.md` and `.cursor/mcp.json` non-destructively) and stages everything the skills read into `.throughline/`. Then open the `figma-environment-setup` skill/rule/prompt for your tool to begin. For Codex, add the printed `codex-mcp.toml` block to your Codex config to enable Figma access.

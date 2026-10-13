@@ -20,14 +20,19 @@
 //              padding: a variable name, or { top?, right?, bottom?, left? }
 //   component: { component, props?: { [propName]: value }, slots?: { [slotName]: [node] }, sizing?, name? }
 //   text:      { text, style, color, sizing?, name? }
-//   sizing:    { horizontal?: 'fill'|'hug', vertical?: 'fill'|'hug' }   (default hug)
+//   sizing:    { horizontal?: 'fill'|'hug', vertical?: 'fill'|'hug' }
+//              An axis left out stays as Figma makes it: a frame hugs, text sizes to
+//              its content, an instance keeps its component's size. 'hug' on an
+//              instance needs a component with auto layout (Figma throws otherwise).
 //   Every visual value is a variable or text-style name.
 //
 // INVENTORY (what the reader returns):
 //   {
-//     sets: [{ name, id, page, props: [{ key, name, type, options?, slotLayout? }] }],
+//     sets: [{ name, id, page, autoLayout, props: [{ key, name, type, options?, slotLayout? }] }],
 //                                             // key: 'label#10:273'; type: TEXT | BOOLEAN | VARIANT
-//                                             // | INSTANCE_SWAP | SLOT; slotLayout: NONE | VERTICAL | HORIZONTAL
+//                                             // | INSTANCE_SWAP | SLOT; slotLayout: NONE | VERTICAL | HORIZONTAL,
+//                                             // NONE if any variant's slot has no auto layout;
+//                                             // autoLayout: every variant has auto layout
 //     components: [{ name, id, page }],       // standalone COMPONENTs, the swap targets
 //     variables: [{ name, id, kinds: ['colour'|'gap'|'radius'] }],
 //     textStyles: [{ name, id }],
@@ -136,14 +141,20 @@ export function resolveScreen(description, inventory) {
     return found.id;
   }
 
-  function sizing(node, path, parent) {
-    const s = node.sizing;
-    if (s === undefined) return { horizontal: 'HUG', vertical: 'HUG' };
+  // `fallback` fills an axis the description leaves out: 'hug' for frames (a new
+  // frame is a fixed 100×100 otherwise), null (leave alone) for text and instances.
+  function sizing(node, path, parent, fallback, hugAllowed = true) {
+    const s = node.sizing === undefined ? {} : node.sizing;
     if (!s || typeof s !== 'object') { fail('invalid', `${path}.sizing`, 'an object { horizontal, vertical }'); return null; }
     const out = {};
     for (const axis of ['horizontal', 'vertical']) {
-      const v = s[axis] === undefined ? 'hug' : s[axis];
+      const v = s[axis] === undefined ? fallback : s[axis];
+      if (v === null) continue;
       if (!SIZING[v]) { fail('invalid', `${path}.sizing.${axis}`, `fill or hug, not ${JSON.stringify(v)}`); continue; }
+      if (v === 'hug' && !hugAllowed) {
+        fail('invalid', `${path}.sizing.${axis}`, 'hug on a component without auto layout');
+        continue;
+      }
       if (v === 'fill' && parent.slotLayout === 'NONE') {
         fail('invalid', `${path}.sizing.${axis}`, 'fill inside a slot without auto layout');
         continue;
@@ -198,7 +209,7 @@ export function resolveScreen(description, inventory) {
       radius: variable(node.radius, 'radius', `${path}.radius`),
       primaryAxisAlignItems: ALIGN_MAIN[align.main] || 'MIN',
       counterAxisAlignItems: ALIGN_CROSS[align.cross] || 'MIN',
-      sizing: isRoot ? null : sizing(node, path, parent),
+      sizing: isRoot ? null : sizing(node, path, parent, 'hug'),
       children: Array.isArray(children)
         ? children.map((child, i) => resolveNode(child, `${path}.children[${i}]`, { slotLayout: null }))
         : [],
@@ -207,7 +218,7 @@ export function resolveScreen(description, inventory) {
 
   function component(node, path, parent) {
     const set = byFold(inv.sets, String(node.component));
-    const sizingPlan = sizing(node, path, parent);
+    const sizingPlan = sizing(node, path, parent, null, !set || set.autoLayout !== false);
     if (!set) {
       fail('missing-component', `${path}.component`, String(node.component), nearestNames(String(node.component), inv.sets.map((s) => s.name)));
       return null;
@@ -278,7 +289,7 @@ export function resolveScreen(description, inventory) {
       characters: node.text,
       styleId,
       color: variable(node.color, 'colour', `${path}.color`),
-      sizing: sizing(node, path, parent),
+      sizing: sizing(node, path, parent, null),
     };
   }
 

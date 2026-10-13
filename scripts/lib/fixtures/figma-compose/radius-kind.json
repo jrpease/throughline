@@ -1,0 +1,27 @@
+{
+  "covers": "a radius bound to a spacing variable is the wrong kind; a radius variable is fine",
+  "description": {
+    "screen": "X",
+    "page": "Screens",
+    "width": 390,
+    "root": {
+      "layout": "vertical",
+      "children": [
+        {
+          "layout": "vertical",
+          "radius": "space/4"
+        },
+        {
+          "layout": "vertical",
+          "radius": "radius/md"
+        }
+      ]
+    }
+  },
+  "expected": {
+    "ok": false,
+    "errors": [
+      "variable-kind"
+    ]
+  }
+}

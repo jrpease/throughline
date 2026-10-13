@@ -6,6 +6,45 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.26.0] — 2026-10-13
+
+Last release taught the plugin to read your screens. This one lets it make them.
+Ask for a screen and it builds one in Figma from your own components, bound to your
+own tokens, checks it with the same gate, and only then gives it a name. Two things
+it refuses to do: draw a component you don't have, and overwrite a screen a person
+made. Getting there took two bugs I wouldn't have found without running it live.
+A fresh agent following only the command's instructions found the second one on
+its first try.
+
+### Added
+
+- **`/throughline:compose-figma` builds a screen from your library (#42).** You
+  describe the screen and the agent plans it in your file's own names: the
+  component sets and their properties, your colour, spacing and radius variables,
+  your text styles. Then one tested script places real instances and binds every
+  value, so nothing is hardcoded. Three things happen before you see it:
+  - **Everything is checked before anything is drawn.** An unknown component,
+    property, variable or style comes back as a list of errors, and the file is
+    untouched.
+  - **A missing component is a gap, not a lookalike.** Ask for a DatePicker your
+    system doesn't have and you're told so, with the nearest names it does have.
+    You choose whether to drop it, swap it or stop.
+  - **The screen gate runs before it's named.** It builds into a `WIP:` frame,
+    runs the 0.25.0 checks, and only a passing screen is finalized. A re-run
+    replaces a screen it composed itself, in place, and never one a person made.
+
+  It fills slots too, so a card or a modal can hold real content. On the sample
+  file a sign-in screen builds in about 130 ms.
+
+### Changed
+
+- **The screen gate now reads content placed in a component's slots.** Before, a
+  card someone filled by hand was invisible to `/throughline:check-figma`: only the
+  card itself was read. Now whatever's added to a slot is checked like the rest of
+  the screen, while the component's own placeholder is left alone. Neither
+  Zygarden's nor 01. Design System's screen pages use a slot, so their counts
+  didn't move.
+
 ## [0.25.0] — 2026-10-13
 
 Every Figma check this plugin had ran on a component it had just built. The

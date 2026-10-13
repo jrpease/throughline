@@ -29,11 +29,13 @@ const COMPOSE_CORNERS = ['topLeftRadius', 'topRightRadius', 'bottomRightRadius',
 const COMPOSE_PADDING = { top: 'paddingTop', right: 'paddingRight', bottom: 'paddingBottom', left: 'paddingLeft' };
 
 // Exact name first, else the one page whose trimmed name matches (01. Design
-// System's pages are "    ↳ Templates"). The gate's findPage isn't inlined here.
+// System's pages are "    ↳ Templates"). Null when none matches; two trimmed
+// matches throw, as the gate's findPage does (which isn't inlined here).
 function composeFindPage(name) {
   const exact = figma.root.children.find((p) => p.name === name);
   if (exact) return exact;
   const trimmed = figma.root.children.filter((p) => p.name.trim() === String(name).trim());
+  if (trimmed.length > 1) throw new Error(`${trimmed.length} pages are named "${String(name).trim()}"; rename one or pass the exact name`);
   return trimmed.length === 1 ? trimmed[0] : null;
 }
 
@@ -44,7 +46,16 @@ function composeRequirePage(name) {
 }
 
 const composeIsMarked = (node) => node.getSharedPluginData(COMPOSE_NS, COMPOSE_KEY) !== '';
-const composeTopFrames = (page, name) => page.children.filter((n) => n.type === 'FRAME' && n.name === name);
+// Screens as the gate counts them: top-level frames, and frames directly inside a
+// top-level section.
+function composeTopFrames(page, name) {
+  const all = [];
+  for (const top of page.children) {
+    if (top.type === 'FRAME') all.push(top);
+    else if (top.type === 'SECTION') for (const c of top.children) if (c.type === 'FRAME') all.push(c);
+  }
+  return all.filter((n) => n.name === name);
+}
 const composeLink = (fileKey, id) => `https://www.figma.com/design/${fileKey}?node-id=${String(id).replace(/:/g, '-')}`;
 
 // 'marked' | 'unmarked' | null for the top-level frames called `name`.
@@ -65,17 +76,19 @@ async function composeReadInventory(spec) {
     await page.loadAsync();
     for (const set of page.findAllWithCriteria({ types: ['COMPONENT_SET'] })) {
       setNodes.set(set.id, set);
-      const slotNodes = set.defaultVariant ? set.defaultVariant.findAll((n) => n.type === 'SLOT') : [];
+      // Every variant, since the writer switches variant before filling a slot.
+      const slotNodes = set.findAll((n) => n.type === 'SLOT');
       const props = Object.entries(set.componentPropertyDefinitions).map(([key, def]) => {
         const prop = { key, name: key.replace(/#[^#]*$/, ''), type: def.type };
         if (def.variantOptions) prop.options = def.variantOptions;
         if (def.type === 'SLOT') {
-          const slot = slotNodes.find((n) => n.componentPropertyReferences && n.componentPropertyReferences.slotContentId === key);
-          prop.slotLayout = slot ? slot.layoutMode : 'NONE';
+          const slots = slotNodes.filter((n) => n.componentPropertyReferences && n.componentPropertyReferences.slotContentId === key);
+          prop.slotLayout = slots.length && slots.every((n) => n.layoutMode !== 'NONE') ? slots[0].layoutMode : 'NONE';
         }
         return prop;
       });
-      sets.push({ name: set.name, id: set.id, page: page.name, props });
+      const autoLayout = set.children.every((v) => v.layoutMode && v.layoutMode !== 'NONE');
+      sets.push({ name: set.name, id: set.id, page: page.name, autoLayout, props });
     }
     for (const component of page.findAllWithCriteria({ types: ['COMPONENT'] })) {
       if (component.parent && component.parent.type === 'COMPONENT_SET') continue;
@@ -118,6 +131,7 @@ function composeSummary(inventory) {
   return {
     sets: inventory.sets.map((s) => ({
       name: s.name,
+      autoLayout: s.autoLayout,
       props: Object.fromEntries(s.props.map((p) => [
         p.name,
         p.type === 'VARIANT' ? p.options : p.type === 'SLOT' ? `SLOT (${p.slotLayout})` : p.type,
@@ -134,10 +148,11 @@ function composeBoundPaint(variable) {
   return figma.variables.setBoundVariableForPaint({ type: 'SOLID', color: { r: 0, g: 0, b: 0 } }, 'color', variable);
 }
 
+// Only the axes the plan names; the others stay as Figma made the node.
 function composeSizing(node, sizing) {
   if (!sizing) return;
-  node.layoutSizingHorizontal = sizing.horizontal;
-  node.layoutSizingVertical = sizing.vertical;
+  if (sizing.horizontal) node.layoutSizingHorizontal = sizing.horizontal;
+  if (sizing.vertical) node.layoutSizingVertical = sizing.vertical;
 }
 
 function composeStyleFrame(frame, plan, live) {
@@ -211,7 +226,6 @@ function composeNode(plan, parent, live) {
   parent.appendChild(instance);
   instance.name = plan.name;
   // Variant first: switching variant can swap the text layers the TEXT props drive.
-  // Variant first: switching variant can swap the text layers the TEXT props drive.
   if (Object.keys(plan.variantProps).length) instance.setProperties(plan.variantProps);
   if (Object.keys(plan.otherProps).length) instance.setProperties(plan.otherProps);
   for (const slotPlan of plan.slots) {
@@ -238,6 +252,7 @@ async function composeBuild(spec) {
   if (!resolved.ok) return { ok: false, errors: resolved.errors };
   const plan = resolved.plan;
   await Promise.all(composeFontsFor(plan, live).map((f) => figma.loadFontAsync(f)));
+  const createdPage = !page;
   if (!page) {
     page = figma.createPage();
     page.name = plan.page;
@@ -246,20 +261,27 @@ async function composeBuild(spec) {
   for (const old of composeTopFrames(page, wipName)) old.remove();
   const right = page.children.reduce((max, n) => Math.max(max, n.x + n.width), 0);
   const root = figma.createFrame();
-  page.appendChild(root);
-  root.setSharedPluginData(COMPOSE_NS, COMPOSE_KEY, JSON.stringify(d));
-  composeStyleFrame(root, plan.root, live);
-  root.name = wipName;
-  root.x = page.children.length > 1 ? right + 200 : 0;
-  root.y = 0;
-  root.resize(plan.width, plan.height || 100);
-  root.layoutSizingHorizontal = 'FIXED';
-  root.layoutSizingVertical = plan.height ? 'FIXED' : 'HUG';
-  for (const { collectionId, modeId } of plan.modes) {
-    root.setExplicitVariableModeForCollection(live.collectionNodes.get(collectionId), modeId);
+  try {
+    page.appendChild(root);
+    root.setSharedPluginData(COMPOSE_NS, COMPOSE_KEY, JSON.stringify(d));
+    composeStyleFrame(root, plan.root, live);
+    root.name = wipName;
+    root.x = page.children.length > 1 ? right + 200 : 0;
+    root.y = 0;
+    root.resize(plan.width, plan.height || 100);
+    root.layoutSizingHorizontal = 'FIXED';
+    root.layoutSizingVertical = plan.height ? 'FIXED' : 'HUG';
+    for (const { collectionId, modeId } of plan.modes) {
+      root.setExplicitVariableModeForCollection(live.collectionNodes.get(collectionId), modeId);
+    }
+    for (const child of plan.root.children) composeNode(child, root, live);
+    await Promise.all(live.styled.map(([text, styleId]) => text.setTextStyleIdAsync(styleId)));
+  } catch (error) {
+    // A throw mid-write is a composer bug, not a finding: leave nothing behind.
+    root.remove();
+    if (createdPage) page.remove();
+    throw new Error(`build failed and was rolled back, nothing written: ${error.message}`);
   }
-  for (const child of plan.root.children) composeNode(child, root, live);
-  await Promise.all(live.styled.map(([text, styleId]) => text.setTextStyleIdAsync(styleId)));
   return { ok: true, wipId: root.id, wipName, link: composeLink(spec.fileKey || figma.fileKey, root.id), ms: Date.now() - started };
 }
 
@@ -276,9 +298,11 @@ async function composeFinalize(spec) {
     throw new Error(`"${spec.screen}" on "${page.name}" wasn't composed by throughline; not replacing it. "WIP: ${spec.screen}" is left in place.`);
   }
   if (existing.length) {
-    wip.x = existing[0].x;
-    wip.y = existing[0].y;
-    for (const old of existing) old.remove();
+    const old = existing[0];
+    old.parent.insertChild(old.parent.children.indexOf(old), wip);
+    wip.x = old.x;
+    wip.y = old.y;
+    for (const n of existing) n.remove();
   }
   wip.name = spec.screen;
   return { id: wip.id, link: composeLink(spec.fileKey || figma.fileKey, wip.id), replaced: existing.length > 0 };

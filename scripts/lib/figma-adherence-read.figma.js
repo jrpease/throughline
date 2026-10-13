@@ -111,12 +111,16 @@ function overriddenRecords(instance, path, underDetached) {
   return records;
 }
 
-// The SLOT nodes that belong to this instance, not to an instance nested in it.
+// The SLOT nodes on this instance's own surface: its slots, and the slots of
+// instances nested in its component, reached only through component sublayers
+// (ids 'I…'). A slot inside content added to a slot is left out here; the walk
+// reaches it through that content.
 function slotsOf(instance) {
   return instance.findAll((n) => n.type === 'SLOT').filter((slot) => {
-    let owner = slot.parent;
-    while (owner && owner.type !== 'INSTANCE') owner = owner.parent;
-    return owner === instance;
+    for (let node = slot.parent; node && node !== instance; node = node.parent) {
+      if (!String(node.id).startsWith('I')) return false;
+    }
+    return true;
   });
 }
 

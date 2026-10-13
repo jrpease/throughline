@@ -1,6 +1,6 @@
 # Compose a screen in Figma from library components
 
-Status: planned
+Status: built
 Reviewed: 2026-10-13 — needs revision (finalize/marker and WIP-collision gaps, variant picking in untested code, text-prop fonts, reviewer can't find a screen, sizing vocabulary, gate retry loop retried the unfixable, slot placeholders, late name collision, live-run honesty). Revised the same day after two more probes on the sample. Re-reviewed: all of those resolved; needs revision narrowly (text-node order, how a SLOT is matched to its property, WIP marker at finalize, page lookup). Revised again; every finding is addressed.
 Date: 2026-10-13
 Backlog: #112, Phase 5 — #42
@@ -51,7 +51,7 @@ stops before writing anything and names the gap.
 | Decision | Chose | Why | Rules out |
 |---|---|---|---|
 | Shape | A pure, import-free resolver (`scripts/lib/figma-compose.mjs`, unit-tested on fixtures) plus a Figma reader/writer (`scripts/lib/figma-compose.figma.js`), inlined with `figma-variables-read.figma.js` and `figma-adherence.mjs` (for `dimensionBuckets`) into a generated `references/figma-compose.md`. The existing generator emits and `--check`s it. | The same split as both gates: the rules are tested in Node and the model pastes the script rather than writing plugin code. No code in the repo places an instance today, so this is the one place that will. | Prose instructions for the model to hand-write `figma_execute` calls; the architect/executor split |
-| Input | A JSON screen description: `screen` (name), `page`, `width`, optional `height`, optional `modes` (`{ collectionName: modeName }`), and `root` (a frame). Nodes are exactly one of: **frame** — `layout` (required: `vertical` \| `horizontal`), optional `gap`, `padding` (a name, or `{ top, right, bottom, left }`), `fill`, `stroke` (a colour name; weight 1), `radius`, `align` (`{ main: start\|center\|end\|space-between, cross: start\|center\|end }`), `children`; **component** — `component` (set name), `props`, `slots: { slotName: [nodes] }`; **text** — `text`, `style` (required), `color` (required). Any non-root node takes `sizing: { horizontal, vertical }`, each `fill` \| `hug` (default `hug`). The root is fixed at `width`, and at `height` when given, else hugs. Every visual value is a variable or text-style name; the only raw numbers are `width` and `height`. | Measured on Zygarden's Templates: each screen is a fixed-width root holding auto-layout stacks of frames, 8 instances, and 1–2 text layers, every one styled. Frames, instances, styled text and slot content cover that, except the 1–2 background rectangles each screen also carries, which are a non-goal. Requiring `layout` on every frame means `fill` always has an auto-layout parent. | Raw values anywhere; absolute positioning; frames without auto layout; rectangles and vectors |
+| Input | A JSON screen description: `screen` (name), `page`, `width`, optional `height`, optional `modes` (`{ collectionName: modeName }`), and `root` (a frame). Nodes are exactly one of: **frame** — `layout` (required: `vertical` \| `horizontal`), optional `gap`, `padding` (a name, or `{ top, right, bottom, left }`), `fill`, `stroke` (a colour name; weight 1), `radius`, `align` (`{ main: start\|center\|end\|space-between, cross: start\|center\|end }`), `children`; **component** — `component` (set name), `props`, `slots: { slotName: [nodes] }`; **text** — `text`, `style` (required), `color` (required). Any non-root node takes `sizing: { horizontal, vertical }`, each `fill` \| `hug` (default `hug`; changed after the build, see Where it diverged). The root is fixed at `width`, and at `height` when given, else hugs. Every visual value is a variable or text-style name; the only raw numbers are `width` and `height`. | Measured on Zygarden's Templates: each screen is a fixed-width root holding auto-layout stacks of frames, 8 instances, and 1–2 text layers, every one styled. Frames, instances, styled text and slot content cover that, except the 1–2 background rectangles each screen also carries, which are a non-goal. Requiring `layout` on every frame means `fill` always has an auto-layout parent. | Raw values anywhere; absolute positioning; frames without auto layout; rectangles and vectors |
 | Name matching | Component sets match by `normalizeName` fold. Property names match with the `#id` suffix dropped and case folded (`label` → `label#10:273`, `State` → `state`). Variant values match case-folded and are written with the set's own casing. An INSTANCE_SWAP value names a component; a SLOT value is a list of nodes. | Measured on the sample: property keys carry `#id` suffixes; one set says `state=Default`, another `State=Selected`. A model writing the description can't be expected to reproduce either. | Exact-match names; asking the model for node ids |
 | Choosing the variant | The writer creates every instance from the set's `defaultVariant` and switches variant through `setProperties` with the variant props, then sets the rest. Nothing parses variant names. | Probed on the sample: `setProperties({ variant: 'secondary', size: 'lg' })` on a default Button instance switched it, and a swap given a component id set the icon. So the plan carries only real keys and values, all chosen by the tested resolver. | Variant picking in the untested `.figma.js` file |
 | Resolve before writing | The resolver checks the whole description against an inventory read from the file (component sets with their property definitions, local variables tagged colour / gap / radius by `dimensionBuckets`, local text styles) and returns every error at once: unknown component (with the nearest names), unknown property or option, a variable of the wrong kind, an unknown text style. Any error means nothing is written. | A half-built screen is worse than none, and one round trip that lists every problem beats fixing them one at a time. Kinds reuse the gate's scope logic so the composer can't bind a value the gate would then flag. | Building until the first failure; binding a gap to `font/size/400` |
@@ -88,7 +88,9 @@ stops before writing anything and names the gap.
 - **No top-level name clashes in the snippet**: `figma-compose.mjs` is inlined
   next to `figma-adherence.mjs` (`RULES`, `checkScreens`, `dimensionBuckets`, …)
   and the shared variable reader, so it reuses none of their top-level names.
-  The fake-Figma test would catch a clash as a SyntaxError.
+  A test in `figma-compose.test.mjs` compares the top-level names statically; a
+  clashing `function` would otherwise silently win, since duplicate function
+  declarations are legal JavaScript.
 
 ## Facts this rests on
 
@@ -140,6 +142,73 @@ removed temporary components and instances on the Cover page.
 - **Icon pages too large to load.** Zygarden's icon page stalled the bridge on a
   full walk. An INSTANCE_SWAP to an icon there may need the property's preferred
   values instead of a page load. Measure if a live run hits it. Unresolved.
+
+## What shipped
+
+- `scripts/lib/figma-compose.mjs` — the pure resolver, `resolveScreen` and
+  `nearestNames`; tested against 10 fixture cases sharing one inventory in
+  `scripts/lib/fixtures/figma-compose/`, plus targeted tests.
+- `scripts/lib/figma-compose.figma.js` — `runCompose(MODE, SPEC)`: `inventory`,
+  `build`, `finalize`, `discard`.
+- `scripts/lib/figma-adherence-read.figma.js` — the gate reads content added to
+  an instance's slots (`slotsOf`), skipping placeholder children.
+- `scripts/build-figma-checks.mjs` — emits and `--check`s
+  `references/figma-compose.md`. Its test runs the generated script against a fake
+  Figma: build order, bound values, no default white fill, `missing-component` and
+  `name-taken` writing nothing (in a section too), slot filling, a component
+  without auto layout keeping its size, rollback on a throw, and finalize
+  replacing in place and refusing. The fake throws where Figma does on `HUG` and
+  `FILL`. Two more fakes cover the gate's slot walk: added content against a
+  placeholder, and nested instances' slots against content inside slot content.
+- `commands/compose-figma.md`, the reviewer's screen case in `agents/reviewer.md`,
+  regenerated adapters, a pointer test, `PLUGIN_INTERNAL` entries, `scripts/README.md`
+  and `ci/README.md`, the root README paragraph, and the 0.26.0 version bump and
+  CHANGELOG.
+- Live run: `docs/notes/2026-10-13-compose-figma-live-run.md`.
+
+## Where it diverged
+
+- **Awaits are batched, not per node.** The plan had `build` load each text
+  style's font and set each style per text layer, and load a TEXT property's font
+  per instance. Live, that build stalled about twenty awaits in and timed out. The
+  writer now loads every font the plan can touch in one batch before writing,
+  writes synchronously, and applies every text style in one batch after. So text
+  gets its characters before its style, the reverse of the Constraints bullet and
+  of `references/figma-scripting.md`'s order. That's safe because Inter Regular,
+  which a new text node starts in, is in the batch. The fake-Figma test logs
+  `characters` and asserts it comes before the style batch.
+- **`getStyleByIdAsync` is gone.** Text styles come from the inventory read, which
+  keeps the style objects.
+- **`inventory` returns only `summary`**, not the full INVENTORY. The planner reads
+  names, and `build` re-reads the inventory itself.
+- **Fixtures share one inventory.** The plan had one JSON per case, each carrying
+  its own inventory. It's one `inventory.json`, and each case carries
+  `description`, `expected` and, for `name-taken`, `target`.
+- **The live run pasted each generated script once per file**, comment-stripped,
+  and kept the entry point on `globalThis`, rather than pasting 38 KB per call. The
+  note says so. The fresh agent's run pasted them verbatim.
+- **Sizing no longer defaults to `hug` everywhere.** The Input decision had every
+  non-root node default to `hug`. Figma throws on `hug` for a node without auto
+  layout. The agent-driven run hit that on the sample's Switch, and the whole-branch
+  review found it in the code. Now a frame defaults to `hug` (it always has auto
+  layout); text and instances are left as Figma makes them unless the description
+  says. `hug` on a component whose variants lack auto layout is an `invalid` error,
+  and the inventory carries `autoLayout` per set so the planner can see it.
+- **A throw during the write rolls back.** The Replacing decision said no stop
+  removes the `WIP:` frame. That still holds for a gate failure. But a throw inside
+  `build` now removes the half-built frame, and a page the build created, before
+  rethrowing, so "nothing was written" stays true.
+- **Screens in sections count.** Name checks and finalize treat frames directly
+  inside a top-level section as screens, as the gate does. Finalize puts the new
+  screen where the old one sat, section included.
+- **`slotLayout` is read across every variant**, NONE if any variant's slot lacks
+  auto layout, since the writer switches variant before filling.
+- **The gate also reads slots on nested instances.** The slot walk takes every
+  SLOT reached from the instance through component sublayers (ids `I…`), so content
+  added to a nested instance's slot is read. A slot inside added content is left to
+  the walk of that content, so nothing is read twice.
+- **Two pages with the same trimmed name** make the composer throw, as the gate's
+  `findPage` does, rather than building on a third page.
 
 ## Plan
 

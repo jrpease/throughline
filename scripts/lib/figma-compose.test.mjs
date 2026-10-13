@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { resolveScreen, nearestNames } from './figma-compose.mjs';
+import { COMPOSE_ERROR_KINDS, resolveScreen, nearestNames } from './figma-compose.mjs';
 
 const DIR = new URL('./fixtures/figma-compose/', import.meta.url);
 const read = (f) => JSON.parse(readFileSync(new URL(f, DIR), 'utf8'));
@@ -20,7 +20,7 @@ test('figma-compose.mjs has no import statements', () => {
 
 test('figma-compose.mjs reuses no top-level name of the sources it is inlined with', () => {
   const names = (file) => [...readFileSync(new URL(file, import.meta.url), 'utf8')
-    .matchAll(/^(?:export )?(?:const|function) (\w+)/gm)].map((m) => m[1]);
+    .matchAll(/^(?:export )?(?:const|let|(?:async )?function) (\w+)/gm)].map((m) => m[1]);
   const mine = new Set(names('./figma-compose.mjs'));
   for (const other of ['./figma-adherence.mjs', './figma-variables-read.figma.js']) {
     assert.deepEqual(names(other).filter((n) => mine.has(n)), [], other);
@@ -97,4 +97,29 @@ test('an unknown field is rejected rather than ignored', () => {
 
 test('nearestNames ranks by shared prefix, then edit distance', () => {
   assert.deepEqual(nearestNames('Butto', ['Badge', 'Button', 'Checkbox']).slice(0, 1), ['Button']);
+});
+
+test('plan: per-side padding resolves each side, and an unnamed side is left unbound', () => {
+  const res = resolveScreen({ screen: 'X', page: 'P', width: 1, root: { layout: 'vertical', padding: { top: 'space/4', left: 'space/inset/lg' }, radius: 'radius/md' } }, inventory);
+  assert.deepEqual(res.plan.root.padding, { top: 'V:6', left: 'V:5' });
+  assert.equal(res.plan.root.radius, 'V:7');
+});
+
+test('sizing: frames hug by default; text and instances are left alone unless asked', () => {
+  const { plan } = resolveScreen({ screen: 'X', page: 'P', width: 1, root: { layout: 'vertical', children: [
+    { layout: 'vertical' },
+    { text: 'a', style: 'Body/Default', color: 'color/text/primary' },
+    { component: 'Spinner' },
+    { component: 'Spinner', sizing: { horizontal: 'fill' } },
+  ] } }, inventory);
+  const [frame, text, spinner, filled] = plan.root.children;
+  assert.deepEqual(frame.sizing, { horizontal: 'HUG', vertical: 'HUG' });
+  assert.deepEqual(text.sizing, {});
+  assert.deepEqual(spinner.sizing, {});
+  assert.deepEqual(filled.sizing, { horizontal: 'FILL' });
+});
+
+test('every error kind a fixture raises is a documented one', () => {
+  const raised = new Set(Object.values(cases).flatMap((c) => run(c).errors.map((e) => e.kind)));
+  for (const kind of raised) assert.ok(COMPOSE_ERROR_KINDS.includes(kind), kind);
 });

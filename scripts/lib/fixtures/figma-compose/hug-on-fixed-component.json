@@ -1,0 +1,34 @@
+{
+  "covers": "hug on a component without auto layout would throw in Figma, so it is rejected; fill is fine",
+  "description": {
+    "screen": "X",
+    "page": "Screens",
+    "width": 390,
+    "root": {
+      "layout": "vertical",
+      "children": [
+        {
+          "component": "Spinner",
+          "sizing": {
+            "horizontal": "hug"
+          }
+        },
+        {
+          "component": "Spinner",
+          "sizing": {
+            "horizontal": "fill"
+          }
+        },
+        {
+          "component": "Spinner"
+        }
+      ]
+    }
+  },
+  "expected": {
+    "ok": false,
+    "errors": [
+      "invalid"
+    ]
+  }
+}

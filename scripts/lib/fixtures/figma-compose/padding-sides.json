@@ -1,0 +1,23 @@
+{
+  "covers": "per-side padding: a side that doesn't exist and a side bound to a colour",
+  "description": {
+    "screen": "X",
+    "page": "Screens",
+    "width": 390,
+    "root": {
+      "layout": "vertical",
+      "padding": {
+        "top": "space/4",
+        "middle": "space/4",
+        "left": "color/bg/canvas"
+      }
+    }
+  },
+  "expected": {
+    "ok": false,
+    "errors": [
+      "invalid",
+      "variable-kind"
+    ]
+  }
+}

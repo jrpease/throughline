@@ -131,6 +131,9 @@ Measured read-only on 2026-10-13 through the bridge:
 - `scripts/install.mjs`: the three new lib files stay plugin-internal.
 - `commands/check-figma.md`, README, CHANGELOG (`### Added`), pointer test, adapters, `scripts/README.md`, `ci/README.md`.
 - `docs/notes/2026-10-13-figma-adherence-live-run.md`.
+- Later (0.26.0): the reader also walks content added to an instance's slots, as
+  screen content, skipping the slot's placeholder. See
+  `docs/specs/2026-10-13-compose-figma-screen.md`, "Slot content and the gate".
 
 ## Where it diverged
 
