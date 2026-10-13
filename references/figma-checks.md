@@ -539,7 +539,7 @@ function withTable({
       return {
         name,
         result: 'skip',
-        detail: 'no surfaces named; the architect names the colour variables of the surfaces the component sits on',
+        detail: 'no surfaces named; name the colour variables of the surfaces the component sits on (from the architect spec, or ask the user)',
       };
     }
     const missing = snapshot.missingSurfaces ?? [];

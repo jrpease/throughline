@@ -18,6 +18,7 @@
 //       id, path,                       // path: 'Page / Screen / … / Node'
 //       isRoot,                         // the screen frame itself
 //       inInstance,                     // an overridden node inside an INSTANCE (or the instance itself)
+//       underDetached,                  // a detached frame, or anything inside one
 //       overridden: ['fills' | 'strokes'],   // inInstance nodes only
 //       paints: [{ kind: 'fill' | 'stroke', hex: '#rrggbb', bound, styled }],   // visible SOLID paints only
 //       mixedPaints,                    // fills is figma.mixed (text with mixed runs)
@@ -41,6 +42,22 @@
 export const RULES = ['detached-component', 'raw-colour', 'raw-dimension'];
 
 const PAINT_FIELD = { fill: 'fills', stroke: 'strokes' };
+
+// Which dimension tables a number variable belongs in. An explicit scope decides.
+// A variable left at ALL_SCOPES (Figma's default) counts only when its name says
+// what it is: on Zygarden every number variable is ALL_SCOPES, and without the
+// name test a 72 px gap failed with "bind text/7xl". Letter-spacing says "spacing"
+// but is type, not layout.
+const SPACING_WORDS = /spac|gap|inset|stack|inline|padding|gutter/i;
+const NOT_SPACING = /letter/i;
+const RADIUS_WORDS = /radius|corner|round/i;
+export function dimensionBuckets(name, scopes = []) {
+  const all = scopes.includes('ALL_SCOPES');
+  return {
+    gap: scopes.includes('GAP') || (all && SPACING_WORDS.test(name) && !NOT_SPACING.test(name)),
+    radius: scopes.includes('CORNER_RADIUS') || (all && RADIUS_WORDS.test(name)),
+  };
+}
 
 export function checkScreens(snapshot, { skip = [] } = {}) {
   const nodes = snapshot.nodes ?? [];
@@ -80,6 +97,11 @@ export function checkScreens(snapshot, { skip = [] } = {}) {
         fail('detached-component', node, `detached from ${from}`);
       }
     }
+
+    // Inside a detached copy, the one detached-component failure is the finding:
+    // re-instancing fixes every raw value under it. On 01. Design System's
+    // Archtypes page, checking them anyway turned 8 detached frames into ~200 failures.
+    if (node.underDetached) continue;
 
     if (on('raw-colour')) {
       if (node.mixedPaints) advise('raw-colour', node, 'mixed paints not read');

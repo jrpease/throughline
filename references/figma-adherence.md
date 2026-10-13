@@ -60,6 +60,7 @@ return await runScreenGate(TARGET, SKIP);
 //       id, path,                       // path: 'Page / Screen / … / Node'
 //       isRoot,                         // the screen frame itself
 //       inInstance,                     // an overridden node inside an INSTANCE (or the instance itself)
+//       underDetached,                  // a detached frame, or anything inside one
 //       overridden: ['fills' | 'strokes'],   // inInstance nodes only
 //       paints: [{ kind: 'fill' | 'stroke', hex: '#rrggbb', bound, styled }],   // visible SOLID paints only
 //       mixedPaints,                    // fills is figma.mixed (text with mixed runs)
@@ -83,6 +84,22 @@ return await runScreenGate(TARGET, SKIP);
 const RULES = ['detached-component', 'raw-colour', 'raw-dimension'];
 
 const PAINT_FIELD = { fill: 'fills', stroke: 'strokes' };
+
+// Which dimension tables a number variable belongs in. An explicit scope decides.
+// A variable left at ALL_SCOPES (Figma's default) counts only when its name says
+// what it is: on Zygarden every number variable is ALL_SCOPES, and without the
+// name test a 72 px gap failed with "bind text/7xl". Letter-spacing says "spacing"
+// but is type, not layout.
+const SPACING_WORDS = /spac|gap|inset|stack|inline|padding|gutter/i;
+const NOT_SPACING = /letter/i;
+const RADIUS_WORDS = /radius|corner|round/i;
+function dimensionBuckets(name, scopes = []) {
+  const all = scopes.includes('ALL_SCOPES');
+  return {
+    gap: scopes.includes('GAP') || (all && SPACING_WORDS.test(name) && !NOT_SPACING.test(name)),
+    radius: scopes.includes('CORNER_RADIUS') || (all && RADIUS_WORDS.test(name)),
+  };
+}
 
 function checkScreens(snapshot, { skip = [] } = {}) {
   const nodes = snapshot.nodes ?? [];
@@ -122,6 +139,11 @@ function checkScreens(snapshot, { skip = [] } = {}) {
         fail('detached-component', node, `detached from ${from}`);
       }
     }
+
+    // Inside a detached copy, the one detached-component failure is the finding:
+    // re-instancing fixes every raw value under it. On 01. Design System's
+    // Archtypes page, checking them anyway turned 8 detached frames into ~200 failures.
+    if (node.underDetached) continue;
 
     if (on('raw-colour')) {
       if (node.mixedPaints) advise('raw-colour', node, 'mixed paints not read');
@@ -222,7 +244,7 @@ async function variableColors(variable) {
 // large file). Read-only: nothing here writes to the file. Untested in Node
 // beyond the generator's snippet test; the pure checker it feeds is unit-tested.
 //
-// In-scope globals when assembled: checkScreens (figma-adherence.mjs),
+// In-scope globals when assembled: checkScreens and dimensionBuckets (figma-adherence.mjs),
 // variableColors (figma-variables-read.figma.js), and the caller-filled slots
 // TARGET = { page, screens? } and SKIP = [rule, ...]. The snapshot shape is
 // documented at the top of scripts/lib/figma-adherence.mjs.
@@ -298,7 +320,7 @@ function detachedOf(node, page) {
   return { kind: 'local', name: main ? main.name : null, id: info.componentId, key: null };
 }
 
-function overriddenRecords(instance, path) {
+function overriddenRecords(instance, path, underDetached) {
   const records = [];
   for (const entry of instance.overrides || []) {
     const fields = entry.overriddenFields.filter((f) => f === 'fills' || f === 'strokes');
@@ -310,6 +332,7 @@ function overriddenRecords(instance, path) {
       path: node === instance ? path : `${path} / ${node.name}`,
       isRoot: false,
       inInstance: true,
+      underDetached,
       overridden: fields,
       paints: [...solidPaints(node, 'fills', 'fill'), ...solidPaints(node, 'strokes', 'stroke')],
       mixedPaints: false,
@@ -354,45 +377,56 @@ async function readTokens() {
     if (!names.includes(name)) names.push(name);
   };
   for (const variable of await figma.variables.getLocalVariablesAsync('FLOAT')) {
-    const scopes = variable.scopes || [];
-    const all = scopes.includes('ALL_SCOPES');
+    const buckets = dimensionBuckets(variable.name, variable.scopes || []);
     for (const value of Object.values(variable.valuesByMode)) {
-      if (all || scopes.includes('GAP')) add(gap, value, variable.name);
-      if (all || scopes.includes('CORNER_RADIUS')) add(radius, value, variable.name);
+      if (buckets.gap) add(gap, value, variable.name);
+      if (buckets.radius) add(radius, value, variable.name);
     }
   }
   return { colours, gap, radius };
 }
 
+// Exact name first. Page names often carry decoration nobody types (01. Design
+// System's are "    ↳ Templates"), so a unique match on the trimmed name also counts.
+function findPage(name) {
+  const exact = figma.root.children.find((p) => p.name === name);
+  if (exact) return exact;
+  const trimmed = figma.root.children.filter((p) => p.name.trim() === String(name).trim());
+  if (trimmed.length === 1) return trimmed[0];
+  throw new Error(`no page named "${name}"`);
+}
+
 async function readScreens(target) {
-  const page = figma.root.children.find((p) => p.name === target.page);
-  if (!page) throw new Error(`no page named "${target.page}"`);
+  const page = findPage(target.page);
   await page.loadAsync();
   const screens = screensOn(page, target.screens);
   const nodes = [];
-  const walk = (node, path, isRoot) => {
+  const walk = (node, path, isRoot, insideDetached) => {
     if (node.visible === false) return;
     if (node.type === 'INSTANCE') {
-      nodes.push(...overriddenRecords(node, path));
+      nodes.push(...overriddenRecords(node, path, insideDetached));
       return;
     }
     const mixedPaints = node.fills === figma.mixed;
+    const detached = detachedOf(node, page);
+    const underDetached = insideDetached || detached !== null;
     nodes.push({
       id: node.id,
       path,
       isRoot,
       inInstance: false,
+      underDetached,
       overridden: [],
       paints: [...solidPaints(node, 'fills', 'fill'), ...solidPaints(node, 'strokes', 'stroke')],
       mixedPaints,
       gap: gapOf(node),
       padding: paddingOf(node),
       radius: radiusOf(node),
-      detached: detachedOf(node, page),
+      detached,
     });
-    for (const child of node.children || []) walk(child, `${path} / ${child.name}`, false);
+    for (const child of node.children || []) walk(child, `${path} / ${child.name}`, false, underDetached);
   };
-  for (const screen of screens) walk(screen, `${page.name} / ${screen.name}`, true);
+  for (const screen of screens) walk(screen, `${page.name.trim()} / ${screen.name}`, true, false);
   return {
     fileKey: figma.fileKey,
     screens: screens.map((s) => ({ id: s.id, name: s.name })),

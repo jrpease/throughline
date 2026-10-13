@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { RULES, checkScreens } from './figma-adherence.mjs';
+import { RULES, checkScreens, dimensionBuckets } from './figma-adherence.mjs';
 
 const DIR = new URL('./fixtures/figma-adherence/', import.meta.url);
 const fixtures = Object.fromEntries(
@@ -94,4 +94,24 @@ test('inert rules fail by name, and a skipped rule is listed and runs nothing', 
 test('nothing-scanned cannot be skipped', () => {
   const res = checkScreens(fixtures['nothing-scanned'].snapshot, { skip: RULES });
   assert.deepEqual(res.failures.map((f) => f.rule), ['nothing-scanned']);
+});
+
+test('dimensionBuckets: an explicit scope decides; ALL_SCOPES needs a name that says what it is', () => {
+  assert.deepEqual(dimensionBuckets('anything', ['GAP']), { gap: true, radius: false });
+  assert.deepEqual(dimensionBuckets('anything', ['CORNER_RADIUS']), { gap: false, radius: true });
+  assert.deepEqual(dimensionBuckets('text/7xl', ['FONT_SIZE']), { gap: false, radius: false });
+  // Zygarden 2026-10-13: every number variable is ALL_SCOPES.
+  assert.deepEqual(dimensionBuckets('spacing/space/6', ['ALL_SCOPES']), { gap: true, radius: false });
+  assert.deepEqual(dimensionBuckets('radius/4', ['ALL_SCOPES']), { gap: false, radius: true });
+  assert.deepEqual(dimensionBuckets('text/7xl', ['ALL_SCOPES']), { gap: false, radius: false });
+  assert.deepEqual(dimensionBuckets('text/base/lineHeight', ['ALL_SCOPES']), { gap: false, radius: false });
+  assert.deepEqual(dimensionBuckets('stack/md', ['ALL_SCOPES']), { gap: true, radius: false });
+  assert.deepEqual(dimensionBuckets('text/xs/letterSpacing', ['ALL_SCOPES']), { gap: false, radius: false });
+});
+
+test('raw values inside a detached frame are covered by its one detached failure', () => {
+  const fx = clone(fixtures['detached-library']);
+  assert.deepEqual(run(fx).failures.map((f) => f.rule), ['detached-component', 'detached-component']);
+  fx.snapshot.nodes[2].underDetached = false;
+  assert.deepEqual(run(fx).failures.map((f) => f.rule).sort(), ['detached-component', 'detached-component', 'raw-colour', 'raw-dimension']);
 });

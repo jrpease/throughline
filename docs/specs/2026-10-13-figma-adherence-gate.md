@@ -1,6 +1,6 @@
 # Adherence gate for Figma screens
 
-Status: planned
+Status: built
 Reviewed: 2026-10-13 — needs revision (the colour rule departed from the code gate's Decision 3 on a misread rationale; #170 overclaimed focus contrast on existing sets; reader gaps: instance-root overrides, mixed text paints, shared helpers, install list). Revised the same day: the colour rule now follows Decision 3, `unstyled-text` moved to v2, and every Plan finding is addressed.
 Date: 2026-10-13
 Backlog: #112, Phase 5 — #40, folding in #170
@@ -120,6 +120,34 @@ Measured read-only on 2026-10-13 through the bridge:
   Unresolved.
 - **Library-consuming files.** Reading a library's variable values means importing
   them, which writes to the file. Wait for a real library-consuming user. Unresolved.
+
+## What shipped
+
+- `scripts/lib/figma-adherence.mjs` (+ test, 15 fixtures): `checkScreens`, `RULES`, and `dimensionBuckets`.
+- `scripts/lib/figma-adherence-read.figma.js`: the screen reader, read-only, one page at a time.
+- `scripts/lib/figma-variables-read.figma.js`: colour-variable resolution, moved out of the checks reader and shared by both.
+- `scripts/lib/figma-checks.mjs` / `figma-checks-read.figma.js`: `checkExisting` and `MODE = 'existing'` (#170).
+- `scripts/build-figma-checks.mjs`: emits and `--check`s both `references/figma-checks.md` and `references/figma-adherence.md`; a fake-Figma test runs the screen snippet end to end.
+- `scripts/install.mjs`: the three new lib files stay plugin-internal.
+- `commands/check-figma.md`, README, CHANGELOG (`### Added`), pointer test, adapters, `scripts/README.md`, `ci/README.md`.
+- `docs/notes/2026-10-13-figma-adherence-live-run.md`.
+
+## Where it diverged
+
+- **`ALL_SCOPES` number variables are classified by name.** The live run on
+  Zygarden, where every number variable is `ALL_SCOPES`, failed a 72 px gap as
+  "bind text/7xl". An explicit scope still decides; an `ALL_SCOPES` variable counts
+  as spacing or radius only when its name says so (`dimensionBuckets`). This
+  replaces "scopes, not names" in Rule 3 for unscoped variables.
+- **Raw rules don't run inside a detached frame** (`underDetached` in the snapshot).
+  On `↳ Archtypes` they turned 8 detached frames into about 200 failures that one
+  re-instancing fixes.
+- **A page matches on its trimmed name** when exactly one does. 01. Design System's
+  page names carry leading spaces.
+- **The "no surfaces named" message** no longer says the architect names them,
+  since `check-figma` asks the user.
+- **Step 6 ran transcriptions for the narrowed screen gate**, not the regenerated
+  file, and didn't re-run Zygarden's existing sets. The note says both.
 
 ## Plan
 
