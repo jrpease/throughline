@@ -122,6 +122,9 @@ const RAW_SIZE = [
   /(?<![\w-])(?:min-?|max-?)?(?:width|height|[wW]idth|[hH]eight)\s*:\s*['"]?-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em)?(?![\w%.])/g,
 ];
 const NATIVE_CONTROL = /<(button|input|select|textarea)\b/g;
+// Every import: named, default, namespace, type-only or side-effect.
+const ANY_IMPORT = /^\s*import\s+(?:[^'";]*?\s+from\s+)?['"]([^'"]+)['"]/gm;
+const REACT = /^react(?:-dom)?(?:\/.*)?$/;
 
 const lineOf = (text, i) => text.slice(0, i).split('\n').length;
 
@@ -148,6 +151,11 @@ export function gateFile({ file, text, plan, manifest, index, tokenDicts, pkg })
   const code = blankComments(text, file);
   for (const re of RAW_SIZE) for (const m of code.matchAll(re)) failures.push({ rule: 'raw-value', written: m[0], file, line: lineOf(code, m.index) });
   for (const m of code.matchAll(SCALE_UTILITY)) failures.push({ rule: 'scale-utility', written: m[0], file, line: lineOf(code, m.index) });
+  for (const m of code.matchAll(ANY_IMPORT)) {
+    const from = m[1];
+    if (from === pkg || from.startsWith(`${pkg}/`) || REACT.test(from)) continue;
+    failures.push({ rule: 'off-plan', written: `import from '${from}'`, file, line: lineOf(code, m.index + m[0].indexOf('import')) });
+  }
   for (const m of code.matchAll(NATIVE_CONTROL)) failures.push({ rule: 'off-plan', written: `<${m[1]}>`, file, line: lineOf(code, m.index) });
 
   const planned = (plan?.components ?? []).map((c) => c.partOf ?? c.name);
@@ -163,7 +171,9 @@ export function gateFile({ file, text, plan, manifest, index, tokenDicts, pkg })
 const COMPOSER_RULES = {
   'raw-value': (f) => `${f.written} at ${f.file}:${f.line} — write a token variable, not a raw value`,
   'scale-utility': (f) => `${f.written} at ${f.file}:${f.line} — Tailwind's default scale, not a token; use a token variable (\`-[var(--…)]\`)`,
-  'off-plan': (f) => `${f.written} at ${f.file}:${f.line} — not a planned system component; use one from the plan, or check the plan again`,
+  'off-plan': (f) => f.written.startsWith('import')
+    ? `${f.written} at ${f.file}:${f.line} — a composed screen imports only from the system's package and React; anything else is a gap to report`
+    : `${f.written} at ${f.file}:${f.line} — not a planned system component; use one from the plan, or check the plan again`,
 };
 
 export function formatGateReport(r) {
@@ -196,7 +206,7 @@ function main() {
     process.exit(2);
   }
   const usage = () => {
-    console.error('usage: compose-code.mjs inventory|check|gate --system <dir> --package <spec> [--plan <file>] [--tokens <file>...] [--file <path>]');
+    console.error('usage: compose-code.mjs inventory|check|gate --system <dir> --package <spec> [--plan <file>] [--tokens <file> --tokens <file>...] [--file <path>]');
     process.exit(2);
   };
   if (!['inventory', 'check', 'gate'].includes(mode) || !values.system || !values.package) usage();

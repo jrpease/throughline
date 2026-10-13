@@ -20,14 +20,19 @@ rather than re-asking them. Scale explanation to `user.codingLevel`.
    Its components, with their variant axes, values, states, `whenToUse` and
    `whenNotToUse`, are the only components the screen may use. Read a listed
    component's own source for its prop names and exported sub-parts
-   (`CardHeader`); the inventory records neither.
+   (`CardHeader`); the inventory records neither. Token variable names come from
+   the system's generated CSS (the file its styles import), and the utilities
+   from its Tailwind preset; read both.
 5. **Plan.** Write the plan as JSON to a scratch file:
    `{ "screen", "file", "components": [{ "name", "variants": { "<axis>": "<value>" } }] }`,
    one entry per component the screen uses, with the variant values it sets. A
    sub-part (`CardHeader`) comes with its owner (`Card`) and needs no entry. When
    the request needs a component the inventory doesn't have, say so before
    writing and ask: leave it out, use a named existing component instead, or stop.
-   Never build a lookalike.
+   The `nearest` names are matched on spelling; suggest the alternative that fits
+   by `whenToUse` instead when one does. Never build a lookalike. An icon, or
+   anything else the system's package doesn't export, is a gap in the same way:
+   the screen imports only from the package and React.
 6. **Check the plan.** Run the script with `check --system <dir> --package <spec> --plan <plan file>`
    from the repo root. If it returns errors, nothing has been written: fix the
    plan (a `missing-component` error goes back to the user as in step 5) and check
@@ -45,9 +50,11 @@ rather than re-asking them. Scale explanation to `user.codingLevel`.
    utilities the system's preset generates from tokens (`bg-primary`,
    `rounded-md`). Never a raw value, and never Tailwind's default scale
    (`gap-4`, `text-lg`, `font-semibold`). Percentages, fractions and `w-full`
-   are layout and fine. Handlers are stubs; data and state are the app's.
+   are layout and fine. A size no token holds (a 400px card) can't be bound:
+   use a fraction or a keyword and say so in the report. Handlers are stubs; data and state are the app's.
 8. **Gate.** Run the script with
-   `gate --system <dir> --package <spec> --tokens <file>... --plan <plan file> --file <screen file>`.
+   `gate --system <dir> --package <spec> --plan <plan file> --file <screen file>`,
+   with `--tokens <file>` repeated once per token file.
    On a failure, fix the file and run it again, up to three attempts in all. If
    the third still fails, stop: the file stays where it is, marked, and the
    report lists every failure and says a re-run replaces it. Never change the
@@ -55,7 +62,8 @@ rather than re-asking them. Scale explanation to `user.codingLevel`.
 9. **Report.** The file's path, whether it replaced an earlier composed one, the
    gate's counts, every gap (each component asked for that doesn't exist, with the
    nearest names the script offered, and what was left out because of it), and
-   how to mount the screen in the app's router. Don't edit the router.
+   how to mount the screen where the app picks its screens (its router or entry).
+   Don't edit it.
 
 Never edit a component, a token or the app's routing. If the screen can't be
 built from what the system has, the gap is the finding.

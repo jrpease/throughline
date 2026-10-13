@@ -150,6 +150,12 @@ test('gate: a hand-built control and an unplanned package component are off-plan
   assert.deepEqual(r.failures.map((f) => [f.rule, f.written]), [['off-plan', '<button>'], ['off-plan', '<Checkbox>']]);
 });
 
+test('gate: imports from anywhere but the system package and React are off-plan', () => {
+  const text = screen('').replace("import {", `import * as React from 'react';\nimport { createPortal } from 'react-dom';\nimport type { FC } from 'react';\nimport '@ds/ui/styles';\nimport { ArrowRight } from 'lucide-react';\nimport Local from './Local';\nimport {`);
+  assert.deepEqual(gate(text).failures.map((f) => [f.rule, f.written]),
+    [['off-plan', "import from 'lucide-react'"], ['off-plan', "import from './Local'"]]);
+});
+
 test('gate: a sub-part of a planned component is on plan', () => {
   assert.ok(!gate(screen('')).failures.some((f) => f.written === '<CardHeader>'));
 });
