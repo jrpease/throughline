@@ -8,8 +8,10 @@
 
 The canonical `figma_execute` snippet that checks Figma screens against the design
 system, read-only. It fails a frame detached from a component, a raw colour that a
-colour variable has, and a raw gap, padding or corner radius that a number variable
-scoped for it has, naming the variable to bind. A raw value no variable has is an
+colour variable has (opacity included), and a raw gap, padding or corner radius
+that a spacing or radius variable has, naming the variable to bind. A number
+variable counts by its scope (`GAP`, `CORNER_RADIUS`), or, left at `ALL_SCOPES`,
+by a name that says spacing or radius. A raw value no variable has is an
 advisory, not a failure. A rule that had nothing to compare against fails by name
 (`nothing-scanned`, `colour-rule-inert`, `dimension-rule-inert`). The script is the
 rule; do not re-write it by hand.
@@ -17,9 +19,12 @@ rule; do not re-write it by hand.
 ## How to call it
 
 1. Paste the snippet below into `figma_execute`, with the two slots filled above it:
-   - `const TARGET = { page, screens }` — `page` is the page name, exactly; `screens`
-     is an optional list of screen names (top-level frames, or frames directly
-     inside a top-level section). Without it, every screen on the page is read.
+   - `const TARGET = { page, screens, fileKey }` — `page` is the page name (an exact
+     match, or else the one page whose name matches once leading and trailing
+     spaces are trimmed); `screens` is an optional list of screen names (top-level
+     frames, or frames directly inside a top-level section), and without it every
+     screen on the page is read; `fileKey` is `figma.fileKey` from
+     `design-system.json`, used for the links.
    - `const SKIP = []` — rule names to switch off (`detached-component`,
      `raw-colour`, `raw-dimension`); a skipped rule's inert check is skipped too.
 2. End the script with `return await runScreenGate(TARGET, SKIP);` and pass
@@ -31,7 +36,7 @@ rule; do not re-write it by hand.
    whose variables all come from a published library fails as inert.
 
 ```js
-const TARGET = { page: 'Templates' };
+const TARGET = { page: 'Templates', fileKey: '<figma.fileKey>' };
 const SKIP = [];
 // … the generated snippet …
 return await runScreenGate(TARGET, SKIP);
@@ -54,15 +59,15 @@ return await runScreenGate(TARGET, SKIP);
 //
 // SNAPSHOT (what the reader returns):
 //   {
-//     fileKey,
-//     screens: [{ id, name }],
+//     fileKey,                          // for links; the caller passes it (TARGET.fileKey)
 //     nodes: [{
 //       id, path,                       // path: 'Page / Screen / … / Node'
 //       isRoot,                         // the screen frame itself
 //       inInstance,                     // an overridden node inside an INSTANCE (or the instance itself)
 //       underDetached,                  // a detached frame, or anything inside one
 //       overridden: ['fills' | 'strokes'],   // inInstance nodes only
-//       paints: [{ kind: 'fill' | 'stroke', hex: '#rrggbb', bound, styled }],   // visible SOLID paints only
+//       paints: [{ kind: 'fill' | 'stroke', hex, bound, styled }],   // visible SOLID paints only;
+//                                       // hex is '#rrggbb', or '#rrggbbaa' when the paint's opacity < 1
 //       mixedPaints,                    // fills is figma.mixed (text with mixed runs)
 //       gap: { value, bound, renders } | null,
 //       padding: [{ side, value, bound }],
@@ -113,15 +118,18 @@ function checkScreens(snapshot, { skip = [] } = {}) {
   const failures = [];
   const advisories = [];
   const counts = Object.fromEntries(RULES.filter(on).map((rule) => [rule, { checked: 0, failed: 0 }]));
+  const entry = (rule, node, detail) => ({ rule, id: node.id, path: node.path, detail, link: link(node.id) });
   const fail = (rule, node, detail) => {
     counts[rule].failed += 1;
-    failures.push({ rule, id: node.id, path: node.path, detail, link: link(node.id) });
+    failures.push(entry(rule, node, detail));
   };
-  const advise = (rule, node, detail) => advisories.push({ rule, id: node.id, path: node.path, detail, link: link(node.id) });
+  const advise = (rule, node, detail) => advisories.push(entry(rule, node, detail));
 
-  // A raw value fails when a token has it, naming the token; otherwise it is an advisory.
-  const raw = (rule, node, table, value, what) => {
+  // A bound value passes. A raw one fails when a token has it, naming the token;
+  // otherwise it is an advisory.
+  const raw = (rule, node, table, value, bound, what) => {
     counts[rule].checked += 1;
+    if (bound) return;
     const names = table[String(value)];
     if (names && names.length) fail(rule, node, `${what}: bind ${names.join(', ')}`);
     else advise(rule, node, rule === 'raw-colour' ? `${what}: no colour variable has this value` : `off-scale ${what}`);
@@ -149,30 +157,19 @@ function checkScreens(snapshot, { skip = [] } = {}) {
       if (node.mixedPaints) advise('raw-colour', node, 'mixed paints not read');
       for (const paint of node.paints ?? []) {
         if (node.inInstance && !(node.overridden ?? []).includes(PAINT_FIELD[paint.kind])) continue;
-        if (paint.bound || paint.styled) {
-          counts['raw-colour'].checked += 1;
-          continue;
-        }
-        raw('raw-colour', node, colours, paint.hex, `${paint.kind} ${paint.hex}`);
+        raw('raw-colour', node, colours, paint.hex, paint.bound || paint.styled, `${paint.kind} ${paint.hex}`);
       }
     }
 
     if (on('raw-dimension') && !node.inInstance) {
       const gap = node.gap;
-      if (gap && gap.renders && gap.value > 0) {
-        if (gap.bound) counts['raw-dimension'].checked += 1;
-        else raw('raw-dimension', node, gapTokens, gap.value, `gap ${gap.value}`);
-      }
+      if (gap && gap.renders && gap.value > 0) raw('raw-dimension', node, gapTokens, gap.value, gap.bound, `gap ${gap.value}`);
       for (const p of node.padding ?? []) {
-        if (!(p.value > 0)) continue;
-        if (p.bound) counts['raw-dimension'].checked += 1;
-        else raw('raw-dimension', node, gapTokens, p.value, `padding-${p.side} ${p.value}`);
+        if (p.value > 0) raw('raw-dimension', node, gapTokens, p.value, p.bound, `padding-${p.side} ${p.value}`);
       }
       if (!node.isRoot) {
         for (const r of node.radius ?? []) {
-          if (!(r.value > 0)) continue;
-          if (r.bound) counts['raw-dimension'].checked += 1;
-          else raw('raw-dimension', node, radiusTokens, r.value, `radius-${r.corner} ${r.value}`);
+          if (r.value > 0) raw('raw-dimension', node, radiusTokens, r.value, r.bound, `radius-${r.corner} ${r.value}`);
         }
       }
     }
@@ -185,10 +182,11 @@ function checkScreens(snapshot, { skip = [] } = {}) {
     inert('colour-rule-inert', 'the file has no local colour variables, so no raw colour could be matched to one');
   }
   if (on('raw-dimension') && Object.keys(gapTokens).length === 0 && Object.keys(radiusTokens).length === 0) {
-    inert('dimension-rule-inert', 'the file has no local number variable scoped for gap, padding or radius');
+    inert('dimension-rule-inert', 'the file has no local number variable for spacing or radius: none is scoped GAP or CORNER_RADIUS, and none left at ALL_SCOPES is named for spacing or radius');
   }
 
-  const byPath = (a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : a.detail < b.detail ? -1 : a.detail > b.detail ? 1 : 0);
+  const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  const byPath = (a, b) => cmp(a.path, b.path) || cmp(a.detail, b.detail);
   failures.sort(byPath);
   advisories.sort(byPath);
   return { pass: failures.length === 0, failures, advisories, counts, skipped: RULES.filter((rule) => !on(rule)) };
@@ -245,8 +243,8 @@ async function variableColors(variable) {
 // beyond the generator's snippet test; the pure checker it feeds is unit-tested.
 //
 // In-scope globals when assembled: checkScreens and dimensionBuckets (figma-adherence.mjs),
-// variableColors (figma-variables-read.figma.js), and the caller-filled slots
-// TARGET = { page, screens? } and SKIP = [rule, ...]. The snapshot shape is
+// colorHex and variableColors (figma-variables-read.figma.js), and the caller-filled slots
+// TARGET = { page, screens?, fileKey } and SKIP = [rule, ...]. The snapshot shape is
 // documented at the top of scripts/lib/figma-adherence.mjs.
 
 const CORNERS = [
@@ -271,10 +269,12 @@ function solidPaints(node, field, kind) {
   const out = [];
   list.forEach((paint, i) => {
     if (paint.visible === false || paint.type !== 'SOLID') return;
-    const byte = (x) => Math.round(x * 255).toString(16).padStart(2, '0');
+    // The paint's opacity goes into the hex the way colorHex writes a translucent
+    // variable, so a 50% black matches a 50% black token and not the opaque one.
+    const opacity = paint.opacity === undefined ? 1 : paint.opacity;
     out.push({
       kind,
-      hex: `#${byte(paint.color.r)}${byte(paint.color.g)}${byte(paint.color.b)}`,
+      hex: colorHex({ r: paint.color.r, g: paint.color.g, b: paint.color.b, a: opacity }),
       bound: Boolean(bound[i]),
       styled,
     });
@@ -428,8 +428,9 @@ async function readScreens(target) {
   };
   for (const screen of screens) walk(screen, `${page.name.trim()} / ${screen.name}`, true, false);
   return {
-    fileKey: figma.fileKey,
-    screens: screens.map((s) => ({ id: s.id, name: s.name })),
+    // The caller passes the fileKey from design-system.json: figma.fileKey is only
+    // exposed to private plugins.
+    fileKey: target.fileKey || figma.fileKey,
     nodes,
     tokens: await readTokens(),
   };

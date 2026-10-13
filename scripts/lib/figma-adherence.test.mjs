@@ -115,3 +115,14 @@ test('raw values inside a detached frame are covered by its one detached failure
   fx.snapshot.nodes[2].underDetached = false;
   assert.deepEqual(run(fx).failures.map((f) => f.rule).sort(), ['detached-component', 'detached-component', 'raw-colour', 'raw-dimension']);
 });
+
+test('raw-colour: a translucent paint matches only a token with the same alpha', () => {
+  const fx = clone(fixtures['raw-colour-token']);
+  fx.snapshot.nodes[0].paints[0].hex = '#00000080';
+  fx.snapshot.tokens.colours = { '#000000': ['color/black'] };
+  const opaqueOnly = run(fx);
+  assert.equal(opaqueOnly.pass, true);
+  assert.equal(opaqueOnly.advisories[0].detail, 'fill #00000080: no colour variable has this value');
+  fx.snapshot.tokens.colours['#00000080'] = ['color/scrim'];
+  assert.equal(run(fx).failures[0].detail, 'fill #00000080: bind color/scrim');
+});

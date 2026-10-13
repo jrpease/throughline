@@ -39,12 +39,17 @@ these checks by hand.
    in the self-verify loop. It throws only if that frame is missing; a frame with
    no set, or a set Figma reports as conflicting, fails the structural check.
 5. `'existing'` checks a set already in the library, read-only: the first
-   COMPONENT_SET on any page whose name matches `name` ignoring case and
-   punctuation. `matrix` is not needed. It runs the state, focus-ring and
-   focus-contrast checks against the set's own variants, not the structural
-   check. A set whose focus state is drawn some other way, such as an INSIDE
-   stroke, fails the focus-ring check and skips contrast. It throws when no set
-   has that name.
+   COMPONENT_SET whose name matches `name` ignoring case and punctuation. Add
+   `page` to `EXPECT` (the page holding the components) so only that page is
+   loaded; without it every page loads in turn, which on a large file can stall
+   the bridge. `matrix` is not needed. There is no spec to copy `controlLayer` and
+   `surfaces` from, so the caller names them: `surfaces` as for a build, and
+   `controlLayer` for a wrapped control whose ring sits on an inner layer (without
+   it, a correct ring on an inner layer reads as missing). It runs the state,
+   focus-ring and focus-contrast checks against the set's own variants, not the
+   structural check. A set whose focus state is drawn some other way, such as an
+   INSIDE stroke, fails the focus-ring check and skips contrast. It throws when no
+   set has that name.
 
 ```js
 const EXPECT = { name: 'Chip', matrix: { state: ['default', 'hover'] }, uiFramework: 'shadcn' };
@@ -627,9 +632,11 @@ function withTable({
     return result([stateBaseline(expect, entries)]);
   }
 
+  const variantEntries = (snapshot) => (snapshot.children ?? []).flatMap((c) => Object.entries(c.variantProperties ?? {}));
+
   // After the build: the node as read.
   function checkBuilt(snapshot, expect) {
-    const entries = (snapshot.children ?? []).flatMap((c) => Object.entries(c.variantProperties ?? {}));
+    const entries = variantEntries(snapshot);
     const indicator = focusIndicator(snapshot, expect);
     return result([
       structural(snapshot, expect),
@@ -642,7 +649,7 @@ function withTable({
   // An existing set has no spec matrix, so the structural check is not run; the
   // other three read only the set itself.
   function checkExisting(snapshot, expect) {
-    const entries = (snapshot.children ?? []).flatMap((c) => Object.entries(c.variantProperties ?? {}));
+    const entries = variantEntries(snapshot);
     const indicator = focusIndicator(snapshot, expect);
     return result([stateBaseline(expect, entries), indicator, focusContrast(snapshot, expect, indicator)]);
   }
@@ -793,17 +800,26 @@ async function findWipSet(expect) {
   return { empty: { type: first ? first.type : 'NONE', variantGroupProperties: {}, children: [] } };
 }
 
-// A set already in the library: the first COMPONENT_SET, on any page, whose name
-// folds to the same name. Pages load one at a time; a whole-file load stalled the
-// bridge on a large file.
-async function findExistingSet(name) {
+// A set already in the library: the first COMPONENT_SET whose name folds to the
+// same name. With `pageName`, only that page is loaded (exact name, or a unique
+// match on the trimmed name). Without it every page is loaded in turn until one
+// has the set, which on a miss is the whole file; a whole-file load stalled the
+// bridge on a large file, so callers pass the page.
+async function findExistingSet(name, pageName) {
   const want = normalizeName(name);
-  for (const page of figma.root.children) {
+  let pages = figma.root.children;
+  if (pageName !== undefined && pageName !== null) {
+    const exact = pages.filter((p) => p.name === pageName);
+    const trimmed = pages.filter((p) => p.name.trim() === String(pageName).trim());
+    pages = exact.length ? exact : trimmed.length === 1 ? trimmed : [];
+    if (!pages.length) throw new Error(`no page named "${pageName}"`);
+  }
+  for (const page of pages) {
     await page.loadAsync();
     const set = page.findAllWithCriteria({ types: ['COMPONENT_SET'] }).find((s) => normalizeName(s.name) === want);
     if (set) return set;
   }
-  throw new Error(`no component set named "${name}" in this file`);
+  throw new Error(`no component set named "${name}"${pageName ? ` on page "${pageName}"` : ' in this file'}`);
 }
 
 async function readSet(set, expect) {
@@ -854,7 +870,7 @@ async function runFigmaChecks(EXPECT, MODE) {
     const { set, empty } = await findWipSet(EXPECT);
     return checkBuilt(set ? await readSet(set, EXPECT) : empty, EXPECT);
   }
-  if (MODE === 'existing') return checkExisting(await readSet(await findExistingSet(EXPECT.name), EXPECT), EXPECT);
+  if (MODE === 'existing') return checkExisting(await readSet(await findExistingSet(EXPECT.name, EXPECT.page), EXPECT), EXPECT);
   throw new Error(`MODE must be 'spec', 'built' or 'existing', got ${JSON.stringify(MODE)}`);
 }
 ```

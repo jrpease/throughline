@@ -123,7 +123,7 @@ Measured read-only on 2026-10-13 through the bridge:
 
 ## What shipped
 
-- `scripts/lib/figma-adherence.mjs` (+ test, 15 fixtures): `checkScreens`, `RULES`, and `dimensionBuckets`.
+- `scripts/lib/figma-adherence.mjs` (+ test, 14 fixtures): `checkScreens`, `RULES`, and `dimensionBuckets`.
 - `scripts/lib/figma-adherence-read.figma.js`: the screen reader, read-only, one page at a time.
 - `scripts/lib/figma-variables-read.figma.js`: colour-variable resolution, moved out of the checks reader and shared by both.
 - `scripts/lib/figma-checks.mjs` / `figma-checks-read.figma.js`: `checkExisting` and `MODE = 'existing'` (#170).
@@ -146,6 +146,15 @@ Measured read-only on 2026-10-13 through the bridge:
   page names carry leading spaces.
 - **The "no surfaces named" message** no longer says the architect names them,
   since `check-figma` asks the user.
+- **The whole-branch review's fixes.** A paint's opacity now goes into its hex the
+  way a translucent variable's does, so a 50% black matches a 50% black token and
+  not the opaque one. Links use `TARGET.fileKey`, passed by the command from
+  `design-system.json`, because `figma.fileKey` is only exposed to private plugins.
+  `MODE = 'existing'` takes `EXPECT.page` so only the components page loads, and
+  the command asks for it. The command handles wrapped controls by re-running a
+  set with `controlLayer` when its ring sits on an inner layer. The snapshot's
+  unused `screens` field was dropped, and the command reports one pass or fail for
+  the page with failures grouped by screen.
 - **Step 6 ran transcriptions for the narrowed screen gate**, not the regenerated
   file, and didn't re-run Zygarden's existing sets. The note says both.
 

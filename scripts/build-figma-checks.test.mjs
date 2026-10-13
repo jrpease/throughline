@@ -90,35 +90,49 @@ test('generated adherence reference on disk is in sync with the sources', () => 
   assert.equal(onDisk, buildFigmaAdherence(adherenceSources()), 'run: node scripts/build-figma-checks.mjs');
 });
 
-// A fake Figma holding one page, one screen and one raw white rectangle, and one
-// white colour variable: the screen reader and checker run end to end.
+// A fake Figma holding one page and one screen: a raw white rectangle, a card
+// with an unbound 8 px radius, a 50% black scrim, and an instance whose own fill
+// was overridden to raw white. One white colour variable and one ALL_SCOPES
+// radius variable. No figma.fileKey: the links come from TARGET.
 function fakeFigma() {
   const mixed = Symbol('mixed');
-  const rect = { id: '1:3', name: 'Box', type: 'RECTANGLE', visible: true, fills: [{ type: 'SOLID', visible: true, color: { r: 1, g: 1, b: 1 } }], strokes: [], cornerRadius: 0 };
-  const screen = { id: '1:2', name: 'Home', type: 'FRAME', visible: true, fills: [], strokes: [], cornerRadius: 0, layoutMode: 'NONE', children: [rect] };
-  const page = { name: 'Templates', children: [screen], loadAsync: async () => {}, findOne: () => null };
+  const solid = (r, g, b, opacity) => ({ type: 'SOLID', visible: true, color: { r, g, b }, ...(opacity === undefined ? {} : { opacity }) });
+  const rect = { id: '1:3', name: 'Box', type: 'RECTANGLE', visible: true, fills: [solid(1, 1, 1)], strokes: [], cornerRadius: 0 };
+  const card = { id: '1:4', name: 'Card', type: 'RECTANGLE', visible: true, fills: [], strokes: [], cornerRadius: 8 };
+  const scrim = { id: '1:5', name: 'Scrim', type: 'RECTANGLE', visible: true, fills: [solid(0, 0, 0, 0.5)], strokes: [], cornerRadius: 0 };
+  const instance = {
+    id: '1:6', name: 'Button', type: 'INSTANCE', visible: true, fills: [solid(1, 1, 1)], strokes: [],
+    overrides: [{ id: '1:6', overriddenFields: ['fills'] }], findOne: () => null,
+  };
+  const screen = { id: '1:2', name: 'Home', type: 'FRAME', visible: true, fills: [], strokes: [], cornerRadius: 0, layoutMode: 'NONE', children: [rect, card, scrim, instance] };
+  const page = { name: '  Templates', children: [screen], loadAsync: async () => {}, findOne: () => null };
   const white = { id: 'v1', name: 'color/bg/canvas', variableCollectionId: 'c1', valuesByMode: { m: { r: 1, g: 1, b: 1, a: 1 } } };
+  const radius = { id: 'v2', name: 'radius/md', scopes: ['ALL_SCOPES'], variableCollectionId: 'c1', valuesByMode: { m: 8 } };
   return {
     mixed,
-    fileKey: 'TEST',
     root: { children: [page] },
     variables: {
-      getLocalVariablesAsync: async (type) => (type === 'COLOR' ? [white] : []),
+      getLocalVariablesAsync: async (type) => (type === 'COLOR' ? [white] : [radius]),
       getVariableCollectionByIdAsync: async () => ({ modes: [{ modeId: 'm', name: 'Default' }], defaultModeId: 'm' }),
       getVariableByIdAsync: async () => null,
     },
   };
 }
 
-test('the inlined adherence snippet runs: a raw white fill fails naming the variable', async () => {
+test('the inlined adherence snippet runs end to end against a fake Figma', async () => {
   const code = snippetOf(buildFigmaAdherence(adherenceSources()));
   const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
-  const run = new AsyncFunction('figma', `${code}\nreturn await runScreenGate({ page: 'Templates' }, []);`);
+  const run = new AsyncFunction('figma', `${code}\nreturn await runScreenGate({ page: 'Templates', fileKey: 'TEST' }, []);`);
   const result = await run(fakeFigma());
   assert.equal(result.pass, false);
-  assert.deepEqual(result.failures.map((f) => f.rule).sort(), ['dimension-rule-inert', 'raw-colour']);
-  const colour = result.failures.find((f) => f.rule === 'raw-colour');
-  assert.equal(colour.detail, 'fill #ffffff: bind color/bg/canvas');
-  assert.equal(colour.path, 'Templates / Home / Box');
-  assert.equal(colour.link, 'https://www.figma.com/design/TEST?node-id=1-3');
+  assert.deepEqual(
+    result.failures.map((f) => `${f.rule} | ${f.path} | ${f.detail}`),
+    [
+      'raw-colour | Templates / Home / Box | fill #ffffff: bind color/bg/canvas',
+      'raw-colour | Templates / Home / Button | fill #ffffff: bind color/bg/canvas',
+      'raw-dimension | Templates / Home / Card | radius-all 8: bind radius/md',
+    ],
+  );
+  assert.equal(result.failures[0].link, 'https://www.figma.com/design/TEST?node-id=1-3');
+  assert.deepEqual(result.advisories.map((a) => a.detail), ['fill #00000080: no colour variable has this value']);
 });

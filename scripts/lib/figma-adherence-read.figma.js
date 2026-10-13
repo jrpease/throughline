@@ -9,8 +9,8 @@
 // beyond the generator's snippet test; the pure checker it feeds is unit-tested.
 //
 // In-scope globals when assembled: checkScreens and dimensionBuckets (figma-adherence.mjs),
-// variableColors (figma-variables-read.figma.js), and the caller-filled slots
-// TARGET = { page, screens? } and SKIP = [rule, ...]. The snapshot shape is
+// colorHex and variableColors (figma-variables-read.figma.js), and the caller-filled slots
+// TARGET = { page, screens?, fileKey } and SKIP = [rule, ...]. The snapshot shape is
 // documented at the top of scripts/lib/figma-adherence.mjs.
 
 const CORNERS = [
@@ -35,10 +35,12 @@ function solidPaints(node, field, kind) {
   const out = [];
   list.forEach((paint, i) => {
     if (paint.visible === false || paint.type !== 'SOLID') return;
-    const byte = (x) => Math.round(x * 255).toString(16).padStart(2, '0');
+    // The paint's opacity goes into the hex the way colorHex writes a translucent
+    // variable, so a 50% black matches a 50% black token and not the opaque one.
+    const opacity = paint.opacity === undefined ? 1 : paint.opacity;
     out.push({
       kind,
-      hex: `#${byte(paint.color.r)}${byte(paint.color.g)}${byte(paint.color.b)}`,
+      hex: colorHex({ r: paint.color.r, g: paint.color.g, b: paint.color.b, a: opacity }),
       bound: Boolean(bound[i]),
       styled,
     });
@@ -192,8 +194,9 @@ async function readScreens(target) {
   };
   for (const screen of screens) walk(screen, `${page.name.trim()} / ${screen.name}`, true, false);
   return {
-    fileKey: figma.fileKey,
-    screens: screens.map((s) => ({ id: s.id, name: s.name })),
+    // The caller passes the fileKey from design-system.json: figma.fileKey is only
+    // exposed to private plugins.
+    fileKey: target.fileKey || figma.fileKey,
     nodes,
     tokens: await readTokens(),
   };

@@ -370,9 +370,11 @@ export function withTable({
     return result([stateBaseline(expect, entries)]);
   }
 
+  const variantEntries = (snapshot) => (snapshot.children ?? []).flatMap((c) => Object.entries(c.variantProperties ?? {}));
+
   // After the build: the node as read.
   function checkBuilt(snapshot, expect) {
-    const entries = (snapshot.children ?? []).flatMap((c) => Object.entries(c.variantProperties ?? {}));
+    const entries = variantEntries(snapshot);
     const indicator = focusIndicator(snapshot, expect);
     return result([
       structural(snapshot, expect),
@@ -385,7 +387,7 @@ export function withTable({
   // An existing set has no spec matrix, so the structural check is not run; the
   // other three read only the set itself.
   function checkExisting(snapshot, expect) {
-    const entries = (snapshot.children ?? []).flatMap((c) => Object.entries(c.variantProperties ?? {}));
+    const entries = variantEntries(snapshot);
     const indicator = focusIndicator(snapshot, expect);
     return result([stateBaseline(expect, entries), indicator, focusContrast(snapshot, expect, indicator)]);
   }

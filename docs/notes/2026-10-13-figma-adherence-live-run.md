@@ -67,6 +67,14 @@ variables of both kinds.
 
 All five took 129 ms together.
 
+## Links
+
+The first Zygarden run's first failure linked to
+`https://www.figma.com/design/k5EV3vXCZ7eTKFgqS0TMFv?node-id=366-747`, built from
+`figma.fileKey`: this bridge exposes it. Figma documents that field for private
+plugins only, so after the whole-branch review the command passes the fileKey from
+`design-system.json` in `TARGET`, with `figma.fileKey` as the fallback.
+
 ## What wasn't measured
 
 - **Zygarden's existing sets.** Not re-run. Their focus states are INSIDE strokes

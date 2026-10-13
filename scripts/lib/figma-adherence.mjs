@@ -12,15 +12,15 @@
 //
 // SNAPSHOT (what the reader returns):
 //   {
-//     fileKey,
-//     screens: [{ id, name }],
+//     fileKey,                          // for links; the caller passes it (TARGET.fileKey)
 //     nodes: [{
 //       id, path,                       // path: 'Page / Screen / … / Node'
 //       isRoot,                         // the screen frame itself
 //       inInstance,                     // an overridden node inside an INSTANCE (or the instance itself)
 //       underDetached,                  // a detached frame, or anything inside one
 //       overridden: ['fills' | 'strokes'],   // inInstance nodes only
-//       paints: [{ kind: 'fill' | 'stroke', hex: '#rrggbb', bound, styled }],   // visible SOLID paints only
+//       paints: [{ kind: 'fill' | 'stroke', hex, bound, styled }],   // visible SOLID paints only;
+//                                       // hex is '#rrggbb', or '#rrggbbaa' when the paint's opacity < 1
 //       mixedPaints,                    // fills is figma.mixed (text with mixed runs)
 //       gap: { value, bound, renders } | null,
 //       padding: [{ side, value, bound }],
@@ -71,15 +71,18 @@ export function checkScreens(snapshot, { skip = [] } = {}) {
   const failures = [];
   const advisories = [];
   const counts = Object.fromEntries(RULES.filter(on).map((rule) => [rule, { checked: 0, failed: 0 }]));
+  const entry = (rule, node, detail) => ({ rule, id: node.id, path: node.path, detail, link: link(node.id) });
   const fail = (rule, node, detail) => {
     counts[rule].failed += 1;
-    failures.push({ rule, id: node.id, path: node.path, detail, link: link(node.id) });
+    failures.push(entry(rule, node, detail));
   };
-  const advise = (rule, node, detail) => advisories.push({ rule, id: node.id, path: node.path, detail, link: link(node.id) });
+  const advise = (rule, node, detail) => advisories.push(entry(rule, node, detail));
 
-  // A raw value fails when a token has it, naming the token; otherwise it is an advisory.
-  const raw = (rule, node, table, value, what) => {
+  // A bound value passes. A raw one fails when a token has it, naming the token;
+  // otherwise it is an advisory.
+  const raw = (rule, node, table, value, bound, what) => {
     counts[rule].checked += 1;
+    if (bound) return;
     const names = table[String(value)];
     if (names && names.length) fail(rule, node, `${what}: bind ${names.join(', ')}`);
     else advise(rule, node, rule === 'raw-colour' ? `${what}: no colour variable has this value` : `off-scale ${what}`);
@@ -107,30 +110,19 @@ export function checkScreens(snapshot, { skip = [] } = {}) {
       if (node.mixedPaints) advise('raw-colour', node, 'mixed paints not read');
       for (const paint of node.paints ?? []) {
         if (node.inInstance && !(node.overridden ?? []).includes(PAINT_FIELD[paint.kind])) continue;
-        if (paint.bound || paint.styled) {
-          counts['raw-colour'].checked += 1;
-          continue;
-        }
-        raw('raw-colour', node, colours, paint.hex, `${paint.kind} ${paint.hex}`);
+        raw('raw-colour', node, colours, paint.hex, paint.bound || paint.styled, `${paint.kind} ${paint.hex}`);
       }
     }
 
     if (on('raw-dimension') && !node.inInstance) {
       const gap = node.gap;
-      if (gap && gap.renders && gap.value > 0) {
-        if (gap.bound) counts['raw-dimension'].checked += 1;
-        else raw('raw-dimension', node, gapTokens, gap.value, `gap ${gap.value}`);
-      }
+      if (gap && gap.renders && gap.value > 0) raw('raw-dimension', node, gapTokens, gap.value, gap.bound, `gap ${gap.value}`);
       for (const p of node.padding ?? []) {
-        if (!(p.value > 0)) continue;
-        if (p.bound) counts['raw-dimension'].checked += 1;
-        else raw('raw-dimension', node, gapTokens, p.value, `padding-${p.side} ${p.value}`);
+        if (p.value > 0) raw('raw-dimension', node, gapTokens, p.value, p.bound, `padding-${p.side} ${p.value}`);
       }
       if (!node.isRoot) {
         for (const r of node.radius ?? []) {
-          if (!(r.value > 0)) continue;
-          if (r.bound) counts['raw-dimension'].checked += 1;
-          else raw('raw-dimension', node, radiusTokens, r.value, `radius-${r.corner} ${r.value}`);
+          if (r.value > 0) raw('raw-dimension', node, radiusTokens, r.value, r.bound, `radius-${r.corner} ${r.value}`);
         }
       }
     }
@@ -143,10 +135,11 @@ export function checkScreens(snapshot, { skip = [] } = {}) {
     inert('colour-rule-inert', 'the file has no local colour variables, so no raw colour could be matched to one');
   }
   if (on('raw-dimension') && Object.keys(gapTokens).length === 0 && Object.keys(radiusTokens).length === 0) {
-    inert('dimension-rule-inert', 'the file has no local number variable scoped for gap, padding or radius');
+    inert('dimension-rule-inert', 'the file has no local number variable for spacing or radius: none is scoped GAP or CORNER_RADIUS, and none left at ALL_SCOPES is named for spacing or radius');
   }
 
-  const byPath = (a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : a.detail < b.detail ? -1 : a.detail > b.detail ? 1 : 0);
+  const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  const byPath = (a, b) => cmp(a.path, b.path) || cmp(a.detail, b.detail);
   failures.sort(byPath);
   advisories.sort(byPath);
   return { pass: failures.length === 0, failures, advisories, counts, skipped: RULES.filter((rule) => !on(rule)) };
