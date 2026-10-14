@@ -72,7 +72,7 @@ test('a gap names what was asked and the nearest sets', () => {
   const [e] = run(cases['missing-component']).errors;
   assert.equal(e.path, 'root.children[0].component');
   assert.equal(e.asked, 'DatePicker');
-  assert.equal(e.nearest.length, 3);
+  assert.deepEqual(e.nearest, []);
 });
 
 test('a marked screen or WIP frame is not a collision', () => {
@@ -97,6 +97,16 @@ test('an unknown field is rejected rather than ignored', () => {
 
 test('nearestNames ranks by shared prefix, then edit distance', () => {
   assert.deepEqual(nearestNames('Butto', ['Badge', 'Button', 'Checkbox']).slice(0, 1), ['Button']);
+});
+
+test('nearestNames keeps typos, contained names and abbreviations, and drops the rest', () => {
+  assert.equal(nearestNames('Buton', ['Badge', 'Button', 'Checkbox'])[0], 'Button');
+  assert.deepEqual(nearestNames('PrimaryButton', ['Avatar', 'Button']), ['Button']);
+  assert.deepEqual(nearestNames('md', ['small', 'medium', 'large']), ['medium']);
+  assert.deepEqual(nearestNames('color/bg', ['color/background', 'space/4']), ['color/background']);
+  assert.deepEqual(nearestNames('DatePicker', ['Spinner', 'Textarea', 'Avatar']), []);
+  assert.deepEqual(nearestNames('🌙', ['Dark', 'Light']), []);
+  assert.deepEqual(nearestNames('Dark', ['🌙', 'Dark mode']), ['Dark mode']);
 });
 
 test('plan: per-side padding resolves each side, and an unnamed side is left unbound', () => {

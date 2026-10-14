@@ -1,5 +1,5 @@
 {
-  "covers": "a component the file lacks is a gap, with the nearest names",
+  "covers": "a component the file lacks is a gap, with no nearest names when nothing is close",
   "description": { "screen": "Booking", "page": "Screens", "width": 390, "root": { "layout": "vertical", "children": [
     { "component": "DatePicker" }
   ] } },

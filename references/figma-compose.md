@@ -295,13 +295,27 @@ function editDistance(a, b) {
   return row[b.length];
 }
 
-// Up to three names, by longest shared folded prefix, then edit distance.
+// 'md' → 'medium', 'bg' → 'background': same first letter, the rest in order.
+function isAbbrev(short, long) {
+  if (short[0] !== long[0]) return false;
+  let i = 0;
+  for (const ch of long) if (ch === short[i]) i++;
+  return i === short.length;
+}
+
+// Up to three names, by longest shared folded prefix, then edit distance. Only
+// names that are close count: a typo, one name inside the other, or an
+// abbreviation. A name nothing resembles gets none.
 function nearestNames(asked, names) {
   const want = composeFold(asked);
+  if (!want) return [];
+  const limit = Math.max(2, Math.floor(want.length / 3));
   const shared = (f) => { let n = 0; while (n < f.length && n < want.length && f[n] === want[n]) n++; return n; };
   return [...new Set(names)]
     .map((name) => ({ name, f: composeFold(name) }))
+    .filter((x) => x.f)
     .map((x) => ({ ...x, prefix: shared(x.f), dist: editDistance(want, x.f) }))
+    .filter((x) => x.dist <= limit || x.f.includes(want) || want.includes(x.f) || isAbbrev(want, x.f))
     .sort((a, b) => b.prefix - a.prefix || a.dist - b.dist || a.name.localeCompare(b.name))
     .slice(0, 3)
     .map((x) => x.name);

@@ -47,12 +47,13 @@ test('check: an ok plan comes back in the records\' own casing', () => {
   ]);
 });
 
-test('check: a missing component names the nearest ones', () => {
+test('check: a missing component names the nearest ones, and none when nothing is close', () => {
   const [e] = checkPlan(plan([{ name: 'DatePicker' }]), inventory).errors;
   assert.equal(e.kind, 'missing-component');
   assert.equal(e.path, 'components[0].name');
   assert.equal(e.asked, 'DatePicker');
-  assert.equal(e.nearest.length, 3);
+  assert.deepEqual(e.nearest, []);
+  assert.equal(checkPlan(plan([{ name: 'Buton' }]), inventory).errors[0].nearest[0], 'Button');
 });
 
 test('check: an unknown axis, an unknown value, and any axis on an undocumented component', () => {
