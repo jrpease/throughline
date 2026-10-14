@@ -46,9 +46,12 @@ own structure. Zero dependencies; stdlib only.
    `references/figma-adherence.md` matches its checker and readers
    (`figma-adherence.mjs`, `figma-variables-read.figma.js`,
    `figma-adherence-read.figma.js`), and `references/figma-compose.md` matches
-   its resolver and writer (`figma-adherence.mjs`, `figma-compose.mjs`,
-   `figma-variables-read.figma.js`, `figma-compose.figma.js`), so all three
-   Figma scripts run the code that is tested in Node.
+   its resolver, reader and writer (`figma-adherence.mjs`, `figma-compose.mjs`,
+   `figma-variables-read.figma.js`, `figma-compose-read.figma.js`,
+   `figma-compose.figma.js`), and `references/figma-drift.md` matches its two
+   readers (`figma-drift-variables.figma.js`, `figma-drift-screens.figma.js`)
+   and what they inline, so all four Figma references
+   run the code that is tested in Node.
 
 ## Run locally
 

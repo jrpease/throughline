@@ -14,6 +14,10 @@ const PROJECTED_KEYS = [
   'status', 'updatedAt',
 ];
 
+// The part of a record a composed screen relies on. A screen goes stale when this
+// moves, not when the prose around it is reworded (docs/specs/2026-10-14-drift.md).
+export const CONTRACT_KEYS = ['name', 'variants', 'states', 'tokensUsed'];
+
 const REQUIRED_KEYS = ['name', 'summary', 'description'];
 
 export function stableStringify(value) {
@@ -31,12 +35,20 @@ export function fingerprint(text) {
   return createHash('sha256').update(text, 'utf8').digest('hex').slice(0, 16);
 }
 
-export function canonicalFingerprint(record) {
+function projectedFingerprint(record, keys) {
   const projected = {};
-  for (const k of PROJECTED_KEYS) {
+  for (const k of keys) {
     if (record[k] !== undefined) projected[k] = record[k];
   }
   return fingerprint(stableStringify(projected));
+}
+
+export function canonicalFingerprint(record) {
+  return projectedFingerprint(record, PROJECTED_KEYS);
+}
+
+export function contractFingerprint(record) {
+  return projectedFingerprint(record, CONTRACT_KEYS);
 }
 
 export function validateRecord(record) {

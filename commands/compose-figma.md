@@ -58,7 +58,11 @@ re-asking them. Scale explanation to `user.codingLevel`.
    when the user asks.
 7. **Finalize.** Run the snippet with `MODE = 'finalize'` and
    `SPEC = { page, screen, fileKey }`. It replaces an earlier screen of that name
-   only if throughline composed it.
+   only if throughline composed it. Then record the screen so
+   `/throughline:drift` can tell later when what it uses moves: write the
+   description the build used to a scratch file, and run
+   `node ${CLAUDE_PLUGIN_ROOT}/scripts/screens.mjs record --system <the directory holding design-system.json> --side figma --screen <screen> --target <page> --plan <description file> --components-page <componentsPage>`,
+   adding `--icons-page <iconsPage>` when the build had one.
 8. **Review.** Dispatch the `reviewer` agent in Figma-visual mode with the screen's
    node id (from finalize), the fileKey, the project's working directory (where
    `design-system.json` is) and the user's request as its spec, unless the host
@@ -68,7 +72,7 @@ re-asking them. Scale explanation to `user.codingLevel`.
    asked for and doesn't exist, with the nearest names the script offered, and
    anything left out of the request because of it. Say the gaps were recorded in
    `design-system/gaps.json`, and that `/throughline:gap-report` ranks them for
-   triage.
+   triage. Say the screen was recorded for `/throughline:drift`.
 
 Never edit a component, a variable or a text style, and never write a raw value.
 If the screen can't be built from what the system has, the gap is the finding.

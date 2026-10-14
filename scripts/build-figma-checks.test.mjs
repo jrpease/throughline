@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildFigmaChecks, buildFigmaAdherence, buildFigmaCompose } from './build-figma-checks.mjs';
+import { buildFigmaChecks, buildFigmaAdherence, buildFigmaCompose, buildFigmaDrift } from './build-figma-checks.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (name) => readFileSync(join(HERE, 'lib', name), 'utf8');
@@ -23,7 +23,16 @@ const composeSources = () => ({
   adherenceSource: read('figma-adherence.mjs'),
   composeSource: read('figma-compose.mjs'),
   variablesSource: read('figma-variables-read.figma.js'),
+  composeReaderSource: read('figma-compose-read.figma.js'),
   writerSource: read('figma-compose.figma.js'),
+});
+const driftSources = () => ({
+  adherenceSource: read('figma-adherence.mjs'),
+  composeSource: read('figma-compose.mjs'),
+  variablesSource: read('figma-variables-read.figma.js'),
+  composeReaderSource: read('figma-compose-read.figma.js'),
+  driftVariablesSource: read('figma-drift-variables.figma.js'),
+  driftScreensSource: read('figma-drift-screens.figma.js'),
 });
 const snippetOf = (md) => md.slice(md.lastIndexOf('```js') + '```js'.length, md.lastIndexOf('```'));
 
@@ -284,8 +293,9 @@ function fakeComposeFigma({ screens = [] } = {}) {
     } else screensPage.appendChild(f);
   }
   const vars = [
-    { id: 'v1', name: 'space/gap/md', resolvedType: 'FLOAT', scopes: ['GAP'] },
-    { id: 'v2', name: 'color/bg/canvas', resolvedType: 'COLOR', scopes: ['ALL_SCOPES'] },
+    { id: 'v1', name: 'space/gap/md', resolvedType: 'FLOAT', scopes: ['GAP'], variableCollectionId: 'C:1', valuesByMode: { 'M:2': { type: 'VARIABLE_ALIAS', id: 'v3' } } },
+    { id: 'v2', name: 'color/bg/canvas', resolvedType: 'COLOR', scopes: ['ALL_SCOPES'], variableCollectionId: 'C:1', valuesByMode: { 'M:2': { r: 1, g: 1, b: 1, a: 1 } } },
+    { id: 'v3', name: 'space/4', resolvedType: 'FLOAT', scopes: ['ALL_SCOPES'], variableCollectionId: 'C:1', valuesByMode: { 'M:2': 16 } },
   ];
   const root = node('DOCUMENT');
   root.appendChild(components);
@@ -301,7 +311,7 @@ function fakeComposeFigma({ screens = [] } = {}) {
     getLocalTextStylesAsync: async () => [{ id: 'S:1', name: 'Heading/L', fontName: { family: 'Inter', style: 'Bold' } }],
     variables: {
       getLocalVariablesAsync: async () => vars,
-      getLocalVariableCollectionsAsync: async () => [{ id: 'C:1', name: 'Color / Semantic', modes: [{ name: 'Light', modeId: 'M:2' }] }],
+      getLocalVariableCollectionsAsync: async () => [{ id: 'C:1', name: 'Color / Semantic', defaultModeId: 'M:2', modes: [{ name: 'Light', modeId: 'M:2' }] }],
       setBoundVariableForPaint: (paint, field, v) => ({ ...paint, bound: v.name }),
     },
   };
@@ -470,4 +480,65 @@ test('the adherence snippet reads slots on nested instances, and content in slot
   const run = new AsyncFunction('figma', `${code}\nreturn await runScreenGate({ page: 'Templates', fileKey: 'TEST' }, []);`);
   const result = await run(fakeNestedSlotFigma());
   assert.deepEqual(result.failures.map((f) => f.id).sort(), ['2:1', '2:3', '5:5']);
+});
+
+const driftSnippet = (md, which) => {
+  const at = md.indexOf(`## The ${which} snippet`);
+  const from = md.indexOf('```js', at) + '```js'.length;
+  return md.slice(from, md.indexOf('```', from));
+};
+
+test('drift build: two read-only snippets, the variables one small, every shared helper declared once', () => {
+  const md = buildFigmaDrift(driftSources());
+  const variables = driftSnippet(md, 'variables');
+  const screens = driftSnippet(md, 'screens');
+  assert.match(variables, /async function runDriftVariables\(/);
+  assert.match(screens, /async function runDriftScreens\(/);
+  assert.ok(variables.length < 8000, `the variables snippet runs on every sync; keep it small (${variables.length})`);
+  for (const code of [variables, screens]) {
+    for (const writer of ['runCompose', 'composeBuild', 'composeFinalize', 'composeDiscard']) assert.ok(!code.includes(`function ${writer}(`), `${writer} must not be in a drift snippet`);
+    assert.ok(!/^\s*(import|export)\b/m.test(code), 'snippets must contain no import/export lines');
+  }
+  const compose = snippetOf(buildFigmaCompose(composeSources()));
+  for (const helper of ['function composeFindPage(', 'function composeTopFrames(', 'async function composeReadInventory(', 'const COMPOSE_NS ', 'const composeIsMarked ']) {
+    assert.equal(screens.split(helper).length - 1, 1, `${helper} in drift`);
+    assert.equal(compose.split(helper).length - 1, 1, `${helper} in compose`);
+  }
+  assert.equal(readFileSync(join(HERE, '..', 'references', 'figma-drift.md'), 'utf8'), md, 'run: node scripts/build-figma-checks.mjs');
+});
+
+async function runDriftSnippet(figma, which, spec) {
+  const code = driftSnippet(buildFigmaDrift(driftSources()), which);
+  const call = which === 'variables' ? 'runDriftVariables()' : `runDriftScreens(${JSON.stringify(spec)})`;
+  const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
+  return new AsyncFunction('figma', `${code}\nreturn await ${call};`)(figma);
+}
+test('drift screens: clean, broken, released and gone', async () => {
+  const figma = fakeComposeFigma({ screens: [{ name: 'Hand made' }] });
+  await composeBuild(figma, composeDescription());
+  await runComposeSnippet(figma, 'finalize', { page: 'Screens', screen: 'Sign in', fileKey: 'TEST' });
+  const entry = (screen, plan) => ({ side: 'figma', screen, target: 'Screens', componentsPage: 'Components', plan });
+  const { screens } = await runDriftSnippet(figma, 'screens', { entries: [
+    entry('Sign in', composeDescription()),
+    entry('Sign in', composeDescription([{ component: 'Date Picker' }])),
+    entry('Hand made', composeDescription()),
+    entry('Gone', composeDescription()),
+  ] });
+  assert.deepEqual(screens.map((s) => s.state), ['clean', 'broken', 'released', 'gone']);
+  assert.match(screens[1].errors[0], /missing-component at root\.children\[0\]\.component: Date Picker/);
+});
+
+test('drift variables: one fingerprint per collection, stable, moved by a value behind an alias', async () => {
+  const figma = fakeComposeFigma();
+  const first = await runDriftSnippet(figma, 'variables');
+  assert.deepEqual(Object.keys(first), ['Color / Semantic']);
+  assert.equal(first['Color / Semantic'].variables, 3);
+  assert.match(first['Color / Semantic'].hash, /^[0-9a-f]{8}$/);
+  assert.deepEqual(await runDriftSnippet(figma, 'variables'), first);
+  const vars = await figma.variables.getLocalVariablesAsync();
+  vars.find((v) => v.id === 'v3').valuesByMode['M:2'] = 20;
+  assert.notEqual((await runDriftSnippet(figma, 'variables'))['Color / Semantic'].hash, first['Color / Semantic'].hash, 'space/gap/md aliases space/4');
+  vars.reverse();
+  vars.find((v) => v.id === 'v3').valuesByMode['M:2'] = 16;
+  assert.deepEqual(await runDriftSnippet(figma, 'variables'), first, 'order of variables does not matter');
 });

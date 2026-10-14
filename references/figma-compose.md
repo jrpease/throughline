@@ -2,8 +2,9 @@
 
 > **GENERATED FILE — do not edit by hand.** Sources: `scripts/lib/figma-adherence.mjs`
 > (for `dimensionBuckets`), `scripts/lib/figma-compose.mjs` (the pure resolver,
-> unit-tested in Node), `scripts/lib/figma-variables-read.figma.js` +
-> `scripts/lib/figma-compose.figma.js` (the reader and writer). Regenerate with
+> unit-tested in Node), `scripts/lib/figma-variables-read.figma.js`,
+> `scripts/lib/figma-compose-read.figma.js` (the reader) +
+> `scripts/lib/figma-compose.figma.js` (the writer). Regenerate with
 > `node scripts/build-figma-checks.mjs`; CI gates freshness with `--check`.
 
 The canonical `figma_execute` snippet that composes a screen from the file's own
@@ -596,35 +597,17 @@ async function variableColors(variable) {
   return { modes, defaultMode: fallback ? fallback.name : undefined };
 }
 
-// Figma plugin-API reader and writer for screen composition. This file is NOT a
-// Node module — build-figma-checks.mjs concatenates it after the inlined
-// figma-adherence.mjs (for dimensionBuckets), figma-compose.mjs (resolveScreen)
-// and figma-variables-read.figma.js into references/figma-compose.md, and the
-// result runs inside figma_execute.
-// Constraints honored here (see references/figma-scripting.md and the spec,
-// docs/specs/2026-10-13-compose-figma-screen.md): async getters only; only the
-// named pages are loaded; never instance.mainComponent; never getNodeByIdAsync in
-// a loop (nodes come from the pages already loaded). Nothing is written until the
-// whole description resolves. Every choice of key, value and variable is made by
-// the unit-tested resolveScreen; this file only applies its plan. Untested in Node
-// beyond the generator's fake-Figma test.
-// Awaits are few and fixed, not per node: every font the screen needs is loaded
-// in one batch before writing, and every text style is applied in one batch
-// after. Live on 2026-10-13, a build awaiting per text layer stalled after about
-// twenty awaits and timed out; the bridge then resumed it only when later calls
-// arrived (references/figma-scripting.md, "Pass an explicit timeout").
-//
-// Entry point: runCompose(MODE, SPEC), MODE one of
-//   'inventory' SPEC = { componentsPage, iconsPage? }               → { summary }
-//   'build'     SPEC = { componentsPage, iconsPage?, description, fileKey }
-//                                                                  → { ok, errors } | { ok, wipId, wipName, link, ms }
-//   'finalize'  SPEC = { page, screen, fileKey }                   → { id, link, replaced }
-//   'discard'   SPEC = { page, screen }                            → { removed }
+// Figma plugin-API reader for screen composition, read-only: page lookup, the
+// composed-screen marker, and the inventory. This file is NOT a Node module —
+// build-figma-checks.mjs inlines it after figma-adherence.mjs (for
+// dimensionBuckets) into both references/figma-compose.md, ahead of the writer
+// (figma-compose.figma.js), and references/figma-drift.md, ahead of the drift
+// reader, so the drift snippet carries no writer. Nothing here is redeclared
+// elsewhere: both files share one snippet. Async getters only. Untested in Node
+// beyond the generator's tests.
 
 const COMPOSE_NS = 'throughline';
 const COMPOSE_KEY = 'composedScreen';
-const COMPOSE_CORNERS = ['topLeftRadius', 'topRightRadius', 'bottomRightRadius', 'bottomLeftRadius'];
-const COMPOSE_PADDING = { top: 'paddingTop', right: 'paddingRight', bottom: 'paddingBottom', left: 'paddingLeft' };
 
 // Exact name first, else the one page whose trimmed name matches (01. Design
 // System's pages are "    ↳ Templates"). Null when none matches; two trimmed
@@ -653,14 +636,6 @@ function composeTopFrames(page, name) {
     else if (top.type === 'SECTION') for (const c of top.children) if (c.type === 'FRAME') all.push(c);
   }
   return all.filter((n) => n.name === name);
-}
-const composeLink = (fileKey, id) => `https://www.figma.com/design/${fileKey}?node-id=${String(id).replace(/:/g, '-')}`;
-
-// 'marked' | 'unmarked' | null for the top-level frames called `name`.
-function composeNameState(page, name) {
-  const frames = composeTopFrames(page, name);
-  if (!frames.length) return null;
-  return frames.every(composeIsMarked) ? 'marked' : 'unmarked';
 }
 
 // Reads the INVENTORY documented in figma-compose.mjs, plus the live nodes the
@@ -721,6 +696,44 @@ async function composeReadInventory(spec) {
     inventory: { sets, components, variables, textStyles, collections, target: null },
     live: { setNodes, variableNodes, collectionNodes, styleNodes, styled: [] },
   };
+}
+
+// Figma plugin-API writer for screen composition. This file is NOT a Node module —
+// build-figma-checks.mjs concatenates it after the inlined figma-adherence.mjs
+// (for dimensionBuckets), figma-compose.mjs (resolveScreen),
+// figma-variables-read.figma.js and the reader (figma-compose-read.figma.js:
+// page lookup, the marker, the inventory) into references/figma-compose.md, and
+// the result runs inside figma_execute.
+// Constraints honored here (see references/figma-scripting.md and the spec,
+// docs/specs/2026-10-13-compose-figma-screen.md): async getters only; only the
+// named pages are loaded; never instance.mainComponent; never getNodeByIdAsync in
+// a loop (nodes come from the pages already loaded). Nothing is written until the
+// whole description resolves. Every choice of key, value and variable is made by
+// the unit-tested resolveScreen; this file only applies its plan. Untested in Node
+// beyond the generator's fake-Figma test.
+// Awaits are few and fixed, not per node: every font the screen needs is loaded
+// in one batch before writing, and every text style is applied in one batch
+// after. Live on 2026-10-13, a build awaiting per text layer stalled after about
+// twenty awaits and timed out; the bridge then resumed it only when later calls
+// arrived (references/figma-scripting.md, "Pass an explicit timeout").
+//
+// Entry point: runCompose(MODE, SPEC), MODE one of
+//   'inventory' SPEC = { componentsPage, iconsPage? }               → { summary }
+//   'build'     SPEC = { componentsPage, iconsPage?, description, fileKey }
+//                                                                  → { ok, errors } | { ok, wipId, wipName, link, ms }
+//   'finalize'  SPEC = { page, screen, fileKey }                   → { id, link, replaced }
+//   'discard'   SPEC = { page, screen }                            → { removed }
+
+const COMPOSE_CORNERS = ['topLeftRadius', 'topRightRadius', 'bottomRightRadius', 'bottomLeftRadius'];
+const COMPOSE_PADDING = { top: 'paddingTop', right: 'paddingRight', bottom: 'paddingBottom', left: 'paddingLeft' };
+
+const composeLink = (fileKey, id) => `https://www.figma.com/design/${fileKey}?node-id=${String(id).replace(/:/g, '-')}`;
+
+// 'marked' | 'unmarked' | null for the top-level frames called `name`.
+function composeNameState(page, name) {
+  const frames = composeTopFrames(page, name);
+  if (!frames.length) return null;
+  return frames.every(composeIsMarked) ? 'marked' : 'unmarked';
 }
 
 // What the planner reads: names only, grouped.

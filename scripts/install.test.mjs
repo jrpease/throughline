@@ -165,6 +165,9 @@ test('skipScript excludes plugin-internal scripts, adapters and tests', () => {
   assert.ok(skipScript('lib/figma-adherence.mjs'), 'inlined into the generated reference, imported by nothing downstream');
   assert.ok(skipScript('lib/figma-adherence-read.figma.js'), 'read only by the generator');
   assert.ok(skipScript('lib/figma-compose.figma.js'), 'read only by the generator');
+  assert.ok(skipScript('lib/figma-compose-read.figma.js'), 'read only by the generator');
+  assert.ok(skipScript('lib/figma-drift-variables.figma.js'), 'read only by the generator');
+  assert.ok(skipScript('lib/figma-drift-screens.figma.js'), 'read only by the generator');
   assert.ok(skipScript('lib/fixtures/figma-checks/shadcn-button.json'), 'test fixtures stay in the plugin');
   assert.ok(skipScript('docs-check.test.mjs'), 'tests stay in the plugin');
   assert.ok(skipScript('adapters/generate.mjs'), 'adapters have their own target');
@@ -177,6 +180,7 @@ test('skipScript keeps every script a consuming repo runs', () => {
     'validate-crosswalk.mjs', 'lib/crosswalk.mjs',
     'lib/native-literal.mjs',
     'compose-code.mjs', 'lib/figma-compose.mjs', 'gap-report.mjs',
+    'drift-check.mjs', 'screens.mjs',
   ]) {
     assert.ok(!skipScript(keep), `${keep} must be installed`);
   }

@@ -1,4 +1,4 @@
-// Generates the two canonical figma_execute snippets by inlining tested Node
+// Generates the four canonical figma_execute snippets by inlining tested Node
 // modules above their Figma readers:
 //   references/figma-checks.md — the Figma stop conditions (COMPONENT_SET
 //     assertion, state matrix, focus ring, focus-ring contrast): the state table
@@ -10,9 +10,15 @@
 //     screen reader (lib/figma-adherence-read.figma.js).
 //   references/figma-compose.md — screen composition: lib/figma-adherence.mjs (for
 //     dimensionBuckets), the pure resolver (lib/figma-compose.mjs),
-//     lib/figma-variables-read.figma.js, then the writer (lib/figma-compose.figma.js).
-// Mirrors build-doc-card-builder.mjs: run bare to write all three, run with --check
-// to gate CI on all three. Zero dependencies.
+//     lib/figma-variables-read.figma.js, the reader (lib/figma-compose-read.figma.js),
+//     then the writer (lib/figma-compose.figma.js).
+//   references/figma-drift.md — the live drift pass, two snippets, no writer: the
+//     variables snippet (lib/figma-variables-read.figma.js, then
+//     lib/figma-drift-variables.figma.js), small because every token sync runs it;
+//     and the screens snippet (lib/figma-adherence.mjs, lib/figma-compose.mjs,
+//     lib/figma-compose-read.figma.js, then lib/figma-drift-screens.figma.js).
+// Mirrors build-doc-card-builder.mjs: run bare to write all four, run with --check
+// to gate CI on all four. Zero dependencies.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -26,10 +32,14 @@ const VARIABLES = join(REPO_ROOT, 'scripts', 'lib', 'figma-variables-read.figma.
 const ADHERENCE = join(REPO_ROOT, 'scripts', 'lib', 'figma-adherence.mjs');
 const ADHERENCE_READER = join(REPO_ROOT, 'scripts', 'lib', 'figma-adherence-read.figma.js');
 const COMPOSE = join(REPO_ROOT, 'scripts', 'lib', 'figma-compose.mjs');
+const COMPOSE_READER = join(REPO_ROOT, 'scripts', 'lib', 'figma-compose-read.figma.js');
 const COMPOSE_WRITER = join(REPO_ROOT, 'scripts', 'lib', 'figma-compose.figma.js');
+const DRIFT_VARIABLES = join(REPO_ROOT, 'scripts', 'lib', 'figma-drift-variables.figma.js');
+const DRIFT_SCREENS = join(REPO_ROOT, 'scripts', 'lib', 'figma-drift-screens.figma.js');
 const OUT = join(REPO_ROOT, 'references', 'figma-checks.md');
 const ADHERENCE_OUT = join(REPO_ROOT, 'references', 'figma-adherence.md');
 const COMPOSE_OUT = join(REPO_ROOT, 'references', 'figma-compose.md');
+const DRIFT_OUT = join(REPO_ROOT, 'references', 'figma-drift.md');
 
 const BIND = 'const { checkSpec, checkBuilt, checkExisting } = withTable({ resolveArchetype, BASELINE_STATES, STATE_SYNONYMS, normalizeName, contrastRatio, composite, parseHex, AA_NON_TEXT });';
 
@@ -154,8 +164,9 @@ const COMPOSE_HEADER = [
   '',
   '> **GENERATED FILE — do not edit by hand.** Sources: `scripts/lib/figma-adherence.mjs`',
   '> (for `dimensionBuckets`), `scripts/lib/figma-compose.mjs` (the pure resolver,',
-  '> unit-tested in Node), `scripts/lib/figma-variables-read.figma.js` +',
-  '> `scripts/lib/figma-compose.figma.js` (the reader and writer). Regenerate with',
+  '> unit-tested in Node), `scripts/lib/figma-variables-read.figma.js`,',
+  '> `scripts/lib/figma-compose-read.figma.js` (the reader) +',
+  '> `scripts/lib/figma-compose.figma.js` (the writer). Regenerate with',
   '> `node scripts/build-figma-checks.mjs`; CI gates freshness with `--check`.',
   '',
   'The canonical `figma_execute` snippet that composes a screen from the file\'s own',
@@ -216,6 +227,44 @@ const COMPOSE_HEADER = [
   '```js',
 ].join('\n');
 
+const DRIFT_HEADER = [
+  '# Figma drift (GENERATED)',
+  '',
+  '> **GENERATED FILE — do not edit by hand.** Sources: the variables snippet is',
+  '> `scripts/lib/figma-variables-read.figma.js` + `scripts/lib/figma-drift-variables.figma.js`;',
+  '> the screens snippet is `scripts/lib/figma-adherence.mjs` (for `dimensionBuckets`),',
+  '> `scripts/lib/figma-compose.mjs` (the pure resolver),',
+  '> `scripts/lib/figma-compose-read.figma.js` + `scripts/lib/figma-drift-screens.figma.js`.',
+  '> Regenerate with `node scripts/build-figma-checks.mjs`; CI gates freshness with `--check`.',
+  '',
+  'The canonical `figma_execute` snippets for the live half of `/throughline:drift`',
+  'and the variable stamp `/throughline:sync-figma-tokens` takes. Both are read-only:',
+  'they carry no writer and change nothing in the file. The comparison happens in',
+  'Node, in `scripts/drift-check.mjs`. The scripts are the rule; do not re-write',
+  'them by hand.',
+  '',
+  '## How to call it',
+  '',
+  'Paste a snippet into `figma_execute` with `timeout: 30000`, followed by its',
+  'return line. Each is self-contained; never paste both.',
+  '',
+  '- **Variables** (the short one): end it with `return await runDriftVariables();`.',
+  '  Returns one line per local variable collection, `{ "<collection>": { variables, hash } }`:',
+  '  its variable count and a fingerprint of every name, type and value in it (aliases',
+  '  followed, colours as hex). Write the result to a file as returned and pass it to',
+  '  `drift-check.mjs compare-figma --from <file>` (or `stamp-figma` after a sync).',
+  '- **Screens**: declare `const SPEC = { entries };` above it and end it with',
+  '  `return await runDriftScreens(SPEC);`. `entries` is the list of Figma entries',
+  '  (`side: "figma"`) from `design-system/screens.json`, as stored. Returns',
+  '  `{ screens: [{ screen, page, state, errors }] }`, `state` one of `clean`,',
+  '  `broken` (the stored description no longer resolves against the components page',
+  '  it was built from: `errors` say what), `gone` (no frame or page of that name) or',
+  '  `released` (the frame is no longer marked as composed). Pages are found by exact',
+  '  name, or else the one page whose trimmed name matches; only the pages named in',
+  '  the entries are loaded.',
+  '',
+].join('\n');
+
 const FOOTER = ['```', ''].join('\n');
 
 const stripExports = (src) =>
@@ -243,11 +292,26 @@ export function buildFigmaAdherence({ checkerSource, variablesSource, readerSour
   return `${ADHERENCE_HEADER}\n${checker}\n${variablesSource}\n${readerSource}${FOOTER}`;
 }
 
-export function buildFigmaCompose({ adherenceSource, composeSource, variablesSource, writerSource }) {
+export function buildFigmaCompose({ adherenceSource, composeSource, variablesSource, composeReaderSource, writerSource }) {
   const adherence = stripExports(adherenceSource);
   const compose = stripExports(composeSource);
-  assertInlinable([['figma-adherence.mjs', adherence], ['figma-compose.mjs', compose], ['figma-variables-read.figma.js', variablesSource], ['figma-compose.figma.js', writerSource]]);
-  return `${COMPOSE_HEADER}\n${adherence}\n${compose}\n${variablesSource}\n${writerSource}${FOOTER}`;
+  assertInlinable([['figma-adherence.mjs', adherence], ['figma-compose.mjs', compose], ['figma-variables-read.figma.js', variablesSource], ['figma-compose-read.figma.js', composeReaderSource], ['figma-compose.figma.js', writerSource]]);
+  return `${COMPOSE_HEADER}\n${adherence}\n${compose}\n${variablesSource}\n${composeReaderSource}\n${writerSource}${FOOTER}`;
+}
+
+export function buildFigmaDrift({ adherenceSource, composeSource, variablesSource, composeReaderSource, driftVariablesSource, driftScreensSource }) {
+  const adherence = stripExports(adherenceSource);
+  const compose = stripExports(composeSource);
+  assertInlinable([['figma-adherence.mjs', adherence], ['figma-compose.mjs', compose], ['figma-variables-read.figma.js', variablesSource], ['figma-compose-read.figma.js', composeReaderSource], ['figma-drift-variables.figma.js', driftVariablesSource], ['figma-drift-screens.figma.js', driftScreensSource]]);
+  return [
+    DRIFT_HEADER,
+    '## The variables snippet',
+    '',
+    `\`\`\`js\n${variablesSource}\n${driftVariablesSource}${FOOTER}`,
+    '## The screens snippet',
+    '',
+    `\`\`\`js\n${adherence}\n${compose}\n${composeReaderSource}\n${driftScreensSource}${FOOTER}`,
+  ].join('\n');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -267,12 +331,22 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     adherenceSource: readFileSync(ADHERENCE, 'utf8'),
     composeSource: readFileSync(COMPOSE, 'utf8'),
     variablesSource: readFileSync(VARIABLES, 'utf8'),
+    composeReaderSource: readFileSync(COMPOSE_READER, 'utf8'),
     writerSource: readFileSync(COMPOSE_WRITER, 'utf8'),
+  });
+  const drift = buildFigmaDrift({
+    adherenceSource: readFileSync(ADHERENCE, 'utf8'),
+    composeSource: readFileSync(COMPOSE, 'utf8'),
+    variablesSource: readFileSync(VARIABLES, 'utf8'),
+    composeReaderSource: readFileSync(COMPOSE_READER, 'utf8'),
+    driftVariablesSource: readFileSync(DRIFT_VARIABLES, 'utf8'),
+    driftScreensSource: readFileSync(DRIFT_SCREENS, 'utf8'),
   });
   const outputs = [
     [OUT, result, 'references/figma-checks.md', 'figma checks'],
     [ADHERENCE_OUT, adherence, 'references/figma-adherence.md', 'figma adherence'],
     [COMPOSE_OUT, compose, 'references/figma-compose.md', 'figma compose'],
+    [DRIFT_OUT, drift, 'references/figma-drift.md', 'figma drift'],
   ];
   if (process.argv.includes('--check')) {
     let stale = false;

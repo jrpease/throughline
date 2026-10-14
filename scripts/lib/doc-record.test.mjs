@@ -4,6 +4,7 @@ import {
   stableStringify,
   fingerprint,
   canonicalFingerprint,
+  contractFingerprint,
   validateRecord,
 } from './doc-record.mjs';
 
@@ -41,4 +42,11 @@ test('validateRecord passes a complete record and flags missing required fields'
   const problems = validateRecord({ name: 'B' });
   assert.ok(problems.some((p) => /summary/.test(p)));
   assert.ok(problems.some((p) => /description/.test(p)));
+});
+
+test('contractFingerprint ignores prose and dates, and moves with a variant', () => {
+  const rec = { name: 'Button', summary: 'Press it.', updatedAt: '2026-10-01', variants: { size: { sm: 'x' } } };
+  const base = contractFingerprint(rec);
+  assert.equal(contractFingerprint({ ...rec, summary: 'Press it now.', updatedAt: '2026-10-14', status: 'stable' }), base);
+  assert.notEqual(contractFingerprint({ ...rec, variants: { size: { sm: 'x', lg: 'y' } } }), base);
 });

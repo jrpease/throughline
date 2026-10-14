@@ -76,6 +76,14 @@ test('compose-figma runs the generated compose script and gates with the screen 
   assert.ok(command.includes("MODE = 'finalize'"));
 });
 
+test('drift runs the generated drift script for variables and screens, and the sync stamps with it', () => {
+  const command = read('commands/drift.md');
+  assert.ok(command.includes('references/figma-drift.md'));
+  assert.ok(command.includes('variables snippet') && command.includes('screens snippet'));
+  assert.ok(read('commands/sync-figma-tokens.md').includes('references/figma-drift.md'));
+  assert.ok(read('references/figma-drift.md').includes('## How to call it'));
+});
+
 test('the pointer target exists', () => {
   assert.ok(read(POINTER).includes('## How to call it'));
 });

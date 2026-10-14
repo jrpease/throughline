@@ -78,11 +78,16 @@ rather than re-asking them. Scale explanation to `user.codingLevel`.
    the third still fails, stop: the file stays where it is, marked, and the
    report lists every failure and says a re-run replaces it. Never change the
    plan or skip a rule to make it pass.
+   Once it passes, record the screen so `/throughline:drift` can tell later when
+   what it uses moves, from the repo root with the same `--system`:
+   `node .throughline/scripts/screens.mjs record --system <dir> --side code --screen <screen> --target <screen file> --plan <plan file>`.
+   Pass the plan file `check` read, not the plan it printed.
 9. **Report.** The file's path, whether it replaced an earlier composed one, the
    gate's counts, every gap (each component asked for that doesn't exist, with the
    nearest names the script offered, and what was left out because of it), that
    the gaps were recorded in `design-system/gaps.json` for `/throughline:gap-report`
-   to rank, and how to mount the screen where the app picks its screens (its
+   to rank, that the screen was recorded in `design-system/screens.json` for
+   `/throughline:drift`, and how to mount the screen where the app picks its screens (its
    router or entry).
    Don't edit it.
 
