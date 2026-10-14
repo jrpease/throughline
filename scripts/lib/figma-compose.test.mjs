@@ -68,7 +68,7 @@ test('plan: slot content carries the slot key', () => {
   assert.equal(panel.slots[0].nodes[0].sizing.horizontal, 'FILL');
 });
 
-test('a gap names what was asked and the nearest sets', () => {
+test('a gap names what was asked, and no nearest sets when none is close', () => {
   const [e] = run(cases['missing-component']).errors;
   assert.equal(e.path, 'root.children[0].component');
   assert.equal(e.asked, 'DatePicker');

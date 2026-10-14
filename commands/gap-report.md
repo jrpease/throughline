@@ -29,9 +29,12 @@ decide what to do about each gap. The gaps were recorded by
 
    Record each choice with
    `node ${CLAUDE_PLUGIN_ROOT}/scripts/gap-report.mjs triage --system <dir> --name <gap name> --status <build | exists | dropped> [--note <text>]`.
-   `exists` needs `--note` naming the component. A decided gap can be reopened with
-   `--status open`.
-5. **Next steps.** For each gap marked `build`, offer `/throughline:new-component`.
+   `--name` is the gap's name as the report heads it, without the kind in
+   brackets. `exists` needs `--note`: just the existing component's name, since the
+   report prints it after the gap. A triage replaces any earlier note, so pass
+   `--note` again to keep one. A decided gap can be reopened with `--status open`.
+5. **Next steps.** For each component marked `build`, offer
+   `/throughline:new-component`; for an icon, the `icon-system-builder` skill.
    For each marked `exists`, offer `/throughline:document-component` on the named
    component, so its `whenToUse` says when to reach for it and the next composer
    finds it. Offer, don't run.

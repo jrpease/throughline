@@ -13,8 +13,9 @@
 //
 // STORE: <system>/design-system/gaps.json
 //   { gaps: { <folded name>: { name, kind, status, note?, nearest,
-//     hits: { "<side>:<screen>": { side, screen, target, resolution, need?, from?, at } } } } }
+//     hits: { "<side>:<folded screen>": { side, screen, target, resolution, need?, from?, at } } } } }
 //   One hit per side and screen, latest wins. A re-hit keeps a triaged status.
+//   A triage replaces the note: one set without --note clears the old one.
 //
 // Exit: 0 ok, 1 a store error (unknown gap, unreadable store), 2 usage.
 //
@@ -26,11 +27,11 @@ import { pathToFileURL } from 'node:url';
 import { composeFold, nearestNames } from './lib/figma-compose.mjs';
 
 export const GAP_FILE = 'design-system/gaps.json';
-export const SIDES = ['code', 'figma'];
-export const KINDS = ['component', 'icon'];
-export const STATUSES = ['open', 'build', 'exists', 'dropped'];
+const SIDES = ['code', 'figma'];
+const KINDS = ['component', 'icon'];
+const STATUSES = ['open', 'build', 'exists', 'dropped'];
 
-export const validResolution = (r) => r === 'left-out' || r === 'stopped' || /^used:\S/.test(String(r));
+const validResolution = (r) => r === 'left-out' || r === 'stopped' || /^used:\S/.test(String(r));
 const list = (s) => (s ? String(s).split(',').map((x) => x.trim()).filter(Boolean) : []);
 
 export function recordGap(store, h) {
@@ -43,7 +44,7 @@ export function recordGap(store, h) {
   gaps[key] = {
     ...(prev ?? { name: h.asked, kind: h.kind ?? 'component', status: 'open' }),
     nearest: h.nearest ?? [],
-    hits: { ...(prev?.hits ?? {}), [`${h.side}:${h.screen}`]: hit },
+    hits: { ...(prev?.hits ?? {}), [`${h.side}:${composeFold(h.screen)}`]: hit },
   };
   return { gaps };
 }
@@ -59,15 +60,16 @@ export function triageGap(store, { name, status, note }) {
   return { store: { gaps: { ...store.gaps, [key]: next } } };
 }
 
-const screensOf = (gap) => new Set(Object.values(gap.hits).map((h) => h.screen));
+const screensOf = (gap) => new Set(Object.values(gap.hits).map((h) => composeFold(h.screen)));
 
-// The existing component most hits used instead, when strictly more than half did.
+// The existing component most asks used instead, when strictly more than half did:
+// { name, used, of }, or null.
 export function docsGapFor(gap) {
   const hits = Object.values(gap.hits);
   const counts = {};
   for (const h of hits) if (h.resolution.startsWith('used:')) counts[h.resolution.slice(5)] = (counts[h.resolution.slice(5)] ?? 0) + 1;
   const [top] = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  return top && top[1] * 2 > hits.length ? top[0] : null;
+  return top && top[1] * 2 > hits.length ? { name: top[0], used: top[1], of: hits.length } : null;
 }
 
 const RESOLVED = { 'left-out': 'left out', stopped: 'stopped' };
@@ -95,7 +97,7 @@ export function renderReport(store) {
     out.push(`- **How people got by:** ${Object.entries(how).map(([l, n]) => `${l} (${n})`).join(', ')}`);
     out.push(`- **Nearest names:** ${g.nearest.length ? g.nearest.join(', ') : 'none close'}`);
     const used = docsGapFor(g);
-    if (used) out.push(`- **Likely a docs gap:** most screens used ${used} instead. Check ${used}'s whenToUse before building a new one.`);
+    if (used) out.push(`- **Likely a docs gap:** ${used.name} was used instead in ${used.used} of ${plural(used.of, 'ask')}. Check ${used.name}'s whenToUse before building a new one.`);
   }
   for (const status of ['build', 'exists', 'dropped']) {
     const done = gaps.filter((g) => g.status === status).sort(rank);

@@ -17,8 +17,8 @@ test('record: a second screen adds a hit; the same side and screen replaces its 
   s = recordGap(s, hit({ screen: 'Booking', side: 'figma', target: 'Screens' }));
   s = recordGap(s, hit({ resolution: 'stopped', at: '2026-10-15' }));
   const g = s.gaps.datepicker;
-  assert.deepEqual(Object.keys(g.hits).sort(), ['code:Book a demo', 'figma:Booking']);
-  assert.equal(g.hits['code:Book a demo'].resolution, 'stopped');
+  assert.deepEqual(Object.keys(g.hits).sort(), ['code:bookademo', 'figma:booking']);
+  assert.equal(g.hits['code:bookademo'].resolution, 'stopped');
   assert.equal(g.status, 'open');
 });
 
@@ -48,7 +48,7 @@ test('triage: an unknown name is an error with the nearest gap names', () => {
 
 test('report: ranks open gaps by distinct screens, a screen on both sides counting once', () => {
   let s = recordGap(null, hit({ asked: 'Avatar Group', screen: 'Team' }));
-  s = recordGap(s, hit({ asked: 'Avatar Group', screen: 'Team', side: 'figma', target: 'Screens' }));
+  s = recordGap(s, hit({ asked: 'Avatar Group', screen: 'team', side: 'figma', target: 'Screens' }));
   s = recordGap(s, hit({ asked: 'Stepper', screen: 'Checkout' }));
   s = recordGap(s, hit({ asked: 'Stepper', screen: 'Onboarding' }));
   const out = renderReport(s).join('\n');
@@ -58,13 +58,13 @@ test('report: ranks open gaps by distinct screens, a screen on both sides counti
 
 test('report: a docs gap needs a strict majority of hits used one component; one hit counts', () => {
   const one = recordGap(null, hit({ resolution: 'used:Input' }));
-  assert.equal(docsGapFor(one.gaps.datepicker), 'Input');
+  assert.deepEqual(docsGapFor(one.gaps.datepicker), { name: 'Input', used: 1, of: 1 });
   let even = recordGap(null, hit({ resolution: 'used:Input' }));
   even = recordGap(even, hit({ screen: 'B', resolution: 'left-out' }));
   assert.equal(docsGapFor(even.gaps.datepicker), null);
   even = recordGap(even, hit({ screen: 'C', resolution: 'used:Input' }));
-  assert.equal(docsGapFor(even.gaps.datepicker), 'Input');
-  assert.match(renderReport(even).join('\n'), /Likely a docs gap:\*\* most screens used Input/);
+  assert.equal(docsGapFor(even.gaps.datepicker).name, 'Input');
+  assert.match(renderReport(even).join('\n'), /Likely a docs gap:\*\* Input was used instead in 2 of 3 asks/);
 });
 
 test('report: triaged gaps are grouped under their status', () => {
@@ -73,6 +73,23 @@ test('report: triaged gaps are grouped under their status', () => {
   const out = renderReport(s).join('\n');
   assert.match(out, /0 open gaps, 1 triaged/);
   assert.match(out, /## exists\n\n- DatePicker \(component\), 1 screen: Input type="date"/);
+});
+
+test('report: what each screen needed and what it would be built from', () => {
+  let s = recordGap(null, hit({ need: 'Pick the demo date.', from: ['Input', 'Button'] }));
+  s = recordGap(s, hit({ screen: 'Other', from: ['Popover'] }));
+  const out = renderReport(s).join('\n');
+  assert.match(out, /\*\*Needed for:\*\* Pick the demo date\. \(Book a demo\)\n/);
+  assert.match(out, /\*\*Would be built from:\*\* Input, Button, Popover/);
+});
+
+test('triage: a status without a note clears the old note, and open reopens', () => {
+  let s = recordGap(null, hit());
+  s = triageGap(s, { name: 'DatePicker', status: 'exists', note: 'Input' }).store;
+  s = triageGap(s, { name: 'DatePicker', status: 'build' }).store;
+  assert.equal(s.gaps.datepicker.note, undefined);
+  s = triageGap(s, { name: 'DatePicker', status: 'open' }).store;
+  assert.match(renderReport(s).join('\n'), /1 open gap, 0 triaged/);
 });
 
 test('serialize sorts keys at every level', () => {
@@ -103,6 +120,8 @@ test('cli: exit codes', () => {
   assert.match(none.stdout, /No gaps recorded yet/);
   assert.equal(cli(dir, ...recordArgs.filter((a, i, all) => a !== '--screen' && all[i - 1] !== '--screen')).status, 2);
   assert.equal(cli(dir, ...recordArgs.map((a) => (a === 'left-out' ? 'invented' : a))).status, 2);
+  assert.equal(cli(dir, ...recordArgs, '--kind', 'widget').status, 2);
+  assert.equal(cli(dir, ...recordArgs.map((a) => (a === '2026-10-14' ? '14/10/2026' : a))).status, 2);
   assert.equal(cli(dir, ...recordArgs).status, 0);
   assert.equal(cli(dir, 'triage', '--name', 'DatePicker', '--status', 'exists').status, 2);
   const unknown = cli(dir, 'triage', '--name', 'DatePickr', '--status', 'build');

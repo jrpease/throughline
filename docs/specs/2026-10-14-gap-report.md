@@ -1,6 +1,6 @@
 # Gap report: record what composers couldn't find, and triage it
 
-Status: planned
+Status: built
 Reviewed: 2026-10-14 — needs revision (two existing nearest-name tests break, the Figma flow has no `--system`, fold and sort helpers undecided, icon gaps excluded, majority undefined, open questions already implemented, short-name cost unrecorded). Revised the same day; every finding is addressed.
 Date: 2026-10-14
 Backlog: #112, Phase 5 — #43, folding in #174
@@ -53,7 +53,7 @@ screens instead of intuition.
 |---|---|---|---|
 | What gets recorded | A missing part of the system, once the user has chosen what to do about it: `missing-component` from either composer, `missing-swap-target` from the Figma composer, and, on the code side, an icon or other import the package doesn't export (compose-code step 5's "gap in the same way"). Each is recorded with a `kind`: `component`, or `icon` for an icon or swap target. | These mean the system lacks something. Icons are the one real gap both live runs found on the sample, so excluding them would hide the gap the system actually has. Recording after the choice captures the resolution, which is half the signal. | Recording plan mistakes; recording before the user answers |
 | Where it lives | `design-system/gaps.json` in the directory holding `design-system.json`. compose-code passes its `--system`; compose-figma passes the working directory where `design-system.json` is (its step 8's directory). Plain committed JSON. No manifest key and no `schemaVersion` bump: the path is fixed, like `design-system/docs/index.json`. | The house convention for a durable record is folder-resident JSON under `design-system/` (the proof bundle, the docs). Committed so a team's runs add up in one place. A fixed path needs no pointer. | `.throughline/` (the adapters' install directory, not state); a manifest key; a gitignored local log |
-| Its shape | `{ gaps: { <folded name>: { name, kind, status, note?, nearest, hits: { "<side>:<screen>": { side, screen, target, resolution, need?, from?, at } } } } }`. `name` is the first spelling recorded; `nearest` is the latest offered. `side` is `code` or `figma`. `target` is the file path (code) or the Figma page (figma). `resolution` is `left-out`, `used:<Name>` or `stopped`. `need` is one sentence on what the screen needed it for; `from` lists what it would have been built from. `at` is a `YYYY-MM-DD` date. The fold is `composeFold`, exported from `lib/figma-compose.mjs`. Keys are written sorted by a small recursive sort in the script, two-space indented, trailing newline. | Keyed by folded name so `DatePicker` and `date-picker` are one gap. One hit per side and screen, latest wins, so re-running a screen doesn't double-count: the proof bundle's rule. The issue asks for what, where, what it would compose from, and what's closest; each is a field. Sorted keys keep diffs small. Exporting the fold keeps the one import the Shipping row allows. | An append-only log; counting runs instead of screens; importing `normalizeName` or `stableStringify` |
+| Its shape | `{ gaps: { <folded name>: { name, kind, status, note?, nearest, hits: { "<side>:<folded screen>": { side, screen, target, resolution, need?, from?, at } } } } }`. `name` is the first spelling recorded; `nearest` is the latest offered. `side` is `code` or `figma`. `target` is the file path (code) or the Figma page (figma). `resolution` is `left-out`, `used:<Name>` or `stopped`. `need` is one sentence on what the screen needed it for; `from` lists what it would have been built from. `at` is a `YYYY-MM-DD` date. The fold is `composeFold`, exported from `lib/figma-compose.mjs`. Keys are written sorted by a small recursive sort in the script, two-space indented, trailing newline. | Keyed by folded name so `DatePicker` and `date-picker` are one gap. One hit per side and screen, latest wins, so re-running a screen doesn't double-count: the proof bundle's rule. The issue asks for what, where, what it would compose from, and what's closest; each is a field. Sorted keys keep diffs small. Exporting the fold keeps the one import the Shipping row allows. | An append-only log; counting runs instead of screens; importing `normalizeName` or `stableStringify` |
 | Who writes it | A new script, `scripts/gap-report.mjs`, with `record`, `report` and `triage` modes. The compose commands run `record` once per gap, after the user's choice. | The agent shouldn't hand-edit JSON the report reads; a script validates it. One script serves both composers. | Each composer writing its own file; prose-only instructions to edit the JSON |
 | `record` input | Flags, one gap per call: `--system --side --screen --target --asked --resolution` required; optional `--kind` (default `component`), `--need`, `--from` and `--nearest` (both comma-separated), `--at` (default today). A hit on a gap already marked `build`, `exists` or `dropped` keeps the status. A gap recorded under one `kind` keeps it. | Flags are what the commands already pass. A required screen keeps every hit attributable. A re-hit shouldn't reopen a decided gap; the report still shows the new count. | A JSON input file; reopening triaged gaps on a new hit |
 | `report` output | Markdown by default, `--json` for the raw store. Open gaps first, ranked by distinct screens (one screen composed on both sides counts once), then by name; then triaged gaps grouped by status. Each open gap is a draft request: name and kind, the screens and sides that hit it, what each needed it for, what it would be built from, how users got by, and the nearest names. A gap whose hits are mostly (strictly more than half) `used:X` for one `X` is flagged as a likely docs gap for `X`; a single such hit counts. Exits 0, also when the file doesn't exist (it says so). | The maintainer triages from this, so it reads as a list of requests. A user substituting the same existing component is the issue's "composer failed to find it" signal; one hit is still worth a look. | A dump of raw records; failing when there are no gaps |
@@ -66,6 +66,23 @@ screens instead of intuition.
 ## Open questions
 
 None open.
+
+## What shipped
+
+- `scripts/lib/figma-compose.mjs`: `nearestNames` cut-off, `composeFold` exported; `references/figma-compose.md` regenerated.
+- `scripts/gap-report.mjs` and its test: `record`, `report`, `triage`.
+- `commands/gap-report.md` (the ninth command); recording steps in `commands/compose-code.md` and `commands/compose-figma.md`; a gaps bullet in `commands/design-system-status.md`; adapters regenerated.
+- `scripts/README.md` row, `scripts/install.test.mjs` payload assertion, README paragraph, CHANGELOG under Unreleased.
+- Live run: `docs/notes/2026-10-14-gap-report-live-run.md`.
+
+## Where it diverged
+
+- **Where the gap is recorded.** The Plan put recording in the plan step. Nearest names only exist after `check` (code) or the build (Figma), so both commands record on that error instead. An icon on the code side never produces a `check` error, so it is asked about and recorded at the plan step.
+- **Screen names fold.** The hit key and the screen count use `composeFold(screen)`, so one screen spelled two ways on two sides counts once. The Decisions row said "one hit per side and screen" without saying how screens match.
+- **The docs-gap line says what it counted** ("used instead in 1 of 1 ask") rather than "most screens", since the rule counts asks, not screens.
+- **A triage replaces the note.** Unstated in the Decisions; now in the script header and the command.
+- **An icon marked `build`** is pointed at the `icon-system-builder` skill, not `new-component`.
+- **The Figma half of Step 5 didn't run live.** The bridge wasn't attached to this session. Its hits were written with the command's own `record` line; the note says what that leaves unmeasured.
 
 ## Plan
 

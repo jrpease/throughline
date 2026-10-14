@@ -22,8 +22,8 @@ refusal scrolled off the top of the chat and nobody saw it again. Now it's kept.
   - **A draft request for each.** What it's for, what it would be built from, and
     how people got by without it, ready to paste into your own tracker. Nothing
     gets filed for you.
-  - **A docs signal.** When most screens reached for the same existing component
-    instead, the report says so. That usually means the component exists and its
+  - **A docs signal.** When most of the asks for it got by with the same existing
+    component instead, the report says so. That usually means the component exists and its
     `whenToUse` doesn't say when to use it.
 
   You triage each gap as `build`, `exists` or `dropped`, and the command offers

@@ -36,7 +36,8 @@ rather than re-asking them. Scale explanation to `user.codingLevel`.
    anything else the system's package doesn't export, is a gap in the same way:
    the screen imports only from the package and React. Keep a missing component
    in the plan for now: `check` (step 6) names its nearest, and the user is asked
-   on that error.
+   on that error. `check` can't see an icon, so ask about one here, and once the
+   user answers record it as step 6 says, with `--kind icon` and no `--nearest`.
 6. **Check the plan.** Run the script with `check --system <dir> --package <spec> --plan <plan file>`
    from the repo root. If it returns errors, nothing has been written: fix the
    plan and check again. A `missing-component` error goes back to the user as in step 5. Once
