@@ -6,6 +6,40 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+Both composers already refused to fake a component you don't have. Then the
+refusal scrolled off the top of the chat and nobody saw it again. Now it's kept.
+
+### Added
+
+- **`/throughline:gap-report` shows what your screens asked for and didn't get
+  (#43).** Every time `compose-code` or `compose-figma` hits a component or icon
+  your system doesn't have, it writes it to `design-system/gaps.json` once you've
+  decided what to do about it. It records the screen that asked, what the screen
+  needed it for, and what you did instead. Three things come out of it:
+  - **A ranked list.** Open gaps sorted by how many screens hit them. A screen
+    composed on both sides counts once, and re-running a screen doesn't count
+    twice.
+  - **A draft request for each.** What it's for, what it would be built from, and
+    how people got by without it, ready to paste into your own tracker. Nothing
+    gets filed for you.
+  - **A docs signal.** When most screens reached for the same existing component
+    instead, the report says so. That usually means the component exists and its
+    `whenToUse` doesn't say when to use it.
+
+  You triage each gap as `build`, `exists` or `dropped`, and the command offers
+  `new-component` or `document-component` as the next step.
+  `/throughline:design-system-status` now shows the open count. The file is plain
+  JSON meant to be committed, so a whole team's screens add up in one place.
+
+### Fixed
+
+- **"Did you mean" only suggests names that are actually close (#174).** Asking
+  for a `DatePicker` used to suggest Spinner, Textarea and Avatar, because the
+  composers always offered three names. A name now has to be a typo away, contain
+  the other, or be an abbreviation of it (`md` for medium, `Btn` for Button).
+  Otherwise you get none, which is the honest answer for a component you don't
+  have.
+
 ## [0.27.0] — 2026-10-13
 
 0.26.0 composed a screen in Figma. This one does it in code. Ask for a screen and
