@@ -176,7 +176,7 @@ test('skipScript keeps every script a consuming repo runs', () => {
     'lib/doc-record.mjs', 'lib/doc-card-plan.mjs',
     'validate-crosswalk.mjs', 'lib/crosswalk.mjs',
     'lib/native-literal.mjs',
-    'compose-code.mjs', 'lib/figma-compose.mjs',
+    'compose-code.mjs', 'lib/figma-compose.mjs', 'gap-report.mjs',
   ]) {
     assert.ok(!skipScript(keep), `${keep} must be installed`);
   }

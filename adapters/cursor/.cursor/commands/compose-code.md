@@ -34,10 +34,16 @@ rather than re-asking them. Scale explanation to `user.codingLevel`.
    The `nearest` names are matched on spelling; suggest the alternative that fits
    by `whenToUse` instead when one does. Never build a lookalike. An icon, or
    anything else the system's package doesn't export, is a gap in the same way:
-   the screen imports only from the package and React.
+   the screen imports only from the package and React. Once the user answers,
+   record each gap, once per gap rather than per attempt:
+   `node .throughline/scripts/gap-report.mjs record --system <dir> --side code --screen <screen> --target <screen file> --asked <name> --resolution <left-out | used:<Component> | stopped>`,
+   with `--kind icon` for an icon, `--nearest` with the names `check` offered
+   (comma-separated), `--need` with one sentence on what the screen needed it for,
+   and `--from` with what it would have been built from.
 6. **Check the plan.** Run the script with `check --system <dir> --package <spec> --plan <plan file>`
    from the repo root. If it returns errors, nothing has been written: fix the
-   plan (a `missing-component` error goes back to the user as in step 5) and check
+   plan (a `missing-component` error goes back to the user, and is recorded, as in
+   step 5) and check
    again. A `name-taken` error means the file at that path wasn't composed for
    this screen: ask for another path, or for the user to move that file. A
    re-run replaces an earlier composed file only when the screen name matches
@@ -69,8 +75,10 @@ rather than re-asking them. Scale explanation to `user.codingLevel`.
    plan or skip a rule to make it pass.
 9. **Report.** The file's path, whether it replaced an earlier composed one, the
    gate's counts, every gap (each component asked for that doesn't exist, with the
-   nearest names the script offered, and what was left out because of it), and
-   how to mount the screen where the app picks its screens (its router or entry).
+   nearest names the script offered, and what was left out because of it), that
+   the gaps were recorded in `design-system/gaps.json` for `/throughline:gap-report`
+   to rank, and how to mount the screen where the app picks its screens (its
+   router or entry).
    Don't edit it.
 
 Never edit a component, a token or the app's routing. If the screen can't be

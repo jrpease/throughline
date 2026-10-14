@@ -14,6 +14,9 @@ Report, in friendly prose (not a JSON dump), scaled to `user.codingLevel`:
 - **Sync:** which platforms/adapters? any custom adapters? when last run?
 - **Storybook:** initialized? Chromatic? Code Connect?
 - **Coding level + UI framework** on record.
+- **Gaps:** if `design-system/gaps.json` exists, read it and give the number of
+  gaps whose `status` is `"open"`: components or icons a composed screen asked for
+  that the system doesn't have. Point at `/throughline:gap-report` to triage them.
 - **Retrofit** (brownfield only — skip the whole block if `tokens.intakeMode` isn't
   `"retrofit"` and `audit.ranAt` is null):
   - Audit: has it run (`audit.ranAt`)? If so, the code-surface counts

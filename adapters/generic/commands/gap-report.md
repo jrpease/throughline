@@ -1,0 +1,39 @@
+Show the maintainer what composed screens needed and couldn't find, and help them
+decide what to do about each gap. The gaps were recorded by
+`/throughline:compose-code` and `/throughline:compose-figma`. Scale explanation to
+`user.codingLevel`.
+
+1. **Find the system.** The directory holding `design-system.json`. If there
+   isn't one, say no design system is set up here and stop.
+2. **Read the report.** Run
+   `node .throughline/scripts/gap-report.mjs report --system <dir>`. If it
+   says no gaps are recorded yet, say so: gaps appear once a composed screen asks
+   for something the system doesn't have. Stop there.
+3. **Present it.** Open gaps first, in the order the report ranks them. For each,
+   say how many screens asked for it, what they needed it for, and how people got
+   by. Where the report flags a likely docs gap, say that people keep reaching for
+   an existing component instead, so the fix may be its docs rather than a new
+   component. Mention how many gaps are already triaged; don't walk them unless
+   asked.
+4. **Triage.** Ask about the open gaps one at a time, top first, with your
+   recommendation, and stop whenever the maintainer wants to. The choices:
+   - **build**: it's a real component (or icon) to add.
+   - **exists**: something the system already has covers it. Ask which one; it
+     goes in the note.
+   - **dropped**: not needed.
+   - **leave open**: decide later. Record nothing.
+
+   Record each choice with
+   `node .throughline/scripts/gap-report.mjs triage --system <dir> --name <gap name> --status <build | exists | dropped> [--note <text>]`.
+   `exists` needs `--note` naming the component. A decided gap can be reopened with
+   `--status open`.
+5. **Next steps.** For each gap marked `build`, offer `/throughline:new-component`.
+   For each marked `exists`, offer `/throughline:document-component` on the named
+   component, so its `whenToUse` says when to reach for it and the next composer
+   finds it. Offer, don't run.
+
+The report is the maintainer's copy to work from: each open gap reads as a draft
+component request they can paste into their own tracker. Don't file anything on
+their behalf. `design-system/gaps.json` is meant to be committed, so a team's
+screens add up in one place.
+

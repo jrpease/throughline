@@ -28,12 +28,18 @@ re-asking them. Scale explanation to `user.codingLevel`.
    carry layout only (auto layout, gap, padding, fill, stroke, radius); everything
    the user sees is a component instance or styled text. When the request needs a
    component the inventory doesn't have, say so before building and ask: leave it
-   out, use a named existing component instead, or stop. Never draw a lookalike
-   from frames.
+   out, use a named existing component instead, or stop. An icon the swap-target
+   page doesn't hold is a gap in the same way. Never draw a lookalike from frames.
+   Once the user answers, record each gap, once per gap rather than per attempt:
+   `node ${CLAUDE_PLUGIN_ROOT}/scripts/gap-report.mjs record --system <the directory holding design-system.json> --side figma --screen <screen> --target <page> --asked <name> --resolution <left-out | used:<Component> | stopped>`,
+   with `--kind icon` for an icon or swap target, `--nearest` with the names the
+   script offered (comma-separated), `--need` with one sentence on what the screen
+   needed it for, and `--from` with what it would have been built from.
 5. **Build.** Run the snippet with `MODE = 'build'` and
    `SPEC = { componentsPage, iconsPage, description, fileKey }`. If it returns
-   errors, nothing was written: fix the description (a `missing-component` error
-   goes back to the user as in step 4) and build again. A `name-taken` error on
+   errors, nothing was written: fix the description (a `missing-component` or
+   `missing-swap-target` error goes back to the user, and is recorded, as in step
+   4) and build again. A `name-taken` error on
    `<screen>` means a screen a person made already has that name: ask for another
    name. On `WIP: <screen>` it means an unmarked frame holds the working name: ask
    the user to rename or remove it. If the call throws instead, the build rolled
@@ -54,9 +60,11 @@ re-asking them. Scale explanation to `user.codingLevel`.
    `design-system.json` is) and the user's request as its spec, unless the host
    can't dispatch agents, in which case screenshot the screen yourself and say so.
 9. **Report.** The screen's link, whether it replaced an earlier one, the gate's
-   counts, the reviewer's verdict, and every gap: each component that was asked
-   for and doesn't exist, with the nearest names the script offered, and anything
-   left out of the request because of it.
+   counts, the reviewer's verdict, and every gap: each component or icon that was
+   asked for and doesn't exist, with the nearest names the script offered, and
+   anything left out of the request because of it. Say the gaps were recorded in
+   `design-system/gaps.json`, and that `/throughline:gap-report` ranks them for
+   triage.
 
 Never edit a component, a variable or a text style, and never write a raw value.
 If the screen can't be built from what the system has, the gap is the finding.
