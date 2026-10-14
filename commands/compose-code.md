@@ -38,18 +38,21 @@ rather than re-asking them. Scale explanation to `user.codingLevel`.
    The `nearest` names are matched on spelling; suggest the alternative that fits
    by `whenToUse` instead when one does. Never build a lookalike. An icon, or
    anything else the system's package doesn't export, is a gap in the same way:
-   the screen imports only from the package and React. Once the user answers,
-   record each gap, once per gap rather than per attempt:
-   `node ${CLAUDE_PLUGIN_ROOT}/scripts/gap-report.mjs record --system <dir> --side code --screen <screen> --target <screen file> --asked <name> --resolution <left-out | used:<Component> | stopped>`,
-   with `--kind icon` for an icon, `--nearest` with the names `check` offered
-   (comma-separated), `--need` with one sentence on what the screen needed it for,
-   and `--from` with what it would have been built from.
+   the screen imports only from the package and React. Keep a missing component
+   in the plan for now: `check` (step 6) names its nearest, and the user is asked
+   on that error.
 6. **Check the plan.** Run the script with `check --system <dir> --package <spec> --plan <plan file>`
    from the repo root. If it returns errors, nothing has been written: fix the
-   plan (a `missing-component` error goes back to the user, and is recorded, as in
-   step 5) and check
-   again. A `name-taken` error means the file at that path wasn't composed for
-   this screen: ask for another path, or for the user to move that file. A
+   plan and check again. A `missing-component` error goes back to the user as in step 5. Once
+   they answer, record each gap, once per gap rather than per attempt, from the
+   repo root with the same `--system`:
+   `node ${CLAUDE_PLUGIN_ROOT}/scripts/gap-report.mjs record --system <dir> --side code --screen <screen> --target <screen file> --asked <name> --resolution <left-out | used:<Component> | stopped>`.
+   Add `--kind icon` for an icon; `--nearest` with the names `check` offered,
+   comma-separated (leave it off when there were none); `--need` with one sentence
+   on what the screen needed it for; and `--from` with the existing components or
+   parts it would have been made of, comma-separated. Then drop it from the plan
+   or swap in the user's choice and check again. A `name-taken` error means the
+   file at that path wasn't composed for this screen: ask for another path, or for the user to move that file. A
    re-run replaces an earlier composed file only when the screen name matches
    its marker exactly, so reuse the name as written. Write
    the variant values in the casing the returned plan uses.

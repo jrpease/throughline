@@ -30,16 +30,19 @@ re-asking them. Scale explanation to `user.codingLevel`.
    component the inventory doesn't have, say so before building and ask: leave it
    out, use a named existing component instead, or stop. An icon the swap-target
    page doesn't hold is a gap in the same way. Never draw a lookalike from frames.
-   Once the user answers, record each gap, once per gap rather than per attempt:
-   `node ${CLAUDE_PLUGIN_ROOT}/scripts/gap-report.mjs record --system <the directory holding design-system.json> --side figma --screen <screen> --target <page> --asked <name> --resolution <left-out | used:<Component> | stopped>`,
-   with `--kind icon` for an icon or swap target, `--nearest` with the names the
-   script offered (comma-separated), `--need` with one sentence on what the screen
-   needed it for, and `--from` with what it would have been built from.
+   Keep a missing component in the description for now: the build (step 5) names
+   its nearest and writes nothing, and the user is asked on that error.
 5. **Build.** Run the snippet with `MODE = 'build'` and
    `SPEC = { componentsPage, iconsPage, description, fileKey }`. If it returns
-   errors, nothing was written: fix the description (a `missing-component` or
-   `missing-swap-target` error goes back to the user, and is recorded, as in step
-   4) and build again. A `name-taken` error on
+   errors, nothing was written. A `missing-component` or `missing-swap-target`
+   error goes back to the user as in step 4. Once they answer, record each gap,
+   once per gap rather than per attempt:
+   `node ${CLAUDE_PLUGIN_ROOT}/scripts/gap-report.mjs record --system <the directory holding design-system.json> --side figma --screen <screen> --target <page> --asked <name> --resolution <left-out | used:<Component> | stopped>`.
+   Add `--kind icon` for an icon or swap target; `--nearest` with the names the
+   build offered, comma-separated (leave it off when there were none); `--need`
+   with one sentence on what the screen needed it for; and `--from` with the
+   existing components or parts it would have been made of, comma-separated. Then
+   fix the description and build again. A `name-taken` error on
    `<screen>` means a screen a person made already has that name: ask for another
    name. On `WIP: <screen>` it means an unmarked frame holds the working name: ask
    the user to rename or remove it. If the call throws instead, the build rolled
