@@ -6,6 +6,23 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.28.1] — 2026-10-14
+
+Two fixes from running the gap report live in Figma.
+
+### Fixed
+
+- **The screen gate now suggests the variable you'd actually use (#173).** When a
+  gap, padding or radius was hardcoded, the gate only offered variables that hold
+  the number directly. On the sample file a raw 16 px gap said "bind space/4" and
+  never mentioned `space/gap/md`, because that one gets its 16 by pointing at
+  `space/4`. Number variables now follow those links the way colours already did,
+  so the same gap says "bind space/4, space/inset/md, space/gap/md".
+- **`compose-figma` asks about a missing component once.** It used to ask before
+  building and again when the build refused it. Now it keeps the component in the
+  plan and asks once, on the build's error. Both composers also stop guessing what
+  a missing component would be built from: they record that only when it's clear.
+
 ## [0.28.0] — 2026-10-14
 
 Both composers already refused to fake a component you don't have. Then the
