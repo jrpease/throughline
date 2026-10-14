@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.28.0] — 2026-10-14
+
 Both composers already refused to fake a component you don't have. Then the
 refusal scrolled off the top of the chat and nobody saw it again. Now it's kept.
 
