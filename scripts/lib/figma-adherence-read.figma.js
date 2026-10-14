@@ -9,7 +9,7 @@
 // beyond the generator's snippet test; the pure checker it feeds is unit-tested.
 //
 // In-scope globals when assembled: checkScreens and dimensionBuckets (figma-adherence.mjs),
-// colorHex and variableColors (figma-variables-read.figma.js), and the caller-filled slots
+// colorHex, variableColors and variableNumbers (figma-variables-read.figma.js), and the caller-filled slots
 // TARGET = { page, screens?, fileKey } and SKIP = [rule, ...]. The snapshot shape is
 // documented at the top of scripts/lib/figma-adherence.mjs.
 
@@ -157,7 +157,7 @@ async function readTokens() {
   };
   for (const variable of await figma.variables.getLocalVariablesAsync('FLOAT')) {
     const buckets = dimensionBuckets(variable.name, variable.scopes || []);
-    for (const value of Object.values(variable.valuesByMode)) {
+    for (const value of Object.values(await variableNumbers(variable))) {
       if (buckets.gap) add(gap, value, variable.name);
       if (buckets.radius) add(radius, value, variable.name);
     }

@@ -659,7 +659,7 @@ function withTable({
 
 const { checkSpec, checkBuilt, checkExisting } = withTable({ resolveArchetype, BASELINE_STATES, STATE_SYNONYMS, normalizeName, contrastRatio, composite, parseHex, AA_NON_TEXT });
 
-// Figma plugin-API helpers for reading colour variables, shared by the Figma
+// Figma plugin-API helpers for reading colour and number variables, shared by the Figma
 // checks reader and the screen reader. This file is NOT a Node module:
 // build-figma-checks.mjs inlines it into both generated scripts
 // (references/figma-checks.md, references/figma-adherence.md). It depends on
@@ -675,18 +675,33 @@ function colorHex(value) {
   return `#${byte(value.r)}${byte(value.g)}${byte(value.b)}${alpha < 1 ? byte(alpha) : ''}`;
 }
 
-// The value of `variable` in the mode named `modeName` (after the fold), else
+// The raw value of `variable` in the mode named `modeName` (after the fold), else
 // its collection's default mode, following aliases up to 10 hops.
-async function resolveColor(variable, modeName, hops) {
+async function resolveValue(variable, modeName, hops) {
   if (!variable || hops > 10) return null;
   const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
   if (!collection) return null;
   const mode = collection.modes.find((m) => foldModeName(m.name) === foldModeName(modeName));
   const value = variable.valuesByMode[mode ? mode.modeId : collection.defaultModeId];
   if (value && value.type === 'VARIABLE_ALIAS') {
-    return resolveColor(await figma.variables.getVariableByIdAsync(value.id), modeName, hops + 1);
+    return resolveValue(await figma.variables.getVariableByIdAsync(value.id), modeName, hops + 1);
   }
-  return colorHex(value);
+  return value === undefined ? null : value;
+}
+
+async function resolveColor(variable, modeName, hops) {
+  return colorHex(await resolveValue(variable, modeName, hops));
+}
+
+// { [modeName]: number | null } over the variable's own collection, aliases followed.
+async function variableNumbers(variable) {
+  const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
+  const modes = {};
+  for (const mode of collection ? collection.modes : []) {
+    const value = await resolveValue(variable, mode.name, 0);
+    modes[mode.name] = typeof value === 'number' ? value : null;
+  }
+  return modes;
 }
 
 // { modes: { [modeName]: hex | null }, defaultMode } over the variable's own collection.

@@ -104,7 +104,7 @@ const ADHERENCE_HEADER = [
   '',
   '> **GENERATED FILE — do not edit by hand.** Sources: `scripts/lib/figma-adherence.mjs`',
   '> (the pure checker, unit-tested in Node), `scripts/lib/figma-variables-read.figma.js`',
-  '> (colour-variable resolution) + `scripts/lib/figma-adherence-read.figma.js` (the',
+  '> (variable alias resolution) + `scripts/lib/figma-adherence-read.figma.js` (the',
   '> screen reader). Regenerate with `node scripts/build-figma-checks.mjs`; CI gates',
   '> freshness with `--check`.',
   '',

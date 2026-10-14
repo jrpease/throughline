@@ -2,7 +2,7 @@
 
 > **GENERATED FILE — do not edit by hand.** Sources: `scripts/lib/figma-adherence.mjs`
 > (the pure checker, unit-tested in Node), `scripts/lib/figma-variables-read.figma.js`
-> (colour-variable resolution) + `scripts/lib/figma-adherence-read.figma.js` (the
+> (variable alias resolution) + `scripts/lib/figma-adherence-read.figma.js` (the
 > screen reader). Regenerate with `node scripts/build-figma-checks.mjs`; CI gates
 > freshness with `--check`.
 
@@ -192,7 +192,7 @@ function checkScreens(snapshot, { skip = [] } = {}) {
   return { pass: failures.length === 0, failures, advisories, counts, skipped: RULES.filter((rule) => !on(rule)) };
 }
 
-// Figma plugin-API helpers for reading colour variables, shared by the Figma
+// Figma plugin-API helpers for reading colour and number variables, shared by the Figma
 // checks reader and the screen reader. This file is NOT a Node module:
 // build-figma-checks.mjs inlines it into both generated scripts
 // (references/figma-checks.md, references/figma-adherence.md). It depends on
@@ -208,18 +208,33 @@ function colorHex(value) {
   return `#${byte(value.r)}${byte(value.g)}${byte(value.b)}${alpha < 1 ? byte(alpha) : ''}`;
 }
 
-// The value of `variable` in the mode named `modeName` (after the fold), else
+// The raw value of `variable` in the mode named `modeName` (after the fold), else
 // its collection's default mode, following aliases up to 10 hops.
-async function resolveColor(variable, modeName, hops) {
+async function resolveValue(variable, modeName, hops) {
   if (!variable || hops > 10) return null;
   const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
   if (!collection) return null;
   const mode = collection.modes.find((m) => foldModeName(m.name) === foldModeName(modeName));
   const value = variable.valuesByMode[mode ? mode.modeId : collection.defaultModeId];
   if (value && value.type === 'VARIABLE_ALIAS') {
-    return resolveColor(await figma.variables.getVariableByIdAsync(value.id), modeName, hops + 1);
+    return resolveValue(await figma.variables.getVariableByIdAsync(value.id), modeName, hops + 1);
   }
-  return colorHex(value);
+  return value === undefined ? null : value;
+}
+
+async function resolveColor(variable, modeName, hops) {
+  return colorHex(await resolveValue(variable, modeName, hops));
+}
+
+// { [modeName]: number | null } over the variable's own collection, aliases followed.
+async function variableNumbers(variable) {
+  const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
+  const modes = {};
+  for (const mode of collection ? collection.modes : []) {
+    const value = await resolveValue(variable, mode.name, 0);
+    modes[mode.name] = typeof value === 'number' ? value : null;
+  }
+  return modes;
 }
 
 // { modes: { [modeName]: hex | null }, defaultMode } over the variable's own collection.
@@ -243,7 +258,7 @@ async function variableColors(variable) {
 // beyond the generator's snippet test; the pure checker it feeds is unit-tested.
 //
 // In-scope globals when assembled: checkScreens and dimensionBuckets (figma-adherence.mjs),
-// colorHex and variableColors (figma-variables-read.figma.js), and the caller-filled slots
+// colorHex, variableColors and variableNumbers (figma-variables-read.figma.js), and the caller-filled slots
 // TARGET = { page, screens?, fileKey } and SKIP = [rule, ...]. The snapshot shape is
 // documented at the top of scripts/lib/figma-adherence.mjs.
 
@@ -391,7 +406,7 @@ async function readTokens() {
   };
   for (const variable of await figma.variables.getLocalVariablesAsync('FLOAT')) {
     const buckets = dimensionBuckets(variable.name, variable.scopes || []);
-    for (const value of Object.values(variable.valuesByMode)) {
+    for (const value of Object.values(await variableNumbers(variable))) {
       if (buckets.gap) add(gap, value, variable.name);
       if (buckets.radius) add(radius, value, variable.name);
     }
