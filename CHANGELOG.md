@@ -6,6 +6,42 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.29.0] — 2026-10-14
+
+Composing a screen used to be the end of the story. Then the system kept moving,
+and nothing noticed. Now something does.
+
+### Added
+
+- **`/throughline:drift` tells you what moved under the things you built (#44,
+  #46).** Three kinds of drift, each with the command that fixes it:
+  - **Screens.** Both composers now record every screen they build, with what it
+    used. A screen is **broken** when something it uses is gone (a variant that was
+    removed says which options are left), **stale** when a component's contract
+    changed since (its variants, states or tokens, not a reworded summary), and
+    **released** when a person took the file or frame over.
+  - **Token output.** Each `/throughline:sync-figma-tokens` now stamps the files it
+    wrote. A generated file someone edited by hand shows up before the next sync
+    quietly overwrites it. The Style Dictionary config and `package.json` are left
+    alone, since you edit those on purpose.
+  - **Figma variables.** With the bridge open, it tells you which variable
+    collections changed since your last sync, so you know it's overdue.
+- **`drift:check`.** The code half is a plain script, installed with the
+  documentation scripts, so it can run in CI. It fails on a broken screen or an
+  edited token file.
+- **`/design-system-status` shows a drift line.**
+
+### Changed
+
+- **The documentation scripts are fifteen files and six npm scripts.**
+  `drift-check.mjs` joins them, with the two files it needs. A refresh through
+  `/document-component` picks them up.
+
+### Not yet
+
+- **A Figma component changing while its code counterpart doesn't.** That needs a
+  link between the two that's stronger than a shared name. It's on the roadmap.
+
 ## [0.28.1] — 2026-10-14
 
 Two fixes from running the gap report live in Figma.

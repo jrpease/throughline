@@ -73,7 +73,7 @@ Everything above was created during a single working session and synced directly
 
 | | |
 |---|---|
-| **A supported agent** | Required — [Claude Code](https://docs.claude.com/en/docs/claude-code) (native plugin), or **Cursor**, **Codex**, or any **AGENTS.md**-aware agent via `npx @radicool/throughline@0.28.1 init`. |
+| **A supported agent** | Required — [Claude Code](https://docs.claude.com/en/docs/claude-code) (native plugin), or **Cursor**, **Codex**, or any **AGENTS.md**-aware agent via `npx @radicool/throughline@0.29.0 init`. |
 | **Figma** | Required, **desktop app** (the browser version causes connection errors). **Professional plan or higher recommended** — multi-mode variables (Light/Dark, brand themes) need it. |
 | **Figma access token** | Optional — only for the few Figma calls the Desktop Bridge can't make, like reading a published library. Without it, you work through the bridge alone. The setup skill walks you through it; your token stays yours and is never shared in chat. |
 | **GitHub** (or similar) | Optional — only when you're ready to graduate to a real remote repo with PRs and CI. |
@@ -115,6 +115,8 @@ Want it in code instead? `/throughline:compose-code` writes the screen as one Re
 
 Every gap either composer reports gets kept. `/throughline:gap-report` ranks what your screens asked for and didn't get by how many screens asked, and calls out the ones where people keep reaching for something you already have. You decide what to build, what's already covered, and what to drop.
 
+Things built from the system don't stay in step with it on their own. `/throughline:drift` tells you what moved. It flags a composed screen that uses a variant someone since removed, and one whose components changed underneath it. It flags a generated token file someone edited by hand, which the next sync would quietly overwrite. With Figma open, it also tells you which variable collections changed since your last sync, so you know the sync is overdue before anyone ships the old values. The code half is a plain script, `drift:check`, installed with the documentation scripts, so you can run it in CI.
+
 Update anytime with `/plugin marketplace update throughline-marketplace`.
 
 #### Cursor, Codex, or a generic AGENTS.md agent
@@ -122,9 +124,9 @@ Update anytime with `/plugin marketplace update throughline-marketplace`.
 Run the installer in your project — it stamps in the skills, the reference docs, the scripts, and the Figma MCP config for your tool:
 
 ```
-npx @radicool/throughline@0.28.1 init --target=cursor    # → .cursor/rules + .cursor/mcp.json
-npx @radicool/throughline@0.28.1 init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
-npx @radicool/throughline@0.28.1 init --target=generic    # → skills/ + AGENTS.md index
+npx @radicool/throughline@0.29.0 init --target=cursor    # → .cursor/rules + .cursor/mcp.json
+npx @radicool/throughline@0.29.0 init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
+npx @radicool/throughline@0.29.0 init --target=generic    # → skills/ + AGENTS.md index
 ```
 
 It's safe to re-run (it merges `AGENTS.md` and `.cursor/mcp.json` non-destructively) and stages everything the skills read into `.throughline/`. Then open the `figma-environment-setup` skill/rule/prompt for your tool to begin. For Codex, add the printed `codex-mcp.toml` block to your Codex config to enable Figma access.
@@ -219,7 +221,7 @@ Future improvements and planned capabilities. Have a request? **[Open an issue](
 - **More framework adapters** — broaden the Style Dictionary output targets beyond the current set.
 - **Deeper Code Connect coverage** — richer Figma-to-code mappings as more plans support it.
 - **Expanded component starters** — a larger foundational kit out of the box.
-- **Richer status & auditing** — more from `/design-system-status`, including drift detection between Figma and code.
+- **Component drift between Figma and code** — screen and token drift are shipped (`/throughline:drift`). What's left is noticing when a Figma component changed and its code counterpart didn't, which needs a link between the two that's stronger than a shared name.
 - **Built-in accessibility checks** — the color half is shipped. Eight semantic text-on-surface pairs are checked against WCAG AA's 4.5:1 when tokens are created in Figma, and derived again from the token source when they sync to code — in every mode, so a system that clears in light and fails in dark fails. A failing pair stops the build rather than warning. Components are checked too: on web frameworks, a Figma build stops when a focus state has no visible ring, and in JSX code the adherence gate is built to fail an icon-only button with no accessible name and a status badge that relies on color alone — proven by unit tests. A Figma build also stops when a focus ring falls below WCAG's 3:1 against a surface the architect names for it, in any mode. The one real app it has run on had almost nothing for it to check, so it hasn't caught a bug in the wild yet.
 - **Token fan-out to more platforms** — the DTCG token source is platform-neutral, and web targets are in daily use. Every target is **validated per build, not assumed**: `tokens:validate-output` checks generated output against its source, native Swift and Kotlin as well as web CSS, because the stock transforms have been measured emitting wrong-but-compiling values. iOS/Swift is a curated adapter whose Style Dictionary configuration ships as tested code, and Android/Kotlin uses the same configuration through the Tier 2 protocol. JavaScript theme output (MUI, a Tailwind v3 config) isn't checked yet.
 - **Native component code generation** — producing a SwiftUI view or a Compose composable the way Storybook components are produced for React. This does not exist yet; it is a separate, larger effort than token fan-out, and the two were previously described as one roadmap item.

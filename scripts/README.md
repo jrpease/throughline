@@ -38,8 +38,10 @@ tested here; copied verbatim by `token-crosswalk-builder` into the user's
 | `doc-card-payload.mjs` | Assemble the complete `figma_execute` body that renders one doc card — record, canonical fingerprint, the nine `figma.docCardVariables` lookups, `Body/Default`, the generated snippet and the call — and print the `renderHash` the render must return, so a payload that changed on the way in is caught. Reads the snippet from `../references/doc-card-builder.md`. | run from the plugin (or `.throughline/scripts`); not copied into consumer repos |
 | `compose-code.mjs` | Composing a screen in code: `inventory` lists the system's components with their variant axes from `components.built` and the docs index, `check` resolves a screen's plan before any code is written and returns every gap with the nearest names, and `gate` runs the adherence gate on the one composed file plus three rules only a composed file is held to (`raw-value`, `scale-utility`, `off-plan`). Used by `/throughline:compose-code`. | run from the plugin (or `.throughline/scripts`); not copied into consumer repos |
 | `gap-report.mjs` | The gap report: `record` keeps each component or icon a composer asked for and the system lacks in `design-system/gaps.json` (one hit per side and screen, latest wins), `report` ranks the open gaps by how many screens hit them as draft requests and flags a likely docs gap when most screens used one existing component instead, and `triage` marks a gap `build`, `exists` or `dropped`. Used by both compose commands and `/throughline:gap-report`. | run from the plugin (or `.throughline/scripts`); not copied into consumer repos |
+| `screens.mjs` | The composed-screens store: `record` keeps each screen a composer built in `design-system/screens.json`, with the plan or description it was built from and the contract fingerprint of each component it used (variants, states, tokens), and `forget` drops one a person took over. Used by both compose commands and `/throughline:drift`. | run from the plugin (or `.throughline/scripts`); not copied into consumer repos |
+| `drift-check.mjs` | Drift: `check` re-checks every recorded code screen against today's components (broken when something it uses is gone, released when its marker is, stale when a component's contract moved) and compares generated token output to the stamp the last sync left (edited, missing, unstamped). Fails on broken screens and edited or missing output, and when it checked nothing (`--allow-empty` to permit that). `stamp` and `stamp-figma` are run by the sync; `compare-figma` diffs the live Figma variables (from `references/figma-drift.md`) against the stamp. | `drift:check` |
 | `build-doc-card-builder.mjs` | Generate `references/doc-card-builder.md` from the planner + the Figma renderer template (`lib/doc-card-render.figma.js`). `--check` gates CI. | plugin-internal (not installed) |
-| `build-figma-checks.mjs` | Generate `references/figma-checks.md`, the `figma_execute` snippet for the Figma stop conditions, by inlining `lib/component-states.mjs`, `lib/contrast.mjs`, `lib/figma-checks.mjs` and `lib/figma-variables-read.figma.js` above the reader (`lib/figma-checks-read.figma.js`); `references/figma-adherence.md`, the screen adherence gate, from `lib/figma-adherence.mjs`, `lib/figma-variables-read.figma.js` and `lib/figma-adherence-read.figma.js`; and `references/figma-compose.md`, screen composition, from `lib/figma-adherence.mjs`, `lib/figma-compose.mjs`, `lib/figma-variables-read.figma.js` and `lib/figma-compose.figma.js`. `--check` gates CI on all three. | plugin-internal (not installed) |
+| `build-figma-checks.mjs` | Generate `references/figma-checks.md`, the `figma_execute` snippet for the Figma stop conditions, by inlining `lib/component-states.mjs`, `lib/contrast.mjs`, `lib/figma-checks.mjs` and `lib/figma-variables-read.figma.js` above the reader (`lib/figma-checks-read.figma.js`); `references/figma-adherence.md`, the screen adherence gate, from `lib/figma-adherence.mjs`, `lib/figma-variables-read.figma.js` and `lib/figma-adherence-read.figma.js`; and `references/figma-compose.md`, screen composition, from `lib/figma-adherence.mjs`, `lib/figma-compose.mjs`, `lib/figma-variables-read.figma.js`, `lib/figma-compose-read.figma.js` and `lib/figma-compose.figma.js`; and `references/figma-drift.md`, the live drift pass, as two snippets: variables from `lib/figma-variables-read.figma.js` and `lib/figma-drift-variables.figma.js`, and screens from `lib/figma-adherence.mjs`, `lib/figma-compose.mjs`, `lib/figma-compose-read.figma.js` and `lib/figma-drift-screens.figma.js`. `--check` gates CI on all four. | plugin-internal (not installed) |
 | `build-state-baseline.mjs` | Generate `references/state-baseline.md`, the table of which components owe which interaction states, from `lib/component-states.mjs`. The Figma executor reads the table; `verify:check` reads the module. `--check` gates CI. | plugin-internal (not installed) |
 | `build-native-adapter-config.mjs` | Generate `references/native-adapter-config.md` by slicing `lib/sd-native.mjs` on its `@doc-section` markers and interleaving each fragment under its prose. Fails when module code falls outside every section, so the doc cannot silently ship incomplete. `--check` gates CI. | plugin-internal (not installed) |
 
@@ -47,7 +49,7 @@ tested here; copied verbatim by `token-crosswalk-builder` into the user's
 registering them leaves a repo with a script on disk and no entry point, which
 is how a stale `docs:check` went unnoticed for a full release. Both
 `storybook-chromatic-builder` (first-time setup) and `/document-component`
-(freshness refresh) install the same twelve files and register the same five
+(freshness refresh) install the same fifteen files and register the same six
 scripts:
 
 | File | npm script |
@@ -64,9 +66,18 @@ scripts:
 | `lib/proof.mjs` | — (imported by the above) |
 | `lib/component-states.mjs` | — (imported by the above) |
 | `lib/contrast.mjs` | — (imported by the above) |
+| `drift-check.mjs` | `"drift:check": "node scripts/drift-check.mjs check --system ../.. --allow-empty"` |
+| `compose-code.mjs` | — (imported by the above) |
+| `lib/figma-compose.mjs` | — (imported by the above) |
+
+`drift:check` is registered with `--allow-empty` because a repo has nothing for it
+to check until a screen is composed or `/throughline:sync-figma-tokens` stamps the
+token output, and an upgraded repo would otherwise fail CI until its next sync. It
+still prints "nothing checked" on such a run; drop the flag once a stamp exists if
+an empty run should fail.
 
 A refresh that adds a file must also add its npm script; check `package.json`
-for all five npm scripts every time, not just the file that changed.
+for all six npm scripts every time, not just the file that changed.
 
 `verify:check`, like `adherence:check`, carries placeholder paths the installing
 skill substitutes for the repo's real layout. Dropping `--tokens` rather than
@@ -257,7 +268,7 @@ the committed `adapters/<target>/` tree plus the runtime payload
 (`references/` + `scripts/`, minus `scripts/adapters/`) into `.throughline/`,
 rewriting `${CLAUDE_PLUGIN_ROOT}` → `.throughline`:
 
-    npx @radicool/throughline@0.28.1 init --target=cursor|codex|generic
+    npx @radicool/throughline@0.29.0 init --target=cursor|codex|generic
 
 See `scripts/install.mjs` (pure core + CLI + `install.test.mjs`).
 
