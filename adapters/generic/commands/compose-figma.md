@@ -23,11 +23,11 @@ re-asking them. Scale explanation to `user.codingLevel`.
    fill; `hug` works only on a set whose summary says `autoLayout: true`. Frames
    carry layout only (auto layout, gap, padding, fill, stroke, radius); everything
    the user sees is a component instance or styled text. When the request needs a
-   component the inventory doesn't have, say so before building and ask: leave it
-   out, use a named existing component instead, or stop. An icon the swap-target
-   page doesn't hold is a gap in the same way. Never draw a lookalike from frames.
-   Keep a missing component in the description for now: the build (step 5) names
-   its nearest and writes nothing, and the user is asked on that error.
+   component the inventory doesn't have, keep it in the description under the name
+   asked for, and don't ask yet: the build (step 5) refuses it, names its nearest
+   and writes nothing, and the user is asked on that error whether to leave it out,
+   use a named existing component instead, or stop. An icon the swap-target page
+   doesn't hold is a gap in the same way. Never draw a lookalike from frames.
 5. **Build.** Run the snippet with `MODE = 'build'` and
    `SPEC = { componentsPage, iconsPage, description, fileKey }`. If it returns
    errors, nothing was written. A `missing-component` or `missing-swap-target`
@@ -37,7 +37,8 @@ re-asking them. Scale explanation to `user.codingLevel`.
    Add `--kind icon` for an icon or swap target; `--nearest` with the names the
    build offered, comma-separated (leave it off when there were none); `--need`
    with one sentence on what the screen needed it for; and `--from` with the
-   existing components or parts it would have been made of, comma-separated. Then
+   existing components or parts it would have been made of, comma-separated, where that's clear (leave it
+   off rather than guess). Then
    fix the description and build again. A `name-taken` error on
    `<screen>` means a screen a person made already has that name: ask for another
    name. On `WIP: <screen>` it means an unmarked frame holds the working name: ask

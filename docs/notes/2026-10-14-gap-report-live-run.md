@@ -6,8 +6,9 @@ Repo: the scratch copy of `~/Dev/throughline-sample` with `apps/web` (the recipe
 the `no-repo-has-a-consuming-app` memory). The real repo wasn't written.
 
 The short version: **the code half ran live end to end and recorded its gap. The
-Figma half didn't run live: the bridge wasn't attached to this session. Its
-records were written with the same command the Figma composer runs. A fresh
+Figma half didn't run live at first: the bridge wasn't attached to this session,
+so its first records were written by hand with the composer's own command. It
+was run live later the same day (below) and recorded correctly. A fresh
 agent then triaged from the report, and both choices stuck. The run found one
 ordering bug in the commands, and it's fixed.**
 
@@ -68,11 +69,32 @@ And the hit key folds the screen name, so "Book a demo" from code and "Book a
 Demo" from Figma count as one screen. Re-checked on the sample: one screen, two
 hits.
 
+## The Figma half, run live afterwards
+
+Once the bridge was attached, a fresh agent drove `/throughline:compose-figma` for
+a "Reschedule" screen with a date picker, on the sample's `Screens` page. The build
+returned `missing-component` "Date Picker", `nearest: []`, nothing written. With
+the answer "use Input instead" it ran the command's `record` line (`--asked "Date
+Picker" --resolution used:Input`, no `--nearest`), exit 0: "recorded DatePicker
+(build), 3 screens". A diff against a backup shows exactly one new hit,
+`figma:reschedule`. The rebuild passed the gate (0 failures across 3 detached, 3
+colour, 5 dimension checks), finalized as node `449:565`, and the reviewer passed
+it. "Reschedule" is left on the page.
+
+It found two instruction problems, now fixed in both composers where they apply:
+
+- **compose-figma said to ask twice.** Step 4 said "say so before building and
+  ask", then to keep the component and ask on the build's error. It now says only
+  the second.
+- **`--from` invited a guess.** The agent had nothing to base it on and guessed
+  "Input, Select Menu, Button". Both commands now say to pass it only where it's
+  clear, and leave it off rather than guess.
+
+Not changed: the hit key on older entries isn't folded (that file predates the
+fold, as above), and a hit on a gap already triaged `build` doesn't show under
+Open, which is the intended "a re-hit keeps a triaged status".
+
 ## What wasn't measured
 
-- **The Figma half, live.** The build returning `missing-component` with nothing
-  written was measured live for #42 (`docs/notes/2026-10-13-compose-figma-live-run.md`),
-  and the resolver tests cover it. What's unmeasured is a Figma agent following
-  the new recording step. Re-run when the bridge is attached to the session.
 - **A `Calendar` component and a `Calendar` icon.** They'd share one gap: the key
   is the folded name, not the kind. Nothing hit it.

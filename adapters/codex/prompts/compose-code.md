@@ -47,7 +47,8 @@ rather than re-asking them. Scale explanation to `user.codingLevel`.
    Add `--kind icon` for an icon; `--nearest` with the names `check` offered,
    comma-separated (leave it off when there were none); `--need` with one sentence
    on what the screen needed it for; and `--from` with the existing components or
-   parts it would have been made of, comma-separated. Then drop it from the plan
+   parts it would have been made of, comma-separated, where that's clear (leave it
+   off rather than guess). Then drop it from the plan
    or swap in the user's choice and check again. A `name-taken` error means the
    file at that path wasn't composed for this screen: ask for another path, or for the user to move that file. A
    re-run replaces an earlier composed file only when the screen name matches
