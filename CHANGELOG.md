@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.30.2] — 2026-10-15
+
+### Fixed
+
+- **The hero image no longer reads as an install-time risk.** The plugin directory
+  flagged `docs/assets/hero.png` for a download-and-run command: by chance, its
+  compressed pixels contained the bytes `IeX`, which a scanner reads as PowerShell's
+  `iex`. The three shipped images are re-encoded with identical pixels, and a test
+  now fails if any image spells a command or carries text chunks again.
+
 ## [0.30.1] — 2026-10-15
 
 Two fixes from the plugin directory's review, one of them a real bug.
