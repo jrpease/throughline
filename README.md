@@ -80,7 +80,7 @@ Everything above was created during a single working session and synced directly
 
 ### What it runs on your machine
 
-ThroughLine runs one local server, and it doesn't upload anything itself.
+ThroughLine runs one local server. Nothing leaves your machine unless you choose it below.
 
 - **One local MCP server.** Installing the plugin registers [`figma-console-mcp`](https://www.npmjs.com/package/figma-console-mcp), pinned to version 1.40.8, which your agent starts on your computer with `npx`. It reaches the Figma desktop app through the Desktop Bridge plugin you run in Figma. That's how ThroughLine reads and writes your file. For the Figma calls the bridge can't make, it uses a Figma access token if you give it one. Claude Code asks for the token as a plugin setting and keeps it in your system's secure credential store. It's optional. The Cursor, Codex and generic installs read it from `FIGMA_ACCESS_TOKEN` instead.
 - **Files in your repo.** The skills write design-system files where you point them: token sources, the Style Dictionary build, components, stories, `design-system.json`, and the proof records in `design-system/proof/`. The helper scripts they install read and write local files and make no network calls.
