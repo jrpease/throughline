@@ -35,8 +35,7 @@ codebase** rather than build a clean set — e.g. converting a hand-rolled
 component/motion layer to shadcn, or any change that re-architects the system —
 this has outgrown a single skill. Follow
 `.throughline/references/scaling-up-handoff.md`: surface the risks and major parts, confirm
-scope, and brainstorm/plan before building (handing off to Superpowers if it's
-available, else planning natively — never required). For a normal from-the-system
+scope, and brainstorm/plan before building. For a normal from-the-system
 build, continue here.
 
 **Framework (capture lazily, here if not already set).** Read

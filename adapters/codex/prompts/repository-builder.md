@@ -32,8 +32,7 @@ action statements. The hard secret-safety rules never scale.
 migrate (not scaffolding a clean monorepo) — or the repo work is entangled with a
 larger re-architecture — that has outgrown this skill. Follow
 `.throughline/references/scaling-up-handoff.md`: surface risks and major parts, confirm scope,
-and brainstorm/plan first (handing off to Superpowers if available, else planning
-natively — never required). For a normal scaffold-from-scratch, continue here.
+and brainstorm/plan first. For a normal scaffold-from-scratch, continue here.
 
 The user is at one of three `workspace.stage` values. This skill advances them
 one step at a time, introducing each concept only when its payoff is concrete.

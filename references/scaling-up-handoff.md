@@ -8,9 +8,7 @@ a multi-package refactor — anything where "build the component" has quietly be
 "re-architect the system." When that happens, **do not just start building.**
 
 The valuable behavior here is **recognizing the inflection and planning before
-building** — that behavior is ThroughLine's, and it works whether or not any other
-plugin is installed. Handing off to a planning partner (below) is an *enhancement*
-of that behavior, never a requirement for it.
+building**. That behavior is ThroughLine's own, and it needs no other plugin.
 
 ## Recognize the inflection
 
@@ -32,21 +30,12 @@ Signs the work has outgrown the skill:
 3. **Switch into structured brainstorm → plan before building.** Big, ambiguous
    work needs a plan, not improvisation.
 
-## Where the plan comes from (degrade gracefully — no hard dependency)
+## Where the plan comes from
 
-- **If the Superpowers skills are available** — check the available-skills list for
-  `superpowers:brainstorming` and `superpowers:writing-plans` — **hand off to
-  them.** They are purpose-built for open-ended engineering: brainstorm the
-  approach, then write an executable plan. Announce the handoff so the user
-  understands the switch and why.
-- **If Superpowers is not installed** — do **not** stall and do **not** require it.
-  Run ThroughLine's own `brainstorm-before-build.md` protocol, scaled to the larger
-  scope, and produce a written plan (goals, risks, major parts, ordered steps,
-  checkpoints) before building. You may note **once** that Superpowers is a great
-  optional partner for this kind of work — then proceed. Never nag, never block.
-
-ThroughLine must be able to complete the work **with or without** Superpowers.
-Superpowers makes the big-scope path better; it is never a prerequisite.
+Run ThroughLine's own `brainstorm-before-build.md` protocol, scaled to the larger
+scope, and produce a written plan (goals, risks, major parts, ordered steps,
+checkpoints) before building. Don't hand the work to another plugin's planning
+skill and don't recommend one: the plan is ThroughLine's to make.
 
 ## The routing rule (keep both directions consistent)
 
@@ -58,4 +47,4 @@ the wrong skill ends up driving:
   generic brainstorming skill — that is the inverse mistake (see the priority note
   in `figma-environment-setup`).
 - **Open-ended engineering** (retrofits, migrations, app builds) → brainstorm and
-  plan first; hand off to Superpowers if present, else plan natively.
+  plan first, with ThroughLine's own protocol.

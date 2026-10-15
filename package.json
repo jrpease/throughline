@@ -1,6 +1,6 @@
 {
   "name": "@radicool/throughline",
-  "version": "0.30.3",
+  "version": "0.30.4",
   "description": "Build a complete design system end to end — author in Figma, sync tokens to code, generate Storybook. Usable from Claude Code, Cursor, Codex, or any AGENTS.md agent.",
   "type": "module",
   "bin": {
@@ -25,5 +25,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/jrpease/throughline.git"
-  }
+  },
+  "homepage": "https://radicool.studio/throughline"
 }

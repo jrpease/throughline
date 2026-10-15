@@ -8,6 +8,7 @@
 
 **Every skill you need to launch and manage a production-grade design system in hours — not months. Built for Claude Code, and installable into Cursor, Codex, or any AGENTS.md agent.**
 
+[![Website](https://img.shields.io/badge/home-radicool.studio%2Fthroughline-111111)](https://radicool.studio/throughline)
 [![npm](https://img.shields.io/npm/v/%40radicool%2Fthroughline?color=6366f1&label=npm)](https://www.npmjs.com/package/@radicool/throughline)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Built for Claude Code](https://img.shields.io/badge/built%20for-Claude%20Code-d97757)](https://docs.claude.com/en/docs/claude-code)
@@ -20,6 +21,8 @@
 Whether you're starting from scratch or retrofitting an existing design system, ThroughLine puts you in the driver's seat — you make the high-level decisions while your agentic team powers through the production work. You stay in control of the *what*; it handles the *how*.
 
 **No code experience required.**
+
+Guides, examples and news live at **[radicool.studio/throughline](https://radicool.studio/throughline)**.
 
 ---
 
@@ -40,10 +43,47 @@ Whether you're starting from scratch or retrofitting an existing design system, 
 3. **Storybook** configured to house all synced components and their documentation.
 4. **CI via Chromatic** for visual regression testing on every push.
 
-### Daily workflow
+### Documentation
 
-1. **`/sync-figma-tokens`** — resync changes from Figma to code, landed as a reviewable PR.
-2. **`/new-component`** — ship a new component in Figma, then sync and publish it to code.
+1. **One record per component, rendered everywhere.** Usage, variants, states, dos and don'ts, accessibility notes and the tokens it uses are written once, then rendered to the Figma description, a doc card on the canvas, Storybook, and an `llms.txt` digest your AI tools can read.
+2. **Docs that notice when they're stale.** `docs:check` flags any copy rendered from an older version of its record, and a Storybook page someone edited by hand.
+
+### Checks
+
+ThroughLine doesn't just build the system. It checks it, and the checks that guard a build stop it rather than print a warning.
+
+1. **Contrast, in every mode.** Text-on-surface pairs are held to WCAG AA when tokens are created and again when they sync to code, so a theme that passes in light and fails in dark fails.
+2. **Focus you can see.** On web frameworks, a component with no visible focus ring, or one below 3:1 against its surface, stops the Figma build.
+3. **Output that matches its source.** `tokens:validate-output` checks generated CSS, Swift and Kotlin against the tokens they came from, because the stock transforms have been caught emitting wrong values that still compile.
+4. **Screens that use the system.** In Figma, a detached component or a hardcoded color, gap, padding or radius where a token already has that value. In code (React and Angular), a raw color or size where a token exists, and a variant your component doesn't have.
+5. **Drift.** `/throughline:drift` reports when Figma, the docs or the code have moved apart. It reports rather than blocks, apart from a broken screen or a hand-edited token file, which fail its CI script.
+
+## Use it every day
+
+Once the system exists, these are the commands you'll live in. In Claude Code they're namespaced, so `/throughline:drift`. Other agents run the same skills by name.
+
+| Command | What it does |
+|---|---|
+| `/throughline:start` | Set up from scratch, or pick up where you left off. |
+| `/throughline:design-system-status` | A plain-language picture of what's built and what's next. |
+| `/throughline:sync-figma-tokens` | Bring Figma's latest variables into code, as a pull request you review. |
+| `/throughline:new-component` | One new component, end to end: Figma, tokens, code and stories. |
+| `/throughline:document-component` | Write or refresh one component's docs, everywhere they appear. |
+| `/throughline:check-figma` | Check what's already in Figma against the system, without changing it. |
+| `/throughline:compose-figma` | Build a screen in Figma from your own components and tokens. |
+| `/throughline:compose-code` | Build the same kind of screen in code, as one React file. |
+| `/throughline:gap-report` | Everything your screens asked for that the system doesn't have, ranked. |
+| `/throughline:drift` | What moved since you built it, and the command that fixes each thing. |
+
+Already have screens or components in Figma? `/throughline:check-figma` checks them against the system without touching the file: it flags a component someone detached, and a colour, gap, padding or radius that's hardcoded when a token already has that value. It also runs the state, focus-ring and focus-contrast checks over the components already in your library.
+
+Need a new screen? `/throughline:compose-figma` builds it in Figma from your own components and tokens, every value bound. If the screen needs something your system doesn't have, it says so instead of drawing a lookalike, and it runs the same check before handing the screen over.
+
+Want it in code instead? `/throughline:compose-code` writes the screen as one React file in your app, using only your components and your tokens. It checks the plan before writing a line, reports any component you don't have rather than building one, and gates the file before handing it over.
+
+Every gap either composer reports gets kept. `/throughline:gap-report` ranks what your screens asked for and didn't get by how many screens asked, and calls out the ones where people keep reaching for something you already have. You decide what to build, what's already covered, and what to drop.
+
+Things built from the system don't stay in step with it on their own. `/throughline:drift` tells you what moved. It flags a composed screen that uses a variant someone since removed, and one whose components changed underneath it. It flags a generated token file someone edited by hand, which the next sync would quietly overwrite. With Figma open, it also tells you which variable collections changed since your last sync, so you know the sync is overdue before anyone ships the old values. And it holds each component to its doc record: the states and options a Figma component has that its docs don't, and code built before the record's variants, states or tokens last changed. The code half is a plain script, `drift:check`, installed with the documentation scripts, so you can run it in CI.
 
 ## Already have a design system? Retrofit it.
 
@@ -73,7 +113,7 @@ Everything above was created during a single working session and synced directly
 
 | | |
 |---|---|
-| **A supported agent** | Required — [Claude Code](https://docs.claude.com/en/docs/claude-code) (native plugin), or **Cursor**, **Codex**, or any **AGENTS.md**-aware agent via `npx @radicool/throughline@0.30.3 init`. |
+| **A supported agent** | Required — [Claude Code](https://docs.claude.com/en/docs/claude-code) (native plugin), or **Cursor**, **Codex**, or any **AGENTS.md**-aware agent via `npx @radicool/throughline@0.30.4 init`. |
 | **Figma** | Required, **desktop app** (the browser version causes connection errors). **Professional plan or higher recommended** — multi-mode variables (Light/Dark, brand themes) need it. |
 | **Figma access token** | Optional — only for the few Figma calls the Desktop Bridge can't make, like reading a published library. Without it, you work through the bridge alone. The setup skill walks you through it; your token stays yours and is never shared in chat. |
 | **GitHub** (or similar) | Optional — only when you're ready to graduate to a real remote repo with PRs and CI. |
@@ -108,16 +148,6 @@ Then start with:
 
 This is the reliable entry point — it runs environment setup first, ahead of anything else. (You can also just say *"let's set up my design system"*, but if you have other plugins installed that grab "let's build…" style phrases, the slash command guarantees ThroughLine takes the wheel.)
 
-Already have screens or components in Figma? `/throughline:check-figma` checks them against the system without touching the file: it flags a component someone detached, and a colour, gap, padding or radius that's hardcoded when a token already has that value. It also runs the state, focus-ring and focus-contrast checks over the components already in your library.
-
-Need a new screen? `/throughline:compose-figma` builds it in Figma from your own components and tokens, every value bound. If the screen needs something your system doesn't have, it says so instead of drawing a lookalike, and it runs the same check before handing the screen over.
-
-Want it in code instead? `/throughline:compose-code` writes the screen as one React file in your app, using only your components and your tokens. It checks the plan before writing a line, reports any component you don't have rather than building one, and gates the file before handing it over.
-
-Every gap either composer reports gets kept. `/throughline:gap-report` ranks what your screens asked for and didn't get by how many screens asked, and calls out the ones where people keep reaching for something you already have. You decide what to build, what's already covered, and what to drop.
-
-Things built from the system don't stay in step with it on their own. `/throughline:drift` tells you what moved. It flags a composed screen that uses a variant someone since removed, and one whose components changed underneath it. It flags a generated token file someone edited by hand, which the next sync would quietly overwrite. With Figma open, it also tells you which variable collections changed since your last sync, so you know the sync is overdue before anyone ships the old values. And it holds each component to its doc record: the states and options a Figma component has that its docs don't, and code built before the record's variants, states or tokens last changed. The code half is a plain script, `drift:check`, installed with the documentation scripts, so you can run it in CI.
-
 Update anytime with `/plugin marketplace update throughline-marketplace`.
 
 #### Cursor, Codex, or a generic AGENTS.md agent
@@ -125,9 +155,9 @@ Update anytime with `/plugin marketplace update throughline-marketplace`.
 Run the installer in your project — it stamps in the skills, the reference docs, the scripts, and the Figma MCP config for your tool:
 
 ```
-npx @radicool/throughline@0.30.3 init --target=cursor    # → .cursor/rules + .cursor/mcp.json
-npx @radicool/throughline@0.30.3 init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
-npx @radicool/throughline@0.30.3 init --target=generic    # → skills/ + AGENTS.md index
+npx @radicool/throughline@0.30.4 init --target=cursor    # → .cursor/rules + .cursor/mcp.json
+npx @radicool/throughline@0.30.4 init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
+npx @radicool/throughline@0.30.4 init --target=generic    # → skills/ + AGENTS.md index
 ```
 
 It's safe to re-run (it merges `AGENTS.md` and `.cursor/mcp.json` non-destructively) and stages everything the skills read into `.throughline/`. Then open the `figma-environment-setup` skill/rule/prompt for your tool to begin. For Codex, add the printed `codex-mcp.toml` block to your Codex config to enable Figma access.
@@ -142,7 +172,7 @@ ThroughLine is more than a pile of skills — it's a small system designed to st
 
 **🧭 An orchestration layer — the memory.** A `design-system.json` manifest in your project records exactly what's set up, with a versioned schema and immutability rules. Every skill reads it, tells you what it's about to do, and offers to run anything missing first. Run **`/design-system-status`** anytime for a plain-language picture of where you stand.
 
-**🔌 An adapter layer — the bridge.** A Style Dictionary pipeline that translates your Figma variables into whatever code framework you target — and re-translates on every change, so design and code never drift.
+**🔌 An adapter layer — the bridge.** A Style Dictionary pipeline that translates your Figma variables into whatever code framework you target — and re-translates on every change. When something does slip, `/throughline:drift` says what and where.
 
 ### The skills
 
@@ -187,15 +217,6 @@ For the technically curious — how the machine actually runs.
 
 I'm a designer who got tired of the handoff. Design systems live in two places that never quite agree — the Figma file and the codebase — and keeping them in sync is a full-time job nobody wants. ThroughLine is the tool I wished existed: it lets a designer drive the whole pipeline, learn the engineering one concept at a time, and end up with a real, shippable system instead of a pile of redlines. If you're a designer who's becoming a developer, this was built for you.
 
-## Works well with
-
-**[Superpowers](https://github.com/obra/superpowers)** — a great planning and engineering partner for the moments that grow bigger than a single skill. ThroughLine owns the design-system line; Superpowers owns the heavier, open-ended engineering work — and the two hand off cleanly.
-
-- **Big, ambiguous changes mid-build.** When a step turns into a real project, ThroughLine lays out the risks and major pieces and switches into brainstorm-and-plan mode before building — handing off to Superpowers when it's installed, or planning natively when it isn't (the recognition is ThroughLine's; Superpowers is an upgrade, not a requirement). Real example: on [radicool.studio](https://radicool.studio), an existing vanilla-React app with a full custom motion layer — custom cursors, magnetic buttons — was retrofitted onto shadcn to make it formal and ready to scale.
-- **Building the app itself.** Once your system is synced to code and you're building in `apps/`, Superpowers' subagent-driven development methodology is a natural next step.
-
-It's never required to use ThroughLine.
-
 ## Show it off
 
 Built your own system with ThroughLine? Add the badge so others can find it:
@@ -223,7 +244,7 @@ Future improvements and planned capabilities. Have a request? **[Open an issue](
 - **Deeper Code Connect coverage** — richer Figma-to-code mappings as more plans support it.
 - **Expanded component starters** — a larger foundational kit out of the box.
 - **Reading component code** — `/throughline:drift` now checks Figma components against their doc records and knows when code was built against an older record. What it can't do yet is read the code itself, or compare the properties the record doesn't describe (text, toggles, icon swaps).
-- **Built-in accessibility checks** — the color half is shipped. Eight semantic text-on-surface pairs are checked against WCAG AA's 4.5:1 when tokens are created in Figma, and derived again from the token source when they sync to code — in every mode, so a system that clears in light and fails in dark fails. A failing pair stops the build rather than warning. Components are checked too: on web frameworks, a Figma build stops when a focus state has no visible ring, and in JSX code the adherence gate is built to fail an icon-only button with no accessible name and a status badge that relies on color alone — proven by unit tests. A Figma build also stops when a focus ring falls below WCAG's 3:1 against a surface the architect names for it, in any mode. The one real app it has run on had almost nothing for it to check, so it hasn't caught a bug in the wild yet.
+- **More accessibility checks** — contrast and focus rings are checked today (see [Checks](#checks)), and the code gate fails an icon-only button with no accessible name and a status badge that relies on color alone. Keyboard behaviour and wider ARIA patterns aren't checked yet, and the checks haven't caught a bug in the wild so far: the one real app they've run on gave them little to check.
 - **Token fan-out to more platforms** — the DTCG token source is platform-neutral, and web targets are in daily use. Every target is **validated per build, not assumed**: `tokens:validate-output` checks generated output against its source, native Swift and Kotlin as well as web CSS, because the stock transforms have been measured emitting wrong-but-compiling values. iOS/Swift is a curated adapter whose Style Dictionary configuration ships as tested code, and Android/Kotlin uses the same configuration through the Tier 2 protocol. JavaScript theme output (MUI, a Tailwind v3 config) isn't checked yet.
 - **Native component code generation** — producing a SwiftUI view or a Compose composable the way Storybook components are produced for React. This does not exist yet; it is a separate, larger effort than token fan-out, and the two were previously described as one roadmap item.
 

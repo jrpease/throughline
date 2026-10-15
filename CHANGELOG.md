@@ -6,6 +6,24 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.30.4] — 2026-10-15
+
+ThroughLine plans its own big changes now, and the README finally says everything
+it does.
+
+### Changed
+
+- **No more hand-off to Superpowers.** When a step grows into a real project, the
+  skills used to pass the planning to Superpowers if it was installed, and could
+  suggest installing it. They now always plan with ThroughLine's own protocol, and
+  recommend nothing.
+- **The plugin's home is [radicool.studio/throughline](https://radicool.studio/throughline).**
+  `plugin.json` and `package.json` point there, and so does the README.
+- **The README catches up.** A command table with all ten commands, new
+  Documentation and Checks sections for what was only in the changelog until now,
+  the screen and drift paragraphs moved out of the install steps, and the Works
+  well with section gone.
+
 ## [0.30.3] — 2026-10-15
 
 ### Fixed
