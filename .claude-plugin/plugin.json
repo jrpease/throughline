@@ -2,7 +2,7 @@
   "name": "throughline",
   "displayName": "ThroughLine",
   "description": "ThroughLine — build a complete design system end to end. Author tokens, styles, icons, and components in Figma, then stand up a monorepo, sync tokens to framework-specific code via Style Dictionary, and generate Storybook stories with Chromatic. One unbroken line from design to code. Built for designers becoming developers; explanation scales to your comfort level.",
-  "version": "0.30.2",
+  "version": "0.30.3",
   "author": {
     "name": "Jordan Pease"
   },
@@ -26,7 +26,8 @@
       "type": "string",
       "title": "Figma access token",
       "description": "Optional. A Figma personal access token (starts with figd_) for the few Figma calls the Desktop Bridge can't make, such as reading a published library. Leave it blank to work through the bridge only.",
-      "sensitive": true
+      "sensitive": true,
+      "default": ""
     }
   }
 }

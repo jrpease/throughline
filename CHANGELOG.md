@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.30.3] — 2026-10-15
+
+### Fixed
+
+- **The Figma server now starts in Cowork.** Cowork can't ask for plugin settings,
+  and it skips any server whose setting has no default, so the optional Figma token
+  kept `figma-console` from starting there at all. The token setting now defaults to
+  empty, which the server treats exactly like no token. In Claude Code, leaving it
+  blank now means no token, rather than whatever an unset value resolves to.
+
 ## [0.30.2] — 2026-10-15
 
 ### Fixed
