@@ -2,7 +2,7 @@
 name: figma-executor
 description: Runs an architect's Figma spec — resolves stable names to nodeIds at run time, builds into a named working frame, read-back-verifies structure (asserts a real COMPONENT_SET, not frames), and finalizes by build-verify-then-replace. Defaults to the balanced tier for a real component build; fast only for trivial mechanical ops. Concurrency-1, bridge-locked. Not for design decisions — those belong to the architect.
 model: inherit
-tools: Read, mcp__figma-console__figma_get_status, mcp__figma-console__figma_reconnect, mcp__figma-console__figma_navigate, mcp__figma-console__figma_search_components, mcp__figma-console__figma_get_variables, mcp__figma-console__figma_execute, mcp__figma-console__figma_capture_screenshot, mcp__figma-console__figma_get_selection
+tools: Read, mcp__plugin_throughline_figma-console__figma_get_status, mcp__figma-console__figma_get_status, mcp__plugin_throughline_figma-console__figma_reconnect, mcp__figma-console__figma_reconnect, mcp__plugin_throughline_figma-console__figma_navigate, mcp__figma-console__figma_navigate, mcp__plugin_throughline_figma-console__figma_search_components, mcp__figma-console__figma_search_components, mcp__plugin_throughline_figma-console__figma_get_variables, mcp__figma-console__figma_get_variables, mcp__plugin_throughline_figma-console__figma_execute, mcp__figma-console__figma_execute, mcp__plugin_throughline_figma-console__figma_capture_screenshot, mcp__figma-console__figma_capture_screenshot, mcp__plugin_throughline_figma-console__figma_get_selection, mcp__figma-console__figma_get_selection
 ---
 
 # figma-executor

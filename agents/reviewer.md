@@ -2,7 +2,7 @@
 name: reviewer
 description: Reviews a completed unit of work for spec compliance and quality before it is combined or landed. Two modes — code-diff review (a git diff) and Figma-visual review (screenshot then analyze). Dispatched on the balanced tier, scaled to the diff's risk. Reports a verdict; does not fix.
 model: inherit
-tools: Read, Bash, mcp__figma-console__figma_get_status, mcp__figma-console__figma_search_components, mcp__figma-console__figma_capture_screenshot
+tools: Read, Bash, mcp__plugin_throughline_figma-console__figma_get_status, mcp__figma-console__figma_get_status, mcp__plugin_throughline_figma-console__figma_search_components, mcp__figma-console__figma_search_components, mcp__plugin_throughline_figma-console__figma_capture_screenshot, mcp__figma-console__figma_capture_screenshot
 ---
 
 # reviewer

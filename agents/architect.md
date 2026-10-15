@@ -2,7 +2,7 @@
 name: architect
 description: Plans a build stage on the deep tier and emits a transcription-grade spec addressed in stable identifiers (component/page/token/style names, never nodeIds). Reads existing Figma state read-only to plan against it; it does not write. Dispatched concurrency-1 because it touches the single Figma bridge.
 model: inherit
-tools: Read, mcp__figma-console__figma_get_status, mcp__figma-console__figma_reconnect, mcp__figma-console__figma_get_variables, mcp__figma-console__figma_search_components, mcp__figma-console__figma_get_styles, mcp__figma-console__figma_capture_screenshot
+tools: Read, mcp__plugin_throughline_figma-console__figma_get_status, mcp__figma-console__figma_get_status, mcp__plugin_throughline_figma-console__figma_reconnect, mcp__figma-console__figma_reconnect, mcp__plugin_throughline_figma-console__figma_get_variables, mcp__figma-console__figma_get_variables, mcp__plugin_throughline_figma-console__figma_search_components, mcp__figma-console__figma_search_components, mcp__plugin_throughline_figma-console__figma_get_styles, mcp__figma-console__figma_get_styles, mcp__plugin_throughline_figma-console__figma_capture_screenshot, mcp__figma-console__figma_capture_screenshot
 ---
 
 # architect

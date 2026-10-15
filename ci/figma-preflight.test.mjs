@@ -37,7 +37,7 @@ export function inlineFigmaWriters(paths, read, alsoWrites = ALSO_WRITES) {
 }
 
 export function figmaAgents(paths, read) {
-  return paths.filter((path) => read(path).includes('mcp__figma-console__'));
+  return paths.filter((path) => read(path).includes('figma-console__'));
 }
 
 export function missingPreflight(paths, read) {
@@ -72,6 +72,20 @@ test('every skill and command that writes to Figma inline names the active-file 
 test('figmaAgents picks agents that list a Figma tool', () => {
   const files = { 'a.md': 'tools: Read, mcp__figma-console__figma_get_status', 'b.md': 'tools: Read' };
   assert.deepEqual(figmaAgents(Object.keys(files), (path) => files[path]), ['a.md']);
+});
+
+// Installed as a plugin, the bundled server's tools are named
+// mcp__plugin_throughline_figma-console__<tool>; a figma-console server the user
+// added themselves keeps mcp__figma-console__<tool>. An agent lists both so it gets
+// its Figma tools either way.
+test('every Figma tool an agent lists is listed under both names', () => {
+  for (const path of figmaAgents(agentFiles(), read)) {
+    const tools = read(path).split('\n').find((l) => l.startsWith('tools:')).slice('tools:'.length).split(',').map((t) => t.trim());
+    const bare = tools.filter((t) => t.startsWith('mcp__figma-console__')).map((t) => t.slice('mcp__figma-console__'.length));
+    const scoped = tools.filter((t) => t.startsWith('mcp__plugin_throughline_figma-console__')).map((t) => t.slice('mcp__plugin_throughline_figma-console__'.length));
+    assert.ok(bare.length > 0, `${path} lists no Figma tools`);
+    assert.deepEqual([...scoped].sort(), [...bare].sort(), `${path}: list each Figma tool under both names`);
+  }
 });
 
 test('every agent that calls Figma names the active-file preflight', () => {

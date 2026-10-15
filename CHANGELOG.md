@@ -6,6 +6,22 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.30.1] — 2026-10-15
+
+Two fixes from the plugin directory's review, one of them a real bug.
+
+### Fixed
+
+- **The Figma agents now get their Figma tools when ThroughLine is installed as a
+  plugin.** Claude Code names a bundled server's tools
+  `mcp__plugin_throughline_figma-console__…`, and the architect, figma-executor and
+  reviewer agents only listed the plain `mcp__figma-console__…` names. On a machine
+  with just the plugin, they started with no Figma tools at all. Each now lists
+  both, and a test keeps the two lists in step.
+- **The README and icon images no longer carry metadata.** A text chunk in the icon
+  and case-study image, and a 29 KB provenance block in the hero image, read to the
+  directory's scanner like code an image might run. The pixels are unchanged.
+
 ## [0.30.0] — 2026-10-15
 
 A designer adds an `Active` state to Button. The docs never hear about it, and the
