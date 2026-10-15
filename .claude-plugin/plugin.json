@@ -1,8 +1,8 @@
 {
   "name": "throughline",
   "displayName": "ThroughLine",
-  "description": "ThroughLine — build a complete design system end to end. Author tokens, styles, icons, and components in Figma, then stand up a monorepo, sync tokens to framework-specific code via Style Dictionary, and generate Storybook stories with Chromatic. One unbroken line from design to code. Built for designers becoming developers; explanation scales to your comfort level.",
-  "version": "0.30.4",
+  "description": "Your agentic design team. Build a design system in Figma, sync it to code, and keep the two honest: tokens, components, docs and screens from one source, with checks that stop the build when something slips. Start fresh or retrofit what you have.",
+  "version": "0.30.5",
   "author": {
     "name": "Jordan Pease"
   },

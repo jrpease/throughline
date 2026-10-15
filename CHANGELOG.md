@@ -6,6 +6,15 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.30.5] — 2026-10-15
+
+### Changed
+
+- **A new description, in the directory and in Claude Code.** The listing reads
+  `plugin.json`'s description, which still pitched the 0.1 plugin: Figma to
+  Storybook and nothing after. It now says what ThroughLine is today, and so do
+  the marketplace's two descriptions.
+
 ## [0.30.4] — 2026-10-15
 
 ThroughLine plans its own big changes now, and the README finally says everything

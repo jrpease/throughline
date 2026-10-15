@@ -1,12 +1,12 @@
 {
   "name": "throughline-marketplace",
   "owner": { "name": "Jordan Pease" },
-  "description": "ThroughLine, the design-system plugin: Figma to tokens to Storybook, in one unbroken line.",
+  "description": "ThroughLine, your agentic design team: a design system in Figma, synced to code, and kept honest.",
   "plugins": [
     {
       "name": "throughline",
       "source": "./",
-      "description": "Build a complete design system from Figma to synced, story-tested code — one unbroken line from design to code."
+      "description": "Your agentic design team. Build a design system in Figma, sync it to code, and keep the two honest: tokens, components, docs and screens from one source, with checks that stop the build when something slips. Start fresh or retrofit what you have."
     }
   ]
 }
