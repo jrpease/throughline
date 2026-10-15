@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.30.0] — 2026-10-15
+
 A designer adds an `Active` state to Button. The docs never hear about it, and the
 code Button never gets it. Drift now catches that too.
 
