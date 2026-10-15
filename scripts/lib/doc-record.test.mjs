@@ -5,6 +5,7 @@ import {
   fingerprint,
   canonicalFingerprint,
   contractFingerprint,
+  shapeFingerprint,
   validateRecord,
 } from './doc-record.mjs';
 
@@ -49,4 +50,25 @@ test('contractFingerprint ignores prose and dates, and moves with a variant', ()
   const base = contractFingerprint(rec);
   assert.equal(contractFingerprint({ ...rec, summary: 'Press it now.', updatedAt: '2026-10-14', status: 'stable' }), base);
   assert.notEqual(contractFingerprint({ ...rec, variants: { size: { sm: 'x', lg: 'y' } } }), base);
+});
+
+test('shapeFingerprint ignores meanings and token order, and moves with an option, a state or a token', () => {
+  const rec = {
+    name: 'Button', summary: 'Press it.',
+    variants: { size: { sm: 'Small.', md: 'Medium.' } },
+    states: { default: 'At rest.', hover: 'Pointer over.' },
+    tokensUsed: ['color.bg.primary', 'radius.md'],
+  };
+  const base = shapeFingerprint(rec);
+  assert.equal(shapeFingerprint({ ...rec, summary: 'Press it now.', variants: { size: { md: 'Mid.', sm: 'Tiny.' } } }), base, 'option meanings');
+  assert.equal(shapeFingerprint({ ...rec, states: { hover: 'Over it.', default: 'Idle.' } }), base, 'state meanings');
+  assert.equal(shapeFingerprint({ ...rec, tokensUsed: ['radius.md', 'color.bg.primary'] }), base, 'token order');
+  assert.notEqual(shapeFingerprint({ ...rec, variants: { size: { sm: 'x', md: 'y', lg: 'z' } } }), base, 'an option');
+  assert.notEqual(shapeFingerprint({ ...rec, states: { ...rec.states, active: 'Pressed.' } }), base, 'a state');
+  assert.notEqual(shapeFingerprint({ ...rec, tokensUsed: [...rec.tokensUsed, 'spacing.sm'] }), base, 'a token');
+  assert.notEqual(contractFingerprint({ ...rec, tokensUsed: ['radius.md', 'color.bg.primary'] }), contractFingerprint(rec), 'the contract, unlike the shape, moves on order');
+  const bare = { name: 'Button' };
+  for (const malformed of [{ variants: null }, { states: null }, { tokensUsed: 5 }, { variants: 'x' }]) {
+    assert.equal(shapeFingerprint({ ...bare, ...malformed }), shapeFingerprint(bare), `${JSON.stringify(malformed)} hashes as absent`);
+  }
 });

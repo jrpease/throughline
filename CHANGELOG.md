@@ -6,6 +6,27 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+A designer adds an `Active` state to Button. The docs never hear about it, and the
+code Button never gets it. Drift now catches that too.
+
+### Added
+
+- **Components in `/throughline:drift` (#46).** Each component is held against its
+  doc record, the one thing Figma and code are both meant to follow:
+  - **Figma.** With the bridge open, it names the variant options and states a
+    Figma component has that its record doesn't, and the other way round, and the
+    fix: fold them in with `/throughline:document-component`, or put Figma back.
+    An axis with the same options under two names (`side` in the docs, `Placement`
+    in Figma) is called out as a rename, so nobody ends up with both.
+  - **Code.** The code builder now stamps each component's code with the shape of
+    the record it was built from: its variants, states and tokens, not the wording.
+    When the record moves past that, the code is **behind**. This runs in
+    `drift:check`, so it works in CI without Figma.
+  - **What it doesn't do.** It doesn't read your code. "Behind" means the code
+    wasn't rebuilt since the record changed, not that it's wrong, and nothing new
+    fails a build. Code built before this release has no stamp until the next
+    build, or until you say it matches with `drift-check.mjs stamp-code`.
+
 ## [0.29.0] — 2026-10-14
 
 Composing a screen used to be the end of the story. Then the system kept moving,

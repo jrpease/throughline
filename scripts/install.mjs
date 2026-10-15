@@ -122,6 +122,7 @@ const PLUGIN_INTERNAL = new Set([
   'lib/figma-compose-read.figma.js',
   'lib/figma-drift-variables.figma.js',
   'lib/figma-drift-screens.figma.js',
+  'lib/figma-drift-components.figma.js',
 ]);
 
 export const skipScript = (relPosix) =>

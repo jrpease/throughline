@@ -8,7 +8,9 @@ import { fileURLToPath } from 'node:url';
 import {
   contractOf, checkScreens, checkTokens, hashRoots, hashText, compareCollections,
   formatFigmaComparison, formatReport, STAMP_FILE,
+  documented, compareComponents, checkCode, formatComponentComparison, CODE_STAMP_FILE,
 } from './drift-check.mjs';
+import { shapeFingerprint } from './lib/doc-record.mjs';
 import { recordScreen, describedComponents, plannedComponents, forgetScreen, screenKey } from './screens.mjs';
 import { codeInventory } from './compose-code.mjs';
 
@@ -217,4 +219,128 @@ test('cli: stamp-figma keeps the file stamp, compare-figma reads it, usage is 2'
   assert.equal(cli('stamp-figma', '--system', dir, '--from', join(dir, 'bad.json')).status, 2);
   assert.equal(cli('check').status, 2);
   assert.equal(cli('stamp', '--system', dir).status, 2);
+});
+
+// Button with a state axis's worth of states, Tooltip whose states Figma doesn't draw.
+function componentSystem() {
+  const dir = system();
+  const manifest = manifestOf(dir);
+  manifest.components.built.push('Tooltip');
+  manifest.components.meta.Tooltip = { doc: { path: 'design-system/docs/components/Tooltip.doc.json' } };
+  write(dir, 'design-system.json', manifest);
+  write(dir, 'design-system/docs/components/Button.doc.json', { ...BUTTON, states: { default: 'At rest.', hover: 'Over.' } });
+  write(dir, 'design-system/docs/components/Tooltip.doc.json', { name: 'Tooltip', summary: 'Hints.', description: 'A tip.', variants: { side: { top: 'Above.' } }, states: { hidden: 'Off.', visible: 'On.' } });
+  return dir;
+}
+
+test('documented: built components split by doc record, folded lookup', () => {
+  const dir = componentSystem();
+  assert.deepEqual(documented(dir, manifestOf(dir)), { documented: ['Button', 'Card', 'Tooltip'], undocumented: ['Badge'] });
+});
+
+test('compare components: state axis against states, folded names, both sides, gone, order ignored', () => {
+  const dir = componentSystem();
+  const live = { page: 'Components', components: {
+    Button: { axes: { Size: ['lg', 'sm', 'xl'], State: ['Default', 'Hover', 'Active'] } },
+    Card: { axes: {} },
+    Tooltip: { axes: { Placement: ['Top', 'Bottom'] } },
+  } };
+  assert.deepEqual(compareComponents(dir, manifestOf(dir), live), [
+    { name: 'Button', figmaOnly: { Size: ['xl'], State: ['Active'] }, recordOnly: {}, renamed: [] },
+    { name: 'Tooltip', figmaOnly: { Placement: ['Top', 'Bottom'] }, recordOnly: { side: ['top'] }, renamed: [] },
+  ], 'Tooltip\'s states are not compared: Figma has no state axis');
+  const renamed = { components: { ...live.components, Tooltip: { axes: { Placement: ['Top'] } } } };
+  assert.deepEqual(compareComponents(dir, manifestOf(dir), renamed).find((d) => d.name === 'Tooltip'),
+    { name: 'Tooltip', figmaOnly: {}, recordOnly: {}, renamed: [{ record: 'side', figma: 'Placement' }] }, 'same options, other name: a rename');
+  assert.match(formatComponentComparison(compareComponents(dir, manifestOf(dir), renamed), 3).join('\n'), /renamed\? +the record's side is Figma's Placement \(same options\): rename one to match, don't add both/);
+  const gone = compareComponents(dir, manifestOf(dir), { components: { ...live.components, Card: null } });
+  assert.deepEqual(gone.find((d) => d.name === 'Card'), { name: 'Card', gone: true });
+  const clean = { components: { Button: { axes: { size: ['sm', 'lg'], state: ['hover', 'default'] } }, Card: { axes: {} }, Tooltip: { axes: { side: ['Top'] } } } };
+  assert.deepEqual(compareComponents(dir, manifestOf(dir), clean), []);
+  // A record that keeps a state variant axis beside states: one comparison, not two.
+  write(dir, 'design-system/docs/components/Card.doc.json', { ...CARD, variants: { state: { default: 'x' } }, states: { hover: 'y' } });
+  assert.deepEqual(compareComponents(dir, manifestOf(dir), { components: { ...clean.components, Card: { axes: { State: ['Default', 'Hover'] } } } }), []);
+  // A malformed record compares as empty rather than throwing.
+  write(dir, 'design-system/docs/components/Card.doc.json', { ...CARD, variants: null, states: null });
+  assert.deepEqual(compareComponents(dir, manifestOf(dir), clean), []);
+  const text = formatComponentComparison(compareComponents(dir, manifestOf(dir), live), 3).join('\n');
+  assert.match(text, /2 of 3 Figma components differ/);
+  assert.match(text, /in Figma, not the record   State: Active/);
+  assert.match(text, /in Figma, not the record   Placement: Top, Bottom/);
+  assert.match(text, /run \/throughline:document-component Tooltip to bring the record in line/);
+  assert.deepEqual(formatComponentComparison([], 3), ['Figma components match their doc records (3 checked).']);
+});
+
+test('check code: behind on a new option, not on a reworded meaning; stray stamps ignored', () => {
+  const dir = componentSystem();
+  const manifest = manifestOf(dir);
+  assert.equal(checkCode(dir, manifest, null), null);
+  const shape = (name) => shapeFingerprint(JSON.parse(readFileSync(join(dir, `design-system/docs/components/${name}.doc.json`), 'utf8')));
+  const stamp = { components: { Button: { shape: shape('Button'), at: '2026-10-15' }, Gone: { shape: 'x', at: '2026-10-15' } } };
+  assert.deepEqual(checkCode(dir, manifest, stamp), { behind: [], notStamped: ['Card', 'Tooltip'] });
+  const button = JSON.parse(readFileSync(join(dir, 'design-system/docs/components/Button.doc.json'), 'utf8'));
+  write(dir, 'design-system/docs/components/Button.doc.json', { ...button, variants: { size: { sm: 'Tiny.', lg: 'Huge.' } } });
+  assert.deepEqual(checkCode(dir, manifest, stamp).behind, [], 'a reworded meaning');
+  write(dir, 'design-system/docs/components/Button.doc.json', { ...button, variants: { size: { ...button.variants.size, xl: 'x' } } });
+  assert.deepEqual(checkCode(dir, manifest, stamp).behind, ['Button']);
+  const report = formatReport([], null, checkCode(dir, manifest, stamp), documented(dir, manifest)).join('\n');
+  assert.match(report, /behind +Button: code built against an older shape/);
+  assert.match(report, /code not stamped: Card, Tooltip/);
+  assert.match(report, /no doc record: Badge/);
+  const tokens = { roots: ['dtcg'], edited: [], missing: [], unstamped: [] };
+  assert.match(formatReport([], tokens, null, documented(dir, manifest)).join('\n'), /No code stamp yet/);
+});
+
+test('cli: stamp-code writes nothing on a refusal, merges, and counts as checked', () => {
+  const dir = componentSystem();
+  assert.equal(cli('stamp-code', '--system', dir).status, 2, 'no --component');
+  assert.equal(cli('stamp-code', '--system', dir, '--component', 'Button', '--component', 'Nope').status, 2);
+  const noRecord = cli('stamp-code', '--system', dir, '--component', 'button', '--component', 'Badge');
+  assert.equal(noRecord.status, 3);
+  assert.match(noRecord.stderr, /no doc record yet: Badge/);
+  assert.throws(() => readFileSync(join(dir, CODE_STAMP_FILE)), 'a refusal writes nothing');
+  assert.equal(cli('stamp-code', '--system', dir, '--component', 'button').status, 0);
+  assert.equal(cli('stamp-code', '--system', dir, '--component', 'Card').status, 0);
+  const written = JSON.parse(readFileSync(join(dir, CODE_STAMP_FILE), 'utf8')).components;
+  assert.deepEqual(Object.keys(written), ['Button', 'Card'], 'merged, built spelling');
+  assert.match(written.Card.at, /^\d{4}-\d{2}-\d{2}$/);
+  const summary = cli('check', '--system', dir).stdout;
+  assert.match(summary, /Components: 0 behind, 1 not stamped\./);
+  assert.match(summary, /Code matches the doc records it was built from \(2 stamped\)/);
+  write(dir, CODE_STAMP_FILE, { components: { Gone: { shape: 'x', at: '2026-10-15' } } });
+  assert.doesNotMatch(cli('check', '--system', dir).stdout, /Code matches/, 'nothing compared, so no match claimed');
+  write(dir, 'design-system/docs/components/Card.doc.json', { ...CARD, variants: null, tokensUsed: 5 });
+  assert.equal(cli('stamp-code', '--system', dir, '--component', 'Card').status, 0, 'a malformed record stamps rather than crashing');
+  assert.equal(cli('check', '--system', dir).status, 0);
+
+  const bare = mkdtempSync(join(tmpdir(), 'drift-'));
+  write(bare, 'design-system.json', { components: { built: ['Card'], meta: { Card: { doc: { path: 'design-system/docs/components/Card.doc.json' } } } } });
+  write(bare, 'design-system/docs/components/Card.doc.json', CARD);
+  assert.equal(cli('check', '--system', bare).status, 1, 'nothing checked');
+  cli('stamp-code', '--system', bare, '--component', 'Card');
+  const checked = cli('check', '--system', bare, '--json');
+  assert.equal(checked.status, 0, 'a code stamp counts as checked');
+  const json = JSON.parse(checked.stdout);
+  assert.equal(json.empty, false);
+  assert.deepEqual(json.components, { documented: ['Card'], undocumented: [] });
+  assert.deepEqual(json.code, { behind: [], notStamped: [] });
+});
+
+test('cli: compare-components exits 1 on a difference, 0 when matching, 2 on bad input', () => {
+  const dir = componentSystem();
+  const live = (button) => write(dir, 'live.json', { page: 'Components', components: { Button: { axes: button }, Card: { axes: {} }, Tooltip: { axes: { side: ['top'] } } } });
+  live({ size: ['sm', 'lg'], state: ['Default', 'Hover'] });
+  const same = cli('compare-components', '--system', dir, '--from', join(dir, 'live.json'));
+  assert.equal(same.status, 0, same.stdout + same.stderr);
+  assert.match(same.stdout, /match their doc records \(3 checked\)/);
+  live({ size: ['sm'], state: ['Default', 'Hover'] });
+  const moved = cli('compare-components', '--system', dir, '--from', join(dir, 'live.json'), '--json');
+  assert.equal(moved.status, 1);
+  assert.deepEqual(JSON.parse(moved.stdout).components, [{ name: 'Button', figmaOnly: {}, recordOnly: { size: ['lg'] }, renamed: [] }]);
+  write(dir, 'bad.json', { Button: {} });
+  assert.equal(cli('compare-components', '--system', dir, '--from', join(dir, 'bad.json')).status, 2);
+  write(dir, 'array.json', { components: [] });
+  assert.equal(cli('compare-components', '--system', dir, '--from', join(dir, 'array.json')).status, 2, 'an array is bad input, not every component gone');
+  write(dir, CODE_STAMP_FILE, '{ not json');
+  assert.equal(cli('compare-components', '--system', dir, '--from', join(dir, 'live.json')).status, 1, 'a corrupt code stamp is not this mode\'s business');
 });

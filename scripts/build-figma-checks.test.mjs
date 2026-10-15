@@ -33,6 +33,7 @@ const driftSources = () => ({
   composeReaderSource: read('figma-compose-read.figma.js'),
   driftVariablesSource: read('figma-drift-variables.figma.js'),
   driftScreensSource: read('figma-drift-screens.figma.js'),
+  driftComponentsSource: read('figma-drift-components.figma.js'),
 });
 const snippetOf = (md) => md.slice(md.lastIndexOf('```js') + '```js'.length, md.lastIndexOf('```'));
 
@@ -488,7 +489,7 @@ const driftSnippet = (md, which) => {
   return md.slice(from, md.indexOf('```', from));
 };
 
-test('drift build: two read-only snippets, the variables one small, every shared helper declared once', () => {
+test('drift build: read-only snippets, the variables one small, every shared helper declared once', () => {
   const md = buildFigmaDrift(driftSources());
   const variables = driftSnippet(md, 'variables');
   const screens = driftSnippet(md, 'screens');
@@ -509,7 +510,8 @@ test('drift build: two read-only snippets, the variables one small, every shared
 
 async function runDriftSnippet(figma, which, spec) {
   const code = driftSnippet(buildFigmaDrift(driftSources()), which);
-  const call = which === 'variables' ? 'runDriftVariables()' : `runDriftScreens(${JSON.stringify(spec)})`;
+  const call = which === 'variables' ? 'runDriftVariables()'
+    : which === 'components' ? `runDriftComponents(${JSON.stringify(spec)})` : `runDriftScreens(${JSON.stringify(spec)})`;
   const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
   return new AsyncFunction('figma', `${code}\nreturn await ${call};`)(figma);
 }
@@ -541,4 +543,55 @@ test('drift variables: one fingerprint per collection, stable, moved by a value 
   vars.reverse();
   vars.find((v) => v.id === 'v3').valuesByMode['M:2'] = 16;
   assert.deepEqual(await runDriftSnippet(figma, 'variables'), first, 'order of variables does not matter');
+});
+
+test('drift components: a bare, small snippet with no inlined modules', () => {
+  const components = driftSnippet(buildFigmaDrift(driftSources()), 'components');
+  assert.match(components, /async function runDriftComponents\(/);
+  for (const name of ['resolveScreen', 'dimensionBuckets', 'composeReadInventory']) assert.ok(!components.includes(name), `${name} must not be in the components snippet`);
+  assert.ok(!/^\s*(import|export)\b/m.test(components), 'no import/export lines');
+  assert.ok(components.length < 4096, `an agent carries this by hand; keep it small (${components.length})`);
+});
+
+// Pages of component sets, each set { name, axes } or { name, conflict: [variantProperties…] }.
+function fakeComponentsFigma(pages) {
+  const set = (s) => ({
+    name: s.name,
+    get variantGroupProperties() {
+      if (s.conflict) throw new Error('conflicting');
+      return Object.fromEntries(Object.entries(s.axes).map(([k, values]) => [k, { values }]));
+    },
+    children: (s.conflict || []).map((variantProperties) => ({ variantProperties })),
+  });
+  return {
+    root: {
+      children: Object.entries(pages).map(([name, sets]) => {
+        const page = { name, loaded: false, async loadAsync() { page.loaded = true; }, findAllWithCriteria: () => sets.map(set) };
+        return page;
+      }),
+    },
+  };
+}
+
+test('drift components: axes per asked name, folded match, null when missing, only the one page loaded', async () => {
+  const figma = fakeComponentsFigma({
+    Cover: [],
+    '    ↳ Components': [
+      { name: 'Button', axes: { size: ['sm', 'md'], state: ['Default', 'Hover'] } },
+      { name: 'Select Menu', conflict: [{ Size: 'sm' }, { Size: 'md' }, { Size: 'sm' }] },
+    ],
+  });
+  const out = await runDriftSnippet(figma, 'components', { names: ['Button', 'SelectMenu', 'Card'] });
+  assert.deepEqual(out, {
+    page: '    ↳ Components',
+    components: { Button: { axes: { size: ['sm', 'md'], state: ['Default', 'Hover'] } }, SelectMenu: { axes: { Size: ['sm', 'md'] } }, Card: null },
+  });
+  assert.equal(figma.root.children[0].loaded, false, 'only the components page is loaded');
+});
+
+test('drift components: the page by name, and a clear error when the page is ambiguous or absent', async () => {
+  const figma = fakeComponentsFigma({ Components: [], 'Components ': [], Library: [{ name: 'Button', axes: { size: ['sm'] } }] });
+  assert.deepEqual((await runDriftSnippet(figma, 'components', { names: ['Button'], componentsPage: 'Library' })).components, { Button: { axes: { size: ['sm'] } } });
+  await assert.rejects(runDriftSnippet(figma, 'components', { names: ['Button'] }), /2 pages named like "Components"; pass componentsPage\. Pages: Components, Components , Library/);
+  await assert.rejects(runDriftSnippet(figma, 'components', { names: ['Button'], componentsPage: 'Nope' }), /no page is named "Nope"/);
 });

@@ -48,8 +48,9 @@ own structure. Zero dependencies; stdlib only.
    `figma-adherence-read.figma.js`), and `references/figma-compose.md` matches
    its resolver, reader and writer (`figma-adherence.mjs`, `figma-compose.mjs`,
    `figma-variables-read.figma.js`, `figma-compose-read.figma.js`,
-   `figma-compose.figma.js`), and `references/figma-drift.md` matches its two
-   readers (`figma-drift-variables.figma.js`, `figma-drift-screens.figma.js`)
+   `figma-compose.figma.js`), and `references/figma-drift.md` matches its three
+   readers (`figma-drift-variables.figma.js`, `figma-drift-screens.figma.js`,
+   `figma-drift-components.figma.js`)
    and what they inline, so all four Figma references
    run the code that is tested in Node.
 

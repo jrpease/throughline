@@ -93,6 +93,13 @@ component-builder:
 
 Match the deterministic naming so `Button` (Figma) ↔ `Button` (code).
 
+**Stamp each component's code** once it's built, so `/throughline:drift` can tell
+later when the doc record moves past it:
+`node .throughline/scripts/drift-check.mjs stamp-code --system <the directory holding design-system.json> --component <Name>`.
+Exit 3 means the component has no doc record yet (code built ahead of its docs, as
+in a brownfield retrofit): say so and carry on. Exit 2 is an error: stop and report
+it. `design-system/code-stamp.json` is committed with the code.
+
 ## Step 3 — Generate stories (subagent-driven, parallel)
 
 Story generation is independent and verifiable per component, so it

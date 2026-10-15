@@ -51,6 +51,22 @@ export function contractFingerprint(record) {
   return projectedFingerprint(record, CONTRACT_KEYS);
 }
 
+// The part of a record code implements: the variant axes and options, the state
+// names and the set of tokens, without their meanings or order. Code goes behind
+// when this moves (docs/specs/2026-10-15-component-drift.md), not when a meaning is
+// reworded or tokensUsed re-sorted.
+// A block that isn't the expected shape (null, a string) hashes as absent rather
+// than throwing: drift:check must not crash on a malformed record.
+export function shapeFingerprint(record) {
+  const isObject = (o) => o !== null && typeof o === 'object' && !Array.isArray(o);
+  const keys = (o) => (isObject(o) ? Object.keys(o).sort() : []);
+  const shape = { name: record.name };
+  if (isObject(record.variants)) shape.variants = Object.fromEntries(keys(record.variants).map((axis) => [axis, keys(record.variants[axis])]));
+  if (isObject(record.states)) shape.states = keys(record.states);
+  if (Array.isArray(record.tokensUsed)) shape.tokensUsed = [...new Set(record.tokensUsed.map(String))].sort();
+  return fingerprint(stableStringify(shape));
+}
+
 export function validateRecord(record) {
   const problems = [];
   for (const k of REQUIRED_KEYS) {

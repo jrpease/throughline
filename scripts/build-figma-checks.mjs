@@ -12,11 +12,12 @@
 //     dimensionBuckets), the pure resolver (lib/figma-compose.mjs),
 //     lib/figma-variables-read.figma.js, the reader (lib/figma-compose-read.figma.js),
 //     then the writer (lib/figma-compose.figma.js).
-//   references/figma-drift.md — the live drift pass, two snippets, no writer: the
+//   references/figma-drift.md — the live drift pass, three snippets, no writer: the
 //     variables snippet (lib/figma-variables-read.figma.js, then
 //     lib/figma-drift-variables.figma.js), small because every token sync runs it;
-//     and the screens snippet (lib/figma-adherence.mjs, lib/figma-compose.mjs,
-//     lib/figma-compose-read.figma.js, then lib/figma-drift-screens.figma.js).
+//     the screens snippet (lib/figma-adherence.mjs, lib/figma-compose.mjs,
+//     lib/figma-compose-read.figma.js, then lib/figma-drift-screens.figma.js); and
+//     the components snippet (lib/figma-drift-components.figma.js alone).
 // Mirrors build-doc-card-builder.mjs: run bare to write all four, run with --check
 // to gate CI on all four. Zero dependencies.
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -36,6 +37,7 @@ const COMPOSE_READER = join(REPO_ROOT, 'scripts', 'lib', 'figma-compose-read.fig
 const COMPOSE_WRITER = join(REPO_ROOT, 'scripts', 'lib', 'figma-compose.figma.js');
 const DRIFT_VARIABLES = join(REPO_ROOT, 'scripts', 'lib', 'figma-drift-variables.figma.js');
 const DRIFT_SCREENS = join(REPO_ROOT, 'scripts', 'lib', 'figma-drift-screens.figma.js');
+const DRIFT_COMPONENTS = join(REPO_ROOT, 'scripts', 'lib', 'figma-drift-components.figma.js');
 const OUT = join(REPO_ROOT, 'references', 'figma-checks.md');
 const ADHERENCE_OUT = join(REPO_ROOT, 'references', 'figma-adherence.md');
 const COMPOSE_OUT = join(REPO_ROOT, 'references', 'figma-compose.md');
@@ -234,7 +236,8 @@ const DRIFT_HEADER = [
   '> `scripts/lib/figma-variables-read.figma.js` + `scripts/lib/figma-drift-variables.figma.js`;',
   '> the screens snippet is `scripts/lib/figma-adherence.mjs` (for `dimensionBuckets`),',
   '> `scripts/lib/figma-compose.mjs` (the pure resolver),',
-  '> `scripts/lib/figma-compose-read.figma.js` + `scripts/lib/figma-drift-screens.figma.js`.',
+  '> `scripts/lib/figma-compose-read.figma.js` + `scripts/lib/figma-drift-screens.figma.js`;',
+  '> the components snippet is `scripts/lib/figma-drift-components.figma.js` alone.',
   '> Regenerate with `node scripts/build-figma-checks.mjs`; CI gates freshness with `--check`.',
   '',
   'The canonical `figma_execute` snippets for the live half of `/throughline:drift`',
@@ -246,7 +249,7 @@ const DRIFT_HEADER = [
   '## How to call it',
   '',
   'Paste a snippet into `figma_execute` with `timeout: 30000`, followed by its',
-  'return line. Each is self-contained; never paste both.',
+  'return line. Each is self-contained; never paste two together.',
   '',
   '- **Variables** (the short one): end it with `return await runDriftVariables();`.',
   '  Returns one line per local variable collection, `{ "<collection>": { variables, hash } }`:',
@@ -262,6 +265,14 @@ const DRIFT_HEADER = [
   '  `released` (the frame is no longer marked as composed). Pages are found by exact',
   '  name, or else the one page whose trimmed name matches; only the pages named in',
   '  the entries are loaded.',
+  '- **Components**: declare `const SPEC = { names };` above it (add `componentsPage`',
+  '  when you know it) and end it with `return await runDriftComponents(SPEC);`.',
+  '  `names` is `components.documented` from `drift-check.mjs check --json`. Returns',
+  '  `{ page, components: { <name>: { axes: { <axis>: [options] } } | null } }`, `null`',
+  '  when no component set on the page has that name. Without `componentsPage` it reads',
+  '  the one page named like "Components" and throws naming the pages when there is',
+  '  none or several. Write the result to a file and pass it to',
+  '  `drift-check.mjs compare-components --from <file>`.',
   '',
 ].join('\n');
 
@@ -299,10 +310,10 @@ export function buildFigmaCompose({ adherenceSource, composeSource, variablesSou
   return `${COMPOSE_HEADER}\n${adherence}\n${compose}\n${variablesSource}\n${composeReaderSource}\n${writerSource}${FOOTER}`;
 }
 
-export function buildFigmaDrift({ adherenceSource, composeSource, variablesSource, composeReaderSource, driftVariablesSource, driftScreensSource }) {
+export function buildFigmaDrift({ adherenceSource, composeSource, variablesSource, composeReaderSource, driftVariablesSource, driftScreensSource, driftComponentsSource }) {
   const adherence = stripExports(adherenceSource);
   const compose = stripExports(composeSource);
-  assertInlinable([['figma-adherence.mjs', adherence], ['figma-compose.mjs', compose], ['figma-variables-read.figma.js', variablesSource], ['figma-compose-read.figma.js', composeReaderSource], ['figma-drift-variables.figma.js', driftVariablesSource], ['figma-drift-screens.figma.js', driftScreensSource]]);
+  assertInlinable([['figma-adherence.mjs', adherence], ['figma-compose.mjs', compose], ['figma-variables-read.figma.js', variablesSource], ['figma-compose-read.figma.js', composeReaderSource], ['figma-drift-variables.figma.js', driftVariablesSource], ['figma-drift-screens.figma.js', driftScreensSource], ['figma-drift-components.figma.js', driftComponentsSource]]);
   return [
     DRIFT_HEADER,
     '## The variables snippet',
@@ -311,6 +322,9 @@ export function buildFigmaDrift({ adherenceSource, composeSource, variablesSourc
     '## The screens snippet',
     '',
     `\`\`\`js\n${adherence}\n${compose}\n${composeReaderSource}\n${driftScreensSource}${FOOTER}`,
+    '## The components snippet',
+    '',
+    `\`\`\`js\n${driftComponentsSource}${FOOTER}`,
   ].join('\n');
 }
 
@@ -341,6 +355,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     composeReaderSource: readFileSync(COMPOSE_READER, 'utf8'),
     driftVariablesSource: readFileSync(DRIFT_VARIABLES, 'utf8'),
     driftScreensSource: readFileSync(DRIFT_SCREENS, 'utf8'),
+    driftComponentsSource: readFileSync(DRIFT_COMPONENTS, 'utf8'),
   });
   const outputs = [
     [OUT, result, 'references/figma-checks.md', 'figma checks'],
