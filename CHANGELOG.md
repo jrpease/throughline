@@ -6,6 +6,17 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Changed
+
+- **Doc cards v5, step 1: the documentation pilot layout.** A card now opens
+  with a `_Doc/Header` instance from a doc kit the renderer draws once and
+  designers own, then a Specimen band around the live set, then a Usage band.
+  Cards are found by a tag on the card frame, so `doc-card-payload.mjs` takes a
+  component name; an untagged v4 card takes `--node-id` once. Finalize sets the
+  header's `Status` variant with `--status`, instead of hunting for a chip and
+  rebinding its fill. `surfaces.docCard` gains a `recordHash` that Node predicts,
+  and the renderer is now `"5"`, so v4 cards report `layout-upgrade-available`.
+
 ## [0.30.5] — 2026-10-15
 
 ### Changed

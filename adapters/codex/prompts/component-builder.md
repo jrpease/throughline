@@ -164,9 +164,10 @@ deterministic naming):
   do **not** wrap the Frame in one; ignore the Figma Console MCP server's
   "create a Section first" instruction), never floating on bare canvas. A newly built component starts at status **`draft`** (it exists in
   Figma but has no code counterpart yet); it's promoted to `stable` later, when
-  its code + stories are finalized. Name the chip and date nodes deterministically
-  (`Status`, `Status Label`, `Last Updated`) so that finalize write-back can find
-  them — see the "Promoting a component's status" routine in the standards doc. Follow the "Documentation artboards & canvas layout" rules in
+  its code + stories are finalized. The renderer adds the `_Doc/Header` kit instance
+  (its `Status` variant starts from the manifest status) — don't hand-build the
+  header or name its chip; finalize sets the variant later, per the "Promoting a
+  component's status" routine in the standards doc. Follow the "Documentation artboards & canvas layout" rules in
   `.throughline/references/figma-component-standards.md`, and run its
   visual-validation loop (screenshot → fix any overlaps/misalignment →
   re-screenshot) **and its "Post-build audit (REQUIRED before handoff)"
@@ -324,23 +325,28 @@ reference register, not this skill's guide voice.
   are empty; when one is empty its bullets are simply absent and the label stays.
   Sections are separated by exactly one blank line, and the fingerprint marker is
   always last.
-- **Doc card body.** Render the card's `Usage` band with the canonical builder
-  snippet in `.throughline/references/doc-card-builder.md` (via
-  `figma_execute` with an explicit `timeout`, one card per call): assemble the
-  call with `node .throughline/scripts/doc-card-payload.mjs <record> <cardNodeId>`
-  (it fills the RECORD/CANONICAL_FP slots and resolves the nine semantic
-  variables and `Body/Default` per that file's call contract), run it, check
-  `summary.renderHash` against the `expectedRenderHash` it printed, and
-  verify the returned summary (`rowsRendered`, `blocksCreated`, `cardWidth`) —
-  not a screenshot. The builder creates the `Doc Fingerprint` node itself and
-  is the only thing that may build the usage body — never hand-assemble it.
+- **Doc card.** First write `components.meta[<Name>].status: "draft"` to the
+  manifest — the renderer reads it to create the card's header, so it must
+  exist before the first render. Then make the card: a bare VERTICAL
+  auto-layout frame around the component set, tagged with shared plugin data
+  `throughline` / `docCard` = the component name (or skip the tag and pass
+  `--node-id <card frame id>` on its first render, which tags it). Render the
+  header and bands with the canonical builder snippet in
+  `.throughline/references/doc-card-builder.md` (via `figma_execute`
+  with an explicit `timeout`, one card per call): assemble the call by name with
+  `node .throughline/scripts/doc-card-payload.mjs <record>` (it fills
+  the RECORD/CANONICAL_FP slots and resolves the `figma.docCardVariables` roles
+  and `figma.docCardTextStyles` per that file's call contract), run it, check
+  `summary.recordHash` against the `expectedRecordHash` it printed, and verify
+  the returned summary — not a screenshot. The builder is the only thing that
+  may build the header and bands — never hand-assemble them.
 - Compute `<fp>` as the canonical fingerprint defined in the schema reference
   (sha256 of the projected record without `provenance`, first 16 hex chars).
 
 **Update the manifest (fields this skill owns):** set
 `components.meta[<Name>].doc` to `{ path, fingerprint: <fp>, surfaces: {
 figmaDescription: { src: <fp>, render: <hash of the description text> }, docCard: {
-src: <fp>, render: <summary.renderHash>, renderer: <summary.rendererVersion> } } }`
+src: <fp>, recordHash: <summary.recordHash>, render: <summary.render>, renderer: <summary.rendererVersion> } } }`
 — the docCard entry is stamped from the builder's returned summary, never by
 re-reading the card. The code surfaces (`storybookMdx`) are added later by
 `storybook-chromatic-builder`.
@@ -360,8 +366,8 @@ without it, components silently diverge between Figma and code.
 ## Step 6 — Checkpoint and hand off
 
 Update the manifest: add each built component to `components.built`, and record
-its `components.meta[name]` (`status: "draft"`, `updatedAt`) to match the doc
-card. (Finalize to `stable` happens later, in storybook-chromatic-builder.) Ensure
+its `components.meta[name]` (`status: "draft"` — already written before
+the card's first render — and `updatedAt`) to match the doc card. (Finalize to `stable` happens later, in storybook-chromatic-builder.) Ensure
 any component built with the toggle + manual-swap fallback is listed in
 `components.instanceSwapUpgradePending`. Append `component-builder` to
 `completedSkills`.

@@ -11,11 +11,11 @@ what changed. Gating decisions are made by reading this file: if a prerequisite
 field is unset, the skill **offers** to run the prerequisite skill rather than
 bailing or running silently.
 
-## Schema (schemaVersion 7)
+## Schema (schemaVersion 8)
 
 ```json
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "user": {
     "codingLevel": "new"
   },
@@ -43,7 +43,9 @@ bailing or running silently.
     "canPublish": null,
     "libraryPublished": false,
     "publishedAt": null,
-    "docCardVariables": null
+    "docCardVariables": null,
+    "docCardTextStyles": null,
+    "docKit": null
   },
   "tokens": {
     "intakeMode": null,
@@ -193,16 +195,28 @@ bailing or running silently.
   discipline in `${CLAUDE_PLUGIN_ROOT}/references/brownfield-retrofit.md`.**
 - `publishedAt` — ISO timestamp the user last confirmed a publish, for "you may
   need to re-publish after adding components" messaging.
-- `docCardVariables` — object mapping the doc-card builder's nine semantic
+- `docCardVariables` — object mapping the doc-card builder's fourteen semantic
   variable roles to the variable name each resolves to in this project's file:
   `{ textDefault, textMuted, tonePositive, toneNegative, border, spacePadding,
-  spaceRowGap, spaceBlockGap, spaceItemGap }`. `null` until set. Written once,
+  spaceRowGap, spaceBlockGap, spaceItemGap, surfaceBand, surfaceHeader,
+  textOnHeader, radiusBand, toneCaution }`. The first nine date from v6; the
+  last five from v8, and a project that recorded the nine fills in only those. `null` until set. Written once,
   on the first doc-card render in a project, and read by every render after
   (see `${CLAUDE_PLUGIN_ROOT}/references/doc-card-builder.md`). Exists because
   the roles are project-agnostic but the variable names are not — an
   unrecorded mapping drifts between renders (different roles resolved to
   different variables each time) and leaves cards visually inconsistent. E.g.
   `{ "textDefault": "color/text/primary", "textMuted": "color/text/secondary", "tonePositive": "color/success/default", "toneNegative": "color/danger/default", "border": "color/border/default", "spacePadding": "space/inset/lg", "spaceRowGap": "space/gap/xl", "spaceBlockGap": "space/gap/lg", "spaceItemGap": "space/gap/sm" }`.
+- `docCardTextStyles` — object mapping the doc card's four text roles to the
+  text style name each resolves to: `{ title, bandTitle, body, caption }`.
+  `null` until set; picked once on the first v5 render (`Body/Default` is the
+  suggested `body`), written back, and read by every render after. A recorded
+  name that doesn't resolve to exactly one style stops the render.
+- `docKit` — `{ fileKey }`, the Figma file the doc-card kit (`_Doc/Header`,
+  `_Doc/Band header`) was drawn in. `null` until the first v5 render draws the
+  kit. Holds no node ids: the kit is found by its shared plugin data tag. Set it
+  back to `null` to have the next render draw a fresh kit after the old one was
+  deleted.
 
 ### `tokens`
 - `intakeMode` — how the user started: `"generative"` (seed expanded by AI),
@@ -267,13 +281,15 @@ bailing or running silently.
 - `meta[name].doc` — documentation pointer + per-surface fingerprints for the
   component (v1: components only). **Pointers and hashes, never content** — the
   content lives in `design-system/docs/components/<name>.doc.json`. Shape:
-  `{ path, fingerprint, surfaces: { <surfaceName>: { src, render, file?, renderer? } } }`,
+  `{ path, fingerprint, surfaces: { <surfaceName>: { src, render, file?, renderer?, recordHash? } } }`,
   where `fingerprint` is the canonical fingerprint at last render, `src` is the
   canonical fingerprint a surface was rendered from (detects stale), `render` is a
   hash of the surface's rendered content (detects edits, for re-readable surfaces),
   `renderer` (docCard only) is the layout version of the builder that last
   rendered the card (`DOC_CARD_RENDERER_VERSION`); missing/lower is reported by
   `docs:check` as the informational `layout-upgrade-available`, never as drift,
+  `recordHash` (docCard only, from renderer 5) is the hash of the part of the
+  card that comes from the record, which Node predicts and the render must match,
   and `file` is the repo-relative path of a code surface. Written by
   `component-builder` (Figma + card surfaces) and `storybook-chromatic-builder`
   (code surfaces); read by the `docs:check` gate. See
@@ -421,3 +437,9 @@ changes.
 **v6 → v7 migration:** add `verification` (default `null`), populated on the
 first recorded stage entry. Bump `schemaVersion` to `7`. No existing field
 changes.
+
+**v7 → v8 migration:** add `figma.docCardTextStyles` and `figma.docKit` (both
+default `null`), populated on the first v5 doc-card render, which also asks for
+the five new `docCardVariables` roles and keeps the nine already recorded.
+`surfaces.docCard.recordHash` is added per component on its first v5 render.
+Bump `schemaVersion` to `8`. No existing field changes.

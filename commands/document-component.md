@@ -26,11 +26,13 @@ Ask which component to document (e.g. "Button"), then:
    clear keep their existing text; blocks the user did clear are stamped
    `imported+user` so a later run neither re-asks nor rewrites them.
 2. **Project it.** Write `design-system/docs/components/<Name>.doc.json`, set the
-   Figma component `description`, rebuild the doc card's `Usage` band with the
+   Figma component `description`, rebuild the doc card's header and bands with the
    canonical builder (`${CLAUDE_PLUGIN_ROOT}/references/doc-card-builder.md` —
-   assemble the call with `node ${CLAUDE_PLUGIN_ROOT}/scripts/doc-card-payload.mjs`,
-   check the returned `renderHash` against the one it printed, verify the
-   returned summary and stamp `surfaces.docCard.{src,render,renderer}` from it), and (if the repo/code side exists) render MDX/JSDoc and run
+   assemble the call by record with `node ${CLAUDE_PLUGIN_ROOT}/scripts/doc-card-payload.mjs <record>`,
+   which finds the card by its tag; add `--node-id <card frame id>` only for a
+   card that has never been rendered by v5, once. Check the returned
+   `summary.recordHash` against the `expectedRecordHash` it printed, verify the
+   returned summary and stamp `surfaces.docCard.{src,recordHash,render,renderer}` from it), and (if the repo/code side exists) render MDX/JSDoc and run
    `docs:digest` per the `storybook-chromatic-builder` render step.
    Before the Figma writes, run the active-file preflight in
    `${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md` — this command writes
@@ -58,7 +60,7 @@ Ask which component to document (e.g. "Button"), then:
    (`provenance: imported`) rather than overwriting it.
    `docs:check` may also report `layout-upgrade-available` (informational, never
    failing): the card's layout predates the current builder. Offer to re-render
-   the `Usage` band now — rebuild happens on this touch, never unprompted.
+   the card now — rebuild happens on this touch, never unprompted.
 4. **Close the flow.** Hand back in the four-beat guide voice from
    `${CLAUDE_PLUGIN_ROOT}/references/guide-voice.md`: the outcome, what you set
    aside and why, one recommended next step, and at most one light alternative.

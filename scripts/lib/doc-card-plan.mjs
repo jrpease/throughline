@@ -1,29 +1,60 @@
-// Pure layout planner for the component doc card's Usage band.
+// Pure layout planner for the component doc card (v5: the documentation pilot
+// layout — a kit header, a Specimen band, then one band per section).
 // ZERO imports, `export const`/`export function` only — this module is inlined
 // verbatim into the generated Figma snippet (references/doc-card-builder.md) by
 // build-doc-card-builder.mjs, so it must run in both Node and the Figma plugin
 // sandbox. build-doc-card-builder.mjs enforces the no-imports rule.
 //
-// Layout contract: docs/superpowers/specs/2026-08-09-doc-card-layout-and-voice-design.md
+// Layout contract: docs/specs/2026-10-15-doc-card-v5.md
 
 // Single source of truth for the doc-card layout version. Imported by
 // docs-check.mjs and embedded (via inlining) into the generated builder snippet.
-export const DOC_CARD_RENDERER_VERSION = '4';
+export const DOC_CARD_RENDERER_VERSION = '5';
 
-// columnUnit = clamp(round(bodyFontSize × 30), 280, 480) px.
-// 30 ≈ 60ch × ~0.5em average glyph width for UI text faces. Layout chrome, not
-// a design value — the one documented exception to the no-hardcoded-px rule.
-export function columnUnit(bodyFontSize) {
-  return Math.min(480, Math.max(280, Math.round(bodyFontSize * 30)));
+// The card's floor: v4's three 480px columns, carried over (decision 16).
+export const CARD_MIN_WIDTH = 1440;
+
+// Card width = the floor, or the specimen set plus its band's padding, whichever
+// is bigger — plus the card's own padding outside it. specimenWidth is the set's
+// own width and nothing else: never the card's or a band's, which this render
+// sets, so a measurement of them would ratchet on every render.
+export function cardWidth({ specimenWidth, bandPad, cardPad }) {
+  return Math.max(CARD_MIN_WIDTH, specimenWidth + 2 * bandPad) + 2 * cardPad;
 }
 
-// columns = max(max blocks in any row, 3). Content alone decides: the grid
-// never mints a column no row can fill, and never drops below the 3-unit floor.
-// The specimen is deliberately NOT an input — the render widens the card, the
-// card's hug propagates into FILL siblings including the specimen, so any
-// specimen measurement is a value this render mutates and the next one reads.
-export function cardColumns(maxBlocksPerRow) {
-  return Math.max(3, maxBlocksPerRow);
+export const STATUS_OPTIONS = ['draft', 'beta', 'stable', 'deprecated'];
+
+// The header's Status variant for a manifest status. Case is folded; anything
+// outside the four options throws rather than guessing (e.g. a legacy `final`).
+export function statusVariant(value) {
+  const v = typeof value === 'string' ? value.toLowerCase() : '';
+  if (!STATUS_OPTIONS.includes(v)) {
+    throw new Error('status "' + value + '" is not one of ' + STATUS_OPTIONS.join(' / ')
+      + ' — fix components.meta[name].status in design-system.json, then re-run');
+  }
+  return v;
+}
+
+// A provenance value with no `user` or `imported` marker is unprotected: it was
+// generated, not written or approved by a person (component-doc-schema.md's two
+// tiers). A block with no provenance at all counts as unprotected.
+export function isUnprotected(provenanceValue) {
+  if (typeof provenanceValue !== 'string' || provenanceValue === '') return true;
+  const parts = provenanceValue.split('+');
+  return !parts.includes('user') && !parts.includes('imported');
+}
+
+function hasContent(value) {
+  if (typeof value === 'string') return value.trim() !== '';
+  if (Array.isArray(value)) return value.length > 0;
+  if (value && typeof value === 'object') return Object.keys(value).length > 0;
+  return false;
+}
+
+// A band is Unreviewed when every record block it shows is unprotected.
+export function bandUnreviewed(record, keys) {
+  const provenance = record.provenance || {};
+  return keys.filter((k) => hasContent(record[k])).every((k) => isUnprotected(provenance[k]));
 }
 
 function listBlock(eyebrow, items) {
@@ -37,74 +68,64 @@ function definitionBlock(eyebrow, meanings) {
   return { type: 'definition', name: `Block: ${eyebrow}`, eyebrow, terms };
 }
 
-// The whole layout decision, as data. Rows keep canonical numbering (an absent
-// row's number is skipped, never renumbered) so node names stay stable across
-// sparse records. bodyTextStyle: only .fontSize is read — passing a full Figma
-// TextStyle object is fine.
-export function planDocCard(record, bodyTextStyle) {
-  const unit = columnUnit(bodyTextStyle.fontSize);
+const USAGE_KEYS = ['description', 'whenToUse', 'whenNotToUse', 'dos', 'donts', 'variants', 'states', 'accessibility'];
 
-  const row1 = [];
-  if (typeof record.description === 'string' && record.description.trim() !== '') {
-    row1.push({ type: 'prose', name: 'Block: Overview', eyebrow: 'Overview', text: record.description });
-  }
+// The record-derived layout, as data. Everything here comes from the record, so
+// fnv1a(JSON.stringify(plan)) is the recordHash Node predicts (decision 18).
+// Axes, options and states keep record order: record order is display order.
+export function planDocCard(record) {
+  const str = (v) => (typeof v === 'string' ? v : '');
+
+  const blocks = [];
   const whenTo = listBlock('When to use', record.whenToUse);
-  if (whenTo) row1.push(whenTo);
-  const whenNot = listBlock('When not to use', record.whenNotToUse);
-  if (whenNot) row1.push(whenNot);
-
-  const row2 = [];
-  if (Array.isArray(record.dos) && record.dos.length) {
-    row2.push({ type: 'list-tone', name: 'Block: Do', eyebrow: '✓ Do', tone: 'positive', items: record.dos });
+  if (whenTo) blocks.push(whenTo);
+  const whenNot = listBlock('Use something else', record.whenNotToUse);
+  if (whenNot) blocks.push(whenNot);
+  const dos = Array.isArray(record.dos) ? record.dos : [];
+  const donts = Array.isArray(record.donts) ? record.donts : [];
+  if (dos.length || donts.length) {
+    blocks.push({
+      type: 'dosDonts', name: 'Block: Do and Don\'t',
+      do: { eyebrow: '✓ Do', items: dos },
+      dont: { eyebrow: '✕ Don\'t', items: donts },
+    });
   }
-  if (Array.isArray(record.donts) && record.donts.length) {
-    row2.push({ type: 'list-tone', name: "Block: Don't", eyebrow: "✕ Don't", tone: 'negative', items: record.donts });
-  }
-
-  const row3 = [];
+  // Step 1 carry-over (decision 22): v4's meanings and accessibility stay on the
+  // card as text until their own bands ship.
   for (const axis of Object.keys(record.variants || {})) {
     const block = definitionBlock(`What each ${axis} means`, record.variants[axis]);
-    if (block) row3.push(block);
+    if (block) blocks.push(block);
   }
   const stateBlock = definitionBlock('What each state means', record.states);
-  if (stateBlock) row3.push(stateBlock);
+  if (stateBlock) blocks.push(stateBlock);
   const a11y = record.accessibility || {};
   // role is not rendered on the card — it lives in the description field / MDX.
   const a11yBlock = listBlock('Accessibility', [...(a11y.keyboard || []), ...(a11y.notes || [])]);
-  if (a11yBlock) row3.push(a11yBlock);
+  if (a11yBlock) blocks.push(a11yBlock);
 
-  const rows = [
-    { name: 'Usage Row 1', blocks: row1 },
-    { name: 'Usage Row 2', blocks: row2 },
-    { name: 'Usage Row 3', blocks: row3 },
-  ].filter((r) => r.blocks.length > 0);
-
-  const maxBlocksPerRow = rows.reduce((m, r) => Math.max(m, r.blocks.length), 0);
-  const columns = cardColumns(maxBlocksPerRow);
+  const lede = str(record.description);
+  const bands = [];
+  if (lede.trim() !== '' || blocks.length) {
+    bands.push({
+      name: 'Band: Usage', title: 'Usage', lede,
+      unreviewed: bandUnreviewed(record, USAGE_KEYS), blocks,
+    });
+  }
 
   return {
     rendererVersion: DOC_CARD_RENDERER_VERSION,
-    columnUnit: unit,
-    columns,
-    cardWidth: columns * unit,
-    termColumn: Math.round(unit * 0.3),
-    // The header band's record-derived content. Carried in the plan (not read
-    // straight off the record by the renderer) so renderHash describes every
-    // string the builder writes onto the card, header included. Always strings:
-    // an undefined would drop the key from JSON.stringify and move the hash.
-    header: {
-      summary: typeof record.summary === 'string' ? record.summary : '',
-      updatedAt: typeof record.updatedAt === 'string' ? record.updatedAt : '',
-    },
-    rows,
+    // Always strings: an undefined would drop the key from JSON.stringify and
+    // move the hash.
+    header: { title: str(record.name), summary: str(record.summary), updatedAt: str(record.updatedAt) },
+    bands,
   };
 }
 
-// 32-bit FNV-1a — the render hash: fnv1a(JSON.stringify(plan)). Only ever
-// compared against itself (the manifest's surfaces.docCard.render), so it does
-// not need to match the sha256-based canonical fingerprint, which cannot run in
-// the Figma sandbox. Lives here, not in the renderer, so Node can compute the
-// hash a render should return (doc-card-payload.mjs) with the same code.
+// 32-bit FNV-1a — the record hash: fnv1a(JSON.stringify(plan)). Only ever
+// compared against itself (the manifest's surfaces.docCard.recordHash), so it
+// does not need to match the sha256-based canonical fingerprint, which cannot
+// run in the Figma sandbox. Lives here, not in the renderer, so Node can compute
+// the hash a render should return (doc-card-payload.mjs) with the same code.
 export function fnv1a(str) {
   let h = 0x811c9dc5;
   for (let i = 0; i < str.length; i++) {
@@ -112,27 +133,4 @@ export function fnv1a(str) {
     h = Math.imul(h, 0x01000193) >>> 0;
   }
   return h.toString(16).padStart(8, '0');
-}
-
-// When a header's title row has no node named `Status Pill`/`Status`, name the
-// node that most likely IS the chip so the error can say what to rename. Never
-// used to pick a node to write — the renderer still refuses to guess. A
-// candidate is a FRAME below the title row whose only child is a TEXT node
-// (the chip shape: a pill frame around its label). Exactly one candidate or
-// no hint. Reads only type/name/id/characters/children, so it runs on Figma
-// nodes and on plain test objects alike.
-export function statusChipHint(titleRow) {
-  if (!titleRow || titleRow.type !== 'FRAME') return null;
-  const found = [];
-  const walk = (node) => {
-    for (const child of node.children || []) {
-      if (child.type === 'FRAME' && child.children && child.children.length === 1
-        && child.children[0].type === 'TEXT') {
-        found.push({ id: child.id, name: child.name, label: child.children[0].characters });
-      }
-      walk(child);
-    }
-  };
-  walk(titleRow);
-  return found.length === 1 ? found[0] : null;
 }
