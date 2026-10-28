@@ -40,11 +40,8 @@ Header colours now in use:
 
 ## What's unfinished
 
-1. **Step 1.8.** Five later-band issue drafts are written and await Jordan's
-   approval:
-   `/private/tmp/claude-501/-Users-jordansstudio-Dev-throughline/492af450-aff6-4115-b513-7ed297cbaa58/scratchpad/later-band-issues.md`.
-   The scratchpad may be gone in a new session; the bands are listed in
-   decision 2. Once they're filed, add their links to the live-run note.
+1. **Step 1.8 is done.** The later-band issues are filed as #192 to #196
+   and linked in the live-run note.
 2. **Close-out (build-spec step 5).**
    - Set `Status: built`.
    - Write "What shipped" and "Where it diverged":

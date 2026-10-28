@@ -251,3 +251,13 @@ forward and then covered again so a reply could be typed. With Figma side by
 side with the terminal, the parked run finished within seconds and the next
 render took 186 ms. So it isn't a quirk of the sample file. Any write run
 needs the Figma window on screen for its whole length, not just at the start.
+
+## Later-band issues (Step 1.8)
+
+Filed 2026-10-28, one per later band in decision 2:
+
+- #192 Doc card: live Do/Don't examples
+- #193 Doc card: Related band
+- #194 Doc card: Content band
+- #195 Doc card: Platform differences band
+- #196 Doc card: Anatomy band
