@@ -119,6 +119,8 @@ const HEADER = [
   '  .map((n) => ({ id: n.id, children: n.children.map((c) => c.name) }));`',
   '  If the header and bands are all there, the render finished: re-run once to',
   '  get its summary. If not, re-run.',
+  '- If `summary.headerContrast.verdict` is `warn`, the header and card are under',
+  '  3:1 apart: tell the user and suggest restyling `_Doc/Header` in the kit.',
   '- Check `summary.recordHash` equals the `expectedRecordHash` the script printed.',
   '  A mismatch means the payload changed on the way in.',
   '- Stamp the manifest from the summary, never from a re-read:',

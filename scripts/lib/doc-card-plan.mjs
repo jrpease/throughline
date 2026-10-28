@@ -35,6 +35,27 @@ export function statusVariant(value) {
   return v;
 }
 
+// The header against the card it sits on (decision 4). An exact match is
+// refused; under 3:1 (WCAG's non-text bar) is a warning, since a light brand
+// header on a white card is a real choice. Same math as lib/contrast.mjs,
+// repeated because the planner must stay import-free.
+export const HEADER_MIN_CONTRAST = 3;
+
+export function headerContrast(headerHex, cardHex) {
+  const lum = (hex) => {
+    const [r, g, b] = [1, 3, 5].map((i) => {
+      const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const [a, b] = [lum(headerHex), lum(cardHex)];
+  const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  const verdict = headerHex.toLowerCase() === cardHex.toLowerCase() ? 'refuse'
+    : ratio < HEADER_MIN_CONTRAST ? 'warn' : 'ok';
+  return { ratio: Math.round(ratio * 100) / 100, verdict };
+}
+
 // A provenance value with no `user` or `imported` marker is unprotected: it was
 // generated, not written or approved by a person (component-doc-schema.md's two
 // tiers). A block with no provenance at all counts as unprotected.

@@ -104,6 +104,8 @@ Then:
   .map((n) => ({ id: n.id, children: n.children.map((c) => c.name) }));`
   If the header and bands are all there, the render finished: re-run once to
   get its summary. If not, re-run.
+- If `summary.headerContrast.verdict` is `warn`, the header and card are under
+  3:1 apart: tell the user and suggest restyling `_Doc/Header` in the kit.
 - Check `summary.recordHash` equals the `expectedRecordHash` the script printed.
   A mismatch means the payload changed on the way in.
 - Stamp the manifest from the summary, never from a re-read:
@@ -149,6 +151,27 @@ function statusVariant(value) {
       + ' — fix components.meta[name].status in design-system.json, then re-run');
   }
   return v;
+}
+
+// The header against the card it sits on (decision 4). An exact match is
+// refused; under 3:1 (WCAG's non-text bar) is a warning, since a light brand
+// header on a white card is a real choice. Same math as lib/contrast.mjs,
+// repeated because the planner must stay import-free.
+const HEADER_MIN_CONTRAST = 3;
+
+function headerContrast(headerHex, cardHex) {
+  const lum = (hex) => {
+    const [r, g, b] = [1, 3, 5].map((i) => {
+      const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const [a, b] = [lum(headerHex), lum(cardHex)];
+  const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  const verdict = headerHex.toLowerCase() === cardHex.toLowerCase() ? 'refuse'
+    : ratio < HEADER_MIN_CONTRAST ? 'warn' : 'ok';
+  return { ratio: Math.round(ratio * 100) / 100, verdict };
 }
 
 // A provenance value with no `user` or `imported` marker is unprotected: it was
@@ -440,11 +463,13 @@ async function renderDocCard({ componentName, nodeId, record, vars, textStyles, 
   // The header must stand apart from the card it sits on (decision 4), checked
   // in the card's own mode before anything is written.
   const cardFill = await solidHex(card, card);
+  let contrast = null;
   if (cardFill) {
     const headerFill = kitHeader
       ? await solidHex(kitHeader.defaultVariant, card)
       : hexOf(vars.surfaceHeader.resolveForConsumer(card).value);
-    if (headerFill === cardFill) {
+    if (headerFill) contrast = Object.assign({ header: headerFill, card: cardFill }, headerContrast(headerFill, cardFill));
+    if (contrast && contrast.verdict === 'refuse') {
       throw new Error('renderDocCard: the header fill ' + headerFill + ' matches the fill of card ' + card.id
         + ' — the header must stand apart from the card (decision 4); '
         + (kitHeader ? 'restyle _Doc/Header in the kit' : 'pick a docCardVariables.surfaceHeader that differs from the card'));
@@ -507,6 +532,7 @@ async function renderDocCard({ componentName, nodeId, record, vars, textStyles, 
       c.name = 'Status=' + option;
       c.layoutMode = 'VERTICAL';
       c.fills = [boundPaint(vars.surfaceHeader)];
+      bindRadius(c, vars.radiusBand);
       bindPadding(c, vars.spacePadding);
       c.setBoundVariable('itemSpacing', vars.spaceItemGap);
       c.resize(CARD_MIN_WIDTH, c.height);
@@ -714,6 +740,7 @@ async function renderDocCard({ componentName, nodeId, record, vars, textStyles, 
     kitDrawn,
     tagged: !wasTagged,
     migrated,
+    headerContrast: contrast,
   };
 }
 

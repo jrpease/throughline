@@ -187,11 +187,13 @@ async function renderDocCard({ componentName, nodeId, record, vars, textStyles, 
   // The header must stand apart from the card it sits on (decision 4), checked
   // in the card's own mode before anything is written.
   const cardFill = await solidHex(card, card);
+  let contrast = null;
   if (cardFill) {
     const headerFill = kitHeader
       ? await solidHex(kitHeader.defaultVariant, card)
       : hexOf(vars.surfaceHeader.resolveForConsumer(card).value);
-    if (headerFill === cardFill) {
+    if (headerFill) contrast = Object.assign({ header: headerFill, card: cardFill }, headerContrast(headerFill, cardFill));
+    if (contrast && contrast.verdict === 'refuse') {
       throw new Error('renderDocCard: the header fill ' + headerFill + ' matches the fill of card ' + card.id
         + ' — the header must stand apart from the card (decision 4); '
         + (kitHeader ? 'restyle _Doc/Header in the kit' : 'pick a docCardVariables.surfaceHeader that differs from the card'));
@@ -254,6 +256,7 @@ async function renderDocCard({ componentName, nodeId, record, vars, textStyles, 
       c.name = 'Status=' + option;
       c.layoutMode = 'VERTICAL';
       c.fills = [boundPaint(vars.surfaceHeader)];
+      bindRadius(c, vars.radiusBand);
       bindPadding(c, vars.spacePadding);
       c.setBoundVariable('itemSpacing', vars.spaceItemGap);
       c.resize(CARD_MIN_WIDTH, c.height);
@@ -461,6 +464,7 @@ async function renderDocCard({ componentName, nodeId, record, vars, textStyles, 
     kitDrawn,
     tagged: !wasTagged,
     migrated,
+    headerContrast: contrast,
   };
 }
 

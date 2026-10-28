@@ -57,8 +57,8 @@ Header colours now in use:
 4. **The stall procedure.** `references/doc-card-builder.md` should say: keep
    Figma side by side with the terminal for the whole write run, and read the
    node state after a timeout. Today it's only in memory and the note.
-5. **Square header corners.** The header has no radius while the bands do. It
-   needs Jordan's call.
+5. **Square header corners.** Settled 2026-10-28: the kit draws the header
+   with `radiusBand`.
 6. **The sample repo** (`~/Dev/throughline-sample`) has uncommitted manifest
    changes: schema 8, the doc card roles, and `surfaceHeader: color/bg/muted`.
    Ask before committing there.
@@ -79,6 +79,5 @@ Header colours now in use:
 
 ## Open questions
 
-- Should the header guard also catch near-matches (a contrast threshold), or is
-  an exact match enough?
-- Square header corners: give the header `radiusBand`, or accept them?
+- None. Both were settled on 2026-10-28: the guard refuses an exact match and
+  warns under 3:1, and the kit header takes `radiusBand`.

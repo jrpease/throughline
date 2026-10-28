@@ -2,8 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DOC_CARD_RENDERER_VERSION, CARD_MIN_WIDTH, cardWidth, STATUS_OPTIONS, statusVariant,
-  isUnprotected, bandUnreviewed, planDocCard, fnv1a,
+  isUnprotected, bandUnreviewed, planDocCard, fnv1a, headerContrast, HEADER_MIN_CONTRAST,
 } from './doc-card-plan.mjs';
+import { contrastRatio } from './contrast.mjs';
 
 test('DOC_CARD_RENDERER_VERSION is the string "5"', () => {
   assert.equal(DOC_CARD_RENDERER_VERSION, '5');
@@ -24,6 +25,22 @@ test('statusVariant folds case and refuses anything outside the four options', (
   assert.equal(statusVariant('draft'), 'draft');
   assert.throws(() => statusVariant('final'), /status "final" is not one of draft \/ beta \/ stable \/ deprecated/);
   assert.throws(() => statusVariant(undefined), /is not one of/);
+});
+
+test('headerContrast: refuses an exact match, warns under 3:1, passes the rest', () => {
+  assert.equal(HEADER_MIN_CONTRAST, 3);
+  assert.deepEqual(headerContrast('#181818', '#181818'), { ratio: 1, verdict: 'refuse' });
+  assert.equal(headerContrast('#181818', '#181818'.toUpperCase()).verdict, 'refuse');
+  assert.equal(headerContrast('#1a1a1a', '#181818').verdict, 'warn');
+  assert.equal(headerContrast('#ffd400', '#ffffff').verdict, 'warn');
+  assert.equal(headerContrast('#353535', '#181818').verdict, 'warn');
+  assert.equal(headerContrast('#181818', '#ffffff').verdict, 'ok');
+});
+
+test('headerContrast agrees with lib/contrast.mjs', () => {
+  for (const [a, b] of [['#1a1a1a', '#181818'], ['#ffd400', '#ffffff'], ['#353535', '#f5f5f5'], ['#000000', '#ffffff']]) {
+    assert.equal(headerContrast(a, b).ratio, Math.round(contrastRatio(a, b) * 100) / 100, a + ' on ' + b);
+  }
 });
 
 test('isUnprotected: only user and imported protect a block', () => {
