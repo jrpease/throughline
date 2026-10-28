@@ -6,6 +6,27 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.31.0] — 2026-10-28
+
+Doc cards stop being a component set with one scripted band. They open with a
+header your designers own, then bands. This is step 1 of v5: later steps add
+bands to the same frame.
+
+### Breaking
+
+Two things stop a doc card render until you deal with them.
+
+- **Five more doc card roles.** `figma.docCardVariables` gains `surfaceBand`,
+  `surfaceHeader`, `textOnHeader`, `radiusBand` and `toneCaution`, and the new
+  `figma.docCardTextStyles` records four text styles. A render with any of them
+  missing stops and names it. The builder's setup has you pick each once and
+  writes it back. `schemaVersion` is now 8; the migration only adds fields.
+- **Four statuses, and only four.** The header's `Status` variant knows
+  `draft`, `beta`, `stable` and `deprecated`. When a render creates a card's
+  header (every v4 card's upgrade, and a new card), a manifest status outside
+  those four, like a legacy `final`, stops that card and names the value. Fix it
+  in `components.meta`.
+
 ### Changed
 
 - **Doc cards v5, step 1: the documentation pilot layout.** A card now opens
@@ -16,6 +37,21 @@ to [Semantic Versioning](https://semver.org).
   header's `Status` variant with `--status`, instead of hunting for a chip and
   rebinding its fill. `surfaces.docCard` gains a `recordHash` that Node predicts,
   and the renderer is now `"5"`, so v4 cards report `layout-upgrade-available`.
+- **The header has to stand apart from the card.** A header whose fill matches
+  the card's stops the render. Under 3:1 the render carries on and the summary
+  reports `headerContrast`. You hear about it in one line, and a restyle is only
+  suggested when that render just drew the kit. A new kit's header gets the
+  same `radiusBand` corners as the bands.
+- **Refreshing a doc with `/document-component` asks less.** It only interviews
+  on blocks that are new or whose contract changed. `updatedAt` moves only when
+  the content did, so a refresh that changes nothing re-renders nothing. A lint
+  warning on a block you already cleared goes in the closing summary, not back
+  into the interview. A screenshot is taken only when the render changed the
+  card's layout.
+- **What to do when a render stalls.** A Figma window that's hidden or covered
+  stalls the render's font loading. The builder now says to keep Figma beside
+  the terminal for the whole run, and after a timeout to read the card before
+  re-running.
 
 ## [0.30.5] — 2026-10-15
 
