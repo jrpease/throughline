@@ -32,7 +32,7 @@ card. Prose.
 **2. What I set aside, and why.** Name any gap you deferred, in a clause, with the
 reason. Read existing state to know what is actually outstanding (for the docs
 flow, a component at `status: "draft"` with no code surface in
-`meta[name].doc.surfaces` means the code side is not built yet). Give the reason
+`components.meta[name].doc.surfaces` means the code side is not built yet). Give the reason
 so the deferral reads as a decision, not an omission.
 
 > "I left the code-side render for later on purpose. It is a one-time,

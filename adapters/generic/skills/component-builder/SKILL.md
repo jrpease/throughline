@@ -275,10 +275,13 @@ reference register, not this skill's guide voice.
    accessibility idiom to the target framework (the same field you read for variant
    vocabulary). Provenance `framework`.
 4. **Interview for the non-inferable.** Ask the user for brand/product-specific
-   do's & don'ts and intent. Provenance `user`. Write the draft to
+   do's & don'ts and intent. Provenance `user`. On a refresh (the record
+   already exists), ask only about blocks that are new or whose contract
+   changed (`name`, `variants`, `states`, `tokensUsed`). Write the draft to
    `design-system/docs/components/<Name>.doc.json`, run
    `node .throughline/scripts/docs-lint.mjs design-system/docs/components/<Name>.doc.json`,
-   and fix the warnings it raises. Do not raise a separate confirmation for
+   and fix the warnings it raises, except on blocks stamped `imported+user`:
+   report those in the closing summary and never rewrite or re-ask them. Do not raise a separate confirmation for
    a warning on an `imported`/`user` block: draft the rewrite and carry it
    into the approval gate below, shown as before/after and labelled with the
    block's provenance. **Show the whole drafted record and get explicit
@@ -353,7 +356,8 @@ re-reading the card. The code surfaces (`storybookMdx`) are added later by
 
 Run the standard doc-card visual-validation + post-build audit
 (`.throughline/references/figma-component-standards.md`) after enriching
-the card. `docs:check` runs at the code stage; at folder stage the record + Figma
+the card when the summary says `kitDrawn`, `migrated` or `tagged` is true, the
+renders that change its layout; otherwise the summary is the check. `docs:check` runs at the code stage; at folder stage the record + Figma
 surfaces are the fallback.
 
 ## Step 5 — Naming as contract

@@ -1,8 +1,8 @@
 # Doc card v5: handoff
 
 Date: 2026-10-27
-Branch: `docs/doc-card-v5-spec` (not pushed, no PR)
-Spec: `docs/specs/2026-10-15-doc-card-v5.md` (Status: planned; Step 1 built up to 1.7)
+Branch: `docs/doc-card-v5-spec` (pushed, draft PR #190)
+Spec: `docs/specs/2026-10-15-doc-card-v5.md` (Status: built)
 Live run: `docs/notes/2026-10-26-doc-card-v5-step1-live-run.md`
 
 Replaces the 2026-10-15 handoff, which predated the review and the build.
