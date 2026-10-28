@@ -1,33 +1,65 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DOC_CARD_RENDERER_VERSION, columnUnit, cardColumns, planDocCard, fnv1a, statusChipHint } from './doc-card-plan.mjs';
+import {
+  DOC_CARD_RENDERER_VERSION, CARD_MIN_WIDTH, cardWidth, STATUS_OPTIONS, statusVariant,
+  isUnprotected, bandUnreviewed, planDocCard, fnv1a, headerContrast, HEADER_MIN_CONTRAST,
+} from './doc-card-plan.mjs';
+import { contrastRatio } from './contrast.mjs';
 
-test('DOC_CARD_RENDERER_VERSION is the string "4"', () => {
-  assert.equal(DOC_CARD_RENDERER_VERSION, '4');
+test('DOC_CARD_RENDERER_VERSION is the string "5"', () => {
+  assert.equal(DOC_CARD_RENDERER_VERSION, '5');
 });
 
-test('columnUnit: clamp(round(fontSize × 30), 280, 480)', () => {
-  assert.equal(columnUnit(14), 420);  // 14 × 30 = 420, inside the clamp
-  assert.equal(columnUnit(16), 480);  // 16 × 30 = 480, exactly the ceiling
-  assert.equal(columnUnit(9), 280);   // 270 clamps up to the floor
-  assert.equal(columnUnit(20), 480);  // 600 clamps down to the ceiling
-  assert.equal(columnUnit(13.5), 405); // rounds: 13.5 × 30 = 405
+test('cardWidth: the 1440 floor, or the set plus band padding, plus the card padding', () => {
+  assert.equal(CARD_MIN_WIDTH, 1440);
+  assert.equal(cardWidth({ specimenWidth: 600, bandPad: 32, cardPad: 0 }), 1440);   // floor wins
+  assert.equal(cardWidth({ specimenWidth: 600, bandPad: 32, cardPad: 24 }), 1488);  // floor + card padding
+  assert.equal(cardWidth({ specimenWidth: 2000, bandPad: 32, cardPad: 0 }), 2064);  // a wide set wins
+  assert.equal(cardWidth({ specimenWidth: 2000, bandPad: 32, cardPad: 24 }), 2112); // …plus card padding
+  assert.equal(cardWidth({ specimenWidth: 1376, bandPad: 32, cardPad: 0 }), 1440);  // exactly the floor
 });
 
-test('cardColumns: content decides, with a floor of 3', () => {
-  assert.equal(cardColumns(1), 3);   // sparse record still gets the 3-unit floor
-  assert.equal(cardColumns(3), 3);
-  assert.equal(cardColumns(4), 4);   // Button: two variant axes + states + a11y
-  assert.equal(cardColumns(6), 6);
+test('statusVariant folds case and refuses anything outside the four options', () => {
+  assert.deepEqual(STATUS_OPTIONS, ['draft', 'beta', 'stable', 'deprecated']);
+  assert.equal(statusVariant('Stable'), 'stable');
+  assert.equal(statusVariant('draft'), 'draft');
+  assert.throws(() => statusVariant('final'), /status "final" is not one of draft \/ beta \/ stable \/ deprecated/);
+  assert.throws(() => statusVariant(undefined), /is not one of/);
 });
 
-test('planDocCard derives columns from content alone', () => {
-  const plan = planDocCard(
-    { name: 'Input', description: 'x', whenToUse: ['a'], whenNotToUse: ['b'] },
-    { fontSize: 16 },
-  );
-  assert.equal(plan.columns, 3);
-  assert.equal(plan.cardWidth, 3 * plan.columnUnit);
+test('headerContrast: refuses an exact match, warns under 3:1, passes the rest', () => {
+  assert.equal(HEADER_MIN_CONTRAST, 3);
+  assert.deepEqual(headerContrast('#181818', '#181818'), { ratio: 1, verdict: 'refuse' });
+  assert.equal(headerContrast('#181818', '#181818'.toUpperCase()).verdict, 'refuse');
+  assert.equal(headerContrast('#1a1a1a', '#181818').verdict, 'warn');
+  assert.equal(headerContrast('#ffd400', '#ffffff').verdict, 'warn');
+  assert.equal(headerContrast('#353535', '#181818').verdict, 'warn');
+  assert.equal(headerContrast('#181818', '#ffffff').verdict, 'ok');
+});
+
+test('headerContrast agrees with lib/contrast.mjs', () => {
+  for (const [a, b] of [['#1a1a1a', '#181818'], ['#ffd400', '#ffffff'], ['#353535', '#f5f5f5'], ['#000000', '#ffffff']]) {
+    assert.equal(headerContrast(a, b).ratio, Math.round(contrastRatio(a, b) * 100) / 100, a + ' on ' + b);
+  }
+});
+
+test('isUnprotected: only user and imported protect a block', () => {
+  for (const v of ['ai-inferred', 'best-practice', 'w3c-apg', 'framework', 'ai-inferred+best-practice', undefined, '']) {
+    assert.equal(isUnprotected(v), true, String(v));
+  }
+  for (const v of ['user', 'imported', 'best-practice+user', 'imported+user', 'w3c-apg+imported']) {
+    assert.equal(isUnprotected(v), false, v);
+  }
+});
+
+test('bandUnreviewed: judged only on the keys that have content', () => {
+  const keys = ['description', 'dos', 'states'];
+  // dos is protected; states is empty so it doesn't count.
+  assert.equal(bandUnreviewed({ description: 'd', dos: ['x'], states: {}, provenance: { description: 'ai-inferred', dos: 'best-practice+user' } }, keys), false);
+  // every block with content is generated, and states has no provenance at all.
+  assert.equal(bandUnreviewed({ description: 'd', states: { hover: 'h' }, provenance: { description: 'framework' } }, keys), true);
+  // no provenance object at all: unprotected.
+  assert.equal(bandUnreviewed({ description: 'd' }, keys), true);
 });
 
 const FULL_RECORD = {
@@ -48,136 +80,81 @@ const FULL_RECORD = {
     keyboard: ['Enter and Space activate it.'],
     notes: ['An icon-only button needs an aria-label so screen readers can announce it.'],
   },
+  updatedAt: '2026-08-12',
 };
 
-test('planDocCard: full record → three rows with the canonical block layout', () => {
-  const plan = planDocCard(FULL_RECORD, { fontSize: 14 });
-  assert.equal(plan.rendererVersion, '4');
-  assert.equal(plan.columnUnit, 420);
-  assert.equal(plan.columns, 4);          // Usage Row 3 has 4 blocks: the widest row
-  assert.equal(plan.cardWidth, 1680);     // 4 × 420
-  assert.equal(plan.termColumn, 126);     // round(420 × 0.3)
-  assert.deepEqual(plan.rows.map((r) => r.name), ['Usage Row 1', 'Usage Row 2', 'Usage Row 3']);
-  assert.deepEqual(plan.rows[0].blocks.map((b) => b.name),
-    ['Block: Overview', 'Block: When to use', 'Block: When not to use']);
-  assert.deepEqual(plan.rows[1].blocks.map((b) => [b.name, b.tone]),
-    [['Block: Do', 'positive'], ["Block: Don't", 'negative']]);
-  assert.deepEqual(plan.rows[2].blocks.map((b) => b.name), [
-    'Block: What each variant means',   // one definition block per variants axis, in key order
+test('planDocCard: full record → one Usage band with the blocks in order', () => {
+  const plan = planDocCard(FULL_RECORD);
+  assert.equal(plan.rendererVersion, '5');
+  assert.deepEqual(plan.header, { title: 'Button', summary: 'Triggers an action or event.', updatedAt: '2026-08-12' });
+  assert.deepEqual(plan.bands.map((b) => b.name), ['Band: Usage']);
+  const usage = plan.bands[0];
+  assert.equal(usage.title, 'Usage');
+  assert.equal(usage.lede, 'A clickable control that starts an action.');
+  assert.deepEqual(usage.blocks.map((b) => b.name), [
+    'Block: When to use',
+    'Block: Use something else',
+    "Block: Do and Don't",
+    'Block: What each variant means',   // Step 1 carry-over, one per axis in record order
     'Block: What each size means',
     'Block: What each state means',
     'Block: Accessibility',
   ]);
 });
 
-test('planDocCard: definition terms preserve key order; accessibility = keyboard then notes, role dropped', () => {
-  const plan = planDocCard(FULL_RECORD, { fontSize: 14 });
-  const variantBlock = plan.rows[2].blocks[0];
-  assert.equal(variantBlock.type, 'definition');
-  assert.deepEqual(variantBlock.terms, [
+test('planDocCard: Do and Don\'t share one two-column block with the v4 headings', () => {
+  const block = planDocCard(FULL_RECORD).bands[0].blocks[2];
+  assert.equal(block.type, 'dosDonts');
+  assert.deepEqual(block.do, { eyebrow: '✓ Do', items: ['Start the label with a verb.'] });
+  assert.deepEqual(block.dont, { eyebrow: "✕ Don't", items: ["Don't use a button to navigate. Use a Link."] });
+  // Only one side present: the block still renders, with an empty other side.
+  const onlyDos = planDocCard({ name: 'X', dos: ['a'] }).bands[0].blocks;
+  assert.deepEqual(onlyDos.map((b) => [b.type, b.dont && b.dont.items]), [['dosDonts', []]]);
+});
+
+test('planDocCard: definition terms keep record order; accessibility = keyboard then notes, role dropped', () => {
+  const blocks = planDocCard(FULL_RECORD).bands[0].blocks;
+  assert.deepEqual(blocks[3].terms, [
     { term: 'default', meaning: 'The one main action in a view.' },
     { term: 'secondary', meaning: 'Sits alongside a main action.' },
   ]);
-  const a11y = plan.rows[2].blocks[3];
-  assert.equal(a11y.type, 'list');
-  assert.deepEqual(a11y.items, [
+  assert.deepEqual(blocks[6].items, [
     'Enter and Space activate it.',
     'An icon-only button needs an aria-label so screen readers can announce it.',
   ]);
 });
 
-test('planDocCard: tone blocks carry the glyph eyebrows, plain deterministic names', () => {
-  const plan = planDocCard(FULL_RECORD, { fontSize: 14 });
-  assert.deepEqual(plan.rows[1].blocks.map((b) => b.eyebrow), ['✓ Do', "✕ Don't"]);
+test('planDocCard: a record with no usage content has no Usage band', () => {
+  const plan = planDocCard({ name: 'Spacer', summary: 's' });
+  assert.deepEqual(plan.bands, []);
+  assert.deepEqual(planDocCard({ name: 'X', description: '  ', whenToUse: [], variants: {} }).bands, []);
 });
 
-test('planDocCard: sparse record → only Usage Row 1 with Overview; empty rows collapse', () => {
-  const plan = planDocCard(
-    { name: 'Badge', summary: 's', description: 'A small label.' }, { fontSize: 16 },
-  );
-  assert.equal(plan.columnUnit, 480);
-  assert.equal(plan.columns, 3);         // 3-unit floor
-  assert.equal(plan.cardWidth, 1440);
-  assert.deepEqual(plan.rows.map((r) => r.name), ['Usage Row 1']);
-  assert.deepEqual(plan.rows[0].blocks.map((b) => b.name), ['Block: Overview']);
+test('planDocCard: a description alone still makes a Usage band, as its lede', () => {
+  const plan = planDocCard({ name: 'Badge', description: 'A small label.' });
+  assert.equal(plan.bands[0].lede, 'A small label.');
+  assert.deepEqual(plan.bands[0].blocks, []);
 });
 
-test('planDocCard: row names keep canonical numbers when an earlier row is absent', () => {
-  const plan = planDocCard(
-    { name: 'X', summary: 's', description: '', states: { hover: 'Pointer over it.' } },
-    { fontSize: 16 },
-  );
-  // No description/whenToUse (row 1 empty), no dos/donts (row 2 empty) — the
-  // states row is still named Usage Row 3, never renumbered.
-  assert.deepEqual(plan.rows.map((r) => r.name), ['Usage Row 3']);
+test('planDocCard: the Usage band carries the Unreviewed flag from provenance', () => {
+  assert.equal(planDocCard({ ...FULL_RECORD, provenance: { description: 'ai-inferred' } }).bands[0].unreviewed, true);
+  assert.equal(planDocCard({ ...FULL_RECORD, provenance: { dos: 'imported' } }).bands[0].unreviewed, false);
 });
 
-test('planDocCard: columns come from the widest row alone, no specimen measurement involved', () => {
-  // Row 1 has 3 blocks (the widest row); row 2 has 2; row 3 has 1 — max is 3.
-  const plan = planDocCard(
-    {
-      name: 'Input',
-      summary: 's',
-      description: 'A single-line field for entering text.',
-      whenToUse: ['Collecting a short piece of free text.'],
-      whenNotToUse: ['Choosing from a fixed set. Use a Select instead.'],
-      dos: ['Label every input.'],
-      donts: ["Don't rely on placeholder text as the only label."],
-      states: { focused: 'The input has keyboard focus.' },
-    },
-    { fontSize: 16 },
-  );
-  assert.equal(plan.columns, 3);
-  assert.equal(plan.cardWidth, 1440);
+test('plan header is always strings, so the record hash stays stable', () => {
+  const plan = planDocCard({ name: 'Button', description: 'x' });
+  assert.deepEqual(plan.header, { title: 'Button', summary: '', updatedAt: '' });
 });
 
-test('planDocCard: empty arrays and empty objects are skipped like absent fields', () => {
-  const plan = planDocCard(
-    { name: 'X', summary: 's', description: 'd', whenToUse: [], variants: {}, dos: [] },
-    { fontSize: 16 },
-  );
-  assert.deepEqual(plan.rows.map((r) => r.name), ['Usage Row 1']);
-  assert.deepEqual(plan.rows[0].blocks.map((b) => b.name), ['Block: Overview']);
-});
-
-test('plan carries the header fields the builder writes', () => {
-  const plan = planDocCard(
-    { name: 'Button', summary: 'Starts an action.', updatedAt: '2026-08-12', description: 'x' },
-    { fontSize: 16 },
-  );
-  assert.deepEqual(plan.header, { summary: 'Starts an action.', updatedAt: '2026-08-12' });
-});
-
-test('plan header is always strings, so the render hash stays stable', () => {
-  const plan = planDocCard({ name: 'Button', description: 'x' }, { fontSize: 16 });
-  assert.deepEqual(plan.header, { summary: '', updatedAt: '' });
-  assert.doesNotThrow(() => JSON.stringify(plan));
+test('record hash ignores top-level key order but follows display order', () => {
+  const reordered = Object.fromEntries(Object.entries(FULL_RECORD).reverse());
+  assert.equal(fnv1a(JSON.stringify(planDocCard(reordered))), fnv1a(JSON.stringify(planDocCard(FULL_RECORD))));
+  const statesSwapped = { ...FULL_RECORD, states: { disabled: FULL_RECORD.states.disabled, hover: FULL_RECORD.states.hover } };
+  assert.notEqual(fnv1a(JSON.stringify(planDocCard(statesSwapped))), fnv1a(JSON.stringify(planDocCard(FULL_RECORD))));
 });
 
 test('fnv1a: 32-bit FNV-1a, 8 lowercase hex chars', () => {
   assert.equal(fnv1a(''), '811c9dc5');      // the offset basis
   assert.equal(fnv1a('a'), 'e40c292c');     // published FNV-1a test vector
   assert.match(fnv1a(JSON.stringify({ x: 1 })), /^[0-9a-f]{8}$/);
-});
-
-const text = (id, characters) => ({ id, type: 'TEXT', name: characters, characters });
-const frame = (id, name, children) => ({ id, type: 'FRAME', name, children });
-
-test('statusChipHint names a misnamed chip: a frame whose only child is TEXT', () => {
-  // The legacy Select Menu card: title TEXT + an unnamed pill frame around "Stable".
-  const titleRow = frame('24:775', 'Frame', [text('24:776', 'Select Menu'), frame('24:777', 'Frame', [text('24:778', 'Stable')])]);
-  assert.deepEqual(statusChipHint(titleRow), { id: '24:777', name: 'Frame', label: 'Stable' });
-});
-
-test('statusChipHint finds a chip nested below the title row', () => {
-  const titleRow = frame('1:1', 'Title', [text('1:2', 'Badge'), frame('1:3', 'Right', [frame('1:4', 'Pill', [text('1:5', 'Draft')]), text('1:6', 'v2')])]);
-  assert.deepEqual(statusChipHint(titleRow), { id: '1:4', name: 'Pill', label: 'Draft' });
-});
-
-test('statusChipHint gives no hint when it cannot tell which frame is the chip', () => {
-  const two = frame('1:1', 'Title', [frame('1:2', 'A', [text('1:3', 'Stable')]), frame('1:4', 'B', [text('1:5', 'Beta')])]);
-  assert.equal(statusChipHint(two), null);
-  assert.equal(statusChipHint(frame('1:1', 'Title', [text('1:2', 'Name')])), null);
-  assert.equal(statusChipHint(text('1:1', 'not a frame')), null);
-  assert.equal(statusChipHint(undefined), null);
 });

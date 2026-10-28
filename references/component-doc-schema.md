@@ -123,7 +123,7 @@ The manifest stores pointers + per-surface fingerprints, never content:
     "fingerprint": "<canonical fingerprint at last render>",
     "surfaces": {
       "figmaDescription": { "src": "<fp>", "render": "<hash of description text>" },
-      "docCard":          { "src": "<fp>", "render": "<hash of card content>", "renderer": "4" },
+      "docCard":          { "src": "<fp>", "recordHash": "<hash of the record-derived layout>", "render": "<hash of card content>", "renderer": "5" },
       "storybookMdx":     { "src": "<fp>", "render": "<hash of mdx file>", "file": "packages/ui/src/Button/Button.mdx" }
     }
   }
@@ -134,9 +134,15 @@ The manifest stores pointers + per-surface fingerprints, never content:
 - `render` — a hash of the surface's rendered content at render time (detects
   **edited**, for surfaces the tooling can re-read).
 - `file` — repo-relative path for code surfaces so `docs:check` can re-read them.
+- `recordHash` — (docCard only) a hash of the part of the card's layout that
+  comes from the record. Node predicts it (`expectedRecordHash`), so a mismatch
+  with the builder's `summary.recordHash` fails the render. Absent until the
+  card's first v5 render. `render` still covers the whole layout, including
+  what the renderer read from Figma; nothing predicts it, and `docs:check`
+  never reads it for the card.
 - `renderer` — (docCard only) the layout version of the builder that last
   rendered the card: `DOC_CARD_RENDERER_VERSION` in `scripts/lib/doc-card-plan.mjs`,
-  currently `"4"`. Additive and optional — absence means the card predates the
+  currently `"5"`. Additive and optional — absence means the card predates the
   versioned builder. Stamped from the builder's returned summary, never by
   re-reading the card.
 

@@ -347,8 +347,8 @@ nothing. Step 7's recording only follows this step for that reason: reorder them
 and a component would be `stable`, owed an entry, and recorded before it exists.
 
 **Confirm the write-back once, up front.** Before touching Figma, state the batched
-change in one line and get a yes — *"I'll update the N doc cards in Figma: flip the
-status chips amber → green and set Last Updated to today. Confirm?"* The user
+change in one line and get a yes — *"I'll update the N doc cards in Figma: set the
+status chips to stable and set Last Updated to today. Confirm?"* The user
 approved the *components*, but writing to their Figma file is a separate external-
 system action that needs explicit consent (and an unannounced write trips the safety
 classifier, forcing the round-trip anyway). One confirmation covers all cards.
@@ -370,17 +370,14 @@ before it:
 - When promoting status (e.g. draft → stable), also set `status` + `updatedAt` in
   the component's `.doc.json`, recompute its fingerprint, re-run `docs:digest`, and
   re-render the affected surfaces so `docs:check` stays green.
-- If Figma is connected (per `figma.mechanism`), open the component's doc card and
-  locate its status chip under either header shape, as the routine describes: a
-  `Status` chip with a `Status Label` text node on to-spec cards, a `Status Pill`
-  with one text node on legacy cards. If neither is there, don't guess — tell the
-  user that card still shows the old status. Otherwise set the label text to
-  `stable`, re-bind the chip fill to
-  the **success** semantic color variable (mode-aware, not a hardcoded hex), then
-  re-run the canonical doc-card builder against the same card to refresh the
-  header date from the `record.updatedAt` already set above (it locates the date
-  node under either header shape) — then screenshot to confirm the chip
-  recolored and the date changed.
+- If Figma is connected (per `figma.mechanism`), set the status on the doc card
+  with `node .throughline/scripts/doc-card-payload.mjs <record> --status stable`
+  (it finds the card by its tag and sets the header's `Status` variant — no chip
+  to locate, no fill to rebind). A card with no tag stops the run: tell the user
+  that card still shows the old status. Then re-run the canonical doc-card
+  builder against the same card to refresh the header date from the
+  `record.updatedAt` already set above — then screenshot to confirm the header
+  reads `stable` and the date changed.
 - If Figma isn't connected, still update the manifest and tell the user the card
   will reconcile next Figma session (or offer to reconnect and fix it now).
 

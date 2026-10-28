@@ -26,51 +26,79 @@ const RECORD = {
 
 const MANIFEST = {
   figma: {
+    fileKey: 'OCiZiGpsJ4ncPD8r205BjC',
     docCardVariables: {
       textDefault: 'color/text/primary', textMuted: 'color/text/secondary',
       tonePositive: 'color/success/default', toneNegative: 'color/danger/default',
       border: 'color/border/default', spacePadding: 'space/inset/lg',
       spaceRowGap: 'space/gap/xl', spaceBlockGap: 'space/gap/lg', spaceItemGap: 'space/gap/sm',
+      surfaceBand: 'color/surface/default', surfaceHeader: 'color/surface/inverse',
+      textOnHeader: 'color/text/inverse', radiusBand: 'radius/lg', toneCaution: 'color/warning/default',
     },
+    docCardTextStyles: { title: 'Heading/H1', bandTitle: 'Heading/H3', body: 'Body/Default', caption: 'Body/Small' },
+    docKit: null,
   },
+  components: { meta: { Badge: { status: 'stable' } } },
 };
 
-const build = (over = {}) => buildPayload({ record: RECORD, cardNodeId: '12:354', manifest: MANIFEST, builderMarkdown: BUILDER_MD, ...over });
+const build = (over = {}) => buildPayload({ record: RECORD, manifest: MANIFEST, builderMarkdown: BUILDER_MD, ...over });
+const withFigma = (patch) => ({ ...MANIFEST, figma: { ...MANIFEST.figma, ...patch } });
 
 test('extractSnippet returns the generated builder code, fences excluded', () => {
   const snippet = extractSnippet(BUILDER_MD);
   assert.match(snippet, /async function renderDocCard\(/);
+  assert.match(snippet, /async function setDocCardStatus\(/);
   assert.match(snippet, /function planDocCard\(/);
   assert.doesNotMatch(snippet, /```/);
 });
 
-test('buildPayload fills both slots, every role name, and the call', () => {
-  const { code, fingerprint } = build();
+test('buildPayload fills both slots, every role and style name, and the call by component name', () => {
+  const { code, fingerprint, componentName } = build();
+  assert.equal(componentName, 'Badge');
   assert.equal(fingerprint, canonicalFingerprint(RECORD));
   assert.ok(code.startsWith(`const RECORD = ${JSON.stringify(RECORD)};\nconst CANONICAL_FP = '${fingerprint}';\n`));
   assert.ok(code.includes(extractSnippet(BUILDER_MD)));
   for (const name of Object.values(MANIFEST.figma.docCardVariables)) assert.ok(code.includes(JSON.stringify(name)), name);
-  assert.match(code, /getNodeByIdAsync\('12:354'\)/);
-  assert.match(code, /renderDocCard\(\{ card, record: RECORD, vars, bodyTextStyle \}\)/);
+  for (const name of Object.values(MANIFEST.figma.docCardTextStyles)) assert.ok(code.includes(JSON.stringify(name)), name);
+  assert.ok(code.includes('const ARGS = {"componentName":"Badge","nodeId":null,"fileKey":"OCiZiGpsJ4ncPD8r205BjC","docKitFileKey":null,"status":"stable"};'));
+  assert.match(code, /return await renderDocCard\(\{ \.\.\.ARGS, record: RECORD, vars, textStyles \}\)/);
+  assert.doesNotMatch(code, /getNodeByIdAsync\('/);
+});
+
+test('--node-id and a recorded kit reach the renderer', () => {
+  const { code } = build({ nodeId: '12:354', manifest: withFigma({ docKit: { fileKey: 'OCiZiGpsJ4ncPD8r205BjC' } }) });
+  assert.ok(code.includes('"nodeId":"12:354"'));
+  assert.ok(code.includes('"docKitFileKey":"OCiZiGpsJ4ncPD8r205BjC"'));
 });
 
 test('the payload compiles as a figma_execute body (top-level await + return)', () => {
   assert.doesNotThrow(() => new AsyncFunction('figma', build().code));
+  assert.doesNotThrow(() => new AsyncFunction('figma', build({ status: 'stable' }).code));
 });
 
-test('expectedRenderHash is the hash the renderer computes for this record', () => {
-  assert.equal(build().expectedRenderHash, fnv1a(JSON.stringify(planDocCard(RECORD, { fontSize: 16 }))));
-  // The font size only moves the hash through the clamped column unit.
-  assert.equal(build({ fontSize: 20 }).expectedRenderHash, build().expectedRenderHash);
-  assert.notEqual(build({ fontSize: 14 }).expectedRenderHash, build().expectedRenderHash);
+test('expectedRecordHash is the hash the renderer computes for this record', () => {
+  assert.equal(build().expectedRecordHash, fnv1a(JSON.stringify(planDocCard(RECORD))));
 });
 
-test('buildPayload refuses without a complete docCardVariables mapping', () => {
+test('--status emits a payload that only sets the header status', () => {
+  const result = build({ status: 'Beta' });
+  assert.equal(result.status, 'beta');
+  assert.match(result.code, /return await setDocCardStatus\(\{ componentName: "Badge", status: 'beta' \}\);\n$/);
+  assert.doesNotMatch(result.code, /await renderDocCard\(/);
+  assert.doesNotMatch(result.code, /const RECORD =/);
+  assert.throws(() => build({ status: 'final' }), /status "final" is not one of/);
+});
+
+test('buildPayload refuses without a complete mapping', () => {
   assert.throws(() => build({ manifest: {} }), /no figma\.docCardVariables/);
-  const partial = { figma: { docCardVariables: { ...MANIFEST.figma.docCardVariables, border: '' } } };
+  const partial = withFigma({ docCardVariables: { ...MANIFEST.figma.docCardVariables, border: '' } });
   assert.throws(() => build({ manifest: partial }), /missing role\(s\): border/);
+  const nineOnly = withFigma({ docCardVariables: { ...MANIFEST.figma.docCardVariables, toneCaution: undefined } });
+  assert.throws(() => build({ manifest: nineOnly }), /missing role\(s\): toneCaution/);
+  assert.throws(() => build({ manifest: withFigma({ docCardTextStyles: null }) }), /docCardTextStyles is missing: title, bandTitle, body, caption/);
+  assert.throws(() => build({ manifest: withFigma({ fileKey: null }) }), /no figma\.fileKey/);
 });
 
 test('buildPayload rejects a malformed node id', () => {
-  assert.throws(() => build({ cardNodeId: 'Badge' }), /cardNodeId must look like/);
+  assert.throws(() => build({ nodeId: 'Badge' }), /--node-id must look like/);
 });

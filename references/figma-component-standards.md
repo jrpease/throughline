@@ -279,42 +279,38 @@ frames. Applies to `component-builder`, `icon-system-builder`, and
 
 ### Every component sits on its own documentation card
 
-Wrap each generated component in a "doc card" — a **vertical, three-band
-auto-layout frame**: a **header** band, a **specimen** band (holding the
-component set — the builder's specimen contract is the card's `COMPONENT_SET`,
-not a band name), and a **`Usage`** band holding the documentation body. Never
-leave components floating on bare canvas.
+Wrap each generated component in a "doc card" — a **vertical auto-layout
+frame**: a **`_Doc/Header`** kit instance at the top, a **`Band: Specimen`**
+band holding the component set (the builder's specimen contract is the card's
+`COMPONENT_SET`, not a band name), then the documentation bands (`Band: Usage`
+today). Never leave components floating on bare canvas.
 
-**The `Usage` band is never hand-built.** It is rendered by the canonical
-builder snippet in `${CLAUDE_PLUGIN_ROOT}/references/doc-card-builder.md`
+**The header and the bands are never hand-built.** They are rendered by the
+canonical builder snippet in `${CLAUDE_PLUGIN_ROOT}/references/doc-card-builder.md`
 (generated — that file carries the full call contract: the record/fingerprint
-slots, the nine required semantic variables, the `Body/Default` text style, and
-the returned summary you verify and stamp the manifest from). The builder
-computes the card's width from the body type — a column-unit grid whose text
-fills its block, not the card. The column count comes from the record's
-content — the widest row's block count, with a floor of three. It rebuilds
-the `Usage` frame and rewrites the header's short description and date from
-the record; it reads the specimen and never writes it, and the status chip
-keeps its own owner (the finalize write-back below). The header's
-short-description text node is clamped to one column unit wide
-(`summary.columnUnit` from the builder's return), so it never stretches
-across a wide matrix.
+slots, the `figma.docCardVariables` roles, the `figma.docCardTextStyles`, the
+kit, and the returned summary you verify and stamp the manifest from). A card is
+found by its tag (shared plugin data `throughline` / `docCard` = the component
+name); a card built before v5 has no tag and takes `--node-id` once. The
+builder draws the kit (`_Doc/Header`, `_Doc/Band header`) on a
+`Documentation Kit` page the first time any card needs it, then only sets the
+kit's properties by name. It creates the `_Doc/Header` instance when the card
+has none, rebuilds the bands from the record, and rewrites the header's title,
+summary and date; it reads the specimen and never rebuilds it.
 
-The header shows:
+The header (the `_Doc/Header` instance) shows:
 
-- **Component name** (the deterministic name, matching code).
-- **Short description** (what it is / when to use it).
-- **Status indicator** — a chip reading `draft` / `beta` / `stable` /
-  `deprecated`, colored from semantic tokens (e.g. warning for draft/beta,
-  success for stable, neutral/danger for deprecated). Source the value from
-  `components.meta[name].status`. **Name the chip frame `Status` and its label
-  text node `Status Label`** so the finalize write-back (below) can find and
-  update them later — a chip with no deterministic name can't be promoted.
-- **Last updated** — a date, from the doc record's `updatedAt` field
+- **Component name** (`Title`; the deterministic name, matching code).
+- **Short description** (`Summary`; what it is / when to use it).
+- **Status indicator** — the instance's `Status` variant: `draft` / `beta` /
+  `stable` / `deprecated`, styled by designers in the kit. The renderer sets it
+  once, when it creates the header, from `components.meta[name].status`; after
+  that its owner is the finalize write-back (below), never a fill rebind and
+  never by hand.
+- **Last updated** (`Updated`) — a date, from the doc record's `updatedAt` field
   (`record.updatedAt` — the single source for the header date; not
   `components.meta[name].updatedAt`, which is separate manifest bookkeeping),
-  refreshed whenever the component is rebuilt. **Name this text node
-  `Last Updated`** for the same reason.
+  refreshed whenever the component is rebuilt.
 
 **Always separate the header from the component area with a division element.** The
 header block (name, description, status, date) and the component/variant area below
@@ -328,7 +324,8 @@ block. Use one of two approaches, both token-bound:
   surface fill (e.g. header → `bg/subtle`/`bg/muted`, component area → `bg/surface`)
   so the change in surface color creates the segmentation on its own.
 
-Pick whichever reads better for the card's styling, but **one of them is required** —
+On a v5 card the `_Doc/Header` instance, on its own header surface, is that
+division. Pick whichever reads better for the card's styling, but **one of them is required** —
 a doc card with no header/component division is a fail in the post-build audit.
 Whichever you choose, bind it to variables (border or surface tokens), never a
 hardcoded hex.
@@ -357,7 +354,7 @@ re-describing it:
    Figma file," and because an unannounced external write trips the safety
    classifier and forces an extra round-trip anyway. State the concrete change in
    one line and proceed on confirmation — e.g. *"I'll update the 9 doc cards in
-   Figma: flip the status chips amber → green and set Last Updated to today.
+   Figma: set the headers' status to stable and set Updated to today.
    Confirm?"* One confirmation covers the whole batch; don't ask per card.
 1. Set `components.meta[name].status` to the new status (`stable` on finalize) and
    `components.meta[name].updatedAt` to today (ISO date) — this is manifest
@@ -365,39 +362,29 @@ re-describing it:
    the component's `.doc.json` record: `record.updatedAt` is the single source
    the doc card's header renders its date from, so this is the write that
    actually moves the date the user sees.
-2. If Figma is connected (use `figma.mechanism`), locate the component's doc card
-   by its deterministic name (script the write-back per
-   `${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md` — `getNodeByIdAsync`, and
-   an explicit `timeout` since multi-card font-loading writes blow past the default
-   ~5s budget), then inside it:
-   - locate the status chip under either header shape, the way the doc-card
-     builder's header guard does: find the header band structurally (the card's
-     child frame that is neither `Usage` nor the specimen nor an ancestor of it),
-     then search its first child, the title row, for a descendant named `Status`
-     (to-spec cards) or `Status Pill` (legacy cards). The chip's label is its
-     `Status Label` text node; a legacy pill has no named label, so use its one
-     TEXT descendant. If no chip is found, or the label doesn't resolve to exactly
-     one text node, **skip that card** without writing anything to it and record
-     its name — catch per card, so one miss never aborts the rest of a multi-card
-     write. After the loop, tell the user by name every card that still shows the
-     old status in Figma — the manifest already says `stable`, so a silent skip
-     leaves the card lying;
-   - set the label text to the new status (e.g. `stable`);
-   - re-bind the chip fill to the matching semantic color variable
-     (`stable` → success, `draft`/`beta` → warning, `deprecated` → neutral/danger)
-     — re-bind the variable, don't hardcode a hex, so it stays mode-aware.
+2. If Figma is connected (use `figma.mechanism`), set the status on each card
+   with the payload script's status mode, one card per `figma_execute` call with
+   an explicit `timeout`:
+   `node ${CLAUDE_PLUGIN_ROOT}/scripts/doc-card-payload.mjs design-system/docs/components/<Name>.doc.json --status stable --out <scratch>/payload.js`
+   (the value is checked against `draft` / `beta` / `stable` / `deprecated`).
+   It finds the card by its tag and sets the header's `Status` variant; there is
+   no chip to locate and no fill to rebind. A card with no tag (a v4 card no v5
+   render has touched) stops the run and names the component — re-render it
+   once with `--node-id <card frame id>` first. Catch per card, so one miss never
+   aborts the rest of a multi-card write, and after the loop tell the user by
+   name every card that still shows the old status in Figma — the manifest
+   already says `stable`, so a silent skip leaves the card lying.
    Then re-run the canonical doc-card builder
    (`${CLAUDE_PLUGIN_ROOT}/references/doc-card-builder.md`) against the same card
    to refresh the header date from the `record.updatedAt` just set in step 1 — the
-   builder locates the date node under either header shape (legacy label/value
-   frame, or the to-spec `Last Updated` text node) and writes it there, so this
-   step never hand-stamps today's date onto a guessed node. Then run the
-   visual-validation loop (screenshot → confirm the chip recolored and the date
-   changed → re-screenshot).
+   builder writes it to the header's `Updated` property, so this step never
+   hand-stamps today's date onto a guessed node. Then run the
+   visual-validation loop (screenshot → confirm the header's `Status` reads the
+   new status and the date changed → re-screenshot).
 3. If Figma is **not** connected, still do step 1, and tell the user the card will
-   reconcile the next time a Figma session runs — its status chip renders from
-   `components.meta[name].status` and its header date from `record.updatedAt`,
-   both already updated by step 1. Offer to reconnect and update it now if they
+   reconcile the next time a Figma session runs — its header `Status` gets the
+   `--status` run and its header date renders from `record.updatedAt`, the
+   manifest and record both already updated by step 1. Offer to reconnect and update it now if they
    want it reflected immediately.
 
 **Icons are the one exception:** the whole icon set lives on a *single* doc card
@@ -530,19 +517,20 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
 3. **Variables bound** — every fill, stroke, text color, corner radius,
    `itemSpacing`, and padding resolves to a **bound variable** (`boundVariables`
    present), not a raw hex/px. No hardcoded values anywhere in the doc-card chrome.
-   **Two documented exceptions inside the `Usage` band** (layout chrome, not
-   design values, both produced by the builder): the computed column-unit width
-   on blocks, and the derived eyebrow type (size/case/tracking/weight). All
-   other `Usage` properties — padding, gaps, text colors, dividers — must still
-   resolve to bound variables.
+   **One documented exception, rule thickness** (layout chrome, not a design
+   value, produced by the builder): the 1px dividers and outlines and the 2px
+   Do/Don't rules. Their colors still bind. Every other band property — surface,
+   radius, padding, gaps, text colors, text styles — must resolve to a bound
+   variable or style.
    **Check container and component-set background fills specifically** — a paint bind
    that didn't stick renders the placeholder color instead (a pure-black placeholder
    reads as accidental dark mode), so read back `fills[0].boundVariables.color` on
    those container fills and re-bind any that resolve to a raw value.
 4. **Names deterministic** — components match their code counterpart names; the
-   `Status` chip, `Status Label`, and `Last Updated` nodes are named exactly so
-   finalize write-back can find them; no `Frame 47`-style auto names on meaningful
-   layers.
+   doc kit's property names are exactly the ones the builder sets: `_Doc/Header`
+   has `Status`, `Title`, `Summary` and `Updated`, and `_Doc/Band header` has
+   `Title`, `Lede` and `Unreviewed`; no `Frame 47`-style auto names on
+   meaningful layers.
 5. **Scope / status correct** — icons are the curated subset (not the full 1,700),
    and each doc card's status value matches `components.meta[name].status` in the
    manifest.
@@ -551,9 +539,9 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
    rings, and shadows aren't sliced at the edge. `clipsContent = true` is allowed
    **only** on deliberate cutoffs (scroll containers, image/avatar crop frames).
 7. **Header division present** — each doc card has a division between its header and
-   the component area: either a `Header Divider` rule bound to `Border/Semantic`, or
-   a header container whose surface fill differs from the component area (both
-   token-bound). A card with no header/component segmentation is a fail.
+   the component area: a `_Doc/Header` instance (the kit's header surface is the
+   division), or a `Header Divider` rule bound to `Border/Semantic`, or a header
+   container whose surface fill differs from the component area (all token-bound). A card with no header/component segmentation is a fail.
 8. **States complete** — each component set's `state` axis includes every relevant
    state for that component (every state the table in `references/state-baseline.md`
    owes it, plus default, plus the applicable loading/success/error), with variants (incl. each
@@ -596,14 +584,15 @@ For each generated artboard / doc card / icon grid, read the nodes back (via
    On a pass, `component-builder` records `focus-contrast` as an attested check.
 10. **Visual** — the screenshot (from the validation loop) shows no overlaps,
    misalignment, lopsided hug/fill sizing, or clipped strokes/focus rings.
-11. **Usage band rendered by the builder** — the card's `Usage` frame was
-   created by `renderDocCard`
+11. **Card rendered by the builder** — the card's header and bands were created by
+   `renderDocCard`
    (`${CLAUDE_PLUGIN_ROOT}/references/doc-card-builder.md`) in this session, and
-   the returned summary matches the record: `rowsRendered` and `blocksCreated`
-   line up with the record's populated blocks, `cardWidth` is a whole multiple
-   of `columnUnit` (minimum 3), and the frame contains the deterministic names
-   (`Usage`, `Usage Row 1..3`, `Block: …`, `Doc Fingerprint`). Verify from the
-   summary, not a screenshot. A hand-assembled usage body is a fail.
+   the checks hold: the card carries its tag (shared plugin data `throughline` /
+   `docCard` = the component name), `figma.docKit` is recorded in
+   `design-system.json`, `summary.recordHash` equals the `expectedRecordHash` the
+   payload script printed, and no band uses a raw value apart from rule
+   thickness (item 3). Verify from the summary, not a screenshot. A
+   hand-assembled header or band is a fail.
 
 If any item fails, **fix and re-audit** — don't hand off a partial pass. Iterate
 with the same ~3-pass budget as the visual loop. Only when all eleven pass is the
