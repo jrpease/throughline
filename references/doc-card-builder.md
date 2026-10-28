@@ -105,7 +105,8 @@ Then:
   If the header and bands are all there, the render finished: re-run once to
   get its summary. If not, re-run.
 - If `summary.headerContrast.verdict` is `warn`, the header and card are under
-  3:1 apart: tell the user and suggest restyling `_Doc/Header` in the kit.
+  3:1 apart: mention the ratio in one line. Suggest restyling `_Doc/Header`
+  only when `kitDrawn` is also true; an existing kit is the designer's choice.
 - Check `summary.recordHash` equals the `expectedRecordHash` the script printed.
   A mismatch means the payload changed on the way in.
 - Stamp the manifest from the summary, never from a re-read:
@@ -283,8 +284,9 @@ function fnv1a(str) {
 // bound paints seeded light-gray (never pure black).
 //
 // In-scope globals when assembled: planDocCard, cardWidth, statusVariant,
-// STATUS_OPTIONS, CARD_MIN_WIDTH, DOC_CARD_RENDERER_VERSION, fnv1a (inlined
-// planner) and the caller-filled slot CANONICAL_FP.
+// STATUS_OPTIONS, CARD_MIN_WIDTH, DOC_CARD_RENDERER_VERSION, fnv1a,
+// headerContrast, HEADER_MIN_CONTRAST (inlined planner) and the caller-filled
+// slot CANONICAL_FP.
 //
 // Contract: docs/specs/2026-10-15-doc-card-v5.md (Plan, Step 1.3).
 

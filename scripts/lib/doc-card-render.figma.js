@@ -7,8 +7,9 @@
 // bound paints seeded light-gray (never pure black).
 //
 // In-scope globals when assembled: planDocCard, cardWidth, statusVariant,
-// STATUS_OPTIONS, CARD_MIN_WIDTH, DOC_CARD_RENDERER_VERSION, fnv1a (inlined
-// planner) and the caller-filled slot CANONICAL_FP.
+// STATUS_OPTIONS, CARD_MIN_WIDTH, DOC_CARD_RENDERER_VERSION, fnv1a,
+// headerContrast, HEADER_MIN_CONTRAST (inlined planner) and the caller-filled
+// slot CANONICAL_FP.
 //
 // Contract: docs/specs/2026-10-15-doc-card-v5.md (Plan, Step 1.3).
 

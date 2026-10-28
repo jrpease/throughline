@@ -146,7 +146,18 @@ as an argument.
   #353535 on #181818.
 - **The header has square corners** while bands use `radiusBand`. That's as the
   Plan specifies (the header gets no radius), but it reads as unfinished next to
-  the rounded bands.
+  the rounded bands. Resolved 2026-10-28: a newly drawn kit gives the header
+  `radiusBand`. The sample's and 01's kits predate it and stay square until
+  rounded by hand.
+- **2026-10-28 re-render with the 3:1 warning.** Spinner (`11:321`) re-rendered
+  on the branch's renderer: `recordHash` `00e1ab36` and `render` `65916735`,
+  both unchanged from the manifest, and `headerContrast` #353535 on #181818 at
+  1.45:1, verdict `warn`. The first attempt stalled at 30 s with Figma covered;
+  the card read back without its fingerprint, and the parked render finished
+  once Figma was side by side with the terminal, as the builder's stall
+  procedure says. Both runs used a trimmed copy of the generated snippet; the
+  kit-drawing branch did not run, so the new header radius is not yet proven
+  live.
 
 ## The fresh agent's walk through `/document-component`
 

@@ -74,8 +74,9 @@ Header colours now in use:
 - The bridge target is pinned to Throughline Plugin Test
   (`OCiZiGpsJ4ncPD8r205BjC`). Reads in other files go by `fileKey`.
 - The renderer has no Node tests. The header guard was checked live: it threw
-  on the sample before the restyle and passed for all 14 cards after. It
-  catches only an exact colour match.
+  on the sample before the restyle and passed for all 14 cards after. Since
+  2026-10-28 it refuses an exact match and warns under 3:1; a Spinner
+  re-render that day returned `warn` at 1.45:1.
 
 ## Open questions
 
