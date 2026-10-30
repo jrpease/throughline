@@ -36,7 +36,7 @@ export function emitCodex(model) {
   const agents = [
     '# ThroughLine (Codex adapter)',
     '',
-    'ThroughLine builds a design system end to end. Load the matching prompt for the task at hand.',
+    'ThroughLine is an agentic design team: it composes screens from your design system or a connected Figma library, and builds a design system end to end. Load the matching prompt for the task at hand.',
     '',
     indexSection('ThroughLine skills', model.skills),
     indexSection('ThroughLine commands', model.commands),

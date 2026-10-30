@@ -6,6 +6,23 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.32.1] — 2026-10-30
+
+ThroughLine started as a way to build a design system. It's a design team now, and
+the README finally says so.
+
+### Changed
+
+- **The README leads with design, not just the system.** A new "Design with what
+  you have" section walks through the three modes: your ThroughLine system, a
+  Figma library you already use (new in 0.32.0), and nothing at all
+  (planned). The command table, the compose-figma notes, who it's for and the roadmap
+  all catch up, and the roadmap names what's left of design modes.
+- **A new description, in the directory, on npm and in the Codex and generic adapters.**
+  `plugin.json`, the marketplace, `package.json` and the Codex and generic
+  indexes all say ThroughLine designs screens on your system or your
+  team's library, as well as building the system.
+
 ## [0.32.0] — 2026-10-30
 
 `/throughline:compose-figma` no longer needs a throughline system. Open a product
