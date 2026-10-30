@@ -1,12 +1,12 @@
 {
   "name": "throughline-marketplace",
   "owner": { "name": "Jordan Pease" },
-  "description": "ThroughLine, your agentic design team: a design system in Figma, synced to code, and kept honest.",
+  "description": "ThroughLine, your agentic design team: screens and design systems in Figma, synced to code, and kept honest.",
   "plugins": [
     {
       "name": "throughline",
       "source": "./",
-      "description": "Your agentic design team. Build a design system in Figma, sync it to code, and keep the two honest: tokens, components, docs and screens from one source, with checks that stop the build when something slips. Start fresh or retrofit what you have."
+      "description": "Your agentic design team. Design screens in Figma on your own design system or on a library your team already uses, or build a design system from scratch and sync it to code: tokens, components, docs and screens from one source, with checks that stop the build when something slips."
     }
   ]
 }

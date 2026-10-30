@@ -6,7 +6,7 @@
 
 ### Your agentic design team
 
-**Every skill you need to launch and manage a production-grade design system in hours — not months. Built for Claude Code, and installable into Cursor, Codex, or any AGENTS.md agent.**
+**Design screens with agents, on the design system you already use or one ThroughLine builds with you in hours, not months. Built for Claude Code, and installable into Cursor, Codex, or any AGENTS.md agent.**
 
 [![Website](https://img.shields.io/badge/home-radicool.studio%2Fthroughline-111111)](https://radicool.studio/throughline)
 [![npm](https://img.shields.io/npm/v/%40radicool%2Fthroughline?color=6366f1&label=npm)](https://www.npmjs.com/package/@radicool/throughline)
@@ -18,9 +18,19 @@
 
 </div>
 
-Whether you're starting from scratch or retrofitting an existing design system, ThroughLine puts you in the driver's seat — you make the high-level decisions while your agentic team powers through the production work. You stay in control of the *what*; it handles the *how*.
+ThroughLine is a design team you run from your agent. Open a Figma file built on your team's library and it composes screens from that library. Start from nothing and it builds you a production-grade design system first, then designs with it. Already have a system that's drifted? It retrofits that too. Whichever way in, you make the high-level decisions while your agentic team powers through the production work. You stay in control of the *what*; it handles the *how*.
 
 **No code experience required.**
+
+## Design with what you have
+
+Every Figma run starts by reading the open file and telling you, in one line, which of three modes it's in and what that mode gives up.
+
+1. **Your ThroughLine system.** The strictest mode. Every colour, gap and radius is bound to a token, anything the system doesn't have is recorded as a gap, and every screen is tracked for drift.
+2. **A Figma library you already use.** *New in 0.32.* No setup. The library comes first and the file's own components fill the gaps, and the report names every one it used. A hardcoded value is allowed only where no variable holds it, and each one is listed. Ask for 20px when `spacing/space/5` is 20 and the build refuses, naming the variable.
+3. **Nothing at all.** *Coming next.* Screens built from frames to auto-layout standards, with an offer at the end to turn the one-off values into variables.
+
+In every mode, a screen that needs a component that doesn't exist says so instead of drawing a lookalike.
 
 Guides, examples and news live at **[radicool.studio/throughline](https://radicool.studio/throughline)**.
 
@@ -70,14 +80,14 @@ Once the system exists, these are the commands you'll live in. In Claude Code th
 | `/throughline:new-component` | One new component, end to end: Figma, tokens, code and stories. |
 | `/throughline:document-component` | Write or refresh one component's docs, everywhere they appear. |
 | `/throughline:check-figma` | Check what's already in Figma against the system, without changing it. |
-| `/throughline:compose-figma` | Build a screen in Figma from your own components and tokens. |
+| `/throughline:compose-figma` | Build a screen in Figma from your system, or from a connected library. |
 | `/throughline:compose-code` | Build the same kind of screen in code, as one React file. |
-| `/throughline:gap-report` | Everything your screens asked for that the system doesn't have, ranked. |
+| `/throughline:gap-report` | Everything your screens asked for that the system or library doesn't have, ranked. |
 | `/throughline:drift` | What moved since you built it, and the command that fixes each thing. |
 
 Already have screens or components in Figma? `/throughline:check-figma` checks them against the system without touching the file: it flags a component someone detached, and a colour, gap, padding or radius that's hardcoded when a token already has that value. It also runs the state, focus-ring and focus-contrast checks over the components already in your library.
 
-Need a new screen? `/throughline:compose-figma` builds it in Figma from your own components and tokens, every value bound. If the screen needs something your system doesn't have, it says so instead of drawing a lookalike, and it runs the same check before handing the screen over.
+Need a new screen? `/throughline:compose-figma` builds it in Figma from your own components and tokens, every value bound. If the screen needs something your system doesn't have, it says so instead of drawing a lookalike, and it runs the same check before handing the screen over. No ThroughLine system? Open a file built on a connected Figma library and it composes from that library instead, keeping its records in a `design/` folder next to your work.
 
 Want it in code instead? `/throughline:compose-code` writes the screen as one React file in your app, using only your components and your tokens. It checks the plan before writing a line, reports any component you don't have rather than building one, and gates the file before handing it over.
 
@@ -113,7 +123,7 @@ Everything above was created during a single working session and synced directly
 
 | | |
 |---|---|
-| **A supported agent** | Required — [Claude Code](https://docs.claude.com/en/docs/claude-code) (native plugin), or **Cursor**, **Codex**, or any **AGENTS.md**-aware agent via `npx @radicool/throughline@0.32.0 init`. |
+| **A supported agent** | Required — [Claude Code](https://docs.claude.com/en/docs/claude-code) (native plugin), or **Cursor**, **Codex**, or any **AGENTS.md**-aware agent via `npx @radicool/throughline@0.32.1 init`. |
 | **Figma** | Required, **desktop app** (the browser version causes connection errors). **Professional plan or higher recommended** — multi-mode variables (Light/Dark, brand themes) need it. |
 | **Figma access token** | Optional — only for the few Figma calls the Desktop Bridge can't make, like reading a published library. Without it, you work through the bridge alone. The setup skill walks you through it; your token stays yours and is never shared in chat. |
 | **GitHub** (or similar) | Optional — only when you're ready to graduate to a real remote repo with PRs and CI. |
@@ -155,9 +165,9 @@ Update anytime with `/plugin marketplace update throughline-marketplace`.
 Run the installer in your project — it stamps in the skills, the reference docs, the scripts, and the Figma MCP config for your tool:
 
 ```
-npx @radicool/throughline@0.32.0 init --target=cursor    # → .cursor/rules + .cursor/mcp.json
-npx @radicool/throughline@0.32.0 init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
-npx @radicool/throughline@0.32.0 init --target=generic    # → skills/ + AGENTS.md index
+npx @radicool/throughline@0.32.1 init --target=cursor    # → .cursor/rules + .cursor/mcp.json
+npx @radicool/throughline@0.32.1 init --target=codex      # → prompts/ + AGENTS.md index + codex-mcp.toml
+npx @radicool/throughline@0.32.1 init --target=generic    # → skills/ + AGENTS.md index
 ```
 
 It's safe to re-run (it merges `AGENTS.md` and `.cursor/mcp.json` non-destructively) and stages everything the skills read into `.throughline/`. Then open the `figma-environment-setup` skill/rule/prompt for your tool to begin. For Codex, add the printed `codex-mcp.toml` block to your Codex config to enable Figma access.
@@ -207,15 +217,18 @@ For the technically curious — how the machine actually runs.
 
 ## Who it's for
 
-1. **Solo designers** who spend a lot of time building and managing design systems.
-2. **Agencies** consistently spinning up new design systems for clients.
-3. **Design teams** constantly fighting to keep their Figma and code systems in sync.
-4. **Non-designer vibe coders** who want a stronger design-system backbone on their projects.
-5. **Engineers** looking to bridge their code and design ecosystems.
+1. **Product designers** working in a team's Figma library, who want screens built from the real components rather than lookalikes.
+2. **Solo designers** who spend a lot of time building and managing design systems.
+3. **Agencies** consistently spinning up new design systems for clients.
+4. **Design teams** constantly fighting to keep their Figma and code systems in sync.
+5. **Non-designer vibe coders** who want a stronger design-system backbone on their projects.
+6. **Engineers** looking to bridge their code and design ecosystems.
 
 ## Why I built it
 
 I'm a designer who got tired of the handoff. Design systems live in two places that never quite agree — the Figma file and the codebase — and keeping them in sync is a full-time job nobody wants. ThroughLine is the tool I wished existed: it lets a designer drive the whole pipeline, learn the engineering one concept at a time, and end up with a real, shippable system instead of a pile of redlines. If you're a designer who's becoming a developer, this was built for you.
+
+Then I noticed the system was only half the job. Nobody ships a design system. They ship the screens built with it. So ThroughLine designs now too: on the system it built you, or on whatever library your team already has.
 
 ## Show it off
 
@@ -240,6 +253,8 @@ A couple of ground rules:
 
 Future improvements and planned capabilities. Have a request? **[Open an issue](https://github.com/jrpease/throughline/issues)** — the roadmap is shaped by what people actually build.
 
+- **The rest of design modes** — building on a connected library shipped in 0.32.0. Next: a consumer file of your own ThroughLine system held to the system's rules, `/throughline:design` for whole flows (an intake, two directions on the hardest screen, every state, annotations, organized pages), building in a file with no system at all, and the same modes in code.
+- **Library text styles** — Figma won't list a library's text styles, so in a file built on a library, only the file's own text styles can be used for now.
 - **More framework adapters** — broaden the Style Dictionary output targets beyond the current set.
 - **Deeper Code Connect coverage** — richer Figma-to-code mappings as more plans support it.
 - **Expanded component starters** — a larger foundational kit out of the box.

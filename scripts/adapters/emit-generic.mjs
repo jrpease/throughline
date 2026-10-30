@@ -16,7 +16,7 @@ export function emitGeneric(model) {
   const agents = [
     '# ThroughLine (generic AGENTS.md adapter)',
     '',
-    'ThroughLine builds a design system end to end. Read the matching skill file for the task at hand.',
+    'ThroughLine is an agentic design team: it composes screens from your design system or a connected Figma library, and builds a design system end to end. Read the matching skill file for the task at hand.',
     '',
     indexSection('ThroughLine skills', model.skills, (n) => `skills/${n}/SKILL.md`),
     indexSection('ThroughLine commands', model.commands, (n) => `commands/${n}.md`),
