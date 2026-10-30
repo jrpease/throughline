@@ -27,10 +27,10 @@ ThroughLine is a design team you run from your agent. Open a Figma file built on
 Every screen you compose in Figma starts by reading the open file and telling you, in one line, which of three modes it's in and what that mode gives up.
 
 1. **Your ThroughLine system's own file.** The strictest mode. Every colour, gap and radius is bound to a token, anything the system doesn't have is recorded as a gap, and every screen is tracked for drift. A product file that uses your system as a library is mode 2 for now, with its gaps still landing in your system's gap file.
-2. **A Figma library you already use.** *New in 0.32.* No system to build first. The library comes first and the file's own components fill the gaps, and the report names every one it used. A hardcoded colour, gap or radius is allowed only where no variable holds it, and each one is listed. Ask for 20px when `spacing/space/5` is 20 and the build refuses, naming the variable.
-3. **Nothing at all.** *Coming next.* Screens built from frames to auto-layout standards, with an offer at the end to turn the one-off values into variables.
+2. **A Figma library you already use.** *New in 0.32.* No system to build first. The library comes first and the file's own components fill the gaps, and the report names every one it used. A hardcoded colour, gap, radius or padding side is allowed only where no variable holds it, and each one is listed. Ask for 20px when `spacing/space/5` is 20 and the build refuses, naming the variable.
+3. **Nothing at all.** *Planned.* Screens built from frames to auto-layout standards, with an offer at the end to turn the one-off values into variables.
 
-Whichever mode you're in, a screen that needs a component that doesn't exist says so instead of drawing a lookalike.
+In both modes you can use today, a screen that needs a component that doesn't exist says so instead of drawing a lookalike.
 
 Guides, examples and news live at **[radicool.studio/throughline](https://radicool.studio/throughline)**.
 
@@ -156,7 +156,7 @@ Then start with:
 /throughline:start
 ```
 
-This is the reliable entry point for building a design system — it runs environment setup first, ahead of anything else. Designing on a library your team already has? Skip it and run `/throughline:compose-figma` with that file open. (You can also just say *"let's set up my design system"*, but if you have other plugins installed that grab "let's build…" style phrases, the slash command guarantees ThroughLine takes the wheel.)
+This is the reliable entry point for building a design system — it runs environment setup first, ahead of anything else. Designing on a library your team already has? You still need Figma connected, so follow "Connect to Figma" (Step 4) in the `figma-environment-setup` skill, then run `/throughline:compose-figma` with that file open. Skip the rest of `start`: it sets up a design system, which would point ThroughLine at that product file as if it were one. (You can also just say *"let's set up my design system"*, but if you have other plugins installed that grab "let's build…" style phrases, the slash command guarantees ThroughLine takes the wheel.)
 
 Update anytime with `/plugin marketplace update throughline-marketplace`.
 
@@ -253,7 +253,7 @@ A couple of ground rules:
 
 Future improvements and planned capabilities. Have a request? **[Open an issue](https://github.com/jrpease/throughline/issues)** — the roadmap is shaped by what people actually build.
 
-- **The rest of design modes** — building on a connected library shipped in 0.32.0. Next: a consumer file of your own ThroughLine system held to the system's rules, `/throughline:design` for whole flows (an intake, two directions on the hardest screen, every state, annotations, organized pages), building in a file with no system at all, and the same modes in code.
+- **The rest of design modes** — building on a connected library shipped in 0.32.0. Planned, in this order: a product file that uses your own ThroughLine system as a library, held to the system's rules; `/throughline:design` for whole flows (an intake, two directions on the hardest screen, every state, annotations, organized pages); building in a file with no system at all; and the same modes in code.
 - **Library text styles** — Figma's plugin API won't list a library's text styles, so in a file built on a library, only the file's own text styles can be used for now.
 - **More framework adapters** — broaden the Style Dictionary output targets beyond the current set.
 - **Deeper Code Connect coverage** — richer Figma-to-code mappings as more plans support it.

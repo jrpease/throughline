@@ -15,10 +15,10 @@ the README finally says so.
 
 - **The README leads with design, not just the system.** A new "Design with what
   you have" section walks through the three modes: your ThroughLine system, a
-  Figma library you already use (new in 0.32.0), and nothing at all (coming
-  next). The command table, the compose-figma notes, who it's for and the roadmap
+  Figma library you already use (new in 0.32.0), and nothing at all
+  (planned). The command table, the compose-figma notes, who it's for and the roadmap
   all catch up, and the roadmap names what's left of design modes.
-- **A new description, in the directory, on npm and in every adapter.**
+- **A new description, in the directory, on npm and in the Codex and generic adapters.**
   `plugin.json`, the marketplace, `package.json` and the Codex and generic
   indexes all say ThroughLine designs screens on your system or your
   team's library, as well as building the system.
