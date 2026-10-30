@@ -19,8 +19,8 @@ the README finally says so.
   next). The command table, the compose-figma notes, who it's for and the roadmap
   all catch up, and the roadmap names what's left of design modes.
 - **A new description, in the directory, on npm and in every adapter.**
-  `plugin.json`, the marketplace, `package.json` and the Cursor, Codex and
-  generic indexes all say ThroughLine designs screens on your system or your
+  `plugin.json`, the marketplace, `package.json` and the Codex and generic
+  indexes all say ThroughLine designs screens on your system or your
   team's library, as well as building the system.
 
 ## [0.32.0] — 2026-10-30
