@@ -9,9 +9,11 @@
 //     (lib/figma-adherence.mjs), then lib/figma-variables-read.figma.js and the
 //     screen reader (lib/figma-adherence-read.figma.js).
 //   references/figma-compose.md — screen composition: lib/figma-adherence.mjs (for
-//     dimensionBuckets), the pure resolver (lib/figma-compose.mjs),
+//     dimensionBuckets), the pure resolver (lib/figma-compose.mjs), the mode check
+//     (lib/design-mode.mjs), the library merge (lib/figma-compose-library.mjs),
 //     lib/figma-variables-read.figma.js, the reader (lib/figma-compose-read.figma.js),
-//     then the writer (lib/figma-compose.figma.js).
+//     the mode and library readers (lib/design-mode-read.figma.js,
+//     lib/library-read.figma.js), then the writer (lib/figma-compose.figma.js).
 //   references/figma-drift.md — the live drift pass, three snippets, no writer: the
 //     variables snippet (lib/figma-variables-read.figma.js, then
 //     lib/figma-drift-variables.figma.js), small because every token sync runs it;
@@ -35,6 +37,10 @@ const ADHERENCE_READER = join(REPO_ROOT, 'scripts', 'lib', 'figma-adherence-read
 const COMPOSE = join(REPO_ROOT, 'scripts', 'lib', 'figma-compose.mjs');
 const COMPOSE_READER = join(REPO_ROOT, 'scripts', 'lib', 'figma-compose-read.figma.js');
 const COMPOSE_WRITER = join(REPO_ROOT, 'scripts', 'lib', 'figma-compose.figma.js');
+const DESIGN_MODE = join(REPO_ROOT, 'scripts', 'lib', 'design-mode.mjs');
+const LIBRARY_MERGE = join(REPO_ROOT, 'scripts', 'lib', 'figma-compose-library.mjs');
+const MODE_READER = join(REPO_ROOT, 'scripts', 'lib', 'design-mode-read.figma.js');
+const LIBRARY_READER = join(REPO_ROOT, 'scripts', 'lib', 'library-read.figma.js');
 const DRIFT_VARIABLES = join(REPO_ROOT, 'scripts', 'lib', 'figma-drift-variables.figma.js');
 const DRIFT_SCREENS = join(REPO_ROOT, 'scripts', 'lib', 'figma-drift-screens.figma.js');
 const DRIFT_COMPONENTS = join(REPO_ROOT, 'scripts', 'lib', 'figma-drift-components.figma.js');
@@ -139,6 +145,9 @@ const ADHERENCE_HEADER = [
   '     frames, or frames directly inside a top-level section), and without it every',
   '     screen on the page is read; `fileKey` is `figma.fileKey` from',
   '     `design-system.json`, used for the links.',
+  '     In mode b, also pass `libraryTokens`: the output of',
+  '     `design-workspace.mjs tokens`, unchanged. Its values join the file\'s own, so a',
+  '     raw value a library variable holds fails and one none holds is an advisory.',
   '   - `const SKIP = []` — rule names to switch off (`detached-component`,',
   '     `raw-colour`, `raw-dimension`); a skipped rule\'s inert check is skipped too.',
   '2. End the script with `return await runScreenGate(TARGET, SKIP);` and pass',
@@ -146,8 +155,9 @@ const ADHERENCE_HEADER = [
   '3. Read the result, `{ pass, failures, advisories, counts, skipped }`. Each failure',
   '   and advisory has `rule`, `path`, `detail` and a `link` to the node. Report every',
   '   failure with its link. Never edit the file to make it pass.',
-  '4. Only the named page is loaded, and tokens are the file\'s local variables. A file',
-  '   whose variables all come from a published library fails as inert.',
+  '4. Only the named page is loaded, and tokens are the file\'s local variables, plus',
+  '   `libraryTokens` when given. A file whose variables all come from a published',
+  '   library fails as inert unless `libraryTokens` is passed.',
   '',
   '```js',
   'const TARGET = { page: \'Templates\', fileKey: \'<figma.fileKey>\' };',
@@ -167,8 +177,11 @@ const COMPOSE_HEADER = [
   '> **GENERATED FILE — do not edit by hand.** Sources: `scripts/lib/figma-adherence.mjs`',
   '> (for `dimensionBuckets`), `scripts/lib/figma-compose.mjs` (the pure resolver,',
   '> unit-tested in Node), `scripts/lib/figma-variables-read.figma.js`,',
-  '> `scripts/lib/figma-compose-read.figma.js` (the reader) +',
-  '> `scripts/lib/figma-compose.figma.js` (the writer). Regenerate with',
+  '> `scripts/lib/design-mode.mjs` (the mode check), `scripts/lib/figma-compose-library.mjs`',
+  '> (the library merge), `scripts/lib/figma-compose-read.figma.js` (the reader),',
+  '> `scripts/lib/design-mode-read.figma.js` and `scripts/lib/library-read.figma.js`',
+  '> (the mode and library readers) + `scripts/lib/figma-compose.figma.js` (the',
+  '> writer). Regenerate with',
   '> `node scripts/build-figma-checks.mjs`; CI gates freshness with `--check`.',
   '',
   'The canonical `figma_execute` snippet that composes a screen from the file\'s own',
@@ -202,6 +215,30 @@ const COMPOSE_HEADER = [
   '     Returns `{ id, link, replaced }`.',
   '   - `\'discard\'`, `SPEC = { page, screen }`: removes `WIP: <screen>`. Only when',
   '     the user asks.',
+  '   - `\'signals\'`, `SPEC = { pages, manifestFileKey, openFileKey, forced }`: read-only.',
+  '     `openFileKey` is `figma_get_status`\'s `currentFileKey`; `manifestFileKey` is',
+  '     `design-system.json`\'s `figma.fileKey`, or null; `forced` is `\'b\'` or `\'c\'`',
+  '     when the user asked to ignore the system or the library. Returns',
+  '     `{ signals, mode, libraryDetected, reason }`; announce `reason`.',
+  '   - `\'library-list\'`, `SPEC = {}`: read-only. Every enabled library variable',
+  '     collection with its variables\' names and keys. Save it unchanged and pass it',
+  '     to `design-workspace.mjs cache init`.',
+  '   - `\'library-import\'`, `SPEC = { keys }`, at most 20 keys a call: imports those',
+  '     library variables (invisible; no layers change) and returns `{ entries,',
+  '     skipped }`: their values, aliases followed, and the names of any whose',
+  '     collection couldn\'t be read. Save each return unchanged and pass it',
+  '     to `design-workspace.mjs cache merge`. The file must be the tab in front:',
+  '     imports hang otherwise.',
+  '   Mode b: `inventory` and `build` also take `library = { pages, components,',
+  '   cache, tokens }` (`pages`: where library instances are read; `components`:',
+  '   `[{ key, type: \'COMPONENT_SET\' | \'COMPONENT\' }]`, reshaped from',
+  '   `figma_get_library_components`, if run; `cache` and `tokens`: from',
+  '   `design-workspace.mjs cache get` and `tokens`). The library wins a name clash,',
+  '   `componentsPage` may be left out, and a colour, gap, radius or one padding side',
+  '   may be `{ raw: \'#rrggbb\' }` or `{ raw: 12 }` where no variable holds the value',
+  '   (`raw-has-variable` names the one that does). `build` then also returns',
+  '   `localPicks` (local parts the screen used), `raws`, and `staleCache`',
+  '   (`{ entries }` to pass to `cache merge`).',
   '2. Between `build` and `finalize`, run the screen gate',
   '   (`references/figma-adherence.md`) with `screens: [\'WIP: <screen>\']`. Finalize',
   '   only a passing screen. A failure is a composer bug: report it and leave the',
@@ -303,11 +340,13 @@ export function buildFigmaAdherence({ checkerSource, variablesSource, readerSour
   return `${ADHERENCE_HEADER}\n${checker}\n${variablesSource}\n${readerSource}${FOOTER}`;
 }
 
-export function buildFigmaCompose({ adherenceSource, composeSource, variablesSource, composeReaderSource, writerSource }) {
+export function buildFigmaCompose({ adherenceSource, composeSource, designModeSource, libraryMergeSource, variablesSource, composeReaderSource, modeReaderSource, libraryReaderSource, writerSource }) {
   const adherence = stripExports(adherenceSource);
   const compose = stripExports(composeSource);
-  assertInlinable([['figma-adherence.mjs', adherence], ['figma-compose.mjs', compose], ['figma-variables-read.figma.js', variablesSource], ['figma-compose-read.figma.js', composeReaderSource], ['figma-compose.figma.js', writerSource]]);
-  return `${COMPOSE_HEADER}\n${adherence}\n${compose}\n${variablesSource}\n${composeReaderSource}\n${writerSource}${FOOTER}`;
+  const designMode = stripExports(designModeSource);
+  const libraryMerge = stripExports(libraryMergeSource);
+  assertInlinable([['figma-adherence.mjs', adherence], ['figma-compose.mjs', compose], ['design-mode.mjs', designMode], ['figma-compose-library.mjs', libraryMerge], ['figma-variables-read.figma.js', variablesSource], ['figma-compose-read.figma.js', composeReaderSource], ['design-mode-read.figma.js', modeReaderSource], ['library-read.figma.js', libraryReaderSource], ['figma-compose.figma.js', writerSource]]);
+  return `${COMPOSE_HEADER}\n${adherence}\n${compose}\n${designMode}\n${libraryMerge}\n${variablesSource}\n${composeReaderSource}\n${modeReaderSource}\n${libraryReaderSource}\n${writerSource}${FOOTER}`;
 }
 
 export function buildFigmaDrift({ adherenceSource, composeSource, variablesSource, composeReaderSource, driftVariablesSource, driftScreensSource, driftComponentsSource }) {
@@ -346,6 +385,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     composeSource: readFileSync(COMPOSE, 'utf8'),
     variablesSource: readFileSync(VARIABLES, 'utf8'),
     composeReaderSource: readFileSync(COMPOSE_READER, 'utf8'),
+    designModeSource: readFileSync(DESIGN_MODE, 'utf8'),
+    libraryMergeSource: readFileSync(LIBRARY_MERGE, 'utf8'),
+    modeReaderSource: readFileSync(MODE_READER, 'utf8'),
+    libraryReaderSource: readFileSync(LIBRARY_READER, 'utf8'),
     writerSource: readFileSync(COMPOSE_WRITER, 'utf8'),
   });
   const drift = buildFigmaDrift({

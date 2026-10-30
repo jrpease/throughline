@@ -6,6 +6,54 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.32.0] — 2026-10-30
+
+`/throughline:compose-figma` no longer needs a throughline system. Open a product
+file built on someone else's Figma library and it composes from that library
+first, using the file's own components and variables only where the library has
+nothing. This is phase 1 of design modes (`docs/specs/2026-10-30-design-modes.md`).
+
+### Added
+
+- **Mode detection.** Every run starts by working out what the open file has and
+  says it in one line. Mode a is a throughline system's own file and works as
+  before. Mode b is a file on a connected library, or one with only its own parts.
+  The open file decides, so a product file that uses your system as a library is
+  mode b, and its gaps still land in your system's gap file. You can ask for a
+  lower mode, never a higher one. Mode c (nothing at all) says it isn't built yet
+  and stops.
+- **Mode b in compose-figma.** Library components come from the library
+  instances already on the page, with every property and variant. The library
+  wins a name clash with a local copy, and the report lists every local part a
+  screen used. Library colours, spacing and radii come from a cache,
+  `design/library-cache.json`, built 20 variables at a time with every alias
+  followed to a real value. A build that finds the library has moved refreshes the
+  cache and says so.
+- **Raw values in mode b, and only where nothing else fits.** A colour, gap,
+  radius or padding side can be `{ raw: … }` when no variable holds that value.
+  One a variable does hold is refused, and the error names the variable to use.
+  Every raw value is listed, and the gate reports each one as an advisory, not a
+  pass.
+- **`design-workspace.mjs`** keeps mode b's records in `design/`: the file, the
+  library links you've given, and the cache. `tokens` hands the library's values
+  to the gate in the shape it already reads. A read that timed out halfway isn't
+  mistaken for a full one: `cache missing` names what never arrived, and the next
+  run fetches just those.
+
+### Changed
+
+- **The gate counts library values.** Pass `libraryTokens` and a raw value a
+  library variable holds fails, naming it. Without them, a file whose variables
+  all live in a library still fails as inert, as before.
+- **gap-report finds mode b's gaps.** With no `design-system.json` in the
+  directory, it reads and writes `design/gaps.json`.
+- **The reviewer and the shared preflight stop blocking without
+  `design-system.json`.** They use its key only when it names the open file, then
+  `design/workspace.json`, then the open file itself.
+- **Keep the file in front.** Importing library variables hangs while the Figma
+  file sits behind another tab, so compose-figma asks for it to be the tab in
+  front before it reads the library.
+
 ## [0.31.0] — 2026-10-28
 
 Doc cards stop being a component set with one scripted band. They open with a

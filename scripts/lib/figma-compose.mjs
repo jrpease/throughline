@@ -24,7 +24,11 @@
 //              An axis left out stays as Figma makes it: a frame hugs, text sizes to
 //              its content, an instance keeps its component's size. 'hug' on an
 //              instance needs a component with auto layout (Figma throws otherwise).
-//   Every visual value is a variable or text-style name.
+//   Every visual value is a variable or text-style name. Only when the inventory
+//   says allowRaw (mode b, docs/specs/2026-10-30-design-modes.md Q8/Q9), a colour,
+//   gap, radius or one padding side may instead be { raw: '#rrggbb[aa]' } or
+//   { raw: <number> }: refused as raw-has-variable when inventory.valueIndex says a
+//   variable holds that value, otherwise carried into the plan and listed in raws.
 //
 // INVENTORY (what the reader returns):
 //   {
@@ -39,18 +43,21 @@
 //     collections: [{ name, id, modes: [{ name, id }] }],
 //     target: { screen, wip } | null,         // build only: 'marked' | 'unmarked' | null for
 //                                             // the frames named <screen> and 'WIP: <screen>'
+//     allowRaw?: true,                        // mode b only
+//     valueIndex?: { colours: { <hex>: [names] }, gap: { <n>: [names] }, radius: { <n>: [names] } },
 //   }
 //
 // resolveScreen(description, inventory) → { ok, errors, plan }
 //   errors: [{ kind, path, asked, nearest? }]; path is the node's place in the
 //   description ('root.children[2].slots.Body[0]').
 //   plan (only when ok): the same tree with every name replaced by ids, real
-//   property keys and values, and Figma's enum spellings.
+//   property keys and values, and Figma's enum spellings. A raw value stays
+//   { raw } in the plan; plan.raws lists each as { path, kind, value }.
 
 export const COMPOSE_ERROR_KINDS = [
   'invalid', 'name-taken', 'missing-component', 'unknown-prop', 'unknown-option',
   'prop-type', 'missing-swap-target', 'unknown-variable', 'variable-kind',
-  'unknown-text-style', 'unknown-mode',
+  'unknown-text-style', 'unknown-mode', 'raw-has-variable',
 ];
 
 export const composeFold = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -134,6 +141,9 @@ export function resolveScreen(description, inventory) {
     if (inv.target.wip === 'unmarked') fail('name-taken', 'screen', `WIP: ${d.screen}`);
   }
 
+  const raws = [];
+  const RAW_TABLE = { colour: 'colours', gap: 'gap', radius: 'radius' };
+
   const modes = [];
   for (const [collectionName, modeName] of Object.entries(d.modes || {})) {
     const collection = byFold(inv.collections, collectionName);
@@ -143,8 +153,27 @@ export function resolveScreen(description, inventory) {
     else modes.push({ collectionId: collection.id, modeId: mode.id });
   }
 
+  function rawValue(value, kind, path) {
+    let v = value;
+    if (kind === 'colour') {
+      if (typeof v !== 'string' || !/^#([0-9a-f]{6}|[0-9a-f]{8})$/i.test(v)) { fail('invalid', path, `a raw colour #rrggbb or #rrggbbaa, not ${JSON.stringify(value)}`); return null; }
+      v = v.toLowerCase();
+      if (v.length === 9 && v.endsWith('ff')) v = v.slice(0, 7);
+    } else if (!(typeof v === 'number' && Number.isFinite(v) && v >= 0)) {
+      fail('invalid', path, `a raw number of 0 or more, not ${JSON.stringify(value)}`);
+      return null;
+    }
+    const held = ((inv.valueIndex || {})[RAW_TABLE[kind]] || {})[String(v)];
+    if (held && held.length) { fail('raw-has-variable', path, String(v), held.slice(0, 3)); return null; }
+    raws.push({ path, kind, value: v });
+    return { raw: v };
+  }
+
   function variable(name, kind, path) {
     if (name === undefined || name === null) return null;
+    if (inv.allowRaw && typeof name === 'object' && !Array.isArray(name) && Object.keys(name).length === 1 && 'raw' in name) {
+      return rawValue(name.raw, kind, path);
+    }
     if (typeof name !== 'string') { fail('invalid', path, `a variable name, not ${JSON.stringify(name)}`); return null; }
     const found = byFold(inv.variables, name);
     if (!found) {
@@ -326,6 +355,6 @@ export function resolveScreen(description, inventory) {
   return {
     ok,
     errors,
-    plan: ok ? { screen: d.screen, page: d.page, width: d.width, height: d.height ?? null, modes, root } : null,
+    plan: ok ? { screen: d.screen, page: d.page, width: d.width, height: d.height ?? null, modes, root, raws } : null,
   };
 }

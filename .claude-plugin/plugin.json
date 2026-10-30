@@ -2,7 +2,7 @@
   "name": "throughline",
   "displayName": "ThroughLine",
   "description": "Your agentic design team. Build a design system in Figma, sync it to code, and keep the two honest: tokens, components, docs and screens from one source, with checks that stop the build when something slips. Start fresh or retrofit what you have.",
-  "version": "0.31.0",
+  "version": "0.32.0",
   "author": {
     "name": "Jordan Pease"
   },

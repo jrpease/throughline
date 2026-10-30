@@ -219,8 +219,22 @@ async function readScreens(target) {
     // exposed to private plugins.
     fileKey: target.fileKey || figma.fileKey,
     nodes,
-    tokens: await readTokens(),
+    tokens: withLibraryTokens(await readTokens(), target.libraryTokens),
   };
+}
+
+// Mode b (docs/specs/2026-10-30-design-modes.md, Q9): the library's values, from
+// design-workspace.mjs tokens, join the file's own, so a raw value a library
+// variable holds fails and one no variable holds stays an advisory.
+function withLibraryTokens(tokens, library) {
+  if (!library) return tokens;
+  for (const table of ['colours', 'gap', 'radius']) {
+    for (const [value, names] of Object.entries(library[table] || {})) {
+      const into = tokens[table][value] || (tokens[table][value] = []);
+      for (const name of names) if (!into.includes(name)) into.push(name);
+    }
+  }
+  return tokens;
 }
 
 async function runScreenGate(TARGET, SKIP) {

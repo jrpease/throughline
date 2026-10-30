@@ -166,6 +166,10 @@ test('skipScript excludes plugin-internal scripts, adapters and tests', () => {
   assert.ok(skipScript('lib/figma-adherence-read.figma.js'), 'read only by the generator');
   assert.ok(skipScript('lib/figma-compose.figma.js'), 'read only by the generator');
   assert.ok(skipScript('lib/figma-compose-read.figma.js'), 'read only by the generator');
+  assert.ok(skipScript('lib/design-mode.mjs'), 'inlined into the generated reference, imported by nothing downstream');
+  assert.ok(skipScript('lib/design-mode-read.figma.js'), 'read only by the generator');
+  assert.ok(skipScript('lib/library-read.figma.js'), 'read only by the generator');
+  assert.ok(skipScript('lib/figma-compose-library.mjs'), 'inlined into the generated reference, imported by nothing downstream');
   assert.ok(skipScript('lib/figma-drift-variables.figma.js'), 'read only by the generator');
   assert.ok(skipScript('lib/figma-drift-screens.figma.js'), 'read only by the generator');
   assert.ok(skipScript('lib/figma-drift-components.figma.js'), 'read only by the generator');
@@ -181,7 +185,7 @@ test('skipScript keeps every script a consuming repo runs', () => {
     'validate-crosswalk.mjs', 'lib/crosswalk.mjs',
     'lib/native-literal.mjs',
     'compose-code.mjs', 'lib/figma-compose.mjs', 'gap-report.mjs',
-    'drift-check.mjs', 'screens.mjs',
+    'drift-check.mjs', 'screens.mjs', 'design-workspace.mjs',
   ]) {
     assert.ok(!skipScript(keep), `${keep} must be installed`);
   }
