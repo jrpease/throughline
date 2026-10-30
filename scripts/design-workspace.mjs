@@ -8,7 +8,8 @@
 //   node scripts/design-workspace.mjs cache init --dir <dir> --from <file>    runCompose('library-list') saved unchanged
 //   node scripts/design-workspace.mjs cache merge --dir <dir> --from <file>   runCompose('library-import') or a build's staleCache, saved unchanged
 //   node scripts/design-workspace.mjs cache get --dir <dir>
-//   node scripts/design-workspace.mjs cache missing --dir <dir>               keys the list named that no import has filled: [key]
+//   node scripts/design-workspace.mjs cache missing --dir <dir> [--from <file>]  keys listed that no import has filled: [key]
+//     With --from (a fresh library-list), its keys count too, so a variable added since cache init is caught.
 //   node scripts/design-workspace.mjs tokens --dir <dir>                      SPEC.library.tokens and TARGET.libraryTokens
 //
 // FILES: <dir>/design/workspace.json  { at, fileKey, libraries: [url], mode }
@@ -63,15 +64,16 @@ export function initCache(list, readAt) {
   return { readAt, libraries };
 }
 
-// Keys library-list named that no merge has filled yet.
-export function missingKeys(cache) {
-  const out = [];
+// Keys library-list named (at cache init, or in a fresh list) that no merge has filled yet.
+export function missingKeys(cache, list) {
+  const filled = new Set();
+  const listed = [];
   for (const lib of Object.values(cache?.libraries ?? {})) {
-    for (const c of Object.values(lib.collections ?? {})) {
-      for (const key of c.variables ?? []) if (!lib.variables?.[key]) out.push(key);
-    }
+    for (const key of Object.keys(lib.variables ?? {})) filled.add(key);
+    for (const c of Object.values(lib.collections ?? {})) listed.push(...(c.variables ?? []));
   }
-  return out;
+  for (const c of list?.collections ?? []) for (const v of c.variables ?? []) if (v && v.key) listed.push(v.key);
+  return [...new Set(listed)].filter((key) => !filled.has(key));
 }
 
 // From runCompose('library-import') or a build's staleCache:
@@ -197,7 +199,7 @@ function main() {
     return;
   }
   if (group === 'cache' && action === 'missing') {
-    console.log(JSON.stringify(missingKeys(load(CACHE_FILE))));
+    console.log(JSON.stringify(missingKeys(load(CACHE_FILE), values.from ? input() : undefined)));
     return;
   }
   if (group === 'cache' && action === 'init') {

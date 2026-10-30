@@ -43,6 +43,8 @@ test('missing: keys the list named that no merge filled, so a timed-out import i
   assert.deepEqual(missingKeys(partial), ['v3', 'v9', 'v2']);
   assert.deepEqual(missingKeys(mergeCache(partial, entries)), ['v9']);
   assert.deepEqual(missingKeys(initCache(list, 'x')), []);
+  const later = { collections: [{ ...named.collections[0], variables: [...named.collections[0].variables, { key: 'v10' }] }] };
+  assert.deepEqual(missingKeys(mergeCache(partial, entries), later), ['v9', 'v10'], 'a variable added since cache init');
 });
 
 test('a later merge replaces one variable and leaves the rest', () => {

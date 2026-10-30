@@ -679,6 +679,15 @@ test('library-list and library-import: names and keys, then values with aliases 
   });
   assert.deepEqual(entries[1].values, { Dark: null }, 'an alias nothing resolves is null');
   await assert.rejects(runComposeSnippet(fakeLibraryFigma(), 'library-import', { keys: Array.from({ length: 21 }, (_, i) => `K${i}`) }), /at most 20 keys/);
+  const orphaned = fakeLibraryFigma();
+  const collectionById = orphaned.variables.getVariableCollectionByIdAsync;
+  orphaned.variables.getVariableCollectionByIdAsync = async (id) => (id === 'LC' ? null : collectionById(id));
+  const cut = await runComposeSnippet(orphaned, 'library-import', { keys: ['K1'] });
+  assert.deepEqual([cut.entries, cut.skipped], [[], ['color/bg/surface']], 'a variable whose collection can\'t be read is skipped, by name');
+});
+
+test('mode b inventory: library components in any shape but an array are refused', async () => {
+  await assert.rejects(runComposeSnippet(fakeLibraryFigma(), 'inventory', { library: { ...library, components: { meta: [] } } }), /must be an array/);
 });
 
 test('mode b build: a cached value in another mode order is not stale', async () => {

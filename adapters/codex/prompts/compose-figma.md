@@ -36,9 +36,9 @@ filling the gaps (mode b). Use the settings already in `design-system.json` and
    `MODE = 'library-import'` with `SPEC = { keys }` for every variable key in the
    list, 20 keys a call; save each return unchanged and run
    `design-workspace.mjs cache merge --dir <dir> --from <that file>`. Otherwise
-   run `design-workspace.mjs cache missing --dir <dir>`: any keys it prints are
-   variables an earlier import never filled, so import and merge those the same
-   way. Name to the user any variable a return lists under `skipped`. A call that
+   run `design-workspace.mjs cache missing --dir <dir> --from <list file>`: any
+   keys it prints are variables no import has filled (one timed out, or the
+   library added them since), so import and merge those the same way. Name to the user any variable a return lists under `skipped`. A call that
    times out means the file isn't in front: say "bring the file to the front and
    re-run", not a composer bug. If the user gave a library link and
    `FIGMA_ACCESS_TOKEN` is set, also call `figma_get_library_components` with that

@@ -220,7 +220,11 @@ a built and finalized mode b screen, and the gate with and without library token
   is `skipped` rather than failing its whole chunk; the forced-to-c reason no
   longer says the file has no system; `workspace set` runs in mode b only, so mode
   a writes no `design/` (Q6, Q20); the components page is asked for and read in
-  every mode, so a local-only file isn't misread as mode c.
+  every mode, so a local-only file isn't misread as mode c; step 0 no longer runs
+  the identity preflight before step 1 has picked the target; and the command's
+  description names the library. A second review passed these, and `cache missing`
+  then took `--from` a fresh list, so a variable the library added since `cache
+  init` is caught too.
 
 ## Facts checked
 
