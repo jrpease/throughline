@@ -11,7 +11,8 @@
 //   node scripts/gap-report.mjs triage --system <dir> --name <asked>
 //        --status build|exists|dropped|open [--note <text>]
 //
-// STORE: <system>/design-system/gaps.json
+// STORE: <system>/design-system/gaps.json when <system> holds design-system.json,
+//   else <system>/design/gaps.json (mode b, docs/specs/2026-10-30-design-modes.md Q20)
 //   { gaps: { <folded name>: { name, kind, status, note?, nearest,
 //     hits: { "<side>:<folded screen>": { side, screen, target, resolution, need?, from?, at } } } } }
 //   One hit per side and screen, latest wins. A re-hit keeps a triaged status.
@@ -27,6 +28,11 @@ import { pathToFileURL } from 'node:url';
 import { composeFold, nearestNames } from './lib/figma-compose.mjs';
 
 export const GAP_FILE = 'design-system/gaps.json';
+export const WORKSPACE_GAP_FILE = 'design/gaps.json';
+
+// Where a directory's gaps live: the system's file when it holds a throughline
+// system, else the mode b workspace's.
+export const gapFileFor = (systemDir) => (existsSync(join(systemDir, 'design-system.json')) ? GAP_FILE : WORKSPACE_GAP_FILE);
 const SIDES = ['code', 'figma'];
 const KINDS = ['component', 'icon'];
 const STATUSES = ['open', 'build', 'exists', 'dropped'];
@@ -138,7 +144,8 @@ function main() {
   };
   if (!['record', 'report', 'triage'].includes(mode) || !values.system) usage();
 
-  const file = join(values.system, GAP_FILE);
+  const gapFile = gapFileFor(values.system);
+  const file = join(values.system, gapFile);
   const load = () => {
     if (!existsSync(file)) return null;
     try {
@@ -170,14 +177,14 @@ function main() {
     });
     save(store);
     const gap = store.gaps[composeFold(values.asked)];
-    console.log(`recorded ${gap.name} (${gap.status}), ${plural(screensOf(gap).size, 'screen')}, in ${GAP_FILE}`);
+    console.log(`recorded ${gap.name} (${gap.status}), ${plural(screensOf(gap).size, 'screen')}, in ${gapFile}`);
     return;
   }
 
   if (mode === 'report') {
     const store = load();
     if (!store) {
-      console.log(values.json ? JSON.stringify({ gaps: {} }, null, 2) : `No gaps recorded yet (${GAP_FILE} doesn't exist).`);
+      console.log(values.json ? JSON.stringify({ gaps: {} }, null, 2) : `No gaps recorded yet (${gapFile} doesn't exist).`);
       return;
     }
     console.log(values.json ? JSON.stringify(store, null, 2) : renderReport(store).join('\n'));

@@ -24,6 +24,10 @@ const composeSources = () => ({
   composeSource: read('figma-compose.mjs'),
   variablesSource: read('figma-variables-read.figma.js'),
   composeReaderSource: read('figma-compose-read.figma.js'),
+  designModeSource: read('design-mode.mjs'),
+  libraryMergeSource: read('figma-compose-library.mjs'),
+  modeReaderSource: read('design-mode-read.figma.js'),
+  libraryReaderSource: read('library-read.figma.js'),
   writerSource: read('figma-compose.figma.js'),
 });
 const driftSources = () => ({
@@ -594,4 +598,159 @@ test('drift components: the page by name, and a clear error when the page is amb
   assert.deepEqual((await runDriftSnippet(figma, 'components', { names: ['Button'], componentsPage: 'Library' })).components, { Button: { axes: { size: ['sm'] } } });
   await assert.rejects(runDriftSnippet(figma, 'components', { names: ['Button'] }), /2 pages named like "Components"; pass componentsPage\. Pages: Components, Components , Library/);
   await assert.rejects(runDriftSnippet(figma, 'components', { names: ['Button'], componentsPage: 'Nope' }), /no page is named "Nope"/);
+});
+
+// Mode b (docs/specs/2026-10-30-design-modes.md): the compose fake plus a connected
+// library. Its `button` set (key SETKEY, a text and an instance-swap prop) clashes
+// with the local Button by folded name; its `li:plus` icon (key ICONKEY) is a
+// standalone component. Both are reached from library instances on the Screens
+// page. Library variables: color/bg/surface (K1, in Color Semantic, an alias to a
+// black primitive) and color/bg/glow (K2, an alias nothing resolves).
+function fakeLibraryFigma() {
+  const figma = fakeComposeFigma();
+  const mk = (type, extra = {}) => Object.assign(figma.createFrame(), { type, layoutMode: undefined, ...extra });
+  const libSet = mk('COMPONENT_SET', {
+    name: 'button', key: 'SETKEY', remote: true,
+    componentPropertyDefinitions: { 'label#9:1': { type: 'TEXT' }, 'icon left#9:2': { type: 'INSTANCE_SWAP' } },
+  });
+  const variant = mk('COMPONENT', { name: 'type=primary', key: 'VKEY', remote: true, layoutMode: 'HORIZONTAL' });
+  libSet.appendChild(variant);
+  libSet.defaultVariant = variant;
+  variant.createInstance = () => {
+    const instance = mk('INSTANCE', { name: 'button', layoutMode: 'HORIZONTAL' });
+    instance.setProperties = (props) => figma.log.push(`setProperties ${JSON.stringify(props)}`);
+    return instance;
+  };
+  const icon = mk('COMPONENT', { name: 'li:plus', key: 'ICONKEY', remote: true, id: '50:1' });
+  const screensPage = figma.root.children.find((p) => p.name === 'Screens');
+  for (const main of [variant, icon]) screensPage.appendChild(mk('INSTANCE', { getMainComponentAsync: async () => main }));
+  for (const page of figma.root.children) page.findAllWithCriteria = ({ types }) => page.findAll((n) => types.includes(n.type));
+  const collections = {
+    'C:1': { id: 'C:1', key: 'LOCAL', name: 'Color / Semantic', defaultModeId: 'M:2', modes: [{ name: 'Light', modeId: 'M:2' }] },
+    LC: { id: 'LC', key: 'SEM', name: 'Color Semantic', remote: true, defaultModeId: 'LM:1', modes: [{ name: 'Dark', modeId: 'LM:1' }] },
+    LP: { id: 'LP', key: 'PRIM', name: 'Color Primitives', remote: true, defaultModeId: 'LP:1', modes: [{ name: 'Value', modeId: 'LP:1' }] },
+  };
+  const libVars = {
+    K1: { id: 'LV1', key: 'K1', name: 'color/bg/surface', resolvedType: 'COLOR', scopes: ['ALL_SCOPES'], variableCollectionId: 'LC', valuesByMode: { 'LM:1': { type: 'VARIABLE_ALIAS', id: 'LV9' } } },
+    K2: { id: 'LV2', key: 'K2', name: 'color/bg/glow', resolvedType: 'COLOR', scopes: ['ALL_SCOPES'], variableCollectionId: 'LC', valuesByMode: { 'LM:1': { type: 'VARIABLE_ALIAS', id: 'nowhere' } } },
+  };
+  const byId = { LV9: { id: 'LV9', name: 'color/neutral/950', resolvedType: 'COLOR', variableCollectionId: 'LP', valuesByMode: { 'LP:1': { r: 0, g: 0, b: 0, a: 1 } } } };
+  Object.assign(figma.variables, {
+    getVariableCollectionByIdAsync: async (id) => collections[id] || null,
+    getVariableByIdAsync: async (id) => byId[id] || null,
+    importVariableByKeyAsync: async (key) => { figma.log.push(`import variable ${key}`); return libVars[key]; },
+  });
+  figma.teamLibrary = {
+    getAvailableLibraryVariableCollectionsAsync: async () => [{ libraryName: 'Zygarden Design System', key: 'SEM', name: 'Color Semantic' }],
+    getVariablesInLibraryCollectionAsync: async () => Object.values(libVars).map((v) => ({ key: v.key, name: v.name, resolvedType: v.resolvedType })),
+  };
+  figma.importComponentSetByKeyAsync = async (key) => { figma.log.push(`import set ${key}`); return libSet; };
+  figma.importComponentByKeyAsync = async (key) => { figma.log.push(`import component ${key}`); return icon; };
+  return figma;
+}
+
+const libraryCache = {
+  readAt: '2026-10-30',
+  libraries: { 'Zygarden Design System': {
+    collections: { SEM: { name: 'Color Semantic', modes: [{ id: 'LM:1', name: 'Dark' }] } },
+    variables: { K1: { name: 'color/bg/surface', collection: 'SEM', resolvedType: 'COLOR', kinds: ['colour'], values: { Dark: '#111111' } } },
+  } },
+};
+const libraryTokens = { colours: { '#111111': ['color/bg/surface'] }, gap: {}, radius: {} };
+const library = { pages: ['Screens'], cache: libraryCache, tokens: libraryTokens };
+
+test('signals: stops at the first library instance; mode a only when the keys match', async () => {
+  const b = await runComposeSnippet(fakeLibraryFigma(), 'signals', { pages: ['Screens'], manifestFileKey: 'SYSTEM', openFileKey: 'OPEN' });
+  assert.equal(b.mode, 'b');
+  assert.equal(b.libraryDetected, true);
+  assert.deepEqual([b.signals.libraryCollections, b.signals.remoteInstances, b.signals.localSets], [1, 1, 0]);
+  const a = await runComposeSnippet(fakeLibraryFigma(), 'signals', { pages: ['Components'], manifestFileKey: 'OPEN', openFileKey: 'OPEN' });
+  assert.equal(a.mode, 'a');
+  assert.equal(a.signals.localSets, 4);
+});
+
+test('library-list and library-import: names and keys, then values with aliases followed', async () => {
+  const list = await runComposeSnippet(fakeLibraryFigma(), 'library-list', {});
+  assert.deepEqual(list.collections.map((c) => [c.library, c.key, c.variables.map((v) => v.key)]), [['Zygarden Design System', 'SEM', ['K1', 'K2']]]);
+  const { entries } = await runComposeSnippet(fakeLibraryFigma(), 'library-import', { keys: ['K1', 'K2'] });
+  assert.deepEqual(entries[0], {
+    key: 'K1', name: 'color/bg/surface', resolvedType: 'COLOR', kinds: ['colour'], values: { Dark: '#000000' },
+    collection: { key: 'SEM', name: 'Color Semantic', modes: [{ id: 'LM:1', name: 'Dark' }] },
+  });
+  assert.deepEqual(entries[1].values, { Dark: null }, 'an alias nothing resolves is null');
+  await assert.rejects(runComposeSnippet(fakeLibraryFigma(), 'library-import', { keys: Array.from({ length: 21 }, (_, i) => `K${i}`) }), /at most 20 keys/);
+  const orphaned = fakeLibraryFigma();
+  const collectionById = orphaned.variables.getVariableCollectionByIdAsync;
+  orphaned.variables.getVariableCollectionByIdAsync = async (id) => (id === 'LC' ? null : collectionById(id));
+  const cut = await runComposeSnippet(orphaned, 'library-import', { keys: ['K1'] });
+  assert.deepEqual([cut.entries, cut.skipped], [[], ['color/bg/surface']], 'a variable whose collection can\'t be read is skipped, by name');
+});
+
+test('mode b inventory: library components in any shape but an array are refused', async () => {
+  await assert.rejects(runComposeSnippet(fakeLibraryFigma(), 'inventory', { library: { ...library, components: { meta: [] } } }), /must be an array/);
+});
+
+test('mode b build: a cached value in another mode order is not stale', async () => {
+  const figma = fakeLibraryFigma();
+  const twoModes = { id: 'LC', key: 'SEM', name: 'Color Semantic', remote: true, defaultModeId: 'LM:1', modes: [{ name: 'Light', modeId: 'LM:2' }, { name: 'Dark', modeId: 'LM:1' }] };
+  const collectionById = figma.variables.getVariableCollectionByIdAsync;
+  figma.variables.getVariableCollectionByIdAsync = async (id) => (id === 'LC' ? twoModes : collectionById(id));
+  const importByKey = figma.variables.importVariableByKeyAsync;
+  figma.variables.importVariableByKeyAsync = async (key) => {
+    const v = await importByKey(key);
+    return { ...v, valuesByMode: { ...v.valuesByMode, 'LM:2': { r: 1, g: 1, b: 1, a: 1 } } };
+  };
+  const cache = JSON.parse(JSON.stringify(libraryCache));
+  cache.libraries['Zygarden Design System'].variables.K1.values = { Dark: '#000000', Light: '#ffffff' };
+  const description = { screen: 'Reg', page: 'Screens', width: 390, root: { layout: 'vertical', fill: 'color/bg/surface', children: [] } };
+  const res = await runComposeSnippet(figma, 'build', { library: { ...library, cache }, description, fileKey: 'TEST' });
+  assert.equal(res.ok, true, JSON.stringify(res.errors));
+  assert.deepEqual(res.staleCache.entries, []);
+});
+
+test('mode b build: library parts and mode, a library icon swap, a raw value, local picks and a stale cache', async () => {
+  const figma = fakeLibraryFigma();
+  const description = {
+    screen: 'Reg', page: 'Screens', width: 390, modes: { 'Color Semantic': 'Dark' },
+    root: { layout: 'vertical', gap: { raw: 12 }, fill: 'color/bg/surface', children: [
+      { component: 'Button', props: { label: 'Go', 'icon left': 'li:plus' } },
+      { component: 'Spinner' },
+    ] },
+  };
+  const res = await runComposeSnippet(figma, 'build', { componentsPage: 'Components', library, description, fileKey: 'TEST' });
+  assert.equal(res.ok, true, JSON.stringify(res.errors));
+  assert.deepEqual(res.localPicks, ['Spinner']);
+  assert.deepEqual(res.raws, [{ path: 'root.gap', kind: 'gap', value: 12 }]);
+  assert.deepEqual(res.staleCache.entries.map((e) => [e.key, e.values.Dark]), [['K1', '#000000']]);
+  const wip = screensOf(figma).children.find((n) => n.name === 'WIP: Reg');
+  assert.equal(wip.itemSpacing, 12);
+  assert.equal(wip.bound.itemSpacing, undefined);
+  assert.deepEqual(wip.fills.map((f) => f.bound), ['color/bg/surface']);
+  assert.equal(wip.children[0].name, 'button');
+  assert.ok(figma.log.includes('mode Color Semantic=LM:1'));
+  assert.ok(figma.log.includes('setProperties {"label#9:1":"Go","icon left#9:2":"50:1"}'), figma.log.join('\n'));
+  assert.ok(!figma.log.some((l) => l.startsWith('import set') || l.startsWith('import component')),
+    'a set or icon reached through a library instance is used as it is, not imported by key (that hung live)');
+});
+
+test('mode b build: a raw value a variable holds is refused before anything is written', async () => {
+  const figma = fakeLibraryFigma();
+  const res = await runComposeSnippet(figma, 'build', { componentsPage: 'Components', library, fileKey: 'TEST', description: {
+    screen: 'Reg', page: 'Screens', width: 390, root: { layout: 'vertical', gap: { raw: 16 }, fill: { raw: '#111111' }, children: [] },
+  } });
+  assert.deepEqual(res.errors.map((e) => [e.kind, e.path, e.nearest]), [
+    ['raw-has-variable', 'root.gap', ['space/4']],
+    ['raw-has-variable', 'root.fill', ['color/bg/surface']],
+  ]);
+  assert.ok(!screensOf(figma).children.some((n) => n.name === 'WIP: Reg'));
+  assert.ok(!figma.log.some((l) => l.startsWith('import')), 'nothing is imported for a plan that fails');
+});
+
+test('the adherence gate counts library tokens: a raw value one holds fails, and the rest stay advisories', async () => {
+  const code = snippetOf(buildFigmaAdherence(adherenceSources()));
+  const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
+  const target = { page: 'Templates', fileKey: 'TEST', libraryTokens: { colours: { '#00000080': ['lib/scrim'] }, gap: {}, radius: {} } };
+  const result = await new AsyncFunction('figma', `${code}\nreturn await runScreenGate(${JSON.stringify(target)}, []);`)(fakeFigma());
+  assert.ok(result.failures.some((f) => f.detail === 'fill #00000080: bind lib/scrim'));
+  assert.deepEqual(result.advisories, []);
 });

@@ -25,6 +25,9 @@ rule; do not re-write it by hand.
      frames, or frames directly inside a top-level section), and without it every
      screen on the page is read; `fileKey` is `figma.fileKey` from
      `design-system.json`, used for the links.
+     In mode b, also pass `libraryTokens`: the output of
+     `design-workspace.mjs tokens`, unchanged. Its values join the file's own, so a
+     raw value a library variable holds fails and one none holds is an advisory.
    - `const SKIP = []` — rule names to switch off (`detached-component`,
      `raw-colour`, `raw-dimension`); a skipped rule's inert check is skipped too.
 2. End the script with `return await runScreenGate(TARGET, SKIP);` and pass
@@ -32,8 +35,9 @@ rule; do not re-write it by hand.
 3. Read the result, `{ pass, failures, advisories, counts, skipped }`. Each failure
    and advisory has `rule`, `path`, `detail` and a `link` to the node. Report every
    failure with its link. Never edit the file to make it pass.
-4. Only the named page is loaded, and tokens are the file's local variables. A file
-   whose variables all come from a published library fails as inert.
+4. Only the named page is loaded, and tokens are the file's local variables, plus
+   `libraryTokens` when given. A file whose variables all come from a published
+   library fails as inert unless `libraryTokens` is passed.
 
 ```js
 const TARGET = { page: 'Templates', fileKey: '<figma.fileKey>' };
@@ -468,8 +472,22 @@ async function readScreens(target) {
     // exposed to private plugins.
     fileKey: target.fileKey || figma.fileKey,
     nodes,
-    tokens: await readTokens(),
+    tokens: withLibraryTokens(await readTokens(), target.libraryTokens),
   };
+}
+
+// Mode b (docs/specs/2026-10-30-design-modes.md, Q9): the library's values, from
+// design-workspace.mjs tokens, join the file's own, so a raw value a library
+// variable holds fails and one no variable holds stays an advisory.
+function withLibraryTokens(tokens, library) {
+  if (!library) return tokens;
+  for (const table of ['colours', 'gap', 'radius']) {
+    for (const [value, names] of Object.entries(library[table] || {})) {
+      const into = tokens[table][value] || (tokens[table][value] = []);
+      for (const name of names) if (!into.includes(name)) into.push(name);
+    }
+  }
+  return tokens;
 }
 
 async function runScreenGate(TARGET, SKIP) {

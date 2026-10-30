@@ -7,8 +7,10 @@ decide what to do about each gap. The gaps were recorded by
 `/throughline:compose-code` and `/throughline:compose-figma`. Scale explanation to
 `user.codingLevel`.
 
-1. **Find the system.** The directory holding `design-system.json`. If there
-   isn't one, say no design system is set up here and stop.
+1. **Find the system.** The directory holding `design-system.json`, or, without
+   one, the directory holding a `design/` folder (where `/throughline:compose-figma`
+   keeps gaps for a file built from a connected library). gap-report picks the file
+   itself. If there's neither, say nothing has been composed here yet and stop.
 2. **Read the report.** Run
    `node ${CLAUDE_PLUGIN_ROOT}/scripts/gap-report.mjs report --system <dir>`. If it
    says no gaps are recorded yet, say so: gaps appear once a composed screen asks
@@ -41,5 +43,6 @@ decide what to do about each gap. The gaps were recorded by
 
 The report is the maintainer's copy to work from: each open gap reads as a draft
 component request they can paste into their own tracker. Don't file anything on
-their behalf. `design-system/gaps.json` is meant to be committed, so a team's
-screens add up in one place.
+their behalf. The gap file (`design-system/gaps.json`, or `design/gaps.json`
+without a system) is meant to be committed, so a team's screens add up in one
+place.

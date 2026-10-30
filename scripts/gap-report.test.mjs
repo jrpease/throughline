@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { recordGap, triageGap, docsGapFor, renderReport, serialize, GAP_FILE } from './gap-report.mjs';
+import { recordGap, triageGap, docsGapFor, renderReport, serialize, GAP_FILE, WORKSPACE_GAP_FILE, gapFileFor } from './gap-report.mjs';
 
 const hit = (over = {}) => ({
   side: 'code', screen: 'Book a demo', target: 'apps/web/src/BookDemo.tsx', asked: 'DatePicker',
@@ -99,11 +99,17 @@ test('serialize sorts keys at every level', () => {
 
 const script = fileURLToPath(new URL('./gap-report.mjs', import.meta.url));
 const cli = (dir, ...args) => spawnSync(process.execPath, [script, ...args, '--system', dir], { encoding: 'utf8' });
+// A directory holding a throughline system: its gaps live in design-system/gaps.json.
+const systemDir = () => {
+  const dir = mkdtempSync(join(tmpdir(), 'gaps-'));
+  writeFileSync(join(dir, 'design-system.json'), '{}');
+  return dir;
+};
 const recordArgs = ['record', '--side', 'code', '--screen', 'Book a demo', '--target', 'src/BookDemo.tsx',
   '--asked', 'DatePicker', '--resolution', 'left-out', '--at', '2026-10-14', '--nearest', 'Spinner, Input'];
 
 test('cli: record creates the store with sorted keys, report reads it, triage persists', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'gaps-'));
+  const dir = systemDir();
   assert.equal(cli(dir, ...recordArgs).status, 0);
   const text = readFileSync(join(dir, GAP_FILE), 'utf8');
   assert.equal(text, serialize(JSON.parse(text)));
@@ -114,7 +120,7 @@ test('cli: record creates the store with sorted keys, report reads it, triage pe
 });
 
 test('cli: exit codes', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'gaps-'));
+  const dir = systemDir();
   const none = cli(dir, 'report');
   assert.equal(none.status, 0);
   assert.match(none.stdout, /No gaps recorded yet/);
@@ -128,6 +134,23 @@ test('cli: exit codes', () => {
   assert.equal(unknown.status, 1);
   assert.match(unknown.stderr, /Nearest: DatePicker/);
   mkdirSync(join(dir, 'bad', 'design-system'), { recursive: true });
+  writeFileSync(join(dir, 'bad', 'design-system.json'), '{}');
   writeFileSync(join(dir, 'bad', GAP_FILE), '[]');
   assert.equal(cli(join(dir, 'bad'), 'report').status, 1);
+});
+
+test('gapFileFor: the system file with design-system.json, the workspace file without', () => {
+  assert.equal(gapFileFor(systemDir()), GAP_FILE);
+  assert.equal(gapFileFor(mkdtempSync(join(tmpdir(), 'gaps-'))), WORKSPACE_GAP_FILE);
+});
+
+test('cli: a directory without a system records, reports and triages design/gaps.json', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'gaps-'));
+  assert.match(cli(dir, 'report').stdout, /design\/gaps\.json doesn't exist/);
+  const rec = cli(dir, ...recordArgs);
+  assert.equal(rec.status, 0);
+  assert.match(rec.stdout, /in design\/gaps\.json/);
+  assert.match(cli(dir, 'report').stdout, /### DatePicker \(component\), 1 screen/);
+  assert.equal(cli(dir, 'triage', '--name', 'DatePicker', '--status', 'build').status, 0);
+  assert.equal(JSON.parse(readFileSync(join(dir, WORKSPACE_GAP_FILE), 'utf8')).gaps.datepicker.status, 'build');
 });

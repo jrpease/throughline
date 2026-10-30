@@ -52,8 +52,13 @@ wrong document.
 **So the preflight must assert the active file's *identity*, not just connection:**
 
 1. **Know your target `fileKey`** before writing. It is `figma.fileKey` in
-   `design-system.json` at the working-directory root. If that field is absent,
-   stop and ask which file to write to — do not assume the active one is right.
+   `design-system.json` at the working-directory root when that key is the open
+   file (a throughline system's own file). Otherwise it is `fileKey` in
+   `design/workspace.json`, where `/throughline:compose-figma` records the file it
+   builds in when there's no system to name it (docs/specs/2026-10-30-design-modes.md,
+   Q19). With neither, a compose run takes the open file from `figma_get_status`
+   and records it. Any other write with no key stops and asks which file to write
+   to: do not assume the active one is right.
 2. **Read the active file and compare.** `figma_get_status` reports
    `currentFileKey` / `currentFileName`; `figma_list_open_files` shows every
    connected file and which is active. Confirm the active `fileKey` equals your

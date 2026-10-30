@@ -18,12 +18,28 @@ test('figma-compose.mjs has no import statements', () => {
   assert.doesNotMatch(src, /^import\b/m);
 });
 
+const topLevelNames = (file) => [...readFileSync(new URL(file, import.meta.url), 'utf8')
+  .matchAll(/^(?:export )?(?:const|let|(?:async )?function) (\w+)/gm)].map((m) => m[1]);
+
 test('figma-compose.mjs reuses no top-level name of the sources it is inlined with', () => {
-  const names = (file) => [...readFileSync(new URL(file, import.meta.url), 'utf8')
-    .matchAll(/^(?:export )?(?:const|let|(?:async )?function) (\w+)/gm)].map((m) => m[1]);
-  const mine = new Set(names('./figma-compose.mjs'));
+  const mine = new Set(topLevelNames('./figma-compose.mjs'));
   for (const other of ['./figma-adherence.mjs', './figma-variables-read.figma.js']) {
-    assert.deepEqual(names(other).filter((n) => mine.has(n)), [], other);
+    assert.deepEqual(topLevelNames(other).filter((n) => mine.has(n)), [], other);
+  }
+});
+
+// A repeated `function` name doesn't throw in one script: the later one silently
+// wins. So every pair of sources inlined into the compose snippet is checked.
+test('no two sources of the compose snippet share a top-level name', () => {
+  const files = ['./figma-adherence.mjs', './figma-compose.mjs', './design-mode.mjs', './figma-compose-library.mjs',
+    './figma-variables-read.figma.js', './figma-compose-read.figma.js', './design-mode-read.figma.js',
+    './library-read.figma.js', './figma-compose.figma.js'];
+  const seen = new Map();
+  for (const file of files) {
+    for (const name of topLevelNames(file)) {
+      assert.ok(!seen.has(name), `${name} is declared in both ${seen.get(name)} and ${file}`);
+      seen.set(name, file);
+    }
   }
 });
 

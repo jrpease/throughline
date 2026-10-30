@@ -351,7 +351,11 @@ function checkScreens(snapshot, { skip = [] } = {}) {
 //              An axis left out stays as Figma makes it: a frame hugs, text sizes to
 //              its content, an instance keeps its component's size. 'hug' on an
 //              instance needs a component with auto layout (Figma throws otherwise).
-//   Every visual value is a variable or text-style name.
+//   Every visual value is a variable or text-style name. Only when the inventory
+//   says allowRaw (mode b, docs/specs/2026-10-30-design-modes.md Q8/Q9), a colour,
+//   gap, radius or one padding side may instead be { raw: '#rrggbb[aa]' } or
+//   { raw: <number> }: refused as raw-has-variable when inventory.valueIndex says a
+//   variable holds that value, otherwise carried into the plan and listed in raws.
 //
 // INVENTORY (what the reader returns):
 //   {
@@ -366,18 +370,21 @@ function checkScreens(snapshot, { skip = [] } = {}) {
 //     collections: [{ name, id, modes: [{ name, id }] }],
 //     target: { screen, wip } | null,         // build only: 'marked' | 'unmarked' | null for
 //                                             // the frames named <screen> and 'WIP: <screen>'
+//     allowRaw?: true,                        // mode b only
+//     valueIndex?: { colours: { <hex>: [names] }, gap: { <n>: [names] }, radius: { <n>: [names] } },
 //   }
 //
 // resolveScreen(description, inventory) → { ok, errors, plan }
 //   errors: [{ kind, path, asked, nearest? }]; path is the node's place in the
 //   description ('root.children[2].slots.Body[0]').
 //   plan (only when ok): the same tree with every name replaced by ids, real
-//   property keys and values, and Figma's enum spellings.
+//   property keys and values, and Figma's enum spellings. A raw value stays
+//   { raw } in the plan; plan.raws lists each as { path, kind, value }.
 
 const COMPOSE_ERROR_KINDS = [
   'invalid', 'name-taken', 'missing-component', 'unknown-prop', 'unknown-option',
   'prop-type', 'missing-swap-target', 'unknown-variable', 'variable-kind',
-  'unknown-text-style', 'unknown-mode',
+  'unknown-text-style', 'unknown-mode', 'raw-has-variable',
 ];
 
 const composeFold = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -461,6 +468,9 @@ function resolveScreen(description, inventory) {
     if (inv.target.wip === 'unmarked') fail('name-taken', 'screen', `WIP: ${d.screen}`);
   }
 
+  const raws = [];
+  const RAW_TABLE = { colour: 'colours', gap: 'gap', radius: 'radius' };
+
   const modes = [];
   for (const [collectionName, modeName] of Object.entries(d.modes || {})) {
     const collection = byFold(inv.collections, collectionName);
@@ -470,8 +480,27 @@ function resolveScreen(description, inventory) {
     else modes.push({ collectionId: collection.id, modeId: mode.id });
   }
 
+  function rawValue(value, kind, path) {
+    let v = value;
+    if (kind === 'colour') {
+      if (typeof v !== 'string' || !/^#([0-9a-f]{6}|[0-9a-f]{8})$/i.test(v)) { fail('invalid', path, `a raw colour #rrggbb or #rrggbbaa, not ${JSON.stringify(value)}`); return null; }
+      v = v.toLowerCase();
+      if (v.length === 9 && v.endsWith('ff')) v = v.slice(0, 7);
+    } else if (!(typeof v === 'number' && Number.isFinite(v) && v >= 0)) {
+      fail('invalid', path, `a raw number of 0 or more, not ${JSON.stringify(value)}`);
+      return null;
+    }
+    const held = ((inv.valueIndex || {})[RAW_TABLE[kind]] || {})[String(v)];
+    if (held && held.length) { fail('raw-has-variable', path, String(v), held.slice(0, 3)); return null; }
+    raws.push({ path, kind, value: v });
+    return { raw: v };
+  }
+
   function variable(name, kind, path) {
     if (name === undefined || name === null) return null;
+    if (inv.allowRaw && typeof name === 'object' && !Array.isArray(name) && Object.keys(name).length === 1 && 'raw' in name) {
+      return rawValue(name.raw, kind, path);
+    }
     if (typeof name !== 'string') { fail('invalid', path, `a variable name, not ${JSON.stringify(name)}`); return null; }
     const found = byFold(inv.variables, name);
     if (!found) {
@@ -653,7 +682,7 @@ function resolveScreen(description, inventory) {
   return {
     ok,
     errors,
-    plan: ok ? { screen: d.screen, page: d.page, width: d.width, height: d.height ?? null, modes, root } : null,
+    plan: ok ? { screen: d.screen, page: d.page, width: d.width, height: d.height ?? null, modes, root, raws } : null,
   };
 }
 
@@ -698,8 +727,98 @@ function composeTopFrames(page, name) {
   return all.filter((n) => n.name === name);
 }
 
+// A component set's properties as the INVENTORY records them.
+function composeSetProps(set) {
+  // Every variant, since the writer switches variant before filling a slot.
+  const slotNodes = set.findAll((n) => n.type === 'SLOT');
+  return Object.entries(set.componentPropertyDefinitions).map(([key, def]) => {
+    const prop = { key, name: key.replace(/#[^#]*$/, ''), type: def.type };
+    if (def.variantOptions) prop.options = def.variantOptions;
+    if (def.type === 'SLOT') {
+      const slots = slotNodes.filter((n) => n.componentPropertyReferences && n.componentPropertyReferences.slotContentId === key);
+      prop.slotLayout = slots.length && slots.every((n) => n.layoutMode !== 'NONE') ? slots[0].layoutMode : 'NONE';
+    }
+    return prop;
+  });
+}
+
+const composeSetAutoLayout = (set) => set.children.every((v) => v.layoutMode && v.layoutMode !== 'NONE');
+
+// Mode b (spec.library): library sets and swap targets from the library instances
+// on spec.library.pages, plus any REST results ({ key, type: 'COMPONENT_SET' |
+// 'COMPONENT' }) imported by key; the file's own variable values for the raw-value
+// check. Instances are read 20 at a time and de-duplicated by key. Live on
+// 2026-10-30 (Zygarden.gg), a library instance's main component exposed its parent
+// set, with componentPropertyDefinitions and defaultVariant; and importing a
+// component or set by key hung (variables imported fine). So the nodes reached
+// through instances go to the writer as they are (`nodes`, by 'lib:<key>' id), and
+// only REST results are imported by key.
+async function composeReadLibrary(spec, localVariables) {
+  const lib = spec.library;
+  const sets = new Map();
+  const components = new Map();
+  const nodes = new Map();
+  const addMain = (main) => {
+    if (!main || !main.remote) return;
+    const set = main.parent && main.parent.type === 'COMPONENT_SET' ? main.parent : null;
+    if (set) {
+      if (!sets.has(set.key)) {
+        sets.set(set.key, { name: set.name, key: set.key, autoLayout: composeSetAutoLayout(set), props: composeSetProps(set) });
+        nodes.set(libraryId(set.key), set);
+      }
+    } else if (!components.has(main.key)) {
+      components.set(main.key, { name: main.name, key: main.key });
+      nodes.set(libraryId(main.key), main);
+    }
+  };
+  for (const name of lib.pages || []) {
+    const page = composeFindPage(name);
+    if (!page) continue;
+    await page.loadAsync();
+    const instances = page.findAllWithCriteria({ types: ['INSTANCE'] });
+    for (let i = 0; i < instances.length; i += 20) {
+      (await Promise.all(instances.slice(i, i + 20).map((n) => n.getMainComponentAsync()))).forEach(addMain);
+    }
+  }
+  if (lib.components !== undefined && !Array.isArray(lib.components)) {
+    throw new Error('library.components must be an array of { key, type: \'COMPONENT_SET\' | \'COMPONENT\' }, reshaped from figma_get_library_components');
+  }
+  const rest = (lib.components || []).filter((c) => c && c.key && !sets.has(c.key) && !components.has(c.key));
+  for (let i = 0; i < rest.length; i += 20) {
+    const chunk = rest.slice(i, i + 20);
+    const imported = await Promise.all(chunk.map((c) => (c.type === 'COMPONENT_SET'
+      ? figma.importComponentSetByKeyAsync(c.key)
+      : figma.importComponentByKeyAsync(c.key))));
+    imported.forEach((node, j) => {
+      if (chunk[j].type === 'COMPONENT_SET') {
+        sets.set(node.key, { name: node.name, key: node.key, autoLayout: composeSetAutoLayout(node), props: composeSetProps(node) });
+        nodes.set(libraryId(node.key), node);
+      } else addMain(node);
+    });
+  }
+  const localValues = { colours: {}, gap: {}, radius: {} };
+  const add = (table, value, name) => {
+    if (value === null || value === undefined) return;
+    const names = table[String(value)] || (table[String(value)] = []);
+    if (!names.includes(name)) names.push(name);
+  };
+  await Promise.all(localVariables.map(async (variable) => {
+    if (variable.resolvedType === 'COLOR') {
+      for (const hex of Object.values((await variableColors(variable)).modes)) add(localValues.colours, hex, variable.name);
+    } else if (variable.resolvedType === 'FLOAT') {
+      const buckets = dimensionBuckets(variable.name, variable.scopes || []);
+      for (const n of Object.values(await variableNumbers(variable))) {
+        if (buckets.gap) add(localValues.gap, n, variable.name);
+        if (buckets.radius) add(localValues.radius, n, variable.name);
+      }
+    }
+  }));
+  return { sets: [...sets.values()], components: [...components.values()], nodes, cache: lib.cache || null, tokens: lib.tokens || null, localValues };
+}
+
 // Reads the INVENTORY documented in figma-compose.mjs, plus the live nodes the
-// writer needs, keyed by id.
+// writer needs, keyed by id. With spec.library (mode b) the library side is merged
+// in (figma-compose-library.mjs), and componentsPage may be left out.
 async function composeReadInventory(spec) {
   const pages = [spec.componentsPage, spec.iconsPage].filter(Boolean).map(composeRequirePage);
   const setNodes = new Map();
@@ -709,19 +828,7 @@ async function composeReadInventory(spec) {
     await page.loadAsync();
     for (const set of page.findAllWithCriteria({ types: ['COMPONENT_SET'] })) {
       setNodes.set(set.id, set);
-      // Every variant, since the writer switches variant before filling a slot.
-      const slotNodes = set.findAll((n) => n.type === 'SLOT');
-      const props = Object.entries(set.componentPropertyDefinitions).map(([key, def]) => {
-        const prop = { key, name: key.replace(/#[^#]*$/, ''), type: def.type };
-        if (def.variantOptions) prop.options = def.variantOptions;
-        if (def.type === 'SLOT') {
-          const slots = slotNodes.filter((n) => n.componentPropertyReferences && n.componentPropertyReferences.slotContentId === key);
-          prop.slotLayout = slots.length && slots.every((n) => n.layoutMode !== 'NONE') ? slots[0].layoutMode : 'NONE';
-        }
-        return prop;
-      });
-      const autoLayout = set.children.every((v) => v.layoutMode && v.layoutMode !== 'NONE');
-      sets.push({ name: set.name, id: set.id, page: page.name, autoLayout, props });
+      sets.push({ name: set.name, id: set.id, page: page.name, autoLayout: composeSetAutoLayout(set), props: composeSetProps(set) });
     }
     for (const component of page.findAllWithCriteria({ types: ['COMPONENT'] })) {
       if (component.parent && component.parent.type === 'COMPONENT_SET') continue;
@@ -730,7 +837,8 @@ async function composeReadInventory(spec) {
   }
   const variableNodes = new Map();
   const variables = [];
-  for (const variable of await figma.variables.getLocalVariablesAsync()) {
+  const localVariables = await figma.variables.getLocalVariablesAsync();
+  for (const variable of localVariables) {
     variableNodes.set(variable.id, variable);
     let kinds = [];
     if (variable.resolvedType === 'COLOR') kinds = ['colour'];
@@ -752,9 +860,11 @@ async function composeReadInventory(spec) {
     collectionNodes.set(collection.id, collection);
     collections.push({ name: collection.name, id: collection.id, modes: collection.modes.map((m) => ({ name: m.name, id: m.modeId })) });
   }
+  const local = { sets, components, variables, textStyles, collections, target: null };
+  const library = spec.library ? await composeReadLibrary(spec, localVariables) : null;
   return {
-    inventory: { sets, components, variables, textStyles, collections, target: null },
-    live: { setNodes, variableNodes, collectionNodes, styleNodes, styled: [] },
+    inventory: library ? mergeLibraryInventory(local, library) : local,
+    live: { setNodes, variableNodes, collectionNodes, styleNodes, styled: [], libraryNodes: library ? library.nodes : new Map() },
   };
 }
 

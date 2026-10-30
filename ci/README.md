@@ -46,8 +46,10 @@ own structure. Zero dependencies; stdlib only.
    `references/figma-adherence.md` matches its checker and readers
    (`figma-adherence.mjs`, `figma-variables-read.figma.js`,
    `figma-adherence-read.figma.js`), and `references/figma-compose.md` matches
-   its resolver, reader and writer (`figma-adherence.mjs`, `figma-compose.mjs`,
+   its resolver, readers and writer (`figma-adherence.mjs`, `figma-compose.mjs`,
+   `design-mode.mjs`, `figma-compose-library.mjs`,
    `figma-variables-read.figma.js`, `figma-compose-read.figma.js`,
+   `design-mode-read.figma.js`, `library-read.figma.js`,
    `figma-compose.figma.js`), and `references/figma-drift.md` matches its three
    readers (`figma-drift-variables.figma.js`, `figma-drift-screens.figma.js`,
    `figma-drift-components.figma.js`)
