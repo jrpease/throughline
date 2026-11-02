@@ -2,7 +2,7 @@
   "name": "throughline",
   "displayName": "ThroughLine",
   "description": "Your agentic design team. Design screens in Figma on your own design system or on a library your team already uses, or build a design system from scratch and sync it to code: tokens, components, docs and screens from one source, with checks that stop the build when something slips.",
-  "version": "0.32.1",
+  "version": "0.33.0",
   "author": {
     "name": "Jordan Pease"
   },

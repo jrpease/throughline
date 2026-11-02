@@ -1,6 +1,7 @@
 # Design modes: build in Figma with a system, a library, or nothing
 
-Status: built (phase 1); phases 2–4 not yet planned
+Status: built (phases 1 and 1b); phases 1c–4 not yet planned
+Reviewed: 2026-11-02 (phase 1b) — ready to build, with two design ambiguities (forced-b consumer writing `design/`, the ask under `forced`) and eight Plan notes. All folded in the same day (Q36, Q37), not re-reviewed after.
 Reviewed: 2026-10-30 — Plan re-review: needs revision, narrowly (Step 1 test import, Step 0 stop rule, raw padding form, local values for valueIndex, token key names and colour form, reaching a library collection with no bound variable); Steps 6–12 executable as written. All six fixed the same day, not re-reviewed after.
 Date: 2026-10-30
 Builds on: `docs/specs/2026-10-13-compose-figma-screen.md`,
@@ -24,6 +25,15 @@ Q9, Q11, Q12, Q16 and Q18–Q22, are Claude's recommendations on that instructio
 not put to the owner one by one. The same holds for the re-review's fixes to Q3,
 Q7, Q9, Q12, Q19 and Q21, and for the Plan review's amendment to Q8, where the
 owner was offered the choice and left it to Claude ("i trust you, keep going").
+
+Phase 1b's decisions (Q26–Q35) came in two parts. Q26, the where of Q27, Q28,
+Q32 and Q33 are the five recommendations in the phase 1b handoff
+(`docs/notes/2026-10-30-design-modes-phase-1b-handoff.md`), which the owner
+approved on 2026-10-30 ("take Claude's recommendations"). The rest (the how of
+Q27 and what a no does, Q29–Q31, Q34, Q35) were put to the owner as seven
+questions on 2026-11-02, and the owner accepted every recommendation ("yes on all
+recs"). Q36 and Q37 came from the critic's review the same day; the owner took both
+recommendations ("take the rec").
 
 ## Goal
 
@@ -58,10 +68,10 @@ three modes last.
 |---|---|---|---|---|
 | Q1 | How many specs | One spec covering the mode model and the design method, built in phases (Q21). A phase may get its own spec when it's planned. | The modes and the method share one entry point and one detection step; splitting them now would split the decision record. | Separate specs written up front for each piece |
 | Q2 | Entry point | New command `/throughline:design`, working at the flow level and running the method. compose-figma and compose-code stay the single-screen tools, gain modes, and are called once per frame. | Keeps today's commands working as they are and gives the method layer one home. | Growing compose-figma into a flow tool; a separate design plugin |
-| Q3 | Choosing the mode | Detected automatically, and the **open Figma file** decides. Mode a only when `design-system.json`'s `figma.fileKey` is the open file. Otherwise mode b when the file has any of: an enabled library variable collection (`figma_get_library_variables` returns any), an instance whose main component is remote on the pages the run loads (Q5), or local variables or component sets of its own. A file with only local parts is mode b with an empty library side. Otherwise mode c. Two of the three signals depend on the pages the run loads, so detection is a function of the file and the pages named, not the file alone: library instances only on an unloaded page, in a file with no local variables or sets, read as mode c. A product file that uses a throughline system as a library is therefore mode b; when `design-system.json` exists, its gaps go to the system's gap file (Q20). Announced in one line with what the mode gives up. The user can force a lower mode, never a higher one. | The open file is what the agent builds in, and compose-figma's preflight already stops when the open file isn't the system file. Figma can list enabled variable libraries but not enabled component libraries, so a component-only library is visible only through its instances. Forcing up would claim guarantees the file can't back. | The repo alone deciding the mode; a mode-picker question at the start of every run; mode a guarantees in a consumer file (a follow-up if wanted) |
+| Q3 | Choosing the mode | Detected automatically, and the **open Figma file** decides. Mode a only when `design-system.json`'s `figma.fileKey` is the open file. Otherwise mode b when the file has any of: an enabled library variable collection (`figma_get_library_variables` returns any), an instance whose main component is remote on the pages the run loads (Q5), or local variables or component sets of its own. A file with only local parts is mode b with an empty library side. Otherwise mode c. Two of the three signals depend on the pages the run loads, so detection is a function of the file and the pages named, not the file alone: library instances only on an unloaded page, in a file with no local variables or sets, read as mode c. A product file that uses a throughline system as a library is therefore mode b; when `design-system.json` exists, its gaps go to the system's gap file (Q20). (Amended 2026-11-02: phase 1b makes a file that uses the repo's own system as its library mode a, by Q26; the rest of this row stands.) Announced in one line with what the mode gives up. The user can force a lower mode, never a higher one. | The open file is what the agent builds in, and compose-figma's preflight already stops when the open file isn't the system file. Figma can list enabled variable libraries but not enabled component libraries, so a component-only library is visible only through its instances. Forcing up would claim guarantees the file can't back. | The repo alone deciding the mode; a mode-picker question at the start of every run; mode a guarantees in a consumer file (a follow-up if wanted) |
 | Q4 | Figma or code first | Figma. Code-side modes ship last (Q21). | Code mode c overlaps claude-bootstrap's `product-design`, and the owner's stated case is Figma with a library. | Building both sides together |
 | Q5 | Reading library components | Always: collect library components from instances already on the pages the run loads (the target page, plus any page the user names), never a whole-file walk; each instance points back to its library component by key, no token needed. Additionally, when the library's link is known and `FIGMA_ACCESS_TOKEN` is set: the full list from `figma_get_library_components`. Without a token, the run says which components it could and couldn't see. Library variables always come from `figma_get_library_variables` (no token). | Figma's plugin API can list library variables but not library components; the REST route needs the library's link and a token. Instances already in the file cover the common case for free. The compose-figma spec records a whole-file walk stalling the bridge, so the scan stays page-scoped. | Requiring a token for mode b; mode b covering variables only; scanning every page |
-| Q6 | Where mode b keeps records | A `design/` folder in the working directory: `design/workspace.json` (file key, library links, last detected mode), `design/library-cache.json` (Q9) and `design/gaps.json` (same shape as `design-system/gaps.json`). claude-bootstrap's `product-design` also writes `design/precedent/` in a project; the two coexist on purpose, since both are design records for the same project and no file names collide. | Mode b has no `design-system.json` to hang records from, and `.throughline/` is the adapters' install directory, not state (gap-report spec). | Requiring `design-system.json` for mode b; storing state in `.throughline/` |
+| Q6 | Where mode b keeps records | A `design/` folder in the working directory: `design/workspace.json` (file key, library links, last detected mode), `design/library-cache.json` (Q9) and `design/gaps.json` (same shape as `design-system/gaps.json`). claude-bootstrap's `product-design` also writes `design/precedent/` in a project; the two coexist on purpose, since both are design records for the same project and no file names collide. | Mode b has no `design-system.json` to hang records from, and `.throughline/` is the adapters' install directory, not state (gap-report spec). (Amended 2026-11-02 by Q29: when `design-system.json` exists, the library cache lives at `design-system/library-cache.json` instead.) | Requiring `design-system.json` for mode b; storing state in `.throughline/` |
 | Q7 | Same name in library and file | The library wins, judged against the library components the run can see (Q5). A local component is used only when no visible library component has that name; the report lists every local component used. When a library was detected (Q3) and there's no token, each local pick is flagged as possibly standing in for a library component the run couldn't see, and the report suggests giving the library's link. A file with no library gets no such flag. | Files often hold detached copies of library components under the same name, and the library is the source of truth. | Local-first; asking the user on every conflict |
 | Q8 | Reusing the checker | The mode b reader returns the same inventory summary as `figma-compose-read.figma.js`; the resolver in `scripts/lib/figma-compose.mjs` keeps its name resolution unchanged. Its one change is Q9's raw-value path: only when the inventory says `allowRaw` (mode b), a value written `{ raw: … }` is accepted when no variable holds it, refused with the variable's name when one does, and listed in the plan. Library items are imported by key at build time. (Amended 2026-10-30 after the Plan review found phase 1 could not build Q9 otherwise; the owner left the choice to Claude.) | The checking logic (unknown names refused, nothing drawn to fake a missing component) is the part that makes compose-figma trustworthy, and it doesn't care where names came from. Without a raw-value path, mode b only works when variables cover every value, which Q9 rules out. | A second resolver for libraries; deferring Q9's allowance |
 | Q9 | What the mode b check requires | A value is tied to a variable whenever a library or local variable holds that value. A raw value is allowed only when none matches, and each one is listed in the report. Library variable values come from `design/library-cache.json`: Figma's library listing gives names, keys and types but no values, so a separate "read the library" step imports the variables in batches of at most 20 calls per bridge script, records each one's value and kind, and is re-run when the library's collections change or the user asks. Because a value edited in the library changes no collection, each build also compares the variables it imports (the ones the plan names) against the cache; any difference refreshes those entries and the report says the cache was stale and suggests a full re-read. Every report prints the date of the last full read. Kind (spacing, radius, colour and so on) comes from the imported variable's scopes, falling back to its name. At build time only the variables the plan names are imported. | A library may not cover every value a screen needs; refusing would make mode b unusable on partial libraries. Importing every variable on every build would repeat the stall the compose-figma spec records at about twenty awaits. | The full mode a rule (no raw values at all) in mode b; importing the whole library on every build |
@@ -75,12 +85,26 @@ three modes last.
 | Q17 | Existing content | Never moved, renamed or deleted. Throughline creates and owns only its own sections and frames, through the existing `WIP:` and finalize convention. | A designer's file is theirs; the convention already exists and is tested. | Reorganizing the user's file |
 | Q18 | Annotations | Five categories, created when missing (no MCP tool creates a category, so creation goes through a `figma_execute` script using the plugin API's annotation-category call; verify that call first in phase 2): Behaviour, State, Motion, Accessibility, Content. Every state frame gets a State annotation naming what causes it. Interactive elements whose behaviour isn't obvious get a Behaviour note. Motion is written as annotations. Annotations go only on nodes throughline made. | Annotations are how a static file tells a developer what it can't show; `figma_set_annotations` already supports categories and pinned properties. | Free-form sticky notes; annotating the user's nodes |
 | Q19 | Checking the result | Each frame passes its mode's gate (a: adherence gate; b: adherence check with the Q9 allowance; c: structure check), plus the tell warnings (Q24). Then throughline's `reviewer` agent judges the screenshots with the rubric in Q25. Its Figma-visual preflight takes the file key from `design-system.json` only when that key is the open file (mode a); otherwise from `design/workspace.json`, else from the open file via `figma_get_status`. It no longer returns `BLOCKED` because `design-system.json` is absent or names a different file, as in the consumer-file case (Q3). | `reviewer` ships with the plugin; `design-critic` lives in claude-bootstrap and isn't available to public users. Today's preflight would block every mode b and c run. | Shipping frames without a gate; depending on a claude-bootstrap agent |
-| Q20 | Records by mode | a: as today (screens recorded for drift, gaps in `design-system/gaps.json`). b: gaps in `design-system/gaps.json` when `design-system.json` exists (a consumer file of a throughline system, Q3), else `design/gaps.json`; no drift. c: none. `scripts/gap-report.mjs` and `/throughline:gap-report` choose the file the same way: `design-system/gaps.json` when `--system` holds `design-system.json`, else `design/gaps.json`. | Each mode records only what it can back. Gaps nobody can triage are pointless, and today gap-report hardcodes `design-system/gaps.json`. | Fake drift records in mode b; a mode b gap file nothing reads |
-| Q21 | Phase order | 1. Mode detection plus mode b in compose-figma, including the library cache (Q9) and gap-report reading `design/gaps.json` (Q20), and the reviewer preflight (Q19), since compose-figma dispatches the reviewer on every run. 1b. Mode a's rules in a product file that uses a throughline system as its library (the follow-up Q3 rules out for phase 1; the owner approved it on 2026-10-30, and its decisions are still to be written here). 2. `/throughline:design` with file organization, states, annotations, the craft reference (Q23), the tell warnings (Q24), the reviewer rubric (Q25), placement (Q16). 3. Mode c. 4. Code-side modes. | Mode b is the owner's stated case; the method layer is what makes it more than compose-figma; code comes last (Q4). | Building everything in one release |
+| Q20 | Records by mode | a: as today (screens recorded for drift, gaps in `design-system/gaps.json`). b: gaps in `design-system/gaps.json` when `design-system.json` exists (a consumer file of a throughline system, Q3), else `design/gaps.json`; no drift. c: none. `scripts/gap-report.mjs` and `/throughline:gap-report` choose the file the same way: `design-system/gaps.json` when `--system` holds `design-system.json`, else `design/gaps.json`. (Confirmed 2026-11-02 by Q34: after phase 1b, mode b in a system repo is either a consumer forced down to b, whose gaps are the system's, or a file using some other library; the directory still decides, so that rarer case lands in the system's file too.) | Each mode records only what it can back. Gaps nobody can triage are pointless, and today gap-report hardcodes `design-system/gaps.json`. | Fake drift records in mode b; a mode b gap file nothing reads |
+| Q21 | Phase order | 1. Mode detection plus mode b in compose-figma, including the library cache (Q9) and gap-report reading `design/gaps.json` (Q20), and the reviewer preflight (Q19), since compose-figma dispatches the reviewer on every run. 1b. Mode a's rules in a product file that uses a throughline system as its library (the follow-up Q3 rules out for phase 1; the owner approved it on 2026-10-30; its decisions are Q26–Q35, and it includes library text styles, Q30). 1c. Drift for screens composed in a consumer file (Q33). 2. `/throughline:design` with file organization, states, annotations, the craft reference (Q23), the tell warnings (Q24), the reviewer rubric (Q25), placement (Q16). 3. Mode c. 4. Code-side modes. | Mode b is the owner's stated case; the method layer is what makes it more than compose-figma; code comes last (Q4). | Building everything in one release |
 | Q22 | Positioning | The README reframes throughline as an agent design studio, with the design system as the deepest mode. (Amended 2026-10-30 by the owner: it landed in 0.32.1, right after phase 1, rather than waiting for phase 2. It describes only what's built and lists the rest of the modes and `/throughline:design` on the roadmap.) Copy follows `references/guide-voice.md`. Version goes up a minor step per phase. The website (radicool.studio/throughline) lives outside this repo; updating it is a note for the owner, not part of this spec. | The plugin's purpose changes; its own voice guide governs its copy. Shipping the README with phase 1 would pitch a method that doesn't exist yet, unless it describes only what's built, as 0.32.1 does. | Shipping the modes while still pitching only the design-system builder |
 | Q23 | How the agent designs well without Mobbin | A new reference, `references/screen-craft.md`, read at intake and at build in every mode. It states general product-screen rules as rules, not as measurements: type on work screens stays quiet and hierarchy comes from weight, colour and position before size; density follows the task and holds across the screen; one small spacing scale; a small palette with the accent reserved for the primary action and current state, and status colour treated as functional; elevation means what sits above what, with no cards nested in cards; a flow is a few reused layout templates (list, detail, list plus detail, form, dashboard), and empty states live inside the template; chrome (header, sidebar, toolbar) is designed, not left at defaults; skeletons rather than spinners when the arriving layout is known; real content, never placeholders. It also carries product-design's twelve tells as the things to avoid. (Owner approved, 2026-10-30.) | Models handle the mechanics on their own but drift to the median screen, and the tells are exactly where they drift. In modes a and b the system supplies the look and the agent supplies composition; mode c has nothing to inherit, so this reference carries it. | Assuming the model designs well unaided; shipping the measured canon (Q14) |
 | Q24 | Tell checks in the gates | Each mode's gate also reports the tells a script can see in a Figma file, as warnings: placeholder text ("Lorem", "Item 1", "John Doe"), more than one primary action on a screen, a card nested inside a card, a heading far larger than the body text on a work screen, and a missing state frame on the hardest screen (Q15). (Owner approved, 2026-10-30.) | Throughline's rule is that a rule holds only if something checks it; these are the tells that can be checked from node data. | Tells that live only in prose; checking taste a script can't see (those go to the reviewer) |
 | Q25 | Reviewer rubric | The `reviewer` scores the screenshots against the intake (did it build what was asked) and against `screen-craft.md`, naming every visible tell. Any references the user pasted into the prompt are used too; the plugin has no step that gathers them. (Owner approved, 2026-10-30.) | Judging only against the intake checks completeness, not quality. | A reviewer that only checks the request was met |
+| Q26 | Telling a consumer file apart (1b) | A file is a consumer of the repo's system when `design-system.json` exists, its `figma.fileKey` is not the open file, and a connected library variable collection's key is in `figma.collectionKeys` (Q27). A consumer file is mode a. Its announcement names the library and says drift isn't tracked yet (Q33). Detection reads only library *variable* collections, so a file that uses the system's components without any of its variable collections enabled isn't recognised as a consumer: it runs as mode b, with local stand-ins and raw values allowed. | Checked live on 2026-10-30: Zygarden.gg's `teamLibrary` collection keys equal the system file's local `VariableCollection.key`, all 10. A key survives a rename; the library's name doesn't. | Detecting by library name; detecting by component keys (`design-system.json` records none) |
+| Q27 | Recording the system's collection keys (1b) | Stored in `design-system.json` as `figma.collectionKeys`. Written by a new subcommand, `design-workspace.mjs system keys --dir <dir> --from <saved signals output> [--library <name>]`. It replaces `figma.collectionKeys` and leaves every other field, and their order, alone. Without `--library` it takes the file's local collection keys, and runs on every mode a compose in the system file, so a collection added later is picked up. With `--library` it takes that library's collection keys. When none are recorded, the open file isn't the system and a library is connected, the run asks once, naming every connected library: "is one of these your throughline system?" On a pick it saves that library's keys; on no it records nothing, runs in mode b, and asks again next run. Documented in `references/manifest-schema.md`. | A script reads the keys back, so the "no hand-written JSON" rule applies. Remembering a "no" would be another field to keep in sync for a rare case (a system repo building against an unrelated library). | The agent editing `design-system.json` by hand for this field; recording a "no" |
+| Q28 | Mode a's rules in a consumer file (1b) | No `{ raw }` values. Library parts only: the file's own component sets, swap targets, variables, collections and text styles are left out of the inventory, so a request only a local part would meet is a `missing-component` (or `unknown-…`) error, and a component gap is recorded. Gaps go to `design-system/gaps.json` (Q20, already). Nothing is written under `design/`, and no `design/workspace.json` is written. The gate gets `TARGET.libraryTokens`, so a raw value the system holds fails. | These are mode a's guarantees, made to hold in a file that reaches the system only as a library. | Local stand-ins in a consumer file; raw values in a consumer file |
+| Q29 | Where the library cache lives when `design-system.json` exists (1b) | On disk at `design-system/library-cache.json`, in the same shape as `design/library-cache.json`. `design-workspace.mjs` picks the path from the directory the way `gapFileFor` picks the gap file: `design-system/` when `design-system.json` exists, else `design/`. | A consumer run needs the library's values for the gate, and the product file has no variables of its own. Re-reading Zygarden's 10 collections costs about 15 bridge calls a run; a cache costs nothing after the first read, and phase 1's stale-value check still applies. | Re-reading the library into memory on every run; a `design/` folder in a system repo for the cache |
+| Q30 | Library text styles (1b, both mode a in consumer files and mode b) | Collected from text nodes already on the pages the run loads (Q5), like library components: a text node whose `textStyleId` points at a remote style contributes that style, by key, de-duplicated. The style is already in the file, so it is applied as it is, never imported by key. In mode b the library style wins a name clash (Q7). Settles the "Library text styles" open question with its option (b). | Without it a consumer screen holds no heading or body copy, since Zygarden.gg has no local text styles and the library rule (Q28) leaves out local ones anyway. Import by key hung live for components; styles reached through text nodes need no import. | Phase 1's text-styles-from-the-file-only in mode b; deferring library text styles past 1b |
+| Q31 | Parts from other libraries in a consumer file (1b) | Variables and collections are limited to the system's, by `figma.collectionKeys`. Components and text styles from any connected library are allowed, and the report says components aren't checked against the system. | The plugin API doesn't say which library a remote component or style came from, and `design-system.json` records no component keys. | Refusing every component the run can't prove is the system's |
+| Q32 | Forcing a consumer file down (1b) | A consumer file ranks as mode a and can be forced down to b ("ignore the system") or c ("ignore the library"), as Q3 allows for any file. | The same lowering rule as every other file. | A separate consumer mode with its own forcing rules |
+| Q33 | Drift for consumer screens | Phase 1c, not 1b. Consumer screens are not recorded in `screens.json` in 1b. 1c: a per-entry `fileKey` in `screens.json`, the drift screens snippet run against that file (`figma_execute` takes `fileKey`), and components resolved through library instances. | Drift's live half (`commands/drift.md` step 3) assumes every screen lives in `figma.fileKey` and finds components on that file's components page; recording consumer screens before it can check them in their own file would report them all as gone. | Recording consumer screens in 1b |
+| Q34 | Mode b's gaps in a system repo after 1b | Q20 unchanged: the directory decides (see Q20's note). | A consumer forced down to b is the common case, and its gaps are the system's. | A mode flag on gap-report |
+| Q35 | Library variables that can't be imported (1b) | `library-import` returns skipped variables as `[{ key, name }]`; `cache merge` adds their keys to the cache's top-level `skipped` list, and `cache missing` leaves them out. `cache init` starts a fresh cache with no `skipped`, so a full re-read tries them again. | Phase 1 re-imported and re-skipped them on every run. | Trying skipped variables on every run; never trying them again |
+| Q36 | `design/` in a system repo (1b) | When `design-system.json` exists, nothing is written under `design/` in any mode: compose-figma skips `workspace set`, the cache goes under `design-system/` (Q29) and gaps go to the system's file (Q20). This covers a consumer forced down to b. | Q28 and Q29 meant to keep `design/` out of a system repo; a forced-down consumer (Q32) would otherwise still write `design/workspace.json`. | `design/workspace.json` beside `design-system/` |
+| Q37 | Asking "is this your system?" when a mode was forced (1b) | Not asked when `forced` is set. | The user has already said to ignore the system or the library on this run. | Asking on a run the user lowered |
+| Q38 | `system keys` reformatting `design-system.json` (1b, from the live run) | Left as is. It writes two-space JSON like every manifest writer, and when that changes the file's formatting it prints a line saying so. compose-figma passes that line on. Owner accepted the recommendation 2026-11-02 ("keep going with your recs"). | The data and field order are unchanged; only the first write expands hand-wrapped arrays, and saying so explains the bigger diff. | Preserving the owner's hand formatting |
+| Q39 | A whole-padding `{ raw }` in a consumer run (1b, from the live run) | Refused as a raw value ("a variable name, not {raw:…}" at `root.padding`), not with mode b's per-side message. The same holds in the system's own file, which allows no `{ raw }` either. Mode b's handling is unchanged. Owner accepted the recommendation 2026-11-02. | The per-side wording sent the reader looking for a side to fix when no raw value is allowed at all. | — |
 
 ## Open questions
 
@@ -118,7 +142,7 @@ three modes last.
   line; (b) collect library text styles from text nodes already on the loaded pages
   (their `textStyleId` points at the imported style), the same way Q5 collects
   components. Recommendation: (b), deferred to a follow-up after phase 1 ships with
-  (a). Unresolved.
+  (a). Settled 2026-11-02 by Q30: option (b), built in phase 1b.
 - **The cost of reading instances** (found while planning phase 1). Detection (Q3) and
   the library inventory (Q5) need each instance's main component, which is one
   `getMainComponentAsync` await per instance; a busy page can hold hundreds. The
@@ -181,6 +205,35 @@ exiting 0, on Node 22 locally (CI runs Node 24). Live in Zygarden.gg (the note):
 detection, the library read, the inventory, a refused raw value, a rolled-back build,
 a built and finalized mode b screen, and the gate with and without library tokens.
 
+Phase 1b, on branch `feat/design-modes-1b`:
+
+- `scripts/lib/design-mode.mjs` (+ test): `detectMode` knows a consumer file from
+  the system's collection keys, and returns `consumer`, `systemLibrary` and
+  `askSystem` (Q26, Q27, Q32, Q37).
+- `scripts/lib/design-mode-read.figma.js`: `signals` passes the keys through and
+  returns `signals` and `localCollectionKeys`.
+- `scripts/design-workspace.mjs` (+ test): `system keys`, the cache under
+  `design-system/` when `design-system.json` exists (Q29), `skipped` kept in the
+  cache (Q35), and `cache missing --from` checking its input.
+- `scripts/lib/library-read.figma.js`: `skipped` as `[{ key, name }]`.
+- `scripts/lib/figma-compose-read.figma.js`, `figma-compose-library.mjs` (+ test),
+  `figma-compose.figma.js`, `figma-compose.mjs`: library text styles read from text
+  nodes and applied without importing (Q30); a consumer inventory limited to library
+  parts and the system's collections, with no `{ raw }` (Q28, Q31).
+- `scripts/build-figma-checks.mjs` (+ test): the header documents all of it, with
+  five new fake-Figma cases; the references and adapters were regenerated.
+- `commands/compose-figma.md`, `references/manifest-schema.md` (`figma.collectionKeys`).
+- `scripts/README.md`, `README.md`, `CHANGELOG.md`, `package.json` and
+  `.claude-plugin/plugin.json` at 0.33.0.
+- `docs/notes/2026-11-02-design-modes-phase-1b-live-run.md`.
+
+Verified: `node --test` (1098 pass, 0 fail) and every gate in `.github/workflows/ci.yml`
+exiting 0, run again after the live run's doc fix. Live (the note): B0's text-style
+probe; a system-file run that recorded the keys; a consumer run in Zygarden.gg
+(cache and gaps under `design-system/`, three raw values refused, a missing
+component recorded as a gap, library text styles applied, gate passed, reviewer
+"pass with notes"); a run forced to b; and the ask.
+
 ## Where it diverged
 
 - **Component imports by key hung live; variable imports didn't.** Steps 4–5
@@ -226,6 +279,38 @@ a built and finalized mode b screen, and the gate with and without library token
   then took `--from` a fresh list, so a variable the library added since `cache
   init` is caught too.
 
+Phase 1b:
+
+- **B0 ran after B1–B7 and B10, not first.** The bridge had no files connected when
+  the build started, so the offline steps ran first, under the stop rule: if B0
+  failed, B4's text-style half would come back out and Q30 would be amended. B0
+  passed (Facts checked), so nothing was reverted.
+- **The live run found the consumer keys documented in the wrong place.** The
+  command and the generated header said a consumer run passes "the same `library`
+  plus `systemCollectionKeys`". The snippet reads `library.systemCollectionKeys`
+  only, so keys placed at the top of `SPEC` quietly gave mode b's rules, and a raw
+  gap and colour built. Step 5 also passed `library` to `build` in mode b only.
+  The code and tests were right. `commands/compose-figma.md` and `COMPOSE_HEADER`
+  were fixed, then the references and adapters regenerated and B10's gates re-run.
+- **B8 didn't paste the snippet into each call.** A local relay on
+  `localhost:9232` served the snippets once per file and saved every return to
+  disk. That way the workspace and gap scripts ran on disk against unedited returns
+  (the note explains how). Run 1's screen was discarded while `WIP:`, as planned.
+  Run 3 had no reviewer, because it used the same parts as run 2. Run 4 stopped at
+  signals once the pick made it a consumer, and the "yes" was scripted.
+- **`system keys` reformats the manifest.** It writes with `JSON.stringify`, so
+  hand-wrapped one-line arrays come out expanded. The data and field order are
+  unchanged. The owner kept it and had the script say so (Q38). The consumer
+  raw-padding message was also fixed after the run (Q39).
+- **A diff review after the live run found two more gaps in the command, fixed
+  the same day.** Step 5 refreshed a stale cache "in mode b" only, though a consumer
+  run gets `staleCache` too (Q29), so it now says mode b and a consumer run. Step 0
+  ran `system keys` before step 2 had confirmed which file is in front, so a wrong
+  active file could record a product file's keys as the system's; it now runs
+  after step 2's preflight, and an exit 1 means stop and report. Step 0 also now
+  asks for a page that already uses the library when the target page is new,
+  because library parts and text styles are read only from `pages`.
+
 ## Facts checked
 
 Step 0, run 2026-10-30 on `Zygarden.gg` (`948SPugP1tqqLpLleHZOsU`), page
@@ -260,6 +345,29 @@ with `figma_execute`'s `fileKey`.
   user, before importing, that the file must be the tab in front. A `library-import`
   or build that times out is reported as "bring the file to the front and re-run",
   not as a composer bug. Nothing else moves; Steps 3–6 stand as written.
+
+Phase 1b, Step B0, run 2026-11-02 on `Zygarden.gg` (`948SPugP1tqqLpLleHZOsU`) and
+`Zygarden Design System` (`k5EV3vXCZ7eTKFgqS0TMFv`), both through `fileKey`. It ran
+after Steps B1–B7 and B10, because the bridge had no files connected until then
+(see Where it diverged).
+
+- **Reading passed.** Across Zygarden.gg's pages, 10,873 text nodes held 14
+  distinct string `textStyleId`s. `getStyleByIdAsync` read all 14 as `remote: true`,
+  `type: 'TEXT'`, with a `key` and a `fontName` (for example `h1`, key `bc295f86…`,
+  Nunito Sans Bold). None were local and none were missing. The file has 0 local text
+  styles.
+- **Applying passed, without importing.** On a scratch frame on `Cover`, a new text
+  node took `h1` through `setTextStyleIdAsync(s.id)` after `loadFontAsync(s.fontName)`.
+  `textStyleId` read back as the remote id, and the font size came out as the style's
+  30. The file still had 0 local text styles afterwards. The frame was removed in
+  the same snippet, and a read-back confirmed it was gone.
+- **The system's keys.** `getLocalVariableCollectionsAsync()` in the system file
+  returned 10 collections, each with a `key` (Color, Spacing, Typography, Radius and
+  Stroke, as Primitives and Semantic; 233 variables in all). In Zygarden.gg,
+  `getAvailableLibraryVariableCollectionsAsync` lists the same 10 under `Zygarden
+  Design System`, and every key matches. Zygarden.gg has no local collections.
+- **What this changes in the Plan:** nothing. Q30 stands, and B4's text-style
+  half stays.
 
 ## Plan
 
@@ -660,4 +768,307 @@ the `@0.31.0` pins in `README.md` (lines 116, 158–160) and `scripts/README.md`
 (line 271) that `ci/check-pinned-runs.mjs` compares. The `## [0.32.0]` heading for a
 release tag stays the owner's call.
 Verify: run every CI gate: `node --test && node ci/validate-plugin.mjs && node ci/validate-skills.mjs && node ci/validate-install-sets.mjs && node ci/check-pinned-runs.mjs && node scripts/adapters/generate.mjs --check && node scripts/build-doc-card-builder.mjs --check && node scripts/build-native-adapter-config.mjs --check && node scripts/build-state-baseline.mjs --check && node scripts/build-figma-checks.mjs --check`
+→ every command exits 0.
+
+## Plan, phase 1b
+
+Phase 1b only (Q21): a consumer file of the repo's own system runs as mode a
+(Q26–Q28, Q31, Q32), library text styles in both mode a consumer runs and mode b
+(Q30), the cache's new home (Q29), skipped variables (Q35), and the handoff's
+leftovers. Not in 1b: drift for consumer screens (Q33, phase 1c), repeated variable
+names, variant combinations, and the by-key component import path (open questions).
+Phase 1's conventions apply to every step (tests beside modules, no dependencies,
+generated `references/` regenerated, inlinable sources, no hand-written JSON, every
+Figma read a `MODE` of `runCompose`). Steps are numbered B0–B10 so they don't clash
+with phase 1's.
+
+### Step B0 — Check that a library text style can be applied as it is
+
+Files: this spec (`## Facts checked`, a new "Phase 1b" paragraph)
+Change: with Figma Desktop, the bridge, and Zygarden.gg (`948SPugP1tqqLpLleHZOsU`)
+in front, run one `figma_execute` probe on a page with library text in it (inside
+library instances counts): find a `TEXT` node whose `textStyleId` is a non-empty
+string, `const s = await figma.getStyleByIdAsync(node.textStyleId)`, and read
+`s.remote`, `s.key`, `s.name`, `s.type` and `s.fontName`. Then create a text node on
+a scratch frame, `await figma.loadFontAsync(s.fontName)`, `await
+t.setTextStyleIdAsync(s.id)`, read back `t.textStyleId === s.id`, and remove the
+frame. Also record `(await figma.variables.getLocalVariableCollectionsAsync()).map(c => c.key)`
+in the system file (`k5EV3vXCZ7eTKFgqS0TMFv`), to confirm the field Step B2 reads.
+**If a remote style can't be read from a text node or applied without import, stop**:
+Q30 depends on it, so amend the spec before going on.
+Verify: reviewed by eye. Facts checked records the raw output and the files.
+
+### Step B1 — Detection knows a consumer file
+
+Files: `scripts/lib/design-mode.mjs`, `scripts/lib/design-mode.test.mjs`
+Change: `detectMode(signals)` takes two new fields and drops none:
+- `systemCollectionKeys`: `design-system.json`'s `figma.collectionKeys`, or null;
+- `libraryCollectionKeys`: `[{ library, key }]` for every enabled library collection.
+  When present, `libraryCollections` is its length (the count field stays for old
+  callers and tests).
+
+Rules, in order (Q26, Q27, Q32):
+- **Mode a, system file:** as today. `consumer: false`.
+- **Mode a, consumer:** `manifestFileKey` non-null, not equal to `openFileKey`, and
+  some `libraryCollectionKeys[].key` is in `systemCollectionKeys`. Returns
+  `consumer: true`, `systemLibrary` (that entry's `library` name) and
+  `libraryDetected: true` (step 2b reads the library).
+- **Ask:** `manifestFileKey` non-null, not the open file, `systemCollectionKeys`
+  empty or null, `libraryCollectionKeys` non-empty, and `forced` not set (Q37).
+  Detection goes on as today
+  (mode b), and the result adds `askSystem`: the distinct library names, sorted.
+- **Otherwise** as today.
+- **Forcing** lowers a consumer to b or c, as for any mode a (`consumer: false` once
+  lowered). A forced run never asks (Q37).
+
+The output gains `consumer` (always a boolean), `systemLibrary` (string or null) and
+`askSystem` (array, empty when not asking). The consumer `reason`: "Mode a: building
+from <systemLibrary>, this repo's throughline system, used here as a library. Every
+value is bound to the system; anything the library doesn't have is recorded as a gap;
+components from other connected libraries aren't checked against the system; drift
+isn't tracked for this file yet." Mode b's reason drops "text styles come from this
+file only" (Q30) and says text styles come from the library where the run sees them
+in use, else the file.
+Tests: a consumer file (a, consumer, systemLibrary); keys recorded but no match (b);
+the ask case and its sorted names; no ask when `manifestFileKey` is null; a consumer
+forced to b and to c; the system file unchanged; the updated mode b reason (replace
+the "text styles come from the file" test); no ask when `forced` is set. Rename the test "a consumer file of a
+throughline system is mode b" to say it covers a file with no recorded keys.
+Verify: `node --test scripts/lib/design-mode.test.mjs` → all pass.
+
+### Step B2 — Signals carry the keys
+
+Files: `scripts/lib/design-mode-read.figma.js`
+Change: `readModeSignals` takes `SPEC.systemCollectionKeys` and passes it through.
+It keeps the collections list from `getAvailableLibraryVariableCollectionsAsync` and
+sets `libraryCollectionKeys` to `[{ library: c.libraryName, key: c.key }]`. It also
+reads `figma.variables.getLocalVariableCollectionsAsync()` and returns
+`localCollectionKeys: [key]` beside `signals` (not inside it), for Step B3's
+`system keys`.
+Verify: Step B5's fake-Figma cases.
+
+### Step B3 — The workspace script: cache path, skipped keys, system keys, input checks
+
+Files: `scripts/design-workspace.mjs`, `scripts/design-workspace.test.mjs`,
+`scripts/lib/library-read.figma.js` (the `skipped` shape only)
+Change:
+- **Cache path (Q29).** `export const cacheFileFor = (dir) => (existsSync(join(dir,
+  'design-system.json')) ? 'design-system/library-cache.json' : CACHE_FILE)`. Every
+  cache subcommand and `tokens` uses it. Messages name the file used. Keep exporting
+  `CACHE_FILE`. Update the header's FILES block.
+- **Skipped (Q35).** `libraryImport` returns `skipped: [{ key, name }]`. `mergeCache`
+  accepts an optional `input.skipped` array of those and adds each key to
+  `cache.skipped` (sorted, de-duplicated); a key that later merges as an entry is
+  removed from `skipped`. `missingKeys` leaves out `cache.skipped`. `initCache` writes
+  no `skipped`. compose-figma step 2b's sentence on naming skipped variables stays.
+- **Input checks (handoff leftover).** `cache missing --from` runs through `guard`,
+  and `missingKeys` throws `expected { collections: [...] } from library-list` when a
+  given list has no `collections` array, so a bad file exits 1 with that message, not
+  a TypeError.
+- **`system keys --dir <dir> --from <signals file> [--library <name>]` (Q27).** Reads
+  `<dir>/design-system.json` (missing: exit 1, "no design-system.json in <dir>").
+  The signals file is `runCompose('signals')`'s return, saved unchanged.
+  - Without `--library`: requires `signals.signals.manifestFileKey ===
+    signals.signals.openFileKey` (else exit 1, "not the system file"), and takes
+    `signals.localCollectionKeys` (top level, beside `signals`, per Step B2).
+  - With `--library`: takes the keys of `signals.signals.libraryCollectionKeys`
+    whose `library` equals the name; none is exit 1 naming the libraries present.
+    `--library` is declared `multiple: true` in `parseArgs`, so more than one
+    `--library` here is exit 2 ("system keys takes one --library").
+  - Writes `figma.collectionKeys` (sorted, de-duplicated), creating `figma` if
+    absent, and leaves every other field and its position alone:
+    `JSON.stringify(data, null, 2) + '\n'`, not `serialize` (which sorts keys).
+    Prints `recorded N collection keys in design-system.json`.
+  - Add `system` / `keys` to the usage line and header.
+Tests: the cache path in both directory shapes; a merge with `skipped`, then
+`missing` leaving them out, then a merge that fills one; init clearing `skipped`;
+`missing --from` a malformed file exits 1 with the message; `system keys` from the
+system file, with `--library`, refused when not the system file, an unknown library,
+and a missing manifest; field order of an existing `design-system.json` unchanged.
+Verify: `node --test scripts/design-workspace.test.mjs` → all pass. Expected red
+until Step B5: `scripts/build-figma-checks.test.mjs:686`, which asserts the old
+`skipped` shape (`['color/bg/surface']`).
+
+### Step B4 — Library text styles, and the consumer inventory
+
+Files: `scripts/lib/figma-compose-read.figma.js`, `scripts/lib/figma-compose-library.mjs`,
+`scripts/lib/figma-compose-library.test.mjs`, `scripts/lib/figma-compose.figma.js`,
+`scripts/lib/figma-compose.mjs` (the INVENTORY comment only)
+Change:
+- **Reader (Q30).** In `composeReadLibrary`, on each page in `lib.pages` (already
+  loaded there), collect the distinct `textStyleId`s of `TEXT` nodes that are
+  non-empty strings (skip `figma.mixed`). Read each with `figma.getStyleByIdAsync`,
+  in chunks of 20; keep those with `remote === true` as `{ name, key }` in a new
+  `textStyles` list, and put the style under `libraryId(key)` in `nodes`. Return
+  `textStyles` with the rest.
+- **Reader (Q28).** Pass `spec.library.systemCollectionKeys` through to the merge
+  (null or absent outside a consumer run).
+- **Merge.** `mergeLibraryInventory(local, library)`:
+  - `textStyles` becomes `libraryFirst(library text styles as { name, id:
+    libraryId(key) }, local.textStyles)` (Q7, Q30).
+  - When `library.systemCollectionKeys` is a non-empty array (a consumer run, Q28,
+    Q31): `sets`, `components` and `textStyles` are the library's only; `variables`
+    and `collections` are the cache's only, limited to collections whose key is in
+    `systemCollectionKeys` (and variables whose `collection` is); `allowRaw` is
+    `false`; `valueIndex` is still built (the gate's tables are separate).
+  - Update the header comment.
+- **Writer.** In `composeImportLibrary`, also collect each text node's `styleId`
+  that `isLibraryId`. For each, take the node from `live.libraryNodes` (it is always
+  there: the inventory lists only styles the reader found; throw "library text
+  style <key> wasn't read from the page; re-run" if not). Put it into
+  `live.styleNodes` under its real `id`, and rewrite the plan text node's `styleId`
+  to that `id` before `composeFontsFor` runs. No import by key.
+- **Writer header comment** (`scripts/lib/figma-compose.figma.js:27-32`): document
+  `signals`' new SPEC field and return fields, and `library`'s
+  `systemCollectionKeys`, to match Step B5's `COMPOSE_HEADER`.
+- **INVENTORY comment** in `figma-compose.mjs`: text styles may be library styles in
+  mode b and in a consumer run. The resolver itself is unchanged: with `allowRaw`
+  false a `{ raw }` stays `invalid`, as in mode a.
+Tests (`figma-compose-library.test.mjs`): a library text style winning a clash; a
+local text style kept in mode b when no clash; a consumer merge dropping every local
+part, limiting variables and collections to the system's keys, and setting
+`allowRaw: false`; a consumer plan with `{ raw }` refused as `invalid` by
+`resolveScreen`; a request for a local-only set refused as `missing-component`.
+Verify: `node --test scripts/lib/figma-compose-library.test.mjs scripts/lib/figma-compose.test.mjs`
+→ all pass. Expected red until Step B5: `build-figma-checks.test.mjs`, because
+`references/` isn't regenerated yet (and the `skipped` assertion since Step B3).
+
+### Step B5 — Generator and fake-Figma cases
+
+Files: `scripts/build-figma-checks.mjs` (the `COMPOSE_HEADER` text only),
+`scripts/build-figma-checks.test.mjs`, then regenerate `references/figma-compose.md`,
+`references/figma-adherence.md`, `references/figma-drift.md`
+Change:
+- **`COMPOSE_HEADER`'s "How to call it":** `signals` takes `systemCollectionKeys`
+  and returns `localCollectionKeys`, `consumer`, `systemLibrary` and `askSystem`;
+  `SPEC.library` takes `systemCollectionKeys` in a consumer run; library text styles;
+  `skipped` is `[{ key, name }]`.
+- **Fake Figma:** add `getStyleByIdAsync`, remote text styles on `TEXT` nodes,
+  `figma.mixed`, and `key` on local variable collections. End-to-end cases:
+  - `signals` in a consumer file (mode a, `consumer: true`, `localCollectionKeys`
+    returned), with no recorded keys (`askSystem` lists the library), and in the
+    system file;
+  - a mode b build that places text with a library text style found on a loaded
+    page, and the text node ends with that style's id;
+  - a consumer build that uses a library set, a system variable and a library text
+    style, and returns no `localPicks` or `raws`;
+  - a consumer build refused for a local-only set (`missing-component`, nothing
+    written) and for a `{ raw }` value (`invalid`);
+  - change the existing assertion at `build-figma-checks.test.mjs:686` to the new
+    `skipped` shape, `[{ key, name }]`.
+
+Then run the generator.
+Verify: `node scripts/build-figma-checks.mjs && node scripts/build-figma-checks.mjs --check`
+→ no drift; `node --test scripts/build-figma-checks.test.mjs scripts/lib/figma-compose.test.mjs`
+→ all pass.
+
+### Step B6 — compose-figma runs a consumer file
+
+Files: `commands/compose-figma.md`, `references/manifest-schema.md`, then
+`node scripts/adapters/generate.mjs`
+Change:
+- **Step 0.** Also read `figma.collectionKeys` from `design-system.json` and pass it
+  as `systemCollectionKeys`. Save the signals return unchanged to a scratch file.
+  - Mode a in the system file (not `consumer`): run `design-workspace.mjs system keys
+    --dir <dir> --from <signals file>` (Q27).
+  - `askSystem` non-empty: ask once, naming each library, whether one is this repo's
+    throughline system. On a pick, run `system keys --dir <dir> --from <signals file>
+    --library <name>` and run `signals` again; on no, go on in mode b and say it will
+    ask again next run.
+  - Tell the user the `reason`.
+- **Step 1.** A consumer run's file is `currentFileKey`. When `design-system.json`
+  exists, no run writes `design/workspace.json`, whatever the mode (Q36): skip
+  `workspace set`.
+- **Step 2.** The preflight runs against that key, as in mode b.
+- **Step 2b.** Runs for a consumer too (`libraryDetected`). The cache paths are the
+  script's to pick (Q29); the command doesn't name `design/library-cache.json` as the
+  only place. Split the ~130-character line ("…lists under `skipped`. A call that")
+  at a word boundary (handoff leftover).
+- **Step 3.** A consumer run passes `library` with `systemCollectionKeys` added, and
+  needs no components page.
+- **Step 4.** A consumer run has no `{ raw }`, and only library parts: a request
+  that only one of the file's own parts would meet is a gap, handled as step 4
+  already says. Library text styles are in the summary, in mode b too.
+- **Step 6.** A consumer run passes `libraryTokens` as mode b does.
+- **Step 7.** `screens.mjs record` runs in mode a only when not `consumer`; a
+  consumer screen isn't recorded for drift yet (Q33).
+- **Step 9.** For a consumer run: the mode line, gaps in `design-system/gaps.json`,
+  that drift isn't tracked for this file yet, and that components from other
+  connected libraries aren't checked against the system (Q31). The cache line names
+  the file the script used.
+- **The opening paragraph and the frontmatter description** add a product file that
+  uses the repo's system as its library (mode a there too).
+- **The closing paragraph** says `{ raw }` is mode b only and a consumer run uses
+  library parts only.
+- **`references/manifest-schema.md`:** add `"collectionKeys": []` to the `figma`
+  block, and a line saying what it holds, who writes it (`design-workspace.mjs system
+  keys`, from compose-figma), and that it decides a consumer file (Q26).
+- Keep the pinned mentions phase 1 Step 9 lists.
+Verify: `node scripts/adapters/generate.mjs --check && node --test ci/figma-checks-pointers.test.mjs ci/figma-preflight.test.mjs && node ci/validate-skills.mjs && node ci/validate-install-sets.mjs`
+→ all pass. `awk 'length>120' commands/compose-figma.md | wc -l` prints at most 5
+before the other B6 edits are counted (6 today; the step 2b line split removes one);
+any line B6 adds stays under 120.
+
+### Step B7 — Docs and source lists
+
+Files: `scripts/README.md`, `ci/README.md` (only where they describe
+`design-workspace.mjs` or the compose sources)
+Change: name the `system keys` subcommand and the cache's two homes. No new files are
+inlined, so `scripts/install.mjs` is unchanged.
+Verify: `node --test scripts/install.test.mjs && node ci/validate-install-sets.mjs` → pass.
+
+### Step B8 — Live run in Zygarden
+
+Files: `docs/notes/2026-11-02-design-modes-phase-1b-live-run.md` (new)
+Change: with Figma Desktop and the bridge running, and a scratch working directory
+holding a copy of `~/Dev/zygarden-frontend/design-system.json` (so the owner's repo
+isn't written to), run `/throughline:compose-figma`:
+1. **The system file** (`k5EV3vXCZ7eTKFgqS0TMFv`), a one-button screen on a new page
+   `Throughline phase 1b test`. Expect mode a as today, and `figma.collectionKeys`
+   written to the copy with 10 keys, every other field in place. This is the first
+   compose written into the production system file: once recorded, remove the
+   screen with `MODE = 'discard'` if it is still `WIP:`, and leave the page for the
+   owner to delete.
+2. **Zygarden.gg**, a new page `Throughline phase 1b test`, a screen with a heading,
+   body copy and library components. Expect: mode a consumer naming the library; the
+   cache at `design-system/library-cache.json`; library text styles used; a `{ raw }`
+   refused; a request only a local part would meet recorded as a gap in the copy's
+   `design-system/gaps.json`; the gate passing; no `design/` folder; no drift record.
+3. **Zygarden.gg forced to b** ("ignore the system"). Expect mode b, with library
+   text styles, no question about the system (Q37), and still no `design/` folder in
+   the scratch directory (Q36).
+4. **The ask:** remove `collectionKeys` from the copy and run once on Zygarden.gg.
+   Expect the question naming the library; on yes the keys are recorded and the run
+   is mode a consumer.
+
+Record announcements, gate counts, reviewer verdicts (or why none), and timings.
+Leave the test pages in both files, and ask the owner whether to delete them (Q17: throughline made
+it, but deleting is the owner's call, as in phase 1).
+Verify: reviewed by eye. Each run matches its expectations, or the mismatch is
+recorded as a divergence.
+
+### Step B9 — Spec housekeeping
+
+Files: this spec
+Change: Status to "built (phases 1 and 1b); phases 1c–4 not yet planned"; keep
+the 1b `Reviewed:` line current (replace it if 1b is re-reviewed); a "Phase 1b" list under What shipped and Where it diverged.
+Verify: reviewed by eye.
+
+### Step B10 — Full gates, changelog, version
+
+Files: `CHANGELOG.md`, `package.json`, `.claude-plugin/plugin.json`, `README.md`,
+`scripts/README.md`
+Change: a phase 1b entry under `## [Unreleased]`:
+- **Added:** mode a in a product file that uses the repo's system as its library;
+  `figma.collectionKeys` and `design-workspace.mjs system keys`; library text styles
+  in mode b and consumer runs.
+- **Changed:** the library cache lives under `design-system/` when
+  `design-system.json` exists; skipped library variables aren't retried every run;
+  `cache missing --from` checks its input.
+
+Bump `package.json` and `.claude-plugin/plugin.json` to `0.33.0` (Q22), and the
+`@0.32.1` pins `ci/check-pinned-runs.mjs` compares (find them with
+`grep -rn '@0.32.1' README.md scripts/README.md`). The `## [0.33.0]` heading and the
+release tag stay the owner's call.
+Verify: every CI gate: `node --test && node ci/validate-plugin.mjs && node ci/validate-skills.mjs && node ci/validate-install-sets.mjs && node ci/check-pinned-runs.mjs && node scripts/adapters/generate.mjs --check && node scripts/build-doc-card-builder.mjs --check && node scripts/build-native-adapter-config.mjs --check && node scripts/build-state-baseline.mjs --check && node scripts/build-figma-checks.mjs --check`
 → every command exits 0.

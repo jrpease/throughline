@@ -24,12 +24,17 @@
 //                                                                    with library, also { localPicks, raws, staleCache }
 //   'finalize'  SPEC = { page, screen, fileKey }                   → { id, link, replaced }
 //   'discard'   SPEC = { page, screen }                            → { removed }
-//   'signals'   SPEC = { pages, manifestFileKey, openFileKey, forced? } → { signals, mode, libraryDetected, reason }
+//   'signals'   SPEC = { pages, manifestFileKey, openFileKey, systemCollectionKeys?, forced? }
+//                                                                  → { signals, localCollectionKeys, mode, consumer,
+//                                                                      systemLibrary, askSystem, libraryDetected, reason }
 //   'library-list'   SPEC = {}                                     → { collections }
-//   'library-import' SPEC = { keys }  (at most 20)                 → { entries }
-// library (mode b, docs/specs/2026-10-30-design-modes.md) = { pages, components?, cache, tokens }.
+//   'library-import' SPEC = { keys }  (at most 20)                 → { entries, skipped: [{ key, name }] }
+// library (mode b, or a consumer run in mode a; docs/specs/2026-10-30-design-modes.md)
+//   = { pages, components?, cache, tokens, systemCollectionKeys? }; systemCollectionKeys
+//   marks a consumer run: library parts only, no raw values.
 // Library items carry 'lib:<key>' ids in the plan and are imported by key, 20 at a
-// time, after the plan resolves and before fonts load.
+// time, after the plan resolves and before fonts load. Library sets and text styles
+// read from the loaded pages are already in the file and are used as they are.
 
 const COMPOSE_CORNERS = ['topLeftRadius', 'topRightRadius', 'bottomRightRadius', 'bottomLeftRadius'];
 const COMPOSE_PADDING = { top: 'paddingTop', right: 'paddingRight', bottom: 'paddingBottom', left: 'paddingLeft' };
@@ -182,13 +187,16 @@ async function composeImportLibrary(plan, live, spec) {
   const swaps = new Set();
   const variables = new Set();
   const collections = new Set();
+  const styles = new Set();
   const take = (id, into) => { if (isLibraryId(id)) into.add(id); };
   const walk = (node) => {
     if (!node) return;
     if (node.type === 'frame') {
       [node.fill, node.stroke, node.itemSpacing, node.radius, ...Object.values(node.padding || {})].forEach((id) => take(id, variables));
-    } else if (node.type === 'text') take(node.color, variables);
-    else if (node.type === 'component') {
+    } else if (node.type === 'text') {
+      take(node.color, variables);
+      take(node.styleId, styles);
+    } else if (node.type === 'component') {
       take(node.setId, sets);
       Object.values(node.otherProps).forEach((id) => take(id, swaps));
     }
@@ -198,6 +206,22 @@ async function composeImportLibrary(plan, live, spec) {
   walk(plan.root);
   for (const { collectionId } of plan.modes) take(collectionId, collections);
   const keyOf = (id) => id.slice(LIBRARY_ID_PREFIX.length);
+  // Library text styles (Q30) were read from text nodes on the loaded pages, so
+  // they are already in the file: the plan gets the style's own id, no import.
+  const styleIds = new Map();
+  for (const id of styles) {
+    const style = live.libraryNodes && live.libraryNodes.get(id);
+    if (!style) throw new Error(`library text style ${keyOf(id)} wasn't read from the page; re-run`);
+    live.styleNodes.set(style.id, style);
+    styleIds.set(id, style.id);
+  }
+  const restyle = (node) => {
+    if (!node) return;
+    if (node.type === 'text' && styleIds.has(node.styleId)) node.styleId = styleIds.get(node.styleId);
+    for (const child of node.children || []) restyle(child);
+    for (const slot of node.slots || []) slot.nodes.forEach(restyle);
+  };
+  restyle(plan.root);
   const cached = new Map();
   for (const lib of Object.values((spec.library.cache && spec.library.cache.libraries) || {})) {
     for (const [key, v] of Object.entries(lib.variables || {})) cached.set(key, v);

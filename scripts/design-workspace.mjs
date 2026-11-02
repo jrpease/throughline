@@ -11,23 +11,30 @@
 //   node scripts/design-workspace.mjs cache missing --dir <dir> [--from <file>]  keys listed that no import has filled: [key]
 //     With --from (a fresh library-list), its keys count too, so a variable added since cache init is caught.
 //   node scripts/design-workspace.mjs tokens --dir <dir>                      SPEC.library.tokens and TARGET.libraryTokens
+//   node scripts/design-workspace.mjs system keys --dir <dir> --from <file> [--library <name>]
+//     runCompose('signals') saved unchanged. Records figma.collectionKeys in <dir>/design-system.json:
+//     the file's own collection keys (run in the system file), or that library's (a consumer file).
 //
 // FILES: <dir>/design/workspace.json  { at, fileKey, libraries: [url], mode }
+//        the library cache: <dir>/design-system/library-cache.json when <dir> holds
+//        design-system.json (a system repo writes nothing under design/), else
 //        <dir>/design/library-cache.json
-//   { readAt, libraries: { <library>: {
+//   { readAt, skipped?: [key], libraries: { <library>: {
 //       collections: { <key>: { name, modes: [{ id, name }], variables: [key] } },
 //       variables: { <key>: { name, collection, resolvedType, kinds, values: { <mode>: hex | number | null } } } } } }
 //   A null value is a reference that couldn't be followed: it can still be bound by
 //   name, but never matches a raw value. A collection's variables are the keys
 //   library-list named; one with no entry under variables is missing (an import
-//   that timed out), and cache missing lists it for re-import.
+//   that timed out), and cache missing lists it for re-import. skipped: variables an
+//   import couldn't place (their collection couldn't be read); cache missing leaves
+//   them out until cache init starts a fresh cache.
 //
 // tokens prints { colours: { <hex>: [names] }, gap: { <n>: [names] }, radius: { <n>: [names] }, unresolved }
 // in the adherence gate's own table shape (lib/figma-adherence.mjs).
 //
 // Exit: 0 ok, 1 a file error (malformed input or store), 2 usage.
 //
-// Spec: docs/specs/2026-10-30-design-modes.md (Q6, Q9)
+// Spec: docs/specs/2026-10-30-design-modes.md (Q6, Q9, Q27, Q29, Q35, Q36)
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { parseArgs } from 'node:util';
@@ -36,6 +43,8 @@ import { serialize } from './gap-report.mjs';
 
 export const WORKSPACE_FILE = 'design/workspace.json';
 export const CACHE_FILE = 'design/library-cache.json';
+export const SYSTEM_CACHE_FILE = 'design-system/library-cache.json';
+export const cacheFileFor = (dir) => (existsSync(join(dir, 'design-system.json')) ? SYSTEM_CACHE_FILE : CACHE_FILE);
 const MODES = ['a', 'b', 'c'];
 
 const isObject = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
@@ -66,7 +75,10 @@ export function initCache(list, readAt) {
 
 // Keys library-list named (at cache init, or in a fresh list) that no merge has filled yet.
 export function missingKeys(cache, list) {
-  const filled = new Set();
+  if (list !== undefined && (!isObject(list) || !Array.isArray(list.collections))) {
+    throw new Error('expected { collections: [...] } from library-list');
+  }
+  const filled = new Set(Array.isArray(cache?.skipped) ? cache.skipped : []);
   const listed = [];
   for (const lib of Object.values(cache?.libraries ?? {})) {
     for (const key of Object.keys(lib.variables ?? {})) filled.add(key);
@@ -77,8 +89,10 @@ export function missingKeys(cache, list) {
 }
 
 // From runCompose('library-import') or a build's staleCache:
-// { entries: [{ key, name, resolvedType, kinds, values, collection: { key, name, modes } }] }.
-// Each entry lands in the library that holds its collection.
+// { entries: [{ key, name, resolvedType, kinds, values, collection: { key, name, modes } }],
+//   skipped?: [{ key, name }] }.
+// Each entry lands in the library that holds its collection; skipped keys go to the
+// cache's skipped list, and leave it once they merge as an entry.
 export function mergeCache(cache, input) {
   if (!isObject(cache) || !isObject(cache.libraries)) throw new Error('no cache to merge into; run cache init first');
   if (!isObject(input) || !Array.isArray(input.entries)) throw new Error('expected { entries: [...] } from library-import');
@@ -97,6 +111,48 @@ export function mergeCache(cache, input) {
       kinds: Array.isArray(e.kinds) ? e.kinds : [], values: e.values,
     };
   }
+  if (input.skipped !== undefined && !Array.isArray(input.skipped)) throw new Error('skipped must be [{ key, name }]');
+  const skipped = new Set(Array.isArray(next.skipped) ? next.skipped : []);
+  for (const s of input.skipped ?? []) {
+    if (!s || !s.key) throw new Error(`malformed skipped entry ${JSON.stringify(s)}: needs key`);
+    skipped.add(s.key);
+  }
+  for (const e of input.entries) skipped.delete(e.key);
+  if (skipped.size) next.skipped = [...skipped].sort();
+  else delete next.skipped;
+  return next;
+}
+
+// From runCompose('signals'): the keys to record as design-system.json's
+// figma.collectionKeys. Without a library, this must be the system file and its own
+// collections are taken; with one, that library's connected collections.
+export function systemKeysFrom(signals, library) {
+  if (!isObject(signals) || !isObject(signals.signals)) throw new Error('expected runCompose(\'signals\') output, saved unchanged');
+  const s = signals.signals;
+  let keys;
+  if (library === undefined) {
+    if (!s.manifestFileKey || s.manifestFileKey !== s.openFileKey) {
+      throw new Error('not the system file: run this from a compose in the file design-system.json names, or pass --library');
+    }
+    keys = Array.isArray(signals.localCollectionKeys) ? signals.localCollectionKeys : [];
+  } else {
+    const all = Array.isArray(s.libraryCollectionKeys) ? s.libraryCollectionKeys : [];
+    keys = all.filter((c) => c && c.library === library).map((c) => c.key);
+    if (!keys.length) {
+      const names = [...new Set(all.map((c) => c && c.library).filter(Boolean))].sort();
+      throw new Error(`no connected library named ${library}; connected: ${names.join(', ') || 'none'}`);
+    }
+  }
+  keys = [...new Set(keys.filter((k) => typeof k === 'string' && k))].sort();
+  if (!keys.length) throw new Error('no collection keys to record');
+  return keys;
+}
+
+// Sets figma.collectionKeys and leaves every other field, and its position, alone.
+export function withCollectionKeys(manifest, keys) {
+  const next = structuredClone(manifest);
+  if (!isObject(next.figma)) next.figma = {};
+  next.figma.collectionKeys = keys;
   return next;
 }
 
@@ -137,13 +193,14 @@ function main() {
   }
   const usage = (why) => {
     if (why) console.error(why);
-    console.error('usage: design-workspace.mjs workspace get|set, cache init|merge|get|missing, tokens --dir <dir> … (see the header of design-workspace.mjs)');
+    console.error('usage: design-workspace.mjs workspace get|set, cache init|merge|get|missing, tokens, system keys --dir <dir> … (see the header of design-workspace.mjs)');
     process.exit(2);
   };
   const [group, action] = positionals;
   const ok = (group === 'workspace' && ['get', 'set'].includes(action))
     || (group === 'cache' && ['init', 'merge', 'get', 'missing'].includes(action))
-    || (group === 'tokens' && action === undefined);
+    || (group === 'tokens' && action === undefined)
+    || (group === 'system' && action === 'keys');
   if (!ok || !values.dir) usage();
 
   const path = (rel) => join(values.dir, rel);
@@ -164,7 +221,7 @@ function main() {
     writeFileSync(path(rel), serialize(data));
   };
   const input = () => {
-    if (!values.from) usage(`cache ${action} needs --from <file>`);
+    if (!values.from) usage(`${group} ${action} needs --from <file>`);
     try {
       return JSON.parse(readFileSync(values.from, 'utf8'));
     } catch (e) {
@@ -194,28 +251,46 @@ function main() {
     console.log(`wrote ${WORKSPACE_FILE}`);
     return;
   }
+  if (group === 'system') {
+    if ((values.library ?? []).length > 1) usage('system keys takes one --library');
+    const manifestFile = path('design-system.json');
+    if (!existsSync(manifestFile)) {
+      console.error(`no design-system.json in ${values.dir}`);
+      process.exit(1);
+    }
+    const signals = input();
+    const keys = guard(() => systemKeysFrom(signals, values.library?.[0]));
+    const manifest = load('design-system.json');
+    const reformatted = readFileSync(manifestFile, 'utf8') !== `${JSON.stringify(manifest, null, 2)}\n`;
+    writeFileSync(manifestFile, `${JSON.stringify(withCollectionKeys(manifest, keys), null, 2)}\n`);
+    console.log(`recorded ${keys.length} collection keys in design-system.json`);
+    if (reformatted) console.log('design-system.json was also rewritten in two-space JSON; nothing else in it changed');
+    return;
+  }
+  const cacheFile = cacheFileFor(values.dir);
   if (group === 'cache' && action === 'get') {
-    console.log(JSON.stringify(load(CACHE_FILE), null, 2));
+    console.log(JSON.stringify(load(cacheFile), null, 2));
     return;
   }
   if (group === 'cache' && action === 'missing') {
-    console.log(JSON.stringify(missingKeys(load(CACHE_FILE), values.from ? input() : undefined)));
+    const list = values.from ? input() : undefined;
+    console.log(JSON.stringify(guard(() => missingKeys(load(cacheFile), list))));
     return;
   }
   if (group === 'cache' && action === 'init') {
     const cache = guard(() => initCache(input(), today()));
-    save(CACHE_FILE, cache);
-    console.log(`wrote ${CACHE_FILE} with ${Object.values(cache.libraries).reduce((n, l) => n + Object.keys(l.collections).length, 0)} collections`);
+    save(cacheFile, cache);
+    console.log(`wrote ${cacheFile} with ${Object.values(cache.libraries).reduce((n, l) => n + Object.keys(l.collections).length, 0)} collections`);
     return;
   }
   if (group === 'cache') {
     const entries = input();
-    const cache = guard(() => mergeCache(load(CACHE_FILE), entries));
-    save(CACHE_FILE, cache);
-    console.log(`merged ${entries.entries.length} variables into ${CACHE_FILE}`);
+    const cache = guard(() => mergeCache(load(cacheFile), entries));
+    save(cacheFile, cache);
+    console.log(`merged ${entries.entries.length} variables into ${cacheFile}`);
     return;
   }
-  const cache = load(CACHE_FILE);
+  const cache = load(cacheFile);
   console.log(JSON.stringify(cache ? tokensFrom(cache) : null, null, 2));
 }
 

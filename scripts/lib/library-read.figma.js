@@ -10,7 +10,7 @@
 //
 // libraryList() → { collections: [{ library, key, name, variables: [{ key, name, resolvedType }] }] }
 //   Names and keys only: Figma's library listing carries no values.
-// libraryImport({ keys }) → { entries: [cache-shaped entry], skipped: [name] }, at most
+// libraryImport({ keys }) → { entries: [cache-shaped entry], skipped: [{ key, name }] }, at most
 //   20 keys a call. skipped: variables whose collection couldn't be read.
 //   Importing adds the library variables to the file (invisible; no layers change).
 //   Aliases are followed to a concrete value; one that can't be followed is null.
@@ -58,6 +58,6 @@ async function libraryImport(spec) {
   const all = await Promise.all(imported.map(libraryEntry));
   return {
     entries: all.filter((e) => e.collection.key),
-    skipped: all.filter((e) => !e.collection.key).map((e) => e.name),
+    skipped: all.filter((e) => !e.collection.key).map((e) => ({ key: e.key, name: e.name })),
   };
 }

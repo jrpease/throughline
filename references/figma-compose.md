@@ -41,22 +41,28 @@ writes is bound to a variable. The script is the rule; do not re-write it by han
      Returns `{ id, link, replaced }`.
    - `'discard'`, `SPEC = { page, screen }`: removes `WIP: <screen>`. Only when
      the user asks.
-   - `'signals'`, `SPEC = { pages, manifestFileKey, openFileKey, forced }`: read-only.
-     `openFileKey` is `figma_get_status`'s `currentFileKey`; `manifestFileKey` is
-     `design-system.json`'s `figma.fileKey`, or null; `forced` is `'b'` or `'c'`
-     when the user asked to ignore the system or the library. Returns
-     `{ signals, mode, libraryDetected, reason }`; announce `reason`.
+   - `'signals'`, `SPEC = { pages, manifestFileKey, openFileKey, systemCollectionKeys,
+     forced }`: read-only. `openFileKey` is `figma_get_status`'s `currentFileKey`;
+     `manifestFileKey` is `design-system.json`'s `figma.fileKey`, or null;
+     `systemCollectionKeys` is its `figma.collectionKeys`, or null; `forced` is
+     `'b'` or `'c'` when the user asked to ignore the system or the library.
+     Returns `{ signals, localCollectionKeys, mode, consumer, systemLibrary,
+     askSystem, libraryDetected, reason }`; announce `reason`. `consumer` is a
+     product file using the repo's system as its library (mode a there too);
+     `askSystem` names the connected libraries to ask about when no keys are
+     recorded. Save it unchanged for `design-workspace.mjs system keys`.
    - `'library-list'`, `SPEC = {}`: read-only. Every enabled library variable
      collection with its variables' names and keys. Save it unchanged and pass it
      to `design-workspace.mjs cache init`.
    - `'library-import'`, `SPEC = { keys }`, at most 20 keys a call: imports those
      library variables (invisible; no layers change) and returns `{ entries,
-     skipped }`: their values, aliases followed, and the names of any whose
-     collection couldn't be read. Save each return unchanged and pass it
+     skipped }`: their values, aliases followed, and `[{ key, name }]` for any
+     whose collection couldn't be read. Save each return unchanged and pass it
      to `design-workspace.mjs cache merge`. The file must be the tab in front:
      imports hang otherwise.
    Mode b: `inventory` and `build` also take `library = { pages, components,
-   cache, tokens }` (`pages`: where library instances are read; `components`:
+   cache, tokens }` (`pages`: where library instances and library text styles in
+   use are read; `components`:
    `[{ key, type: 'COMPONENT_SET' | 'COMPONENT' }]`, reshaped from
    `figma_get_library_components`, if run; `cache` and `tokens`: from
    `design-workspace.mjs cache get` and `tokens`). The library wins a name clash,
@@ -64,7 +70,10 @@ writes is bound to a variable. The script is the rule; do not re-write it by han
    may be `{ raw: '#rrggbb' }` or `{ raw: 12 }` where no variable holds the value
    (`raw-has-variable` names the one that does). `build` then also returns
    `localPicks` (local parts the screen used), `raws`, and `staleCache`
-   (`{ entries }` to pass to `cache merge`).
+   (`{ entries }` to pass to `cache merge`). A consumer run (mode a in a product
+   file) passes the same `library` with `systemCollectionKeys` inside it, to
+   `inventory` and `build` both: library parts only,
+   variables from the system's collections only, and no `{ raw }`.
 2. Between `build` and `finalize`, run the screen gate
    (`references/figma-adherence.md`) with `screens: ['WIP: <screen>']`. Finalize
    only a passing screen. A failure is a composer bug: report it and leave the
@@ -278,11 +287,12 @@ function checkScreens(snapshot, { skip = [] } = {}) {
 //                                             // autoLayout: every variant has auto layout
 //     components: [{ name, id, page }],       // standalone COMPONENTs, the swap targets
 //     variables: [{ name, id, kinds: ['colour'|'gap'|'radius'] }],
-//     textStyles: [{ name, id }],
+//     textStyles: [{ name, id }],             // in mode b and a consumer run, also library
+//                                             // styles in use on the loaded pages ('lib:<key>')
 //     collections: [{ name, id, modes: [{ name, id }] }],
 //     target: { screen, wip } | null,         // build only: 'marked' | 'unmarked' | null for
 //                                             // the frames named <screen> and 'WIP: <screen>'
-//     allowRaw?: true,                        // mode b only
+//     allowRaw?: boolean,                     // true in mode b only; false in a consumer run
 //     valueIndex?: { colours: { <hex>: [names] }, gap: { <n>: [names] }, radius: { <n>: [names] } },
 //   }
 //
@@ -462,7 +472,9 @@ function resolveScreen(description, inventory) {
     if (!layoutMode) fail('invalid', `${path}.layout`, `vertical or horizontal, not ${JSON.stringify(node.layout)}`);
     let padding = null;
     if (node.padding !== undefined) {
-      if (typeof node.padding === 'object' && node.padding !== null) {
+      // Without allowRaw, a whole-padding { raw } is refused as a raw value, not as a bad side.
+      const wholeRaw = !inv.allowRaw && typeof node.padding === 'object' && node.padding !== null && 'raw' in node.padding;
+      if (typeof node.padding === 'object' && node.padding !== null && !wholeRaw) {
         padding = {};
         for (const [side, name] of Object.entries(node.padding)) {
           if (!SIDES.includes(side)) { fail('invalid', `${path}.padding.${side}`, 'top, right, bottom or left'); continue; }
@@ -604,24 +616,30 @@ function resolveScreen(description, inventory) {
 // so it must run in both Node and the Figma plugin sandbox, and reuse none of the
 // top-level names it is inlined with.
 //
-// Spec: docs/specs/2026-10-30-design-modes.md (Q3)
+// Spec: docs/specs/2026-10-30-design-modes.md (Q3, Q26, Q27, Q32, Q37)
 //
-// detectMode(signals) → { mode, libraryDetected, reason }
+// detectMode(signals) → { mode, consumer, systemLibrary, askSystem, libraryDetected, reason }
 //   signals: {
 //     manifestFileKey,     // design-system.json's figma.fileKey, or null
 //     openFileKey,         // figma_get_status's currentFileKey, never figma.fileKey
-//     libraryCollections,  // enabled library variable collections
+//     systemCollectionKeys,   // design-system.json's figma.collectionKeys, or null
+//     libraryCollectionKeys,  // [{ library, key }] for every enabled library collection
+//     libraryCollections,  // enabled library variable collections (the keys' length when given)
 //     remoteInstances,     // instances of library components on the loaded pages
 //     localVariables, localSets,
 //     forced,              // 'b' | 'c' | null: the user asked to ignore the system or library
 //   }
+// consumer: the open file isn't the system's, but uses it as a library (a
+// connected collection's key is one of the system's), so it is mode a.
+// askSystem: library names to ask about, when no system keys are recorded yet.
 
 const DESIGN_MODE_RANK = { a: 3, b: 2, c: 1 };
 
 const DESIGN_MODE_REASONS = {
   a: 'Mode a: building from this file\'s throughline design system. Every value is bound to the system, and the screen is recorded for drift.',
-  b: 'Mode b: building from the connected library first, then this file\'s own components and variables. A raw value is allowed only where no variable holds it, and each one is listed; text styles come from this file only; no drift tracking.',
+  b: 'Mode b: building from the connected library first, then this file\'s own components and variables. A raw value is allowed only where no variable holds it, and each one is listed; text styles come from the library where the run sees them in use, else from this file; no drift tracking.',
   bLocal: 'Mode b: no library is connected, so building from this file\'s own components and variables. A raw value is allowed only where no variable holds it, and each one is listed; no drift tracking.',
+  consumer: 'Mode a: building from LIBRARY, this repo\'s throughline system, used here as a library. Every value is bound to the system; anything the library doesn\'t have is recorded as a gap; components from other connected libraries aren\'t checked against the system; drift isn\'t tracked for this file yet.',
   c: 'Mode c: this file has no design system, library or variables, so screens are built from frames to auto-layout standards. Nothing is bound to variables, and no gaps or drift are recorded.',
   cLowered: 'Mode c: ignoring this file\'s system, library and variables as you asked, so screens are built from frames to auto-layout standards. Nothing is bound to variables, and no gaps or drift are recorded.',
 };
@@ -629,9 +647,15 @@ const DESIGN_MODE_REASONS = {
 function detectMode(signals) {
   const s = signals || {};
   const count = (n) => (Number.isFinite(n) && n > 0 ? n : 0);
-  const libraryDetected = count(s.libraryCollections) + count(s.remoteInstances) > 0;
+  const libraryKeys = Array.isArray(s.libraryCollectionKeys) ? s.libraryCollectionKeys.filter((c) => c && c.key) : null;
+  const libraryCollections = libraryKeys ? libraryKeys.length : count(s.libraryCollections);
+  const libraryDetected = libraryCollections + count(s.remoteInstances) > 0;
+  const systemKeys = Array.isArray(s.systemCollectionKeys) ? s.systemCollectionKeys : [];
+  const elsewhere = Boolean(s.manifestFileKey) && s.manifestFileKey !== s.openFileKey;
+  const systemEntry = elsewhere && libraryKeys ? libraryKeys.find((c) => systemKeys.includes(c.key)) : null;
   let detected;
   if (s.manifestFileKey && s.openFileKey && s.manifestFileKey === s.openFileKey) detected = 'a';
+  else if (systemEntry) detected = 'a';
   else if (libraryDetected || count(s.localVariables) + count(s.localSets) > 0) detected = 'b';
   else detected = 'c';
 
@@ -645,34 +669,51 @@ function detectMode(signals) {
       note = ` (you asked for mode ${s.forced}, but a mode can only be lowered, never raised, so this stays mode ${detected})`;
     }
   }
+  const consumer = mode === 'a' && Boolean(systemEntry);
+  const forced = s.forced === 'b' || s.forced === 'c';
+  const askSystem = elsewhere && !systemKeys.length && libraryKeys && libraryKeys.length && !forced
+    ? [...new Set(libraryKeys.map((c) => c.library).filter(Boolean))].sort()
+    : [];
   let base = DESIGN_MODE_REASONS[mode];
+  if (consumer) base = DESIGN_MODE_REASONS.consumer.replace('LIBRARY', () => systemEntry.library || 'the connected library');
   if (mode === 'b' && !libraryDetected) base = DESIGN_MODE_REASONS.bLocal;
   if (mode === 'c' && detected !== 'c') base = DESIGN_MODE_REASONS.cLowered;
-  return { mode, libraryDetected: mode === 'b' && libraryDetected, reason: base.replace(/^Mode (\w):/, `Mode $1${note}:`) };
+  return {
+    mode, consumer,
+    systemLibrary: consumer ? systemEntry.library || null : null,
+    askSystem,
+    libraryDetected: (mode === 'b' && libraryDetected) || consumer,
+    reason: base.replace(/^Mode (\w):/, `Mode $1${note}:`),
+  };
 }
 
 // The library side of a mode b inventory, as a pure merge: library sets, swap
-// targets, variables and collections joined to the file's own, the library
-// winning a name clash. ZERO imports, `export const`/`export function` only. It is
+// targets, variables, collections and text styles joined to the file's own, the
+// library winning a name clash. In a consumer run (a product file using the repo's
+// own system as its library), library parts only. ZERO imports, `export const`/`export function` only. It is
 // inlined into the generated compose and drift scripts (references/figma-compose.md,
 // references/figma-drift.md) by build-figma-checks.mjs, so it must run in both Node
 // and the Figma plugin sandbox, and reuse none of the top-level names it is inlined
 // with. It depends on nothing else, so it carries its own copy of composeFold.
 //
-// Spec: docs/specs/2026-10-30-design-modes.md (Q5, Q7, Q8, Q9)
+// Spec: docs/specs/2026-10-30-design-modes.md (Q5, Q7, Q8, Q9, Q28, Q30, Q31)
 //
 // mergeLibraryInventory(local, library) → the resolver's INVENTORY (figma-compose.mjs)
-//   plus allowRaw: true and valueIndex.
+//   plus allowRaw (true in mode b, false in a consumer run) and valueIndex.
 //   local:   the reader's own inventory (sets, components, variables, textStyles,
 //            collections, target)
 //   library: {
 //     sets:       [{ name, key, autoLayout, props }],  // read from remote main components
 //     components: [{ name, key }],                     // remote standalone components, the swap targets
-//     cache:      design/library-cache.json, or null
+//     textStyles: [{ name, key }],                     // remote text styles in use on the loaded pages
+//     cache:      the library cache (design-workspace.mjs cache get), or null
 //     tokens:     design-workspace.mjs tokens, or null
 //     localValues: { colours, gap, radius }            // the file's own variables, same shape
+//     systemCollectionKeys: [key] | null               // a consumer run: design-system.json's figma.collectionKeys
 //   }
-// Library ids are 'lib:<key>'. Text styles stay local.
+// Library ids are 'lib:<key>'. In a consumer run every local part is left out,
+// variables and collections are limited to the system's collections (components
+// and text styles can't be told apart by library), and raw values aren't allowed.
 
 const LIBRARY_ID_PREFIX = 'lib:';
 const libraryId = (key) => `${LIBRARY_ID_PREFIX}${key}`;
@@ -711,24 +752,29 @@ function mergeLibraryInventory(local, library) {
   const lib = library || {};
   const sets = (lib.sets || []).map((s) => ({ name: s.name, id: libraryId(s.key), page: null, autoLayout: s.autoLayout, props: s.props || [] }));
   const components = (lib.components || []).map((c) => ({ name: c.name, id: libraryId(c.key), page: null }));
+  const textStyles = (lib.textStyles || []).map((s) => ({ name: s.name, id: libraryId(s.key) }));
+  const system = Array.isArray(lib.systemCollectionKeys) && lib.systemCollectionKeys.length ? new Set(lib.systemCollectionKeys) : null;
   const variables = [];
   const collections = [];
   for (const entry of Object.values((lib.cache && lib.cache.libraries) || {})) {
     for (const [key, c] of Object.entries(entry.collections || {})) {
+      if (system && !system.has(key)) continue;
       collections.push({ name: c.name, id: libraryId(key), modes: (c.modes || []).map((m) => ({ name: m.name, id: m.id })) });
     }
     for (const [key, v] of Object.entries(entry.variables || {})) {
+      if (system && !system.has(v.collection)) continue;
       variables.push({ name: v.name, id: libraryId(key), kinds: v.kinds || [] });
     }
   }
+  const own = (items) => (system ? [] : items);
   return {
-    sets: libraryFirst(sets, loc.sets),
-    components: libraryFirst(components, loc.components),
-    variables: libraryFirst(variables, loc.variables),
-    textStyles: loc.textStyles,
-    collections: libraryFirst(collections, loc.collections),
+    sets: libraryFirst(sets, own(loc.sets)),
+    components: libraryFirst(components, own(loc.components)),
+    variables: libraryFirst(variables, own(loc.variables)),
+    textStyles: libraryFirst(textStyles, own(loc.textStyles)),
+    collections: libraryFirst(collections, own(loc.collections)),
     target: loc.target,
-    allowRaw: true,
+    allowRaw: !system,
     valueIndex: libraryValueIndex(lib.tokens, lib.localValues),
   };
 }
@@ -865,15 +911,17 @@ function composeSetProps(set) {
 
 const composeSetAutoLayout = (set) => set.children.every((v) => v.layoutMode && v.layoutMode !== 'NONE');
 
-// Mode b (spec.library): library sets and swap targets from the library instances
-// on spec.library.pages, plus any REST results ({ key, type: 'COMPONENT_SET' |
+// Mode b and consumer runs (spec.library): library sets and swap targets from the
+// library instances on spec.library.pages, library text styles from the text nodes
+// there, plus any REST results ({ key, type: 'COMPONENT_SET' |
 // 'COMPONENT' }) imported by key; the file's own variable values for the raw-value
 // check. Instances are read 20 at a time and de-duplicated by key. Live on
 // 2026-10-30 (Zygarden.gg), a library instance's main component exposed its parent
 // set, with componentPropertyDefinitions and defaultVariant; and importing a
 // component or set by key hung (variables imported fine). So the nodes reached
 // through instances go to the writer as they are (`nodes`, by 'lib:<key>' id), and
-// only REST results are imported by key.
+// only REST results are imported by key. spec.library.systemCollectionKeys (a
+// consumer run) is passed through for the merge to keep library parts only.
 async function composeReadLibrary(spec, localVariables) {
   const lib = spec.library;
   const sets = new Map();
@@ -892,6 +940,7 @@ async function composeReadLibrary(spec, localVariables) {
       nodes.set(libraryId(main.key), main);
     }
   };
+  const styleIds = new Set();
   for (const name of lib.pages || []) {
     const page = composeFindPage(name);
     if (!page) continue;
@@ -899,6 +948,20 @@ async function composeReadLibrary(spec, localVariables) {
     const instances = page.findAllWithCriteria({ types: ['INSTANCE'] });
     for (let i = 0; i < instances.length; i += 20) {
       (await Promise.all(instances.slice(i, i + 20).map((n) => n.getMainComponentAsync()))).forEach(addMain);
+    }
+    for (const text of page.findAllWithCriteria({ types: ['TEXT'] })) {
+      if (typeof text.textStyleId === 'string' && text.textStyleId) styleIds.add(text.textStyleId);
+    }
+  }
+  // Library text styles (Q30): a text node already using one carries it into the
+  // file, so the style is applied as it is, never imported by key.
+  const textStyles = new Map();
+  const ids = [...styleIds];
+  for (let i = 0; i < ids.length; i += 20) {
+    for (const style of await Promise.all(ids.slice(i, i + 20).map((id) => figma.getStyleByIdAsync(id)))) {
+      if (!style || !style.remote || style.type !== 'TEXT' || textStyles.has(style.key)) continue;
+      textStyles.set(style.key, { name: style.name, key: style.key });
+      nodes.set(libraryId(style.key), style);
     }
   }
   if (lib.components !== undefined && !Array.isArray(lib.components)) {
@@ -934,11 +997,15 @@ async function composeReadLibrary(spec, localVariables) {
       }
     }
   }));
-  return { sets: [...sets.values()], components: [...components.values()], nodes, cache: lib.cache || null, tokens: lib.tokens || null, localValues };
+  return {
+    sets: [...sets.values()], components: [...components.values()], textStyles: [...textStyles.values()], nodes,
+    cache: lib.cache || null, tokens: lib.tokens || null, localValues,
+    systemCollectionKeys: Array.isArray(lib.systemCollectionKeys) ? lib.systemCollectionKeys : null,
+  };
 }
 
 // Reads the INVENTORY documented in figma-compose.mjs, plus the live nodes the
-// writer needs, keyed by id. With spec.library (mode b) the library side is merged
+// writer needs, keyed by id. With spec.library (mode b, or a consumer run) the library side is merged
 // in (figma-compose-library.mjs), and componentsPage may be left out.
 async function composeReadInventory(spec) {
   const pages = [spec.componentsPage, spec.iconsPage].filter(Boolean).map(composeRequirePage);
@@ -994,15 +1061,18 @@ async function composeReadInventory(spec) {
 // the compose reader (for composeFindPage) and design-mode.mjs (detectMode).
 // Async getters only. Untested in Node beyond the generator's fake-Figma test.
 //
-// Spec: docs/specs/2026-10-30-design-modes.md (Q3, Q5)
+// Spec: docs/specs/2026-10-30-design-modes.md (Q3, Q5, Q26, Q27)
 //
-// readModeSignals({ pages, manifestFileKey, openFileKey, forced })
-//   → { signals, mode, libraryDetected, reason }
+// readModeSignals({ pages, manifestFileKey, openFileKey, systemCollectionKeys, forced })
+//   → { signals, localCollectionKeys, mode, consumer, systemLibrary, askSystem, libraryDetected, reason }
+// localCollectionKeys: this file's own variable collection keys, which
+// design-workspace.mjs system keys records when this is the system file.
 // Only the named pages are loaded and walked. The instance walk stops at the first
 // library instance: detection needs one, and every instance costs an await.
 
 async function readModeSignals(spec) {
-  const libraryCollections = (await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync()).length;
+  const available = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync();
+  const libraryCollectionKeys = available.map((c) => ({ library: c.libraryName, key: c.key }));
   let remoteInstances = 0;
   let localSets = 0;
   for (const name of spec.pages || []) {
@@ -1018,13 +1088,16 @@ async function readModeSignals(spec) {
     }
   }
   const localVariables = (await figma.variables.getLocalVariablesAsync()).length;
+  const localCollectionKeys = (await figma.variables.getLocalVariableCollectionsAsync()).map((c) => c.key);
   const signals = {
     manifestFileKey: spec.manifestFileKey || null,
     openFileKey: spec.openFileKey || null,
-    libraryCollections, remoteInstances, localVariables, localSets,
+    systemCollectionKeys: Array.isArray(spec.systemCollectionKeys) ? spec.systemCollectionKeys : null,
+    libraryCollectionKeys,
+    libraryCollections: libraryCollectionKeys.length, remoteInstances, localVariables, localSets,
     forced: spec.forced || null,
   };
-  return { signals, ...detectMode(signals) };
+  return { signals, localCollectionKeys, ...detectMode(signals) };
 }
 
 // Figma plugin-API reader for a connected library's variables. This file is NOT a
@@ -1039,7 +1112,7 @@ async function readModeSignals(spec) {
 //
 // libraryList() → { collections: [{ library, key, name, variables: [{ key, name, resolvedType }] }] }
 //   Names and keys only: Figma's library listing carries no values.
-// libraryImport({ keys }) → { entries: [cache-shaped entry], skipped: [name] }, at most
+// libraryImport({ keys }) → { entries: [cache-shaped entry], skipped: [{ key, name }] }, at most
 //   20 keys a call. skipped: variables whose collection couldn't be read.
 //   Importing adds the library variables to the file (invisible; no layers change).
 //   Aliases are followed to a concrete value; one that can't be followed is null.
@@ -1087,7 +1160,7 @@ async function libraryImport(spec) {
   const all = await Promise.all(imported.map(libraryEntry));
   return {
     entries: all.filter((e) => e.collection.key),
-    skipped: all.filter((e) => !e.collection.key).map((e) => e.name),
+    skipped: all.filter((e) => !e.collection.key).map((e) => ({ key: e.key, name: e.name })),
   };
 }
 
@@ -1117,12 +1190,17 @@ async function libraryImport(spec) {
 //                                                                    with library, also { localPicks, raws, staleCache }
 //   'finalize'  SPEC = { page, screen, fileKey }                   → { id, link, replaced }
 //   'discard'   SPEC = { page, screen }                            → { removed }
-//   'signals'   SPEC = { pages, manifestFileKey, openFileKey, forced? } → { signals, mode, libraryDetected, reason }
+//   'signals'   SPEC = { pages, manifestFileKey, openFileKey, systemCollectionKeys?, forced? }
+//                                                                  → { signals, localCollectionKeys, mode, consumer,
+//                                                                      systemLibrary, askSystem, libraryDetected, reason }
 //   'library-list'   SPEC = {}                                     → { collections }
-//   'library-import' SPEC = { keys }  (at most 20)                 → { entries }
-// library (mode b, docs/specs/2026-10-30-design-modes.md) = { pages, components?, cache, tokens }.
+//   'library-import' SPEC = { keys }  (at most 20)                 → { entries, skipped: [{ key, name }] }
+// library (mode b, or a consumer run in mode a; docs/specs/2026-10-30-design-modes.md)
+//   = { pages, components?, cache, tokens, systemCollectionKeys? }; systemCollectionKeys
+//   marks a consumer run: library parts only, no raw values.
 // Library items carry 'lib:<key>' ids in the plan and are imported by key, 20 at a
-// time, after the plan resolves and before fonts load.
+// time, after the plan resolves and before fonts load. Library sets and text styles
+// read from the loaded pages are already in the file and are used as they are.
 
 const COMPOSE_CORNERS = ['topLeftRadius', 'topRightRadius', 'bottomRightRadius', 'bottomLeftRadius'];
 const COMPOSE_PADDING = { top: 'paddingTop', right: 'paddingRight', bottom: 'paddingBottom', left: 'paddingLeft' };
@@ -1275,13 +1353,16 @@ async function composeImportLibrary(plan, live, spec) {
   const swaps = new Set();
   const variables = new Set();
   const collections = new Set();
+  const styles = new Set();
   const take = (id, into) => { if (isLibraryId(id)) into.add(id); };
   const walk = (node) => {
     if (!node) return;
     if (node.type === 'frame') {
       [node.fill, node.stroke, node.itemSpacing, node.radius, ...Object.values(node.padding || {})].forEach((id) => take(id, variables));
-    } else if (node.type === 'text') take(node.color, variables);
-    else if (node.type === 'component') {
+    } else if (node.type === 'text') {
+      take(node.color, variables);
+      take(node.styleId, styles);
+    } else if (node.type === 'component') {
       take(node.setId, sets);
       Object.values(node.otherProps).forEach((id) => take(id, swaps));
     }
@@ -1291,6 +1372,22 @@ async function composeImportLibrary(plan, live, spec) {
   walk(plan.root);
   for (const { collectionId } of plan.modes) take(collectionId, collections);
   const keyOf = (id) => id.slice(LIBRARY_ID_PREFIX.length);
+  // Library text styles (Q30) were read from text nodes on the loaded pages, so
+  // they are already in the file: the plan gets the style's own id, no import.
+  const styleIds = new Map();
+  for (const id of styles) {
+    const style = live.libraryNodes && live.libraryNodes.get(id);
+    if (!style) throw new Error(`library text style ${keyOf(id)} wasn't read from the page; re-run`);
+    live.styleNodes.set(style.id, style);
+    styleIds.set(id, style.id);
+  }
+  const restyle = (node) => {
+    if (!node) return;
+    if (node.type === 'text' && styleIds.has(node.styleId)) node.styleId = styleIds.get(node.styleId);
+    for (const child of node.children || []) restyle(child);
+    for (const slot of node.slots || []) slot.nodes.forEach(restyle);
+  };
+  restyle(plan.root);
   const cached = new Map();
   for (const lib of Object.values((spec.library.cache && spec.library.cache.libraries) || {})) {
     for (const [key, v] of Object.entries(lib.variables || {})) cached.set(key, v);

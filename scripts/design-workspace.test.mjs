@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { setWorkspace, initCache, mergeCache, missingKeys, tokensFrom, WORKSPACE_FILE, CACHE_FILE } from './design-workspace.mjs';
+import { setWorkspace, initCache, mergeCache, missingKeys, tokensFrom, systemKeysFrom, withCollectionKeys, cacheFileFor, WORKSPACE_FILE, CACHE_FILE, SYSTEM_CACHE_FILE } from './design-workspace.mjs';
 import { serialize } from './gap-report.mjs';
 
 const list = {
@@ -104,4 +104,85 @@ test('cli: exit codes', () => {
   assert.equal(cli('cache', 'init', '--dir', dir, '--from', bad).status, 1);
   writeFileSync(bad, 'not json');
   assert.equal(cli('cache', 'merge', '--dir', dir, '--from', bad).status, 1);
+});
+
+test('the cache lives under design-system/ when the directory holds design-system.json', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ws-'));
+  assert.equal(cacheFileFor(dir), CACHE_FILE);
+  writeFileSync(join(dir, 'design-system.json'), '{}');
+  assert.equal(cacheFileFor(dir), SYSTEM_CACHE_FILE);
+  const listFile = join(dir, 'list.json');
+  writeFileSync(listFile, JSON.stringify(list));
+  const r = cli('cache', 'init', '--dir', dir, '--from', listFile);
+  assert.equal(r.status, 0);
+  assert.match(r.stdout, /design-system\/library-cache\.json/);
+  assert.equal(existsSync(join(dir, SYSTEM_CACHE_FILE)), true);
+  assert.equal(existsSync(join(dir, 'design')), false);
+  assert.notEqual(cli('cache', 'get', '--dir', dir).stdout.trim(), 'null');
+});
+
+test('skipped keys are kept out of missing until they merge, and init clears them', () => {
+  const listed = { collections: [{ ...list.collections[0], variables: [{ key: 'v1' }, { key: 'v9' }] }] };
+  let cache = initCache(listed, 'x');
+  assert.equal(cache.skipped, undefined);
+  cache = mergeCache(cache, { entries: [], skipped: [{ key: 'v9', name: 'color/odd' }, { key: 'v1', name: 'color/bg/canvas' }] });
+  assert.deepEqual(cache.skipped, ['v1', 'v9']);
+  assert.deepEqual(missingKeys(cache), []);
+  cache = mergeCache(cache, { entries: [entries.entries[0]] });
+  assert.deepEqual(cache.skipped, ['v9']);
+  assert.deepEqual(missingKeys(cache), []);
+  assert.equal(initCache(listed, 'y').skipped, undefined);
+  assert.deepEqual(missingKeys(initCache(listed, 'y')), ['v1', 'v9']);
+  assert.throws(() => mergeCache(cache, { entries: [], skipped: 'v1' }), /skipped must be/);
+});
+
+test('cache missing --from a malformed list exits 1 with a reason', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ws-'));
+  const bad = join(dir, 'bad.json');
+  writeFileSync(bad, '{"nope": 1}');
+  const r = cli('cache', 'missing', '--dir', dir, '--from', bad);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /expected \{ collections: \[\.\.\.\] \} from library-list/);
+  assert.doesNotMatch(r.stderr, /TypeError/);
+});
+
+const signalsOut = {
+  signals: {
+    manifestFileKey: 'SYS', openFileKey: 'SYS',
+    libraryCollectionKeys: [{ library: 'Icons', key: 'i1' }, { library: 'Zygarden Design System', key: 'z2' }, { library: 'Zygarden Design System', key: 'z1' }],
+  },
+  localCollectionKeys: ['c2', 'c1', 'c1'],
+};
+
+test('system keys: the system file\'s own keys, or one library\'s', () => {
+  assert.deepEqual(systemKeysFrom(signalsOut), ['c1', 'c2']);
+  const consumer = { ...signalsOut, signals: { ...signalsOut.signals, openFileKey: 'PRODUCT' } };
+  assert.throws(() => systemKeysFrom(consumer), /not the system file/);
+  assert.deepEqual(systemKeysFrom(consumer, 'Zygarden Design System'), ['z1', 'z2']);
+  assert.throws(() => systemKeysFrom(consumer, 'Nope'), /no connected library named Nope; connected: Icons, Zygarden Design System/);
+  assert.throws(() => systemKeysFrom({ nope: 1 }), /signals/);
+  assert.deepEqual(withCollectionKeys({ a: 1 }, ['k']), { a: 1, figma: { collectionKeys: ['k'] } });
+});
+
+test('cli: system keys writes figma.collectionKeys and leaves field order alone', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ws-'));
+  const from = join(dir, 'signals.json');
+  writeFileSync(from, JSON.stringify(signalsOut));
+  assert.equal(cli('system', 'keys', '--dir', dir, '--from', from).status, 1);
+  const manifest = { schemaVersion: 5, user: { codingLevel: 'comfortable' }, figma: { mechanism: null, fileKey: 'SYS', connected: true }, zeta: true };
+  writeFileSync(join(dir, 'design-system.json'), JSON.stringify(manifest, null, 2) + '\n');
+  const r = cli('system', 'keys', '--dir', dir, '--from', from);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /recorded 2 collection keys/);
+  assert.doesNotMatch(r.stdout, /rewritten/);
+  const text =readFileSync(join(dir, 'design-system.json'), 'utf8');
+  assert.equal(text, JSON.stringify({ ...manifest, figma: { ...manifest.figma, collectionKeys: ['c1', 'c2'] } }, null, 2) + '\n');
+  assert.equal(cli('system', 'keys', '--dir', dir, '--from', from, '--library', 'Icons').status, 0);
+  assert.deepEqual(JSON.parse(readFileSync(join(dir, 'design-system.json'), 'utf8')).figma.collectionKeys, ['i1']);
+  writeFileSync(join(dir, 'design-system.json'), JSON.stringify(manifest) + '\n');
+  assert.match(cli('system', 'keys', '--dir', dir, '--from', from).stdout, /rewritten in two-space JSON/);
+  assert.equal(cli('system', 'keys', '--dir', dir, '--from', from, '--library', 'Nope').status, 1);
+  assert.equal(cli('system', 'keys', '--dir', dir, '--from', from, '--library', 'Icons', '--library', 'X').status, 2);
+  assert.equal(cli('system', 'keys', '--dir', dir).status, 2);
+  assert.equal(existsSync(join(dir, 'design')), false);
 });

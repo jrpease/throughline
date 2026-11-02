@@ -1,6 +1,6 @@
 {
   "name": "@radicool/throughline",
-  "version": "0.32.1",
+  "version": "0.33.0",
   "description": "Your agentic design team: design screens in Figma on your own design system or a connected library, or build a design system end to end and sync it to code. Usable from Claude Code, Cursor, Codex, or any AGENTS.md agent.",
   "type": "module",
   "bin": {

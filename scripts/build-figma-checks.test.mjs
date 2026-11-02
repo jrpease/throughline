@@ -605,7 +605,9 @@ test('drift components: the page by name, and a clear error when the page is amb
 // with the local Button by folded name; its `li:plus` icon (key ICONKEY) is a
 // standalone component. Both are reached from library instances on the Screens
 // page. Library variables: color/bg/surface (K1, in Color Semantic, an alias to a
-// black primitive) and color/bg/glow (K2, an alias nothing resolves).
+// black primitive) and color/bg/glow (K2, an alias nothing resolves). Text on the
+// Screens page uses a library text style, heading/l (key TSKEY), plus a local
+// style, a mixed one and none, which the library read skips.
 function fakeLibraryFigma() {
   const figma = fakeComposeFigma();
   const mk = (type, extra = {}) => Object.assign(figma.createFrame(), { type, layoutMode: undefined, ...extra });
@@ -624,6 +626,12 @@ function fakeLibraryFigma() {
   const icon = mk('COMPONENT', { name: 'li:plus', key: 'ICONKEY', remote: true, id: '50:1' });
   const screensPage = figma.root.children.find((p) => p.name === 'Screens');
   for (const main of [variant, icon]) screensPage.appendChild(mk('INSTANCE', { getMainComponentAsync: async () => main }));
+  const styles = {
+    'S:LIB': { id: 'S:LIB', key: 'TSKEY', name: 'heading/l', type: 'TEXT', remote: true, fontName: { family: 'Inter', style: 'Semi Bold' } },
+    'S:1': { id: 'S:1', key: 'LOCALTS', name: 'Heading/L', type: 'TEXT', remote: false, fontName: { family: 'Inter', style: 'Bold' } },
+  };
+  for (const textStyleId of ['S:LIB', 'S:LIB', 'S:1', figma.mixed, '']) screensPage.appendChild(mk('TEXT', { textStyleId }));
+  figma.getStyleByIdAsync = async (id) => { figma.log.push(`get style ${id}`); return styles[id] || null; };
   for (const page of figma.root.children) page.findAllWithCriteria = ({ types }) => page.findAll((n) => types.includes(n.type));
   const collections = {
     'C:1': { id: 'C:1', key: 'LOCAL', name: 'Color / Semantic', defaultModeId: 'M:2', modes: [{ name: 'Light', modeId: 'M:2' }] },
@@ -636,6 +644,7 @@ function fakeLibraryFigma() {
   };
   const byId = { LV9: { id: 'LV9', name: 'color/neutral/950', resolvedType: 'COLOR', variableCollectionId: 'LP', valuesByMode: { 'LP:1': { r: 0, g: 0, b: 0, a: 1 } } } };
   Object.assign(figma.variables, {
+    getLocalVariableCollectionsAsync: async () => [collections['C:1']],
     getVariableCollectionByIdAsync: async (id) => collections[id] || null,
     getVariableByIdAsync: async (id) => byId[id] || null,
     importVariableByKeyAsync: async (key) => { figma.log.push(`import variable ${key}`); return libVars[key]; },
@@ -683,7 +692,7 @@ test('library-list and library-import: names and keys, then values with aliases 
   const collectionById = orphaned.variables.getVariableCollectionByIdAsync;
   orphaned.variables.getVariableCollectionByIdAsync = async (id) => (id === 'LC' ? null : collectionById(id));
   const cut = await runComposeSnippet(orphaned, 'library-import', { keys: ['K1'] });
-  assert.deepEqual([cut.entries, cut.skipped], [[], ['color/bg/surface']], 'a variable whose collection can\'t be read is skipped, by name');
+  assert.deepEqual([cut.entries, cut.skipped], [[], [{ key: 'K1', name: 'color/bg/surface' }]], 'a variable whose collection can\'t be read is skipped, by key and name');
 });
 
 test('mode b inventory: library components in any shape but an array are refused', async () => {
@@ -753,4 +762,67 @@ test('the adherence gate counts library tokens: a raw value one holds fails, and
   const result = await new AsyncFunction('figma', `${code}\nreturn await runScreenGate(${JSON.stringify(target)}, []);`)(fakeFigma());
   assert.ok(result.failures.some((f) => f.detail === 'fill #00000080: bind lib/scrim'));
   assert.deepEqual(result.advisories, []);
+});
+
+// Phase 1b: a consumer file of the repo's own system (docs/specs/2026-10-30-design-modes.md, Q26-Q31).
+test('signals: a consumer file is mode a, the ask names libraries, the system file returns its own keys', async () => {
+  const consumer = await runComposeSnippet(fakeLibraryFigma(), 'signals', { pages: ['Screens'], manifestFileKey: 'SYSTEM', openFileKey: 'OPEN', systemCollectionKeys: ['SEM'] });
+  assert.deepEqual([consumer.mode, consumer.consumer, consumer.systemLibrary, consumer.libraryDetected], ['a', true, 'Zygarden Design System', true]);
+  assert.deepEqual(consumer.signals.libraryCollectionKeys, [{ library: 'Zygarden Design System', key: 'SEM' }]);
+  assert.deepEqual(consumer.localCollectionKeys, ['LOCAL']);
+  const ask = await runComposeSnippet(fakeLibraryFigma(), 'signals', { pages: ['Screens'], manifestFileKey: 'SYSTEM', openFileKey: 'OPEN' });
+  assert.deepEqual([ask.mode, ask.askSystem], ['b', ['Zygarden Design System']]);
+  const system = await runComposeSnippet(fakeLibraryFigma(), 'signals', { pages: ['Components'], manifestFileKey: 'OPEN', openFileKey: 'OPEN', systemCollectionKeys: ['SEM'] });
+  assert.deepEqual([system.mode, system.consumer, system.askSystem], ['a', false, []]);
+});
+
+test('library text styles: read from text on the loaded pages, de-duplicated, local and mixed skipped', async () => {
+  const figma = fakeLibraryFigma();
+  const { summary } = await runComposeSnippet(figma, 'inventory', { library });
+  assert.deepEqual(summary.textStyles, ['heading/l']);
+  assert.deepEqual(figma.log.filter((l) => l.startsWith('get style')), ['get style S:LIB', 'get style S:1']);
+});
+
+test('mode b build: text takes a library text style as it is, never imported', async () => {
+  const figma = fakeLibraryFigma();
+  figma.importStyleByKeyAsync = async () => { throw new Error('a style was imported by key'); };
+  const description = { screen: 'Reg', page: 'Screens', width: 390, root: { layout: 'vertical', fill: 'color/bg/surface', children: [
+    { text: 'Welcome', style: 'Heading/L', color: 'color/bg/surface' },
+  ] } };
+  const res = await runComposeSnippet(figma, 'build', { componentsPage: 'Components', library, description, fileKey: 'TEST' });
+  assert.equal(res.ok, true, JSON.stringify(res.errors));
+  const wip = screensOf(figma).children.find((n) => n.name === 'WIP: Reg');
+  assert.equal(wip.children[0].textStyleId, 'S:LIB');
+  assert.ok(figma.log.includes('font Inter Semi Bold'), figma.log.join('\n'));
+});
+
+const consumerLibrary = { ...library, systemCollectionKeys: ['SEM'] };
+
+test('consumer build: a library set, a system variable and a library text style, no local picks or raws', async () => {
+  const figma = fakeLibraryFigma();
+  const description = { screen: 'Reg', page: 'Screens', width: 390, root: { layout: 'vertical', fill: 'color/bg/surface', children: [
+    { text: 'Welcome', style: 'heading/l', color: 'color/bg/surface' },
+    { component: 'button', props: { label: 'Go' } },
+  ] } };
+  const res = await runComposeSnippet(figma, 'build', { componentsPage: 'Components', library: consumerLibrary, description, fileKey: 'TEST' });
+  assert.equal(res.ok, true, JSON.stringify(res.errors));
+  assert.deepEqual([res.localPicks, res.raws], [[], []]);
+  const wip = screensOf(figma).children.find((n) => n.name === 'WIP: Reg');
+  assert.deepEqual(wip.children.map((n) => n.type), ['TEXT', 'INSTANCE']);
+  assert.equal(wip.children[0].textStyleId, 'S:LIB');
+});
+
+test('consumer build: a local-only set and a raw value are refused, nothing written', async () => {
+  const figma = fakeLibraryFigma();
+  const spinner = await runComposeSnippet(figma, 'build', { componentsPage: 'Components', library: consumerLibrary, fileKey: 'TEST', description: {
+    screen: 'Reg', page: 'Screens', width: 390, root: { layout: 'vertical', children: [{ component: 'Spinner' }] },
+  } });
+  assert.equal(spinner.ok, false);
+  assert.equal(spinner.errors[0].kind, 'missing-component');
+  const raw = await runComposeSnippet(figma, 'build', { componentsPage: 'Components', library: consumerLibrary, fileKey: 'TEST', description: {
+    screen: 'Reg', page: 'Screens', width: 390, root: { layout: 'vertical', fill: { raw: '#123456' }, children: [] },
+  } });
+  assert.equal(raw.ok, false);
+  assert.equal(raw.errors[0].kind, 'invalid');
+  assert.ok(!screensOf(figma).children.some((n) => n.name === 'WIP: Reg'));
 });

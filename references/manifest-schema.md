@@ -37,6 +37,7 @@ bailing or running silently.
   "figma": {
     "mechanism": null,
     "fileKey": null,
+    "collectionKeys": [],
     "connected": false,
     "lastVerified": null,
     "coverPageBuilt": false,
@@ -172,6 +173,13 @@ bailing or running silently.
   `"console-mcp"`.
 - `fileKey` — the Figma file key the system writes into (extracted from the
   file URL). Lets skills target the right file without re-asking.
+- `collectionKeys` — the keys of the system file's variable collections, which a
+  product file using the system as a library sees as its library collections'
+  keys. Written by `design-workspace.mjs system keys`, which `compose-figma` runs
+  on every compose in the system file (or, when none are recorded, after the user
+  says which connected library is the system). `compose-figma` treats a product
+  file with one of these collections connected as a consumer of the system: mode
+  a, library parts only. Empty until the first compose.
 - `connected` — whether setup completed successfully at least once. Note this is
   a record of *setup completion*, not live connection state — connection is
   verified live each run (see skill 0's liveness check).

@@ -6,6 +6,35 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.33.0] — 2026-11-02
+
+Open a product file that uses your ThroughLine system as its Figma library, and
+`/throughline:compose-figma` now holds it to the system's rules, not a library's.
+
+### Added
+
+- **Mode a in a product file built on your system.** When the open file isn't the
+  system's own but has the system's variable collections connected as a library,
+  compose-figma runs in mode a: the system's components, variables and text styles
+  only, no raw values, and anything missing recorded as a gap in
+  `design-system/gaps.json`. Drift for these screens comes later.
+- **`figma.collectionKeys` in `design-system.json`**, and `design-workspace.mjs
+  system keys` to record it. It's written on every compose in the system file, or
+  after you say which connected library is your system. Collection keys survive a
+  rename; library names don't.
+- **Library text styles.** In mode b and in a product file built on your system,
+  text styles the library already uses on the loaded pages can style new text.
+  They're applied as they are, never imported.
+
+### Changed
+
+- **The library cache lives under `design-system/`** when the folder holds
+  `design-system.json`, and a system repo gets nothing under `design/`.
+- **A library variable that can't be imported is skipped once**, not on every run,
+  until the library is read again in full.
+- **`design-workspace.mjs cache missing --from`** checks its input and says what's
+  wrong, rather than throwing.
+
 ## [0.32.1] — 2026-10-30
 
 ThroughLine started as a way to build a design system. It's a design team now, and
