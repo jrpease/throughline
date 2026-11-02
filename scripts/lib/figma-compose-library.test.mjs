@@ -42,7 +42,7 @@ test('the library wins a folded-name clash; other local parts stay', () => {
   assert.deepEqual(canvas.map((v) => v.id), ['lib:K1']);
 });
 
-test('library icons are swap targets; collections carry their modes; text styles stay local', () => {
+test('library icons are swap targets; collections carry their modes; text styles stay local when the library shows none', () => {
   assert.ok(merged.components.some((c) => c.name === 'li:plus' && c.id === 'lib:ICONKEY'));
   assert.deepEqual(merged.collections.find((c) => c.name === 'Color Semantic').modes, [{ name: 'Dark', id: 'LM:1' }, { name: 'Light', id: 'LM:2' }]);
   assert.deepEqual(merged.textStyles, local.textStyles);
@@ -93,4 +93,45 @@ test('raw values: a gap a variable holds is refused; a bare raw padding is inval
   assert.equal(resolveScreen(screen({ layout: 'vertical', padding: { raw: 12 }, children: [] }), merged).errors[0].kind, 'invalid');
   assert.equal(resolveScreen(screen({ layout: 'vertical', fill: { raw: 'red' }, children: [] }), merged).errors[0].kind, 'invalid');
   assert.equal(resolveScreen(screen({ layout: 'vertical', gap: { raw: -1 }, children: [] }), merged).errors[0].kind, 'invalid');
+});
+
+test('a library text style wins a clash; other local text styles stay in mode b', () => {
+  const m = mergeLibraryInventory(local, { ...library, textStyles: [{ name: 'heading/l', key: 'TSKEY' }, { name: 'Label/S', key: 'TS2' }] });
+  assert.deepEqual(m.textStyles, [{ name: 'heading/l', id: 'lib:TSKEY' }, { name: 'Label/S', id: 'lib:TS2' }, { name: 'Body/Default', id: 'S:2' }]);
+  const r = resolveScreen(screen({ layout: 'vertical', children: [{ text: 'Hi', style: 'Heading/L', color: 'color/bg/canvas' }] }), m);
+  assert.equal(r.ok, true, JSON.stringify(r.errors));
+  assert.equal(r.plan.root.children[0].styleId, 'lib:TSKEY');
+});
+
+const consumerCache = structuredClone(cache);
+consumerCache.libraries.Icons = {
+  collections: { ICO: { name: 'Icon Sizes', modes: [{ id: 'IM:1', name: 'Value' }] } },
+  variables: { K9: { name: 'icon/size/md', collection: 'ICO', resolvedType: 'FLOAT', kinds: ['gap'], values: { Value: 20 } } },
+};
+const consumer = mergeLibraryInventory(local, {
+  ...library, cache: consumerCache, textStyles: [{ name: 'Heading/L', key: 'TSKEY' }], systemCollectionKeys: ['SEM'],
+});
+
+test('a consumer run keeps library parts only, the system\'s variables only, and no raw values', () => {
+  assert.deepEqual(consumer.sets.map((s) => s.id), ['lib:SETKEY']);
+  assert.deepEqual(consumer.components.map((c) => c.id), ['lib:ICONKEY']);
+  assert.deepEqual(consumer.textStyles, [{ name: 'Heading/L', id: 'lib:TSKEY' }]);
+  assert.deepEqual(consumer.variables.map((v) => v.id).sort(), ['lib:K1', 'lib:K2']);
+  assert.deepEqual(consumer.collections.map((c) => c.id), ['lib:SEM']);
+  assert.equal(consumer.allowRaw, false);
+});
+
+test('a consumer plan refuses a raw value as invalid and a local-only set as missing', () => {
+  const raw = resolveScreen(screen({ layout: 'vertical', fill: { raw: '#123456' }, children: [] }), consumer);
+  assert.equal(raw.ok, false);
+  assert.equal(raw.errors[0].kind, 'invalid');
+  const pad = resolveScreen(screen({ layout: 'vertical', padding: { raw: 20 }, children: [] }), consumer);
+  assert.deepEqual(pad.errors.map((e) => [e.kind, e.path, e.asked]), [['invalid', 'root.padding', 'a variable name, not {"raw":20}']]);
+  const input =resolveScreen(screen({ layout: 'vertical', children: [{ component: 'Input' }] }), consumer);
+  assert.equal(input.ok, false);
+  assert.equal(input.errors[0].kind, 'missing-component');
+  const ok = resolveScreen(screen({ layout: 'vertical', fill: 'color/bg/canvas', children: [{ component: 'button', props: { label: 'Go' } }, { text: 'Hi', style: 'Heading/L', color: 'color/bg/canvas' }] }), consumer);
+  assert.equal(ok.ok, true, JSON.stringify(ok.errors));
+  assert.deepEqual(libraryLocalPicks(ok.plan, consumer), []);
+  assert.deepEqual(ok.plan.raws ?? [], []);
 });

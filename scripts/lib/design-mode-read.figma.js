@@ -3,15 +3,18 @@
 // the compose reader (for composeFindPage) and design-mode.mjs (detectMode).
 // Async getters only. Untested in Node beyond the generator's fake-Figma test.
 //
-// Spec: docs/specs/2026-10-30-design-modes.md (Q3, Q5)
+// Spec: docs/specs/2026-10-30-design-modes.md (Q3, Q5, Q26, Q27)
 //
-// readModeSignals({ pages, manifestFileKey, openFileKey, forced })
-//   → { signals, mode, libraryDetected, reason }
+// readModeSignals({ pages, manifestFileKey, openFileKey, systemCollectionKeys, forced })
+//   → { signals, localCollectionKeys, mode, consumer, systemLibrary, askSystem, libraryDetected, reason }
+// localCollectionKeys: this file's own variable collection keys, which
+// design-workspace.mjs system keys records when this is the system file.
 // Only the named pages are loaded and walked. The instance walk stops at the first
 // library instance: detection needs one, and every instance costs an await.
 
 async function readModeSignals(spec) {
-  const libraryCollections = (await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync()).length;
+  const available = await figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync();
+  const libraryCollectionKeys = available.map((c) => ({ library: c.libraryName, key: c.key }));
   let remoteInstances = 0;
   let localSets = 0;
   for (const name of spec.pages || []) {
@@ -27,11 +30,14 @@ async function readModeSignals(spec) {
     }
   }
   const localVariables = (await figma.variables.getLocalVariablesAsync()).length;
+  const localCollectionKeys = (await figma.variables.getLocalVariableCollectionsAsync()).map((c) => c.key);
   const signals = {
     manifestFileKey: spec.manifestFileKey || null,
     openFileKey: spec.openFileKey || null,
-    libraryCollections, remoteInstances, localVariables, localSets,
+    systemCollectionKeys: Array.isArray(spec.systemCollectionKeys) ? spec.systemCollectionKeys : null,
+    libraryCollectionKeys,
+    libraryCollections: libraryCollectionKeys.length, remoteInstances, localVariables, localSets,
     forced: spec.forced || null,
   };
-  return { signals, ...detectMode(signals) };
+  return { signals, localCollectionKeys, ...detectMode(signals) };
 }

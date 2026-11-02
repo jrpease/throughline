@@ -39,11 +39,12 @@
 //                                             // autoLayout: every variant has auto layout
 //     components: [{ name, id, page }],       // standalone COMPONENTs, the swap targets
 //     variables: [{ name, id, kinds: ['colour'|'gap'|'radius'] }],
-//     textStyles: [{ name, id }],
+//     textStyles: [{ name, id }],             // in mode b and a consumer run, also library
+//                                             // styles in use on the loaded pages ('lib:<key>')
 //     collections: [{ name, id, modes: [{ name, id }] }],
 //     target: { screen, wip } | null,         // build only: 'marked' | 'unmarked' | null for
 //                                             // the frames named <screen> and 'WIP: <screen>'
-//     allowRaw?: true,                        // mode b only
+//     allowRaw?: boolean,                     // true in mode b only; false in a consumer run
 //     valueIndex?: { colours: { <hex>: [names] }, gap: { <n>: [names] }, radius: { <n>: [names] } },
 //   }
 //
@@ -223,7 +224,9 @@ export function resolveScreen(description, inventory) {
     if (!layoutMode) fail('invalid', `${path}.layout`, `vertical or horizontal, not ${JSON.stringify(node.layout)}`);
     let padding = null;
     if (node.padding !== undefined) {
-      if (typeof node.padding === 'object' && node.padding !== null) {
+      // Without allowRaw, a whole-padding { raw } is refused as a raw value, not as a bad side.
+      const wholeRaw = !inv.allowRaw && typeof node.padding === 'object' && node.padding !== null && 'raw' in node.padding;
+      if (typeof node.padding === 'object' && node.padding !== null && !wholeRaw) {
         padding = {};
         for (const [side, name] of Object.entries(node.padding)) {
           if (!SIDES.includes(side)) { fail('invalid', `${path}.padding.${side}`, 'top, right, bottom or left'); continue; }

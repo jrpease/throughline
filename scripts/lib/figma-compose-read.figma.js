@@ -56,15 +56,17 @@ function composeSetProps(set) {
 
 const composeSetAutoLayout = (set) => set.children.every((v) => v.layoutMode && v.layoutMode !== 'NONE');
 
-// Mode b (spec.library): library sets and swap targets from the library instances
-// on spec.library.pages, plus any REST results ({ key, type: 'COMPONENT_SET' |
+// Mode b and consumer runs (spec.library): library sets and swap targets from the
+// library instances on spec.library.pages, library text styles from the text nodes
+// there, plus any REST results ({ key, type: 'COMPONENT_SET' |
 // 'COMPONENT' }) imported by key; the file's own variable values for the raw-value
 // check. Instances are read 20 at a time and de-duplicated by key. Live on
 // 2026-10-30 (Zygarden.gg), a library instance's main component exposed its parent
 // set, with componentPropertyDefinitions and defaultVariant; and importing a
 // component or set by key hung (variables imported fine). So the nodes reached
 // through instances go to the writer as they are (`nodes`, by 'lib:<key>' id), and
-// only REST results are imported by key.
+// only REST results are imported by key. spec.library.systemCollectionKeys (a
+// consumer run) is passed through for the merge to keep library parts only.
 async function composeReadLibrary(spec, localVariables) {
   const lib = spec.library;
   const sets = new Map();
@@ -83,6 +85,7 @@ async function composeReadLibrary(spec, localVariables) {
       nodes.set(libraryId(main.key), main);
     }
   };
+  const styleIds = new Set();
   for (const name of lib.pages || []) {
     const page = composeFindPage(name);
     if (!page) continue;
@@ -90,6 +93,20 @@ async function composeReadLibrary(spec, localVariables) {
     const instances = page.findAllWithCriteria({ types: ['INSTANCE'] });
     for (let i = 0; i < instances.length; i += 20) {
       (await Promise.all(instances.slice(i, i + 20).map((n) => n.getMainComponentAsync()))).forEach(addMain);
+    }
+    for (const text of page.findAllWithCriteria({ types: ['TEXT'] })) {
+      if (typeof text.textStyleId === 'string' && text.textStyleId) styleIds.add(text.textStyleId);
+    }
+  }
+  // Library text styles (Q30): a text node already using one carries it into the
+  // file, so the style is applied as it is, never imported by key.
+  const textStyles = new Map();
+  const ids = [...styleIds];
+  for (let i = 0; i < ids.length; i += 20) {
+    for (const style of await Promise.all(ids.slice(i, i + 20).map((id) => figma.getStyleByIdAsync(id)))) {
+      if (!style || !style.remote || style.type !== 'TEXT' || textStyles.has(style.key)) continue;
+      textStyles.set(style.key, { name: style.name, key: style.key });
+      nodes.set(libraryId(style.key), style);
     }
   }
   if (lib.components !== undefined && !Array.isArray(lib.components)) {
@@ -125,11 +142,15 @@ async function composeReadLibrary(spec, localVariables) {
       }
     }
   }));
-  return { sets: [...sets.values()], components: [...components.values()], nodes, cache: lib.cache || null, tokens: lib.tokens || null, localValues };
+  return {
+    sets: [...sets.values()], components: [...components.values()], textStyles: [...textStyles.values()], nodes,
+    cache: lib.cache || null, tokens: lib.tokens || null, localValues,
+    systemCollectionKeys: Array.isArray(lib.systemCollectionKeys) ? lib.systemCollectionKeys : null,
+  };
 }
 
 // Reads the INVENTORY documented in figma-compose.mjs, plus the live nodes the
-// writer needs, keyed by id. With spec.library (mode b) the library side is merged
+// writer needs, keyed by id. With spec.library (mode b, or a consumer run) the library side is merged
 // in (figma-compose-library.mjs), and componentsPage may be left out.
 async function composeReadInventory(spec) {
   const pages = [spec.componentsPage, spec.iconsPage].filter(Boolean).map(composeRequirePage);

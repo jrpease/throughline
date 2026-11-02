@@ -1,25 +1,30 @@
 // The library side of a mode b inventory, as a pure merge: library sets, swap
-// targets, variables and collections joined to the file's own, the library
-// winning a name clash. ZERO imports, `export const`/`export function` only. It is
+// targets, variables, collections and text styles joined to the file's own, the
+// library winning a name clash. In a consumer run (a product file using the repo's
+// own system as its library), library parts only. ZERO imports, `export const`/`export function` only. It is
 // inlined into the generated compose and drift scripts (references/figma-compose.md,
 // references/figma-drift.md) by build-figma-checks.mjs, so it must run in both Node
 // and the Figma plugin sandbox, and reuse none of the top-level names it is inlined
 // with. It depends on nothing else, so it carries its own copy of composeFold.
 //
-// Spec: docs/specs/2026-10-30-design-modes.md (Q5, Q7, Q8, Q9)
+// Spec: docs/specs/2026-10-30-design-modes.md (Q5, Q7, Q8, Q9, Q28, Q30, Q31)
 //
 // mergeLibraryInventory(local, library) → the resolver's INVENTORY (figma-compose.mjs)
-//   plus allowRaw: true and valueIndex.
+//   plus allowRaw (true in mode b, false in a consumer run) and valueIndex.
 //   local:   the reader's own inventory (sets, components, variables, textStyles,
 //            collections, target)
 //   library: {
 //     sets:       [{ name, key, autoLayout, props }],  // read from remote main components
 //     components: [{ name, key }],                     // remote standalone components, the swap targets
-//     cache:      design/library-cache.json, or null
+//     textStyles: [{ name, key }],                     // remote text styles in use on the loaded pages
+//     cache:      the library cache (design-workspace.mjs cache get), or null
 //     tokens:     design-workspace.mjs tokens, or null
 //     localValues: { colours, gap, radius }            // the file's own variables, same shape
+//     systemCollectionKeys: [key] | null               // a consumer run: design-system.json's figma.collectionKeys
 //   }
-// Library ids are 'lib:<key>'. Text styles stay local.
+// Library ids are 'lib:<key>'. In a consumer run every local part is left out,
+// variables and collections are limited to the system's collections (components
+// and text styles can't be told apart by library), and raw values aren't allowed.
 
 export const LIBRARY_ID_PREFIX = 'lib:';
 export const libraryId = (key) => `${LIBRARY_ID_PREFIX}${key}`;
@@ -58,24 +63,29 @@ export function mergeLibraryInventory(local, library) {
   const lib = library || {};
   const sets = (lib.sets || []).map((s) => ({ name: s.name, id: libraryId(s.key), page: null, autoLayout: s.autoLayout, props: s.props || [] }));
   const components = (lib.components || []).map((c) => ({ name: c.name, id: libraryId(c.key), page: null }));
+  const textStyles = (lib.textStyles || []).map((s) => ({ name: s.name, id: libraryId(s.key) }));
+  const system = Array.isArray(lib.systemCollectionKeys) && lib.systemCollectionKeys.length ? new Set(lib.systemCollectionKeys) : null;
   const variables = [];
   const collections = [];
   for (const entry of Object.values((lib.cache && lib.cache.libraries) || {})) {
     for (const [key, c] of Object.entries(entry.collections || {})) {
+      if (system && !system.has(key)) continue;
       collections.push({ name: c.name, id: libraryId(key), modes: (c.modes || []).map((m) => ({ name: m.name, id: m.id })) });
     }
     for (const [key, v] of Object.entries(entry.variables || {})) {
+      if (system && !system.has(v.collection)) continue;
       variables.push({ name: v.name, id: libraryId(key), kinds: v.kinds || [] });
     }
   }
+  const own = (items) => (system ? [] : items);
   return {
-    sets: libraryFirst(sets, loc.sets),
-    components: libraryFirst(components, loc.components),
-    variables: libraryFirst(variables, loc.variables),
-    textStyles: loc.textStyles,
-    collections: libraryFirst(collections, loc.collections),
+    sets: libraryFirst(sets, own(loc.sets)),
+    components: libraryFirst(components, own(loc.components)),
+    variables: libraryFirst(variables, own(loc.variables)),
+    textStyles: libraryFirst(textStyles, own(loc.textStyles)),
+    collections: libraryFirst(collections, own(loc.collections)),
     target: loc.target,
-    allowRaw: true,
+    allowRaw: !system,
     valueIndex: libraryValueIndex(lib.tokens, lib.localValues),
   };
 }
