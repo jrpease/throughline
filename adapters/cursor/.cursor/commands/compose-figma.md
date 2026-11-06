@@ -105,8 +105,8 @@ filling the gaps (mode b). Use the settings already in `design-system.json` and
    whether to leave it out, use a named existing component instead, or stop. An
    icon the swap-target page doesn't hold is a gap in the same way. Never draw a
    lookalike from frames. An `ambiguous-component` error is not a gap: the file
-   has two or more sets with that name (each listed with its page and
-   properties), and the description named nothing only one of them has. Name a
+   has two or more sets with that name (each listed with its page, or its
+   library key, and its properties), and the description named nothing only one of them has. Name a
    property only the intended set has and run it again. If no property tells
    them apart, stop on that component and tell the user: the library holds
    duplicate sets, and one needs renaming before a screen can use it.

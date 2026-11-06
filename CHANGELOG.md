@@ -15,8 +15,11 @@ to [Semantic Versioning](https://semver.org).
   name still works when it's unique, so existing manifests are unchanged. (#191)
 - **Two component sets with the same name no longer resolve to the first one.**
   compose-figma picks the set that has every property and slot the screen names,
-  and otherwise returns an `ambiguous-component` error listing each set's page and
-  properties, instead of failing every `Label` on an older `Button`. (#202)
+  and otherwise returns an `ambiguous-component` error listing each set's page (or
+  library key) and properties, instead of failing every `Label` on an older
+  `Button`. A screen composed earlier from a description that fits both sets now
+  shows in `/throughline:drift` as broken with that error, since the first match
+  it was built from was a guess. (#202)
 - **The screen gate finds a named screen inside a container frame**, the way many
   files keep a flow (a `Pre-Launch` frame holding its screens). (#202)
 - **`design-workspace.mjs system keys` keeps the manifest's indent and final
