@@ -1,6 +1,6 @@
 {
   "name": "@radicool/throughline",
-  "version": "0.33.1",
+  "version": "0.34.0",
   "description": "Your agentic design team: scaffold an agent-friendly design system in Figma and code, then design high-quality screens with it, or on the library your team already uses. Usable from Claude Code, Cursor, Codex, or any AGENTS.md agent.",
   "type": "module",
   "bin": {
