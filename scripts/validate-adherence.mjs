@@ -93,7 +93,26 @@ function tailwindCategory(utility) {
   return null;
 }
 
-const lineOf = (text, index) => text.slice(0, index).split('\n').length;
+// 1-based line of an index. One table of line starts per text, binary-searched,
+// so a file with thousands of matches isn't re-sliced from the top for each (#160).
+const LINE_STARTS = new Map();
+export function lineOf(text, index) {
+  let starts = LINE_STARTS.get(text);
+  if (!starts) {
+    if (LINE_STARTS.size >= 8) LINE_STARTS.clear();
+    starts = [0];
+    for (let i = text.indexOf('\n'); i !== -1; i = text.indexOf('\n', i + 1)) starts.push(i + 1);
+    LINE_STARTS.set(text, starts);
+  }
+  let lo = 0;
+  let hi = starts.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (starts[mid] <= index) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo + 1;
+}
 
 // Every character but a newline becomes a space, so an index into the blanked
 // text is the same line in the original.
