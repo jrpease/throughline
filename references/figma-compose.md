@@ -18,7 +18,10 @@ The whole description is checked before anything is written: an unknown componen
 property, option, variable or text style, a variable of the wrong kind, or a name
 already held by a screen a person made, comes back as a list of errors and the file
 is untouched. A component the file lacks is a `missing-component` error with the
-nearest names: report it as a gap, never draw a lookalike. Every value the script
+nearest names: report it as a gap, never draw a lookalike. Two sets with the same
+name resolve to the one holding every property and slot the node names; otherwise
+it is an `ambiguous-component` error listing each set's page and properties.
+Every value the script
 writes is bound to a variable. The script is the rule; do not re-write it by hand.
 
 ## How to call it
@@ -74,6 +77,12 @@ writes is bound to a variable. The script is the rule; do not re-write it by han
    file) passes the same `library` with `systemCollectionKeys` inside it, to
    `inventory` and `build` both: library parts only,
    variables from the system's collections only, and no `{ raw }`.
+   The snippet is large, and pasting it into every call costs tokens. A run that
+   makes several calls in one file can paste it once, ending with
+   `globalThis.__throughlineCompose = runCompose; return 'installed';`, then
+   send only `return await globalThis.__throughlineCompose(MODE, SPEC);` after.
+   Globals live per file and until the plugin reloads: install again in another
+   file, after a reload, or when a call says it isn't a function.
 2. Between `build` and `finalize`, run the screen gate
    (`references/figma-adherence.md`) with `screens: ['WIP: <screen>']`. Finalize
    only a passing screen. A failure is a composer bug: report it and leave the
@@ -304,7 +313,7 @@ function checkScreens(snapshot, { skip = [] } = {}) {
 //   { raw } in the plan; plan.raws lists each as { path, kind, value }.
 
 const COMPOSE_ERROR_KINDS = [
-  'invalid', 'name-taken', 'missing-component', 'unknown-prop', 'unknown-option',
+  'invalid', 'name-taken', 'missing-component', 'ambiguous-component', 'unknown-prop', 'unknown-option',
   'prop-type', 'missing-swap-target', 'unknown-variable', 'variable-kind',
   'unknown-text-style', 'unknown-mode', 'raw-has-variable',
 ];
@@ -510,9 +519,27 @@ function resolveScreen(description, inventory) {
     };
   }
 
+  // Two sets can share a name (a library keeps an old Button beside a new one).
+  // Then the set is the one that has every property and slot the node names;
+  // anything else is ambiguous, never the first match (#202).
+  function pickSet(node) {
+    const asked = String(node.component);
+    let same = inv.sets.filter((x) => x.name === asked);
+    if (!same.length) same = inv.sets.filter((x) => composeFold(x.name) === composeFold(asked));
+    if (same.length < 2) return { set: same[0] || null, same };
+    const wanted = [...Object.keys(node.props || {}), ...Object.keys(node.slots || {})];
+    const fits = same.filter((x) => wanted.every((w) => x.props.some((p) => composeFold(propBaseName(p.key)) === composeFold(w))));
+    return { set: fits.length === 1 ? fits[0] : null, same };
+  }
+
   function component(node, path, parent) {
-    const set = byFold(inv.sets, String(node.component));
+    const { set, same } = pickSet(node);
     const sizingPlan = sizing(node, path, parent, null, !set || set.autoLayout !== false);
+    if (!set && same.length > 1) {
+      fail('ambiguous-component', `${path}.component`, String(node.component),
+        same.map((x) => `${x.name} (${x.page ? `page "${x.page}", ` : ''}properties: ${x.props.map((p) => propBaseName(p.key)).join(', ') || 'none'})`));
+      return null;
+    }
     if (!set) {
       fail('missing-component', `${path}.component`, String(node.component), nearestNames(String(node.component), inv.sets.map((s) => s.name)));
       return null;

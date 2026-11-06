@@ -13,6 +13,21 @@ to [Semantic Versioning](https://semver.org).
   `{ "collection": "Spacing Semantic", "name": "spacing/space/6" }`. The render
   keeps the exactly-one rule, and its error now names both collections. A bare
   name still works when it's unique, so existing manifests are unchanged. (#191)
+- **Two component sets with the same name no longer resolve to the first one.**
+  compose-figma picks the set that has every property and slot the screen names,
+  and otherwise returns an `ambiguous-component` error listing each set's page and
+  properties, instead of failing every `Label` on an older `Button`. (#202)
+- **The screen gate finds a named screen inside a container frame**, the way many
+  files keep a flow (a `Pre-Launch` frame holding its screens). (#202)
+- **`design-workspace.mjs system keys` keeps the manifest's indent and final
+  newline**, so recording the keys is a one-field diff. (#202)
+
+### Changed
+
+- **compose-figma can install its snippet once per file** through `globalThis`
+  instead of pasting it into every call, and `figma-scripting.md` warns that a
+  timed-out `figma_execute` keeps running and can leave nodes outside the
+  rollback. (#202)
 
 ## [0.33.1] — 2026-11-06
 

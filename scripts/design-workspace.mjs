@@ -148,6 +148,14 @@ export function systemKeysFrom(signals, library) {
   return keys;
 }
 
+// The indent a JSON file already uses (a tab, or N spaces), so a rewrite keeps
+// it; '' for a file written on one line. Two spaces when there's nothing to go on.
+export function jsonIndent(text) {
+  const m = /\n([ \t]+)\S/.exec(text);
+  if (m) return m[1];
+  return /\n/.test(text.trim()) || !text.trim() ? '  ' : '';
+}
+
 // Sets figma.collectionKeys and leaves every other field, and its position, alone.
 export function withCollectionKeys(manifest, keys) {
   const next = structuredClone(manifest);
@@ -261,10 +269,13 @@ function main() {
     const signals = input();
     const keys = guard(() => systemKeysFrom(signals, values.library?.[0]));
     const manifest = load('design-system.json');
-    const reformatted = readFileSync(manifestFile, 'utf8') !== `${JSON.stringify(manifest, null, 2)}\n`;
-    writeFileSync(manifestFile, `${JSON.stringify(withCollectionKeys(manifest, keys), null, 2)}\n`);
+    const text = readFileSync(manifestFile, 'utf8');
+    const indent = jsonIndent(text);
+    const eol = text.endsWith('\n') ? '\n' : '';
+    const reformatted = text !== `${JSON.stringify(manifest, null, indent)}${eol}`;
+    writeFileSync(manifestFile, `${JSON.stringify(withCollectionKeys(manifest, keys), null, indent)}${eol}`);
     console.log(`recorded ${keys.length} collection keys in design-system.json`);
-    if (reformatted) console.log('design-system.json was also rewritten in two-space JSON; nothing else in it changed');
+    if (reformatted) console.log('design-system.json kept its indent, but its other hand formatting (such as arrays on one line) was rewritten; nothing else in it changed');
     return;
   }
   const cacheFile = cacheFileFor(values.dir);

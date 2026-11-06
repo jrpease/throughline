@@ -383,7 +383,7 @@ function checkScreens(snapshot, { skip = [] } = {}) {
 //   { raw } in the plan; plan.raws lists each as { path, kind, value }.
 
 const COMPOSE_ERROR_KINDS = [
-  'invalid', 'name-taken', 'missing-component', 'unknown-prop', 'unknown-option',
+  'invalid', 'name-taken', 'missing-component', 'ambiguous-component', 'unknown-prop', 'unknown-option',
   'prop-type', 'missing-swap-target', 'unknown-variable', 'variable-kind',
   'unknown-text-style', 'unknown-mode', 'raw-has-variable',
 ];
@@ -589,9 +589,27 @@ function resolveScreen(description, inventory) {
     };
   }
 
+  // Two sets can share a name (a library keeps an old Button beside a new one).
+  // Then the set is the one that has every property and slot the node names;
+  // anything else is ambiguous, never the first match (#202).
+  function pickSet(node) {
+    const asked = String(node.component);
+    let same = inv.sets.filter((x) => x.name === asked);
+    if (!same.length) same = inv.sets.filter((x) => composeFold(x.name) === composeFold(asked));
+    if (same.length < 2) return { set: same[0] || null, same };
+    const wanted = [...Object.keys(node.props || {}), ...Object.keys(node.slots || {})];
+    const fits = same.filter((x) => wanted.every((w) => x.props.some((p) => composeFold(propBaseName(p.key)) === composeFold(w))));
+    return { set: fits.length === 1 ? fits[0] : null, same };
+  }
+
   function component(node, path, parent) {
-    const set = byFold(inv.sets, String(node.component));
+    const { set, same } = pickSet(node);
     const sizingPlan = sizing(node, path, parent, null, !set || set.autoLayout !== false);
+    if (!set && same.length > 1) {
+      fail('ambiguous-component', `${path}.component`, String(node.component),
+        same.map((x) => `${x.name} (${x.page ? `page "${x.page}", ` : ''}properties: ${x.props.map((p) => propBaseName(p.key)).join(', ') || 'none'})`));
+      return null;
+    }
     if (!set) {
       fail('missing-component', `${path}.component`, String(node.component), nearestNames(String(node.component), inv.sets.map((s) => s.name)));
       return null;

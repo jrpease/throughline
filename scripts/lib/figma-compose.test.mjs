@@ -149,3 +149,34 @@ test('every error kind a fixture raises is a documented one', () => {
   const raised = new Set(Object.values(cases).flatMap((c) => run(c).errors.map((e) => e.kind)));
   for (const kind of raised) assert.ok(COMPOSE_ERROR_KINDS.includes(kind), kind);
 });
+
+// #202: a library with two sets named Button, only the newer one with a Label.
+const twinButtons = () => {
+  const old = { name: 'Button', id: '90:1', page: 'Legacy', autoLayout: true, props: [
+    { key: 'Size', name: 'Size', type: 'VARIANT', options: ['sm', 'md'] },
+  ] };
+  const fresh = { name: 'Button', id: '91:1', page: 'Components', autoLayout: true, props: [
+    { key: 'Size', name: 'Size', type: 'VARIANT', options: ['sm', 'md'] },
+    { key: 'Label#91:7', name: 'Label', type: 'TEXT' },
+  ] };
+  return { ...inventory, sets: [old, fresh, ...inventory.sets.filter((x) => x.name !== 'Button')], target: null };
+};
+const withButton = (button) => ({ screen: 'Booking', page: 'Screens', width: 390, root: { layout: 'vertical', children: [{ component: 'Button', ...button }] } });
+
+test('same-named sets: the one with every named property is picked', () => {
+  const r = resolveScreen(withButton({ props: { Label: 'Book', Size: 'md' } }), twinButtons());
+  assert.equal(r.ok, true, JSON.stringify(r.errors));
+  assert.equal(r.plan.root.children[0].setId, '91:1');
+});
+
+test('same-named sets with nothing to tell them apart are ambiguous, never the first match', () => {
+  for (const button of [{}, { props: { Size: 'md' } }, { props: { Icon: 'x' } }]) {
+    const r = resolveScreen(withButton(button), twinButtons());
+    assert.deepEqual(r.errors.map((e) => e.kind), ['ambiguous-component'], JSON.stringify(button));
+    assert.equal(r.errors[0].asked, 'Button');
+    assert.deepEqual(r.errors[0].nearest, [
+      'Button (page "Legacy", properties: Size)',
+      'Button (page "Components", properties: Size, Label)',
+    ]);
+  }
+});

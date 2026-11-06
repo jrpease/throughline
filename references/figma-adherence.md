@@ -377,15 +377,23 @@ function slotsOf(instance) {
   });
 }
 
+// Screens are top-level frames and frames in sections. A named screen can also
+// sit one level down, inside a container frame holding a flow (#202); those are
+// only found by name, since a container's children are otherwise its parts.
 function screensOn(page, names) {
   const all = [];
+  const nested = [];
+  const frames = (node) => node.children.filter((c) => c.type === 'FRAME');
   for (const top of page.children) {
-    if (top.type === 'FRAME') all.push(top);
-    else if (top.type === 'SECTION') for (const c of top.children) if (c.type === 'FRAME') all.push(c);
+    const screens = top.type === 'FRAME' ? [top] : top.type === 'SECTION' ? frames(top) : [];
+    for (const screen of screens) {
+      all.push(screen);
+      nested.push(...frames(screen));
+    }
   }
   if (!names || !names.length) return all;
   return names.map((name) => {
-    const hit = all.find((s) => s.name === name);
+    const hit = all.find((s) => s.name === name) || nested.find((s) => s.name === name);
     if (!hit) throw new Error(`no screen named "${name}" on page "${page.name}"`);
     return hit;
   });

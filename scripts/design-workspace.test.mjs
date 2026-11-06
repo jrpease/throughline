@@ -179,8 +179,19 @@ test('cli: system keys writes figma.collectionKeys and leaves field order alone'
   assert.equal(text, JSON.stringify({ ...manifest, figma: { ...manifest.figma, collectionKeys: ['c1', 'c2'] } }, null, 2) + '\n');
   assert.equal(cli('system', 'keys', '--dir', dir, '--from', from, '--library', 'Icons').status, 0);
   assert.deepEqual(JSON.parse(readFileSync(join(dir, 'design-system.json'), 'utf8')).figma.collectionKeys, ['i1']);
-  writeFileSync(join(dir, 'design-system.json'), JSON.stringify(manifest) + '\n');
-  assert.match(cli('system', 'keys', '--dir', dir, '--from', from).stdout, /rewritten in two-space JSON/);
+  // #202: the file keeps its own indent and final newline, so the diff is the one field.
+  const withKeys = { ...manifest, figma: { ...manifest.figma, collectionKeys: ['c1', 'c2'] } };
+  for (const [indent, eol] of [['\t', '\n'], ['    ', '\n'], ['', '\n'], ['  ', '']]) {
+    writeFileSync(join(dir, 'design-system.json'), JSON.stringify(manifest, null, indent) + eol);
+    const out = cli('system', 'keys', '--dir', dir, '--from', from);
+    assert.doesNotMatch(out.stdout, /rewritten/, JSON.stringify(indent));
+    assert.equal(readFileSync(join(dir, 'design-system.json'), 'utf8'), JSON.stringify(withKeys, null, indent) + eol, JSON.stringify(indent));
+  }
+  // Hand formatting beyond the indent (an array on one line) is the one thing still rewritten, and said so.
+  writeFileSync(join(dir, 'design-system.json'), JSON.stringify(manifest, null, 2).replace('"zeta": true', '"zeta": [1, 2]') + '\n');
+  const hand = cli('system', 'keys', '--dir', dir, '--from', from);
+  assert.match(hand.stdout, /kept its indent, but its other hand formatting/);
+  assert.match(readFileSync(join(dir, 'design-system.json'), 'utf8'), /\n  "zeta": \[\n    1,/);
   assert.equal(cli('system', 'keys', '--dir', dir, '--from', from, '--library', 'Nope').status, 1);
   assert.equal(cli('system', 'keys', '--dir', dir, '--from', from, '--library', 'Icons', '--library', 'X').status, 2);
   assert.equal(cli('system', 'keys', '--dir', dir).status, 2);
