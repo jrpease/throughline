@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildPayload, extractSnippet } from './doc-card-payload.mjs';
+import { buildPayload, extractSnippet, isRoleSpec, pickRoleVariable } from './doc-card-payload.mjs';
 import { canonicalFingerprint } from './lib/doc-record.mjs';
 import { planDocCard, fnv1a } from './lib/doc-card-plan.mjs';
 
@@ -101,4 +101,66 @@ test('buildPayload refuses without a complete mapping', () => {
 
 test('buildPayload rejects a malformed node id', () => {
   assert.throws(() => build({ nodeId: 'Badge' }), /--node-id must look like/);
+});
+
+// #191: Zygarden names spacing/space/6 in both a primitive and a semantic collection.
+const TWIN_VARS = [
+  { id: 'V:1', name: 'spacing/space/6', collection: 'Spacing Primitives' },
+  { id: 'V:2', name: 'spacing/space/6', collection: 'Spacing Semantic' },
+  { id: 'V:3', name: 'color/text/primary', collection: 'Color / Semantic' },
+];
+
+test('a role is a non-empty name or a { collection, name } pair', () => {
+  assert.equal(isRoleSpec('color/text/primary'), true);
+  assert.equal(isRoleSpec({ collection: 'Spacing Semantic', name: 'spacing/space/6' }), true);
+  for (const bad of ['', null, undefined, {}, { name: 'x' }, { collection: 'C' }, { collection: '', name: 'x' }]) {
+    assert.equal(isRoleSpec(bad), false, JSON.stringify(bad));
+  }
+});
+
+test('a bare name resolves when it is unique, and names the collections when it is not', () => {
+  assert.equal(pickRoleVariable(TWIN_VARS, 'textDefault', 'color/text/primary').id, 'V:3');
+  assert.throws(
+    () => pickRoleVariable(TWIN_VARS, 'spacePadding', 'spacing/space/6'),
+    /docCardVariables\.spacePadding "spacing\/space\/6" resolves to 2 variables, not exactly one; it is in "Spacing Primitives" and "Spacing Semantic", so record it as \{ "collection"/,
+  );
+});
+
+test('a collection-qualified role picks the variable in that collection', () => {
+  assert.equal(pickRoleVariable(TWIN_VARS, 'spacePadding', { collection: 'Spacing Semantic', name: 'spacing/space/6' }).id, 'V:2');
+  assert.equal(pickRoleVariable(TWIN_VARS, 'spacePadding', { collection: 'Spacing Primitives', name: 'spacing/space/6' }).id, 'V:1');
+  // A collection name with "/" in it is matched whole.
+  assert.equal(pickRoleVariable(TWIN_VARS, 'textDefault', { collection: 'Color / Semantic', name: 'color/text/primary' }).id, 'V:3');
+  assert.throws(
+    () => pickRoleVariable(TWIN_VARS, 'spacePadding', { collection: 'Spacing Tokens', name: 'spacing/space/6' }),
+    /"spacing\/space\/6" in collection "Spacing Tokens" resolves to 0 variables, not exactly one$/,
+  );
+});
+
+test('the payload accepts a qualified role and resolves it in Figma by collection', async () => {
+  const roles = { ...MANIFEST.figma.docCardVariables, spacePadding: { collection: 'Spacing Semantic', name: 'spacing/space/6' } };
+  const { code } = build({ manifest: withFigma({ docCardVariables: roles }) });
+  assert.doesNotThrow(() => new AsyncFunction('figma', code));
+  // Run the payload against a stub file holding the twin: it must pick V:2 and
+  // get as far as the text styles, which the stub doesn't have.
+  const collections = [{ id: 'C:p', name: 'Spacing Primitives' }, { id: 'C:s', name: 'Spacing Semantic' }, { id: 'C:o', name: 'Other' }];
+  const others = Object.values(MANIFEST.figma.docCardVariables).filter((n) => n !== MANIFEST.figma.docCardVariables.spacePadding)
+    .map((name, i) => ({ id: 'O:' + i, name, variableCollectionId: 'C:o' }));
+  const all = [
+    { id: 'V:1', name: 'spacing/space/6', variableCollectionId: 'C:p' },
+    { id: 'V:2', name: 'spacing/space/6', variableCollectionId: 'C:s' },
+    ...others,
+  ];
+  const fetched = [];
+  const figma = {
+    variables: {
+      getLocalVariablesAsync: async () => all,
+      getLocalVariableCollectionsAsync: async () => collections,
+      getVariableByIdAsync: async (id) => { fetched.push(id); return { id }; },
+    },
+    getLocalTextStylesAsync: async () => [],
+  };
+  await assert.rejects(new AsyncFunction('figma', code)(figma), /docCardTextStyles\.title "Heading\/H1" resolves to 0 text styles/);
+  assert.ok(fetched.includes('V:2'));
+  assert.ok(!fetched.includes('V:1'));
 });

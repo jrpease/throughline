@@ -48,6 +48,10 @@ What the render needs, and what to do when it isn't recorded yet:
 2. **`figma.docCardVariables`**, fourteen roles, each resolved **by the
    recorded name** — never re-derived or substituted. A name that doesn't
    resolve to exactly one variable throws: the token was renamed or removed.
+   A role is a name, or `{ "collection": "...", "name": "..." }` when the
+   same name sits in two collections (a primitive and its semantic alias).
+   The error names both collections; record the pair, preferring the
+   semantic collection when suggesting one.
    - `textDefault`, `textMuted` (text), `tonePositive`, `toneNegative`,
      `toneCaution` (Do / Don't / caution tones, also the Unreviewed
      chip), `border`, `spacePadding`, `spaceRowGap`, `spaceBlockGap`,

@@ -60,7 +60,7 @@ export function buildPayload({ record, manifest, builderMarkdown, nodeId = null,
     throw new Error('design-system.json has no figma.docCardVariables — recover the nine v4 roles from an existing card '
       + 'and pick the five v5 ones ("How to call it" in references/doc-card-builder.md), write them back, then re-run');
   }
-  const missing = ROLES.filter((r) => typeof names[r] !== 'string' || names[r] === '');
+  const missing = ROLES.filter((r) => !isRoleSpec(names[r]));
   if (missing.length) throw new Error('figma.docCardVariables is missing role(s): ' + missing.join(', '));
   const styles = figmaConf.docCardTextStyles;
   const missingStyles = TEXT_STYLES.filter((r) => !styles || typeof styles[r] !== 'string' || styles[r] === '');
@@ -84,12 +84,13 @@ export function buildPayload({ record, manifest, builderMarkdown, nodeId = null,
     snippet,
     `const ROLE_NAMES = ${JSON.stringify(roleNames)};`,
     `const STYLE_NAMES = ${JSON.stringify(styleNames)};`,
+    pickRoleVariable.toString(),
     'const allVars = await figma.variables.getLocalVariablesAsync();',
+    'const collectionNames = Object.fromEntries((await figma.variables.getLocalVariableCollectionsAsync()).map((c) => [c.id, c.name]));',
     'const vars = {};',
-    'for (const [role, name] of Object.entries(ROLE_NAMES)) {',
-    '  const hits = allVars.filter((v) => v.name === name);',
-    "  if (hits.length !== 1) throw new Error('docCardVariables.' + role + ' \"' + name + '\" resolves to ' + hits.length + ' variables, not exactly one');",
-    '  vars[role] = await figma.variables.getVariableByIdAsync(hits[0].id);',
+    'for (const [role, spec] of Object.entries(ROLE_NAMES)) {',
+    "  const hit = pickRoleVariable(allVars.map((v) => ({ id: v.id, name: v.name, collection: collectionNames[v.variableCollectionId] })), role, spec);",
+    '  vars[role] = await figma.variables.getVariableByIdAsync(hit.id);',
     '}',
     'const allStyles = await figma.getLocalTextStylesAsync();',
     'const textStyles = {};',
@@ -109,6 +110,33 @@ export function buildPayload({ record, manifest, builderMarkdown, nodeId = null,
     fingerprint,
     expectedRecordHash: fnv1a(JSON.stringify(planDocCard(record))),
   };
+}
+
+// A docCardVariables role is a variable name, or { collection, name } when the
+// bare name is shared across collections (a primitive and its semantic alias).
+// The object form, not a "Collection/name" string, because collection names
+// can themselves contain "/" (#191).
+export function isRoleSpec(spec) {
+  if (typeof spec === 'string') return spec !== '';
+  return Boolean(spec) && typeof spec === 'object'
+    && typeof spec.name === 'string' && spec.name !== ''
+    && typeof spec.collection === 'string' && spec.collection !== '';
+}
+
+// Resolves one role to exactly one variable. vars: [{ id, name, collection }].
+// Inlined into the payload with .toString(), so it must stay self-contained.
+export function pickRoleVariable(vars, role, spec) {
+  const name = typeof spec === 'string' ? spec : spec.name;
+  const collection = typeof spec === 'string' ? null : spec.collection;
+  const hits = vars.filter((v) => v.name === name && (collection === null || v.collection === collection));
+  if (hits.length === 1) return hits[0];
+  const label = collection === null ? '"' + name + '"' : '"' + name + '" in collection "' + collection + '"';
+  let hint = '';
+  if (hits.length > 1 && collection === null) {
+    hint = '; it is in ' + hits.map((h) => '"' + h.collection + '"').join(' and ')
+      + ', so record it as { "collection": "<one of them>", "name": "' + name + '" }';
+  }
+  throw new Error('docCardVariables.' + role + ' ' + label + ' resolves to ' + hits.length + ' variables, not exactly one' + hint);
 }
 
 function parseArgs(argv) {

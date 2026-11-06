@@ -6,6 +6,14 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Fixed
+
+- **A doc card role can name its collection.** When a variable name sits in two
+  collections, a primitive and its semantic alias, record the role as
+  `{ "collection": "Spacing Semantic", "name": "spacing/space/6" }`. The render
+  keeps the exactly-one rule, and its error now names both collections. A bare
+  name still works when it's unique, so existing manifests are unchanged. (#191)
+
 ## [0.33.1] — 2026-11-06
 
 The README, the npm page and the plugin's own entry points now tell one story:

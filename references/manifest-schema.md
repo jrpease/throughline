@@ -204,7 +204,9 @@ bailing or running silently.
 - `publishedAt` — ISO timestamp the user last confirmed a publish, for "you may
   need to re-publish after adding components" messaging.
 - `docCardVariables` — object mapping the doc-card builder's fourteen semantic
-  variable roles to the variable name each resolves to in this project's file:
+  variable roles to the variable each resolves to in this project's file (a
+  name, or `{ "collection", "name" }` when the name is in more than one
+  collection, e.g. a primitive and its semantic alias; prefer the semantic one):
   `{ textDefault, textMuted, tonePositive, toneNegative, border, spacePadding,
   spaceRowGap, spaceBlockGap, spaceItemGap, surfaceBand, surfaceHeader,
   textOnHeader, radiusBand, toneCaution }`. The first nine date from v6; the
