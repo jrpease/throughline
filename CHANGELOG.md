@@ -24,6 +24,9 @@ to [Semantic Versioning](https://semver.org).
   files keep a flow (a `Pre-Launch` frame holding its screens). (#202)
 - **`design-workspace.mjs system keys` keeps the manifest's indent and final
   newline**, so recording the keys is a one-field diff. (#202)
+- **The doc card checks every `Status` variant of the kit header** against the
+  card's fill, not only the default one, so a `deprecated` header restyled to
+  match the card is refused and named. (#198)
 
 ### Changed
 

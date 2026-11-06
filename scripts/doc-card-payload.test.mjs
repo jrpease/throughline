@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { buildPayload, extractSnippet, isRoleSpec, pickRoleVariable } from './doc-card-payload.mjs';
 import { canonicalFingerprint } from './lib/doc-record.mjs';
-import { planDocCard, fnv1a } from './lib/doc-card-plan.mjs';
 
 const BUILDER_MD = readFileSync(new URL('../references/doc-card-builder.md', import.meta.url), 'utf8');
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
@@ -77,7 +76,10 @@ test('the payload compiles as a figma_execute body (top-level await + return)', 
 });
 
 test('expectedRecordHash is the hash the renderer computes for this record', () => {
-  assert.equal(build().expectedRecordHash, fnv1a(JSON.stringify(planDocCard(RECORD))));
+  // Hash with the planner copy inlined in the builder snippet, the code that runs
+  // in Figma, so a drift between it and lib/doc-card-plan.mjs fails here (#198).
+  const inlined = new Function(`${extractSnippet(BUILDER_MD)}; return { planDocCard, fnv1a };`)();
+  assert.equal(build().expectedRecordHash, inlined.fnv1a(JSON.stringify(inlined.planDocCard(RECORD))));
 });
 
 test('--status emits a payload that only sets the header status', () => {
