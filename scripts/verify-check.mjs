@@ -42,6 +42,9 @@ import {
 } from './lib/proof.mjs';
 
 // The manifest version this gate's `verification` pointer ships in.
+// A floor, not the current schema: verify-check only writes the v7 fields (the
+// proof bundle), so it raises an older manifest to 7 and never claims a later
+// version's fields. Deliberately behind manifest-schema.md's 8 (#198).
 const SCHEMA_VERSION = 7;
 
 // The fold validate-token-output.mjs calls `normalizeKey`: it collapses every

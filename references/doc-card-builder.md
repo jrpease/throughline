@@ -467,18 +467,26 @@ async function renderDocCard({ componentName, nodeId, record, vars, textStyles, 
     for (const name of ['Title', 'Lede', 'Unreviewed']) propKey(kitBandHeader.componentPropertyDefinitions, name, '_Doc/Band header');
   }
   // The header must stand apart from the card it sits on (decision 4), checked
-  // in the card's own mode before anything is written.
+  // in the card's own mode before anything is written. Every Status variant is
+  // checked, since a designer can restyle one (say deprecated) to match the
+  // card; the contrast reported is the default variant's.
   const cardFill = await solidHex(card, card);
   let contrast = null;
   if (cardFill) {
-    const headerFill = kitHeader
-      ? await solidHex(kitHeader.defaultVariant, card)
-      : hexOf(vars.surfaceHeader.resolveForConsumer(card).value);
-    if (headerFill) contrast = Object.assign({ header: headerFill, card: cardFill }, headerContrast(headerFill, cardFill));
-    if (contrast && contrast.verdict === 'refuse') {
-      throw new Error('renderDocCard: the header fill ' + headerFill + ' matches the fill of card ' + card.id
-        + ' — the header must stand apart from the card (decision 4); '
-        + (kitHeader ? 'restyle _Doc/Header in the kit' : 'pick a docCardVariables.surfaceHeader that differs from the card'));
+    const headers = kitHeader ? [kitHeader.defaultVariant, ...kitHeader.children.filter((v) => v !== kitHeader.defaultVariant)] : [null];
+    for (const variant of headers) {
+      const headerFill = variant
+        ? await solidHex(variant, card)
+        : hexOf(vars.surfaceHeader.resolveForConsumer(card).value);
+      if (!headerFill) continue;
+      const check = Object.assign({ header: headerFill, card: cardFill }, headerContrast(headerFill, cardFill));
+      if (!contrast) contrast = check;
+      if (check.verdict === 'refuse') {
+        throw new Error('renderDocCard: the header fill ' + headerFill
+          + (variant ? ' (_Doc/Header ' + variant.name + ')' : '') + ' matches the fill of card ' + card.id
+          + ' — the header must stand apart from the card (decision 4); '
+          + (kitHeader ? 'restyle that variant of _Doc/Header in the kit' : 'pick a docCardVariables.surfaceHeader that differs from the card'));
+      }
     }
   }
 
