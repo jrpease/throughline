@@ -30,6 +30,7 @@ test('record prose with <tags> is escaped so MDX does not read it as JSX (Select
   const { text } = renderMdx(record('Select'), { recordFile: 'Select.doc.json', stories: 'Select.stories' });
   assert.equal(text, read('Button/Select.mdx'));
   assert.equal(mdxText('a <select> and {x}'), 'a &lt;select&gt; and &#123;x&#125;');
+  assert.equal(mdxText('use `<label>` for <b>'), 'use `<label>` for &lt;b&gt;');
 });
 
 test('empty sections are left out, and the fingerprint line is first', () => {

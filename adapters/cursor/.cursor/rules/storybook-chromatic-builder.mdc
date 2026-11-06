@@ -255,7 +255,7 @@ projection contract):
   hand. It renders summary, description, when-to-use/not, do's/don'ts, variants,
   states, accessibility and tokens, puts the record's fingerprint in a comment on
   line 1 (`docFingerprint: <fp>`), and uses the stories file beside it, or a
-  titled `Meta` when there is none. It prints `{ src, render, file }`.
+  titled `Meta` when there is none. It prints `{ component, src, render, file }`.
 - **JSDoc.** Add a doc comment to the code component from `summary` + `description`
   and per-prop descriptions from `variants`/`states` meanings, so `argTypes`
   descriptions surface in the Storybook controls table.

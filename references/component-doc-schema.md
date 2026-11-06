@@ -93,8 +93,9 @@ guidelines), `examples`.
 - The 16-hex-char result is the stamp recorded per surface and per canonical file.
 
 Implemented once in `scripts/lib/doc-record.mjs` (`canonicalFingerprint`) and
-reused by `docs:check`, `docs:digest`, and — for the Figma surfaces — by the
-Figma-connected skill computing the identical hash over the description content.
+reused by `docs:check`, `docs:digest`, `scripts/doc-description.mjs` (which hashes
+the Figma description in Node, since the plugin sandbox has no SHA-256) and
+`scripts/render-mdx.mjs`.
 
 ## Projection mapping
 

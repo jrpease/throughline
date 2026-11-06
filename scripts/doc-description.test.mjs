@@ -33,7 +33,7 @@ test('empty blocks drop with their label; Accessibility stays while either list 
 
 const stubFigma = (nodes) => ({
   loadAllPagesAsync: async () => {},
-  root: { findAllWithCriteria: () => nodes },
+  root: { findAllWithCriteria: ({ types }) => nodes.filter((n) => types.includes(n.type)) },
 });
 const page = (name) => ({ type: 'PAGE', name });
 
@@ -43,7 +43,8 @@ test('the payload sets the one matching component and proves the text arrived', 
   const set = { id: '1:1', name: 'Button', type: 'COMPONENT_SET', parent: page('Components'), description: '' };
   const variant = { id: '1:2', name: 'Button', type: 'COMPONENT', parent: set };
   const other = { id: '2:1', name: 'Badge', type: 'COMPONENT_SET', parent: page('Components'), description: '' };
-  const out = await new AsyncFunction('figma', p.code)(stubFigma([set, variant, other]));
+  const label = { id: '3:1', name: 'Button', type: 'TEXT', parent: page('Components') };
+  const out = await new AsyncFunction('figma', p.code)(stubFigma([set, variant, other, label]));
   assert.deepEqual(out, { id: '1:1', name: 'Button', matches: true, length: p.text.length });
   assert.equal(set.description, p.text);
   assert.equal(other.description, '');
@@ -60,4 +61,12 @@ test('the payload refuses zero or two components with the name, writing nothing'
 
 test('a record missing a required field is refused', () => {
   assert.throws(() => buildDescriptionPayload({ name: 'X', summary: 'S.' }), /description/);
+});
+
+test('a standalone component inside a frame is found; a variant of a set never is', async () => {
+  const { code, text } = buildDescriptionPayload(BUTTON);
+  const frame = { type: 'FRAME', name: 'Kit', parent: page('Parts') };
+  const solo = { id: '4:1', name: 'Button', type: 'COMPONENT', parent: frame, description: '' };
+  const out = await new AsyncFunction('figma', code)(stubFigma([solo]));
+  assert.deepEqual([out.id, out.matches, solo.description], ['4:1', true, text]);
 });

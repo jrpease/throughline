@@ -17,8 +17,10 @@ import { canonicalFingerprint, fingerprint, validateRecord } from './lib/doc-rec
 
 // Record prose is text, not JSX: MDX would read `<select>` as a tag and `{x}` as
 // an expression, so those characters go out as entities.
+// Inside a `code span` they are already literal, and an entity there would show
+// as typed, so code spans pass through untouched.
 const ENTITIES = { '<': '&lt;', '>': '&gt;', '{': '&#123;', '}': '&#125;' };
-export const mdxText = (s) => String(s).replace(/[<>{}]/g, (c) => ENTITIES[c]);
+export const mdxText = (s) => String(s).split(/(`[^`]*`)/).map((part, i) => (i % 2 ? part : part.replace(/[<>{}]/g, (c) => ENTITIES[c]))).join('');
 const list = (items) => items.map((s) => `- ${s}`).join('\n');
 const nonEmpty = (a) => Array.isArray(a) && a.length > 0;
 
