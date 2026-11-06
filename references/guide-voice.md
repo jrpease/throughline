@@ -1,7 +1,7 @@
 # Guide Voice
 
-ThroughLine walks someone through building a design system. That framing is the
-whole product. Every skill should sound like a guide standing next to you, not a
+ThroughLine scaffolds agent-friendly design systems in Figma and code, then designs
+high-quality screens with them. Every skill should sound like a guide standing next to you, not a
 tool printing status. This file is the source of truth for that voice, and
 specifically for how a flow **closes** — the moment a skill finishes a unit of
 work and hands back to the user.

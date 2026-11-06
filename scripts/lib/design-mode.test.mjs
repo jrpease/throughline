@@ -14,7 +14,7 @@ test('mode a only when design-system.json names the open file', () => {
   const r = detectMode({ ...none, manifestFileKey: 'OPEN', localVariables: 40, localSets: 12 });
   assert.equal(r.mode, 'a');
   assert.equal(r.libraryDetected, false);
-  assert.match(r.reason, /^Mode a:/);
+  assert.match(r.reason, /^Mode 1:/);
 });
 
 test('a file using a library, with no system collection keys recorded, is mode b', () => {
@@ -38,7 +38,7 @@ test('a file with only its own parts is mode b with no library', () => {
 test('nothing at all is mode c', () => {
   const r = detectMode(none);
   assert.equal(r.mode, 'c');
-  assert.match(r.reason, /^Mode c:/);
+  assert.match(r.reason, /^Mode 3:/);
 });
 
 test('a null manifest key never matches', () => {
@@ -48,7 +48,7 @@ test('a null manifest key never matches', () => {
 test('forcing lowers the mode and says so', () => {
   const r = detectMode({ ...none, manifestFileKey: 'OPEN', localSets: 1, forced: 'b' });
   assert.equal(r.mode, 'b');
-  assert.match(r.reason, /lowered from mode a/);
+  assert.match(r.reason, /lowered from mode 1/);
   const c = detectMode({ ...none, remoteInstances: 4, forced: 'c' });
   assert.equal(c.mode, 'c');
   assert.equal(c.libraryDetected, false);
@@ -60,6 +60,7 @@ test('forcing up is refused', () => {
   const r = detectMode({ ...none, forced: 'b' });
   assert.equal(r.mode, 'c');
   assert.match(r.reason, /only be lowered, never raised/);
+  assert.match(r.reason, /you asked for mode 2, .* stays mode 3/);
 });
 
 test('mode b with a library says where text styles come from', () => {
@@ -81,7 +82,7 @@ test('a consumer file of the repo\'s system is mode a', () => {
   assert.equal(r.systemLibrary, 'Zygarden Design System');
   assert.equal(r.libraryDetected, true);
   assert.deepEqual(r.askSystem, []);
-  assert.match(r.reason, /^Mode a: building from Zygarden Design System, this repo's throughline system/);
+  assert.match(r.reason, /^Mode 1: building from Zygarden Design System, this repo's throughline system/);
   assert.match(r.reason, /drift isn't tracked for this file yet/);
 });
 
@@ -91,7 +92,7 @@ test('the system file itself is not a consumer', () => {
   assert.equal(r.consumer, false);
   assert.equal(r.systemLibrary, null);
   assert.equal(r.libraryDetected, false);
-  assert.match(r.reason, /^Mode a: building from this file's throughline design system/);
+  assert.match(r.reason, /^Mode 1: building from this file's throughline design system/);
 });
 
 test('recorded keys that match no connected collection leave the file mode b', () => {
@@ -124,7 +125,7 @@ test('a consumer can be forced down to b or c', () => {
   assert.equal(b.mode, 'b');
   assert.equal(b.consumer, false);
   assert.equal(b.libraryDetected, true);
-  assert.match(b.reason, /lowered from mode a/);
+  assert.match(b.reason, /lowered from mode 1/);
   const c = detectMode({ ...consumerSignals, forced: 'c' });
   assert.equal(c.mode, 'c');
   assert.equal(c.consumer, false);

@@ -1,6 +1,6 @@
 # ThroughLine (generic AGENTS.md adapter)
 
-ThroughLine is an agentic design team: it composes screens from your design system or a connected Figma library, and builds a design system end to end. Read the matching skill file for the task at hand.
+ThroughLine is your agentic design team: it scaffolds an agent-friendly design system in Figma and code, then designs high-quality screens with it, or on the library your team already uses. Read the matching skill file for the task at hand.
 
 ## ThroughLine skills
 
@@ -22,12 +22,12 @@ ThroughLine is an agentic design team: it composes screens from your design syst
 - `check-figma` — Check what's already in Figma against the design system, read-only — screens for detached components and raw values a token has, and existing component sets for their states, focus ring and focus contrast. → read `commands/check-figma.md`.
 - `compose-code` — Compose a screen in code from the design system's own components and tokens — plan checked before writing, every value a token, gated before it's handed over. → read `commands/compose-code.md`.
 - `compose-figma` — Compose a screen in Figma from the design system's own components, variables and text styles — in the system's file or a product file that uses it as a library — or from a connected library and the file's own parts, every value bound, nothing invented, gated before it's handed over. → read `commands/compose-figma.md`.
-- `design-system-status` — Show a plain-language summary of the current design system state — what's set up, what's not, and sensible next steps — read from design-system.json. → read `commands/design-system-status.md`.
+- `design-system-status` — Show a plain-language summary of where this folder stands — the design system's state, or the library it designs on — what's set up, what's not, and sensible next steps. → read `commands/design-system-status.md`.
 - `document-component` — Author, refresh, or reconcile the usage documentation for one existing component — draft its canonical doc record from four sources, project it to Figma, the doc card, and code, and resolve any drift via a reviewable per-item choice. → read `commands/document-component.md`.
 - `drift` — Show what moved under the things built from the design system — composed screens that broke or went stale, generated token files edited by hand, Figma variables changed since the last sync, and components whose Figma or code no longer matches their doc record. → read `commands/drift.md`.
 - `gap-report` — Show the components and icons composed screens asked for that the design system doesn't have, ranked by how many screens hit them, and triage each one — build it, point at what already exists, or drop it. → read `commands/gap-report.md`.
 - `new-component` — Build a single new component end to end — in Figma, then sync any new tokens, then build its code component and stories — with a confirmation between each stage. → read `commands/new-component.md`.
-- `start` — Start building your design system — the deterministic entry point. → read `commands/start.md`.
+- `start` — Start with ThroughLine — the deterministic entry point. → read `commands/start.md`.
 - `sync-figma-tokens` — Re-run the Figma-to-code token sync — extract current Figma variables, rebuild code outputs via Style Dictionary, and open a PR with the changes for review. → read `commands/sync-figma-tokens.md`.
 
 ## MCP servers

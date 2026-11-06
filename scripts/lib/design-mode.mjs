@@ -22,14 +22,16 @@
 // askSystem: library names to ask about, when no system keys are recorded yet.
 
 const DESIGN_MODE_RANK = { a: 3, b: 2, c: 1 };
+// What the user sees: the README's mode numbers, never the letters (scope-copy Q15, Q16).
+const DESIGN_MODE_NUMBER = { a: 1, b: 2, c: 3 };
 
 const DESIGN_MODE_REASONS = {
-  a: 'Mode a: building from this file\'s throughline design system. Every value is bound to the system, and the screen is recorded for drift.',
-  b: 'Mode b: building from the connected library first, then this file\'s own components and variables. A raw value is allowed only where no variable holds it, and each one is listed; text styles come from the library where the run sees them in use, else from this file; no drift tracking.',
-  bLocal: 'Mode b: no library is connected, so building from this file\'s own components and variables. A raw value is allowed only where no variable holds it, and each one is listed; no drift tracking.',
-  consumer: 'Mode a: building from LIBRARY, this repo\'s throughline system, used here as a library. Every value is bound to the system; anything the library doesn\'t have is recorded as a gap; components from other connected libraries aren\'t checked against the system; drift isn\'t tracked for this file yet.',
-  c: 'Mode c: this file has no design system, library or variables, so screens are built from frames to auto-layout standards. Nothing is bound to variables, and no gaps or drift are recorded.',
-  cLowered: 'Mode c: ignoring this file\'s system, library and variables as you asked, so screens are built from frames to auto-layout standards. Nothing is bound to variables, and no gaps or drift are recorded.',
+  a: 'Mode 1: building from this file\'s throughline design system. Every value is bound to the system, and the screen is recorded for drift.',
+  b: 'Mode 2: building from the connected library first, then this file\'s own components and variables. A raw value is allowed only where no variable holds it, and each one is listed; text styles come from the library where the run sees them in use, else from this file; no drift tracking.',
+  bLocal: 'Mode 2: no library is connected, so building from this file\'s own components and variables. A raw value is allowed only where no variable holds it, and each one is listed; no drift tracking.',
+  consumer: 'Mode 1: building from LIBRARY, this repo\'s throughline system, used here as a library. Every value is bound to the system; anything the library doesn\'t have is recorded as a gap; components from other connected libraries aren\'t checked against the system; drift isn\'t tracked for this file yet.',
+  c: 'Mode 3: this file has no design system, library or variables, so screens are built from frames to auto-layout standards. Nothing is bound to variables, and no gaps or drift are recorded.',
+  cLowered: 'Mode 3: ignoring this file\'s system, library and variables as you asked, so screens are built from frames to auto-layout standards. Nothing is bound to variables, and no gaps or drift are recorded.',
 };
 
 export function detectMode(signals) {
@@ -52,9 +54,9 @@ export function detectMode(signals) {
   if (s.forced === 'b' || s.forced === 'c') {
     if (DESIGN_MODE_RANK[s.forced] < DESIGN_MODE_RANK[detected]) {
       mode = s.forced;
-      note = ` (lowered from mode ${detected} because you asked)`;
+      note = ` (lowered from mode ${DESIGN_MODE_NUMBER[detected]} because you asked)`;
     } else if (s.forced !== detected) {
-      note = ` (you asked for mode ${s.forced}, but a mode can only be lowered, never raised, so this stays mode ${detected})`;
+      note = ` (you asked for mode ${DESIGN_MODE_NUMBER[s.forced]}, but a mode can only be lowered, never raised, so this stays mode ${DESIGN_MODE_NUMBER[detected]})`;
     }
   }
   const consumer = mode === 'a' && Boolean(systemEntry);

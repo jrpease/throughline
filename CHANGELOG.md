@@ -6,6 +6,33 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.33.1] — 2026-11-06
+
+The README, the npm page and the plugin's own entry points now tell one story:
+ThroughLine scaffolds an agent-friendly design system in Figma and code, then designs
+high-quality screens with it, or on the library your team already uses. Copy and
+routing only; nothing new is built.
+
+### Changed
+
+- **The README's modes say what 0.33 does.** Mode 1 covers your system's own file
+  and a product file built on it; mode 2 is the way in for a team with a library,
+  and its text styles work; the roadmap drops what has shipped.
+- **`/throughline:start` asks which way in first.** Building a system runs setup as
+  before. Designing on a library only connects Figma, writes no
+  `design-system.json`, and sends you to `/throughline:compose-figma`.
+- **`/throughline:design-system-status` knows a library folder.** With
+  `design/workspace.json` and no `design-system.json`, it says mode 2, names the
+  file and libraries, and points at compose-figma and the gap report instead of
+  system setup.
+- **The mode line compose-figma prints uses the README's numbers.** "Mode 1:",
+  "Mode 2:", "Mode 3:", and "lowered from mode 1", not letters.
+- **The npm description and the Codex and generic adapters** carry the new line,
+  and `package.json` gains keywords.
+
+The plugin directory listing's description and keywords stay as they are while the
+listing is in review, and change in a later release.
+
 ## [0.33.0] — 2026-11-02
 
 Open a product file that uses your ThroughLine system as its Figma library, and

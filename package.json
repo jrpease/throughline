@@ -1,7 +1,7 @@
 {
   "name": "@radicool/throughline",
-  "version": "0.33.0",
-  "description": "Your agentic design team: design screens in Figma on your own design system or a connected library, or build a design system end to end and sync it to code. Usable from Claude Code, Cursor, Codex, or any AGENTS.md agent.",
+  "version": "0.33.1",
+  "description": "Your agentic design team: scaffold an agent-friendly design system in Figma and code, then design high-quality screens with it, or on the library your team already uses. Usable from Claude Code, Cursor, Codex, or any AGENTS.md agent.",
   "type": "module",
   "bin": {
     "throughline": "scripts/install.mjs"
@@ -20,6 +20,14 @@
   "engines": {
     "node": ">=20"
   },
+  "keywords": [
+    "design-system",
+    "figma",
+    "design-tokens",
+    "claude-code",
+    "figma-library",
+    "screen-design"
+  ],
   "license": "MIT",
   "author": "Jordan Pease",
   "repository": {
