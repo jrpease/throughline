@@ -707,6 +707,172 @@ function resolveScreen(description, inventory) {
   };
 }
 
+// The library side of a mode b inventory, as a pure merge: library sets, swap
+// targets, variables, collections and text styles joined to the file's own, the
+// library winning a name clash. In a consumer run (a product file using the repo's
+// own system as its library), library parts only. ZERO imports, `export const`/`export function` only. It is
+// inlined into the generated compose and drift scripts (references/figma-compose.md,
+// references/figma-drift.md) by build-figma-checks.mjs, so it must run in both Node
+// and the Figma plugin sandbox, and reuse none of the top-level names it is inlined
+// with. It depends on nothing else, so it carries its own copy of composeFold.
+//
+// Spec: docs/specs/2026-10-30-design-modes.md (Q5, Q7, Q8, Q9, Q28, Q30, Q31)
+//
+// mergeLibraryInventory(local, library) → the resolver's INVENTORY (figma-compose.mjs)
+//   plus allowRaw (true in mode b, false in a consumer run) and valueIndex.
+//   local:   the reader's own inventory (sets, components, variables, textStyles,
+//            collections, target)
+//   library: {
+//     sets:       [{ name, key, autoLayout, props }],  // read from remote main components
+//     components: [{ name, key }],                     // remote standalone components, the swap targets
+//     textStyles: [{ name, key }],                     // remote text styles in use on the loaded pages
+//     cache:      the library cache (design-workspace.mjs cache get), or null
+//     tokens:     design-workspace.mjs tokens, or null
+//     localValues: { colours, gap, radius }            // the file's own variables, same shape
+//     systemCollectionKeys: [key] | null               // a consumer run: design-system.json's figma.collectionKeys
+//   }
+// Library ids are 'lib:<key>'. In a consumer run every local part is left out,
+// variables and collections are limited to the system's collections (components
+// and text styles can't be told apart by library), and raw values aren't allowed.
+
+const LIBRARY_ID_PREFIX = 'lib:';
+const libraryId = (key) => `${LIBRARY_ID_PREFIX}${key}`;
+const isLibraryId = (id) => typeof id === 'string' && id.startsWith(LIBRARY_ID_PREFIX);
+const libraryFold = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+
+// Library entries first; a local entry whose folded name a library entry holds is
+// dropped. Duplicates within the library (one key seen twice) keep the first.
+function libraryFirst(libraryItems, localItems) {
+  const seenKeys = new Set();
+  const lib = [];
+  for (const item of libraryItems) {
+    if (seenKeys.has(item.id)) continue;
+    seenKeys.add(item.id);
+    lib.push(item);
+  }
+  const taken = new Set(lib.map((x) => libraryFold(x.name)));
+  return [...lib, ...localItems.filter((x) => !taken.has(libraryFold(x.name)))];
+}
+
+function libraryValueIndex(tokens, localValues) {
+  const out = { colours: {}, gap: {}, radius: {} };
+  for (const source of [tokens, localValues]) {
+    for (const table of ['colours', 'gap', 'radius']) {
+      for (const [value, names] of Object.entries((source && source[table]) || {})) {
+        const into = out[table][value] || (out[table][value] = []);
+        for (const name of names) if (!into.includes(name)) into.push(name);
+      }
+    }
+  }
+  return out;
+}
+
+function mergeLibraryInventory(local, library) {
+  const loc = { sets: [], components: [], variables: [], textStyles: [], collections: [], target: null, ...local };
+  const lib = library || {};
+  const sets = (lib.sets || []).map((s) => ({ name: s.name, id: libraryId(s.key), page: null, autoLayout: s.autoLayout, props: s.props || [] }));
+  const components = (lib.components || []).map((c) => ({ name: c.name, id: libraryId(c.key), page: null }));
+  const textStyles = (lib.textStyles || []).map((s) => ({ name: s.name, id: libraryId(s.key) }));
+  const system = Array.isArray(lib.systemCollectionKeys) && lib.systemCollectionKeys.length ? new Set(lib.systemCollectionKeys) : null;
+  const variables = [];
+  const collections = [];
+  for (const entry of Object.values((lib.cache && lib.cache.libraries) || {})) {
+    for (const [key, c] of Object.entries(entry.collections || {})) {
+      if (system && !system.has(key)) continue;
+      collections.push({ name: c.name, id: libraryId(key), modes: (c.modes || []).map((m) => ({ name: m.name, id: m.id })) });
+    }
+    for (const [key, v] of Object.entries(entry.variables || {})) {
+      if (system && !system.has(v.collection)) continue;
+      variables.push({ name: v.name, id: libraryId(key), kinds: v.kinds || [] });
+    }
+  }
+  const own = (items) => (system ? [] : items);
+  return {
+    sets: libraryFirst(sets, own(loc.sets)),
+    components: libraryFirst(components, own(loc.components)),
+    variables: libraryFirst(variables, own(loc.variables)),
+    textStyles: libraryFirst(textStyles, own(loc.textStyles)),
+    collections: libraryFirst(collections, own(loc.collections)),
+    target: loc.target,
+    allowRaw: !system,
+    valueIndex: libraryValueIndex(lib.tokens, lib.localValues),
+  };
+}
+
+// The local sets and swap targets a resolved plan uses, by name: Q7's localPicks.
+function libraryLocalPicks(plan, inventory) {
+  const nameOf = new Map([...inventory.sets, ...inventory.components].map((x) => [x.id, x.name]));
+  const picks = new Set();
+  const walk = (node) => {
+    if (!node) return;
+    if (node.type === 'component') {
+      if (!isLibraryId(node.setId)) picks.add(nameOf.get(node.setId));
+      for (const value of Object.values(node.otherProps || {})) {
+        if (nameOf.has(value) && !isLibraryId(value)) picks.add(nameOf.get(value));
+      }
+    }
+    for (const child of node.children || []) walk(child);
+    for (const slot of node.slots || []) slot.nodes.forEach(walk);
+  };
+  walk(plan && plan.root);
+  return [...picks].filter(Boolean).sort();
+}
+
+// Figma plugin-API helpers for reading colour and number variables, shared by the Figma
+// checks reader and the screen reader. This file is NOT a Node module:
+// build-figma-checks.mjs inlines it into both generated scripts
+// (references/figma-checks.md, references/figma-adherence.md). It depends on
+// nothing else, so it carries its own mode-name fold. Async getters only
+// (references/figma-scripting.md). Untested in Node, like the readers.
+
+const foldModeName = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+
+function colorHex(value) {
+  if (!value || typeof value !== 'object' || !('r' in value)) return null;
+  const byte = (x) => Math.round(x * 255).toString(16).padStart(2, '0');
+  const alpha = value.a === undefined ? 1 : value.a;
+  return `#${byte(value.r)}${byte(value.g)}${byte(value.b)}${alpha < 1 ? byte(alpha) : ''}`;
+}
+
+// The raw value of `variable` in the mode named `modeName` (after the fold), else
+// its collection's default mode, following aliases up to 10 hops.
+async function resolveValue(variable, modeName, hops) {
+  if (!variable || hops > 10) return null;
+  const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
+  if (!collection) return null;
+  const mode = collection.modes.find((m) => foldModeName(m.name) === foldModeName(modeName));
+  const value = variable.valuesByMode[mode ? mode.modeId : collection.defaultModeId];
+  if (value && value.type === 'VARIABLE_ALIAS') {
+    return resolveValue(await figma.variables.getVariableByIdAsync(value.id), modeName, hops + 1);
+  }
+  return value === undefined ? null : value;
+}
+
+async function resolveColor(variable, modeName, hops) {
+  return colorHex(await resolveValue(variable, modeName, hops));
+}
+
+// { [modeName]: number | null } over the variable's own collection, aliases followed.
+async function variableNumbers(variable) {
+  const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
+  const modes = {};
+  for (const mode of collection ? collection.modes : []) {
+    const value = await resolveValue(variable, mode.name, 0);
+    modes[mode.name] = typeof value === 'number' ? value : null;
+  }
+  return modes;
+}
+
+// { modes: { [modeName]: hex | null }, defaultMode } over the variable's own collection.
+async function variableColors(variable) {
+  const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
+  if (!collection) return { modes: {}, defaultMode: undefined };
+  const modes = {};
+  for (const mode of collection.modes) modes[mode.name] = await resolveColor(variable, mode.name, 0);
+  const fallback = collection.modes.find((m) => m.modeId === collection.defaultModeId);
+  return { modes, defaultMode: fallback ? fallback.name : undefined };
+}
+
 // Figma plugin-API reader for screen composition, read-only: page lookup, the
 // composed-screen marker, and the inventory. This file is NOT a Node module —
 // build-figma-checks.mjs inlines it after figma-adherence.mjs (for
@@ -917,8 +1083,13 @@ async function composeReadInventory(spec) {
 // screens snippet of references/figma-drift.md.
 // It carries no writer. Untested in Node beyond the generator's tests.
 //
-// Entry point: runDriftScreens(SPEC), SPEC = { entries }
-//   entries: the figma entries of design-system/screens.json, as stored
+// Entry point: runDriftScreens(SPEC), SPEC = { entries, library? }
+//   entries: the figma entries of design-system/screens.json, as stored, all in
+//     the file this runs in
+//   library: { cache, systemCollectionKeys } for entries composed in a product
+//     file (an entry with `library: { pages }`): its inventory is read through
+//     the library parts on those pages, as compose read it, importing nothing
+//     (design-modes Q43)
 //   → { screens: [{ screen, page, state, errors }] }
 //     state: clean | broken (the description no longer resolves) | gone | released
 
@@ -934,11 +1105,17 @@ async function driftScreens(spec) {
     const frames = composeTopFrames(page, entry.screen);
     if (!frames.length) { row.state = 'gone'; row.errors.push(`no frame named "${entry.screen}" on "${entry.target}"`); continue; }
     if (!frames.some(composeIsMarked)) { row.state = 'released'; continue; }
-    const key = `${entry.componentsPage}\u0000${entry.iconsPage || ''}`;
+    const pages = entry.library && Array.isArray(entry.library.pages) ? entry.library.pages : null;
+    const key = `${entry.componentsPage}\u0000${entry.iconsPage || ''}\u0000${pages ? pages.join('\u0001') : ''}`;
     if (!inventories.has(key)) {
       // A components page renamed since is this entry's finding, not the run's end.
       try {
-        inventories.set(key, (await composeReadInventory({ componentsPage: entry.componentsPage, iconsPage: entry.iconsPage })).inventory);
+        const read = { componentsPage: entry.componentsPage, iconsPage: entry.iconsPage };
+        if (pages) {
+          const lib = spec.library || {};
+          read.library = { pages, cache: lib.cache || null, systemCollectionKeys: lib.systemCollectionKeys || [] };
+        }
+        inventories.set(key, (await composeReadInventory(read)).inventory);
       } catch (e) {
         inventories.set(key, { error: e.message });
       }

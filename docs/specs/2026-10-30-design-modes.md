@@ -1,6 +1,6 @@
 # Design modes: build in Figma with a system, a library, or nothing
 
-Status: built (phases 1 and 1b); phases 1c–4 not yet planned
+Status: built (phases 1 and 1b); phase 1c planned; phases 2–4 not yet planned
 Reviewed: 2026-11-02 (phase 1b) — ready to build, with two design ambiguities (forced-b consumer writing `design/`, the ask under `forced`) and eight Plan notes. All folded in the same day (Q36, Q37), not re-reviewed after.
 Reviewed: 2026-10-30 — Plan re-review: needs revision, narrowly (Step 1 test import, Step 0 stop rule, raw padding form, local values for valueIndex, token key names and colour form, reaching a library collection with no bound variable); Steps 6–12 executable as written. All six fixed the same day, not re-reviewed after.
 Date: 2026-10-30
@@ -105,6 +105,14 @@ three modes last.
 | Q37 | Asking "is this your system?" when a mode was forced (1b) | Not asked when `forced` is set. | The user has already said to ignore the system or the library on this run. | Asking on a run the user lowered |
 | Q38 | `system keys` reformatting `design-system.json` (1b, from the live run) | Left as is. It writes two-space JSON like every manifest writer, and when that changes the file's formatting it prints a line saying so. compose-figma passes that line on. Owner accepted the recommendation 2026-11-02 ("keep going with your recs"). | The data and field order are unchanged; only the first write expands hand-wrapped arrays, and saying so explains the bigger diff. | Preserving the owner's hand formatting |
 | Q39 | A whole-padding `{ raw }` in a consumer run (1b, from the live run) | Refused as a raw value ("a variable name, not {raw:…}" at `root.padding`), not with mode b's per-side message. The same holds in the system's own file, which allows no `{ raw }` either. Mode b's handling is unchanged. Owner accepted the recommendation 2026-11-02. | The per-side wording sent the reader looking for a side to fix when no raw value is allowed at all. | — |
+| Q40 | Phase 1c: the screens.json key for a consumer screen | `figma@<fileKey>:<folded screen>`. Entries in the system's own file keep `figma:<folded screen>` and carry no `fileKey`, so existing stores read unchanged. (Owner said to take Claude's recommendations, 2026-11-06, for Q40–Q47.) | Today's key is `side:folded screen` (`scripts/screens.mjs:36`), so a product file's "Home" and the system file's "Home" would overwrite each other. | A migration of every existing key |
+| Q41 | What a consumer entry records beyond today's | `fileKey` (the product file) and `library: { pages }` (the pages compose read library parts from). The system's collection keys are read from `design-system.json` at drift time, not copied. | Drift has to re-read the same library parts compose used, in the same file. One source for the collection keys. | Storing collection keys per entry |
+| Q42 | How the live half reaches a product file | Figma entries are grouped by file. The system file's run as today. Each product file's entries go in one call with `figma_execute`'s `fileKey`, which reads a connected file without switching to it. A product file the bridge isn't connected to is reported **not checked**, never `gone`, and the stale check from the offline half stands for its screens. | A screen in a file nobody has open isn't missing. Reads by `fileKey` are what the bridge supports (its tool contract, and the 1b probes, Facts checked). | Recording consumer screens as gone; switching the active file during drift |
+| Q43 | How a consumer screen is re-resolved | The screens snippet reads the inventory with `library = { pages, cache, systemCollectionKeys }`, the same reader compose uses, and imports nothing. `cache` is `design-workspace.mjs cache get`'s output. | Variables in a consumer plan resolve only through the library cache, and components only through instances on the library pages. Read-only. | A separate drift resolver |
+| Q44 | Compose's side | A consumer run records the screen at finalize with `--file-key <currentFileKey> --library-pages <pages>`. The consumer mode line and the report stop saying drift isn't tracked for this file. | Q33's rule held until drift could check them; 1c is that. | — |
+| Q45 | `figma-scripting.md`'s claim that `figma_execute` takes no file key | Corrected: it takes `fileKey` for a connected file. Writes still go through the active-file preflight and the pin. | The claim is stale and would steer 1c away from the one way it works. | — |
+| Q46 | Copy (the standing rule, scope-copy Q7/Q19) | The README's mode 1 says screens in a product file are tracked for drift, and the roadmap drops that item. The site's mode cards don't mention drift, so they don't change. | Copy describes what's built. | — |
+| Q47 | The offline half | Unchanged. A consumer entry's component fingerprints are the system's, so `stale` and `untracked` apply as they are; `drift-check.mjs` ignores the extra fields. | Nothing in it reads the file or the target. | — |
 
 ## Open questions
 
@@ -1072,3 +1080,59 @@ Bump `package.json` and `.claude-plugin/plugin.json` to `0.33.0` (Q22), and the
 release tag stay the owner's call.
 Verify: every CI gate: `node --test && node ci/validate-plugin.mjs && node ci/validate-skills.mjs && node ci/validate-install-sets.mjs && node ci/check-pinned-runs.mjs && node scripts/adapters/generate.mjs --check && node scripts/build-doc-card-builder.mjs --check && node scripts/build-native-adapter-config.mjs --check && node scripts/build-state-baseline.mjs --check && node scripts/build-figma-checks.mjs --check`
 → every command exits 0.
+
+## Plan, phase 1c
+
+Phase 1c only (Q33, Q40–Q47): drift for screens composed in a product file built on
+the system. Same conventions as phases 1 and 1b. Steps are numbered C1–C6.
+
+### Step C1 — Record a consumer screen
+
+Files: `scripts/screens.mjs`, `scripts/screens.test.mjs`
+Change: `record` takes `--file-key <key>` and `--library-pages <a,b>`; with
+`--file-key`, the entry's key is `figma@<fileKey>:<folded screen>` (Q40) and it
+stores `fileKey` and `library: { pages }` (Q41). `forget` takes `--file-key` too.
+Without it, nothing changes.
+Verify: tests record a system-file and a product-file screen of the same name and
+both survive; forget removes only the one named.
+
+### Step C2 — The drift snippet reads through the library
+
+Files: `scripts/lib/figma-drift-screens.figma.js`, `scripts/build-figma-checks.mjs`
+(the call contract), `scripts/build-figma-checks.test.mjs`, regenerated
+`references/figma-drift.md`
+Change: `SPEC = { entries, library? }`, `library = { cache, systemCollectionKeys }`.
+An entry with `library` reads its inventory with
+`{ componentsPage, iconsPage, library: { pages: entry.library.pages, cache, systemCollectionKeys } }`;
+the inventory memo key includes those pages (Q43).
+Verify: the fake-Figma test resolves a consumer entry whose component exists only
+as a library instance, and reports it `broken` when that instance is gone.
+
+### Step C3 — Drift's live half per file
+
+Files: `commands/drift.md`, `references/figma-scripting.md`
+Change: group Figma entries by `fileKey` (none = the system file). Run each product
+file's group with `figma_execute`'s `fileKey` and `SPEC.library` from Q43; a file
+the bridge isn't connected to (`figma_list_open_files`) is reported not checked,
+its screens keeping the offline state (Q42). Fix the stale `fileKey` claim (Q45).
+Verify: `node ci/validate-skills.mjs`; read by eye against Q42.
+
+### Step C4 — Compose records consumer screens
+
+Files: `commands/compose-figma.md`, `scripts/lib/design-mode.mjs` (+ test)
+Change: step 7 records consumer runs with `--file-key` and `--library-pages`;
+step 9 and the consumer `reason` stop saying drift isn't tracked (Q44).
+Verify: `node --test scripts/lib/design-mode.test.mjs`; `build-figma-checks --check`.
+
+### Step C5 — Copy
+
+Files: `README.md`, `CHANGELOG.md`
+Change: Q46.
+Verify: reviewed by eye.
+
+### Step C6 — Gates and a live run when a product file is open
+
+Verify: `node --test` and every `ci.yml` gate exit 0. A live run needs a product
+file on the system open in the bridge (Zygarden.gg on the Zygarden Design System);
+until one is, say so rather than claim it.
+

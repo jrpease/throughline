@@ -5,8 +5,13 @@
 // screens snippet of references/figma-drift.md.
 // It carries no writer. Untested in Node beyond the generator's tests.
 //
-// Entry point: runDriftScreens(SPEC), SPEC = { entries }
-//   entries: the figma entries of design-system/screens.json, as stored
+// Entry point: runDriftScreens(SPEC), SPEC = { entries, library? }
+//   entries: the figma entries of design-system/screens.json, as stored, all in
+//     the file this runs in
+//   library: { cache, systemCollectionKeys } for entries composed in a product
+//     file (an entry with `library: { pages }`): its inventory is read through
+//     the library parts on those pages, as compose read it, importing nothing
+//     (design-modes Q43)
 //   → { screens: [{ screen, page, state, errors }] }
 //     state: clean | broken (the description no longer resolves) | gone | released
 
@@ -22,11 +27,17 @@ async function driftScreens(spec) {
     const frames = composeTopFrames(page, entry.screen);
     if (!frames.length) { row.state = 'gone'; row.errors.push(`no frame named "${entry.screen}" on "${entry.target}"`); continue; }
     if (!frames.some(composeIsMarked)) { row.state = 'released'; continue; }
-    const key = `${entry.componentsPage}\u0000${entry.iconsPage || ''}`;
+    const pages = entry.library && Array.isArray(entry.library.pages) ? entry.library.pages : null;
+    const key = `${entry.componentsPage}\u0000${entry.iconsPage || ''}\u0000${pages ? pages.join('\u0001') : ''}`;
     if (!inventories.has(key)) {
       // A components page renamed since is this entry's finding, not the run's end.
       try {
-        inventories.set(key, (await composeReadInventory({ componentsPage: entry.componentsPage, iconsPage: entry.iconsPage })).inventory);
+        const read = { componentsPage: entry.componentsPage, iconsPage: entry.iconsPage };
+        if (pages) {
+          const lib = spec.library || {};
+          read.library = { pages, cache: lib.cache || null, systemCollectionKeys: lib.systemCollectionKeys || [] };
+        }
+        inventories.set(key, (await composeReadInventory(read)).inventory);
       } catch (e) {
         inventories.set(key, { error: e.message });
       }

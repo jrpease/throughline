@@ -7,17 +7,24 @@
 //   node scripts/screens.mjs record --system <dir> --side code|figma --screen <name>
 //        --target <file or page> --plan <file.json>
 //        [--components-page <page>] [--icons-page <page>] [--at <YYYY-MM-DD>]
-//   node scripts/screens.mjs forget --system <dir> --side code|figma --screen <name>
+//        [--file-key <key> --library-pages <page,page>]
+//   node scripts/screens.mjs forget --system <dir> --side code|figma --screen <name> [--file-key <key>]
 //
 // --plan: for code, the plan passed to compose-code.mjs check (its input, not the
 //   resolved plan it prints); for figma, the description the build used.
 //   --components-page is required for figma: the live drift pass reads its
 //   inventory from there.
+// --file-key / --library-pages: a figma screen composed in a product file that uses
+//   the system as its library (a consumer run). Both or neither. The entry is kept
+//   under its own key, so a product file's screen never overwrites the system
+//   file's screen of the same name, and drift re-reads it in that file through
+//   the library parts on those pages (design-modes Q40–Q43).
 //
 // STORE: <system>/design-system/screens.json
-//   { screens: { "<side>:<folded screen>": { side, screen, target, at, plan,
+//   { screens: { "<side>:<folded screen>" | "figma@<fileKey>:<folded screen>": {
+//     side, screen, target, at, plan,
 //     components: { <components.meta key>: contract fingerprint | null },
-//     componentsPage?, iconsPage? } } }
+//     componentsPage?, iconsPage?, fileKey?, library?: { pages } } } }
 //   A code target is stored relative to --system. A re-record replaces the entry.
 //
 // Exit: 0 ok, 1 a store error (forget with no such entry, unreadable store),
@@ -33,7 +40,7 @@ import { codeInventory, checkPlan } from './compose-code.mjs';
 import { contractOf, serialize, SCREENS_FILE } from './drift-check.mjs';
 
 const SIDES = ['code', 'figma'];
-export const screenKey = (side, screen) => `${side}:${composeFold(screen)}`;
+export const screenKey = (side, screen, fileKey) => (fileKey ? `${side}@${fileKey}` : side) + `:${composeFold(screen)}`;
 
 // Every component a figma description instances: a node with `component` (its
 // set's name), reached through `children` and through `slots`, the two places
@@ -60,11 +67,11 @@ export function recordScreen(store, entry, names, lookup) {
     const hit = lookup(name);
     if (hit) components[hit.key] = hit.fingerprint;
   }
-  return { screens: { ...(store?.screens ?? {}), [screenKey(entry.side, entry.screen)]: { ...entry, components } } };
+  return { screens: { ...(store?.screens ?? {}), [screenKey(entry.side, entry.screen, entry.fileKey)]: { ...entry, components } } };
 }
 
-export function forgetScreen(store, side, screen) {
-  const key = screenKey(side, screen);
+export function forgetScreen(store, side, screen, fileKey) {
+  const key = screenKey(side, screen, fileKey);
   if (!store?.screens?.[key]) return null;
   const screens = { ...store.screens };
   delete screens[key];
@@ -81,6 +88,7 @@ function main() {
         system: { type: 'string' }, side: { type: 'string' }, screen: { type: 'string' },
         target: { type: 'string' }, plan: { type: 'string' }, at: { type: 'string' },
         'components-page': { type: 'string' }, 'icons-page': { type: 'string' },
+        'file-key': { type: 'string' }, 'library-pages': { type: 'string' },
       },
     }));
   } catch (e) {
@@ -95,6 +103,7 @@ function main() {
   if (!['record', 'forget'].includes(mode) || !values.system) usage();
   if (!SIDES.includes(values.side)) usage(`--side is ${SIDES.join(' or ')}`);
   if (!values.screen?.trim() || !composeFold(values.screen)) usage('--screen needs a name with a letter or digit in it');
+  if (values['file-key'] !== undefined && (values.side !== 'figma' || !values['file-key'].trim())) usage('--file-key is a figma product file\'s key');
 
   const system = values.system;
   const read = (p, what, code = 2) => {
@@ -113,9 +122,9 @@ function main() {
   };
 
   if (mode === 'forget') {
-    const next = forgetScreen(store, values.side, values.screen);
+    const next = forgetScreen(store, values.side, values.screen, values['file-key']);
     if (!next) {
-      console.error(`no ${values.side} screen named ${values.screen} in ${SCREENS_FILE}`);
+      console.error(`no ${values.side} screen named ${values.screen}${values['file-key'] ? ` in file ${values['file-key']}` : ''} in ${SCREENS_FILE}`);
       process.exit(1);
     }
     save(next);
@@ -126,6 +135,8 @@ function main() {
   const missing = ['target', 'plan'].filter((k) => !values[k]?.trim());
   if (missing.length) usage(`record needs --${missing.join(', --')}`);
   if (values.side === 'figma' && !values['components-page']) usage('a figma record needs --components-page');
+  const libraryPages = (values['library-pages'] ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+  if (Boolean(values['file-key']) !== libraryPages.length > 0) usage('a product-file screen needs both --file-key and --library-pages');
   if (values.at && !/^\d{4}-\d{2}-\d{2}$/.test(values.at)) usage('--at is YYYY-MM-DD');
   const manifest = read(join(system, 'design-system.json'), 'the manifest');
   const plan = read(values.plan, 'the plan');
@@ -155,11 +166,15 @@ function main() {
   if (values.side === 'figma') {
     entry.componentsPage = values['components-page'];
     if (values['icons-page']) entry.iconsPage = values['icons-page'];
+    if (values['file-key']) {
+      entry.fileKey = values['file-key'];
+      entry.library = { pages: libraryPages };
+    }
   }
   const next = recordScreen(store, entry, [...new Set(names)], (name) => contractOf(system, manifest, name));
   save(next);
-  const recorded = next.screens[screenKey(entry.side, entry.screen)].components;
-  console.log(`recorded ${values.screen} (${values.side}), ${Object.keys(recorded).length} components, in ${SCREENS_FILE}`);
+  const recorded = next.screens[screenKey(entry.side, entry.screen, entry.fileKey)].components;
+  console.log(`recorded ${values.screen} (${values.side}${entry.fileKey ? `, file ${entry.fileKey}` : ''}), ${Object.keys(recorded).length} components, in ${SCREENS_FILE}`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
