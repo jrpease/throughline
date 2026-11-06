@@ -261,6 +261,12 @@ only a guide *up to* the cap; a build that genuinely needs more than ~30s must b
 large builds for the cap from the start — the 108-variant Button was built as **3× 36-
 variant passes**. (This is the same ceiling behind the WRAP-chunking rule below.)
 
+**A timeout doesn't stop the script.** The call returns an error, but the code keeps
+running in the plugin, and anything it creates after that lands outside the
+script's own rollback (compose's `WIP:` cleanup only runs on a throw it sees). After
+a timed-out write, look for what it left (a `WIP:` frame, half-filled nodes) and
+remove it before trying again.
+
 ## Large wrapped auto-layout (`layoutWrap = "WRAP"`) is expensive — chunk it
 
 Building a large grid as a **single `layoutWrap = "WRAP"` frame in one

@@ -22,7 +22,8 @@ rule; do not re-write it by hand.
    - `const TARGET = { page, screens, fileKey }` — `page` is the page name (an exact
      match, or else the one page whose name matches once leading and trailing
      spaces are trimmed); `screens` is an optional list of screen names (top-level
-     frames, or frames directly inside a top-level section), and without it every
+     frames, frames directly inside a top-level section, or, by name only, frames
+     one level inside either, as in a container frame holding a flow), and without it every
      screen on the page is read; `fileKey` is `figma.fileKey` from
      `design-system.json`, used for the links.
      In mode b, also pass `libraryTokens`: the output of
@@ -377,15 +378,23 @@ function slotsOf(instance) {
   });
 }
 
+// Screens are top-level frames and frames in sections. A named screen can also
+// sit one level down, inside a container frame holding a flow (#202); those are
+// only found by name, since a container's children are otherwise its parts.
 function screensOn(page, names) {
   const all = [];
+  const nested = [];
+  const frames = (node) => node.children.filter((c) => c.type === 'FRAME');
   for (const top of page.children) {
-    if (top.type === 'FRAME') all.push(top);
-    else if (top.type === 'SECTION') for (const c of top.children) if (c.type === 'FRAME') all.push(c);
+    const screens = top.type === 'FRAME' ? [top] : top.type === 'SECTION' ? frames(top) : [];
+    for (const screen of screens) {
+      all.push(screen);
+      nested.push(...frames(screen));
+    }
   }
   if (!names || !names.length) return all;
   return names.map((name) => {
-    const hit = all.find((s) => s.name === name);
+    const hit = all.find((s) => s.name === name) || nested.find((s) => s.name === name);
     if (!hit) throw new Error(`no screen named "${name}" on page "${page.name}"`);
     return hit;
   });
