@@ -295,12 +295,19 @@ reference register, not this skill's guide voice.
 - Write `design-system/docs/components/<Name>.doc.json` (JSON; required fields
   `name`, `summary`, `description`).
 - **Figma component description.** Set the component's native `description` field
-  (via `figma_set_description`) from this exact template — this is the surface
-  Dev Mode and Code Connect read, and it must be reproducible byte-for-byte by
-  any agent from the same record:
+  from this exact template — this is the surface Dev Mode and Code Connect read,
+  and it must be reproducible byte-for-byte by any agent from the same record.
+  Don't write it by hand: `node .throughline/scripts/doc-description.mjs <record> --out <payload.js>`
+  renders it and prints `{ componentName, src, render }`. Run the payload with
+  `figma_execute` (one component per call); it sets the description on the one
+  component set or component with that name and returns `matches: true` when the
+  stored text is exactly what it was given. Stamp `figmaDescription` from the
+  printed `src` and `render`. The template the script implements:
 
   ```
   <summary>
+
+  <description>
 
   **When to use**
   - <whenToUse[n]>
@@ -348,7 +355,7 @@ reference register, not this skill's guide voice.
 
 **Update the manifest (fields this skill owns):** set
 `components.meta[<Name>].doc` to `{ path, fingerprint: <fp>, surfaces: {
-figmaDescription: { src: <fp>, render: <hash of the description text> }, docCard: {
+figmaDescription: { src: <fp>, render: <the printed render> }, docCard: {
 src: <fp>, recordHash: <summary.recordHash>, render: <summary.render>, renderer: <summary.rendererVersion> } } }`
 — the docCard entry is stamped from the builder's returned summary, never by
 re-reading the card. The code surfaces (`storybookMdx`) are added later by

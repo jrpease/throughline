@@ -1,0 +1,64 @@
+{/* docFingerprint: 2931bf1a8116fb37 — generated from SelectMenuItem.doc.json by docs render. Do not edit by hand; change the record and re-render via /document-component. */}
+
+import { Meta } from "@storybook/blocks";
+
+<Meta title="Components/Select Menu Item" />
+
+# Select Menu Item
+
+_One selectable row inside a Select Menu._
+
+A single selectable option within a Select Menu, rendered with role="option". Its label is passed as content and a trailing check appears when it is the current selection. It covers the full interaction set — default, hover, focused (keyboard navigation), selected, and disabled — and binds its text, surfaces, and the selected check to the system's semantic tokens.
+
+## When to use
+
+- Represent one choosable option inside a Select Menu listbox
+- Mark the currently selected value with the trailing check
+
+## When not to use
+
+- A clickable action or command — use a Menu item, not an option
+- Standalone outside a Select Menu — items only make sense within the listbox
+
+## Do
+
+- Keep option labels short and scannable
+- Let the trailing check be the single, consistent selected indicator
+- Keep items visually uniform within one menu
+
+## Don't
+
+- Don't put multiple interactive controls inside one option row
+- Don't convey selection by color alone — the check carries it too
+- Don't use an option row for an action — that belongs in a Menu
+
+## Variants
+
+### selected
+
+- `false` — Not the current value — no trailing check.
+- `true` — Current value — subtle fill and a trailing brand check.
+
+### disabled
+
+- `false` — Interactive.
+- `true` — Dimmed and not selectable.
+
+## States
+
+- `default` — Resting option.
+- `hover` — Pointer over the row — subtle background.
+- `focused` — Keyboard navigation highlight — muted background with a focus ring.
+
+## Accessibility
+
+- **Role:** `option`
+- **Keyboard:** Reachable via the parent listbox's arrow-key navigation
+- **Keyboard:** Enter selects the focused option
+- Carries role="option" with aria-selected reflecting the current value
+- Disabled options set aria-disabled and leave the tab order
+- Selection is shown with a check, not color alone (WCAG 1.4.1)
+
+## Tokens used
+
+`color/text/primary` · `color/text/disabled` · `color/bg/subtle` · `color/bg/muted` · `color/border/focus` · `color/brand/primary` · `radius/sm` · `space/2` · `space/3` · `font/size/200`

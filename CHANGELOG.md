@@ -6,6 +6,24 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Added
+
+- **`scripts/doc-description.mjs` and `scripts/render-mdx.mjs`.** The Figma
+  description and the Storybook MDX are now rendered from the doc record by a
+  script, like the doc card, instead of written by hand on every run. The MDX
+  renderer reproduces 13 of the sample's 14 files byte for byte (the fourteenth
+  differs only by a stray blank line at its end), handles a component with no
+  stories file, and escapes `<`, `>`, `{` and `}` in record prose outside code
+  spans. The description's hash
+  is computed in Node, and its payload proves the text arrived intact. (#188)
+
+### Changed
+
+- **The Figma description template includes the record's `description`
+  paragraph** after the summary, as the schema's projection table always said.
+- **The MDX fingerprint is documented as the comment on line 1**, which is what
+  generated files carry, not frontmatter.
+
 ### Fixed
 
 - **A doc card role can name its collection.** When a variable name sits in two

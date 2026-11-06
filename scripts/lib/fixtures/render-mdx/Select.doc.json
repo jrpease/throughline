@@ -1,0 +1,78 @@
+{
+  "name": "Select",
+  "summary": "Chooses one option from a dropdown list.",
+  "description": "An accessible trigger for choosing one option from a list, wrapping a native select so it inherits the platform's open/close and keyboard behavior. A non-interactive chevron sits on the trailing edge. It comes in three sizes (sm / md / lg) with default, hover, focus, active, error, and disabled states, and binds its background, border, radius, and focus ring to the system's semantic tokens.",
+  "whenToUse": [
+    "Choose a single option from a moderate-to-long list",
+    "Save vertical space when a Radio group would be too many options"
+  ],
+  "whenNotToUse": [
+    "A short set of a few options that benefit from being visible — use Radios",
+    "Selecting more than one value — use a multi-select or checkboxes"
+  ],
+  "variants": {
+    "size": {
+      "sm": "Compact — dense forms and toolbars.",
+      "md": "Default size for most forms.",
+      "lg": "Prominent — larger or high-emphasis forms."
+    }
+  },
+  "states": {
+    "default": "Resting, showing the current value.",
+    "hover": "Pointer over the trigger — stronger border.",
+    "focus": "Keyboard focus — shows the focus ring.",
+    "active": "Being pressed — muted background.",
+    "error": "Invalid — destructive border and ring.",
+    "disabled": "Dimmed and non-interactive."
+  },
+  "dos": [
+    "Always pair with a visible label",
+    "Order options predictably (alphabetical, or by frequency)",
+    "Provide a clear default or an unselected placeholder option"
+  ],
+  "donts": [
+    "Don't use a Select for only two or three visible options — use Radios",
+    "Don't hide critical actions inside a Select — it's for choosing values",
+    "Don't rely on the placeholder as the field's only label"
+  ],
+  "accessibility": {
+    "role": "combobox (native select)",
+    "keyboard": [
+      "Enter or Space / Arrow keys open and move through options",
+      "Typing jumps to matching options; Tab moves focus to and from the field"
+    ],
+    "notes": [
+      "Built on a native <select>, so platform semantics and behavior come for free",
+      "The chevron is decorative (aria-hidden) — the native control carries behavior",
+      "The error state sets aria-invalid and links the message via aria-describedby"
+    ]
+  },
+  "tokensUsed": [
+    "color/bg/subtle",
+    "color/text/primary",
+    "color/text/muted",
+    "color/border/default",
+    "color/danger/default",
+    "color/bg/muted",
+    "color/border/strong",
+    "radius/md",
+    "space/3",
+    "space/4",
+    "font/size/200",
+    "font/size/300",
+    "Focus Ring"
+  ],
+  "status": "stable",
+  "updatedAt": "2026-10-15",
+  "provenance": {
+    "description": "ai-inferred",
+    "whenToUse": "best-practice",
+    "whenNotToUse": "best-practice",
+    "variants": "ai-inferred+framework",
+    "states": "ai-inferred",
+    "dos": "best-practice",
+    "donts": "best-practice",
+    "accessibility": "w3c-apg+framework",
+    "tokensUsed": "ai-inferred"
+  }
+}
