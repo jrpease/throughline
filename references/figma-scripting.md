@@ -41,8 +41,10 @@ instance is active" without confirming it's actually live.
 ## Preflight: confirm the *active* file is your target (writes hit the active file)
 
 A connected bridge is **not** the same as the *right* file. `figma_execute` (and
-every write) targets whichever file is currently **active** in Figma Desktop — it
-takes no `fileUrl`/`fileKey` argument. So a green `figma_get_status` only proves a
+every write) targets whichever file is currently **active** in Figma Desktop unless
+it's given a `fileKey`, which runs it in that connected file without switching to
+it. Read-only cross-file checks (drift's product-file screens) use that; writes
+still go through this preflight and the pin. So a green `figma_get_status` only proves a
 bridge exists; the active file can silently drift to a different open file between
 your preflight and your write (a user tabbing to another file, a `figma_navigate`
 from an earlier step, a plugin reload). Writing then lands in the wrong file —

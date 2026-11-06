@@ -26,7 +26,7 @@ ThroughLine is a design team you run from your agent. It builds you a production
 
 Every screen you compose in Figma starts by reading the open file and telling you, in one line, which of three modes it's in and what that mode gives up.
 
-1. **Your ThroughLine system.** The strictest mode, in the system's own file or in a product file built on it. *Product files are new in 0.33.* Every colour, gap and radius is bound to a token, and anything the system doesn't have is recorded as a gap in your system's gap file. Screens in the system's own file are tracked for drift. Screens in a product file aren't yet.
+1. **Your ThroughLine system.** The strictest mode, in the system's own file or in a product file built on it. *Product files are new in 0.33.* Every colour, gap and radius is bound to a token, and anything the system doesn't have is recorded as a gap in your system's gap file. Every screen is tracked for drift: in the system's own file, and in a product file, where `/throughline:drift` checks it whenever that file is open.
 2. **A Figma library you already use.** *New in 0.32.* The way in for a team that already has a library: design on it today, and build your own system when you're ready. No system to build first. The library comes first and the file's own components fill the gaps, and the report names every one it used. A hardcoded colour, gap, radius or padding side is allowed only where no variable holds it, and each one is listed. Ask for 20px when `spacing/space/5` is 20 and the build refuses, naming the variable. Text styles the library already uses on the pages the run reads can style new text.
 3. **Nothing at all.** *Planned.* Screens built from frames to auto-layout standards, with an offer at the end to turn the one-off values into variables.
 
@@ -253,7 +253,7 @@ A couple of ground rules:
 
 Future improvements and planned capabilities. Have a request? **[Open an issue](https://github.com/jrpease/throughline/issues)** — the roadmap is shaped by what people actually build.
 
-- **The rest of design modes** — building on a connected library shipped in 0.32.0, and a product file built on your own system in 0.33.0. Planned, in this order: drift tracking for screens in a product file; `/throughline:design` for whole flows (an intake, two directions on the hardest screen, every state, annotations, organized pages); building in a file with no system at all; and the same modes in code.
+- **The rest of design modes** — building on a connected library shipped in 0.32.0, a product file built on your own system in 0.33.0, and drift for that product file's screens after it. Planned, in this order: `/throughline:design` for whole flows (an intake, two directions on the hardest screen, every state, annotations, organized pages); building in a file with no system at all; and the same modes in code.
 - **More framework adapters** — broaden the Style Dictionary output targets beyond the current set.
 - **Deeper Code Connect coverage** — richer Figma-to-code mappings as more plans support it.
 - **Expanded component starters** — a larger foundational kit out of the box.

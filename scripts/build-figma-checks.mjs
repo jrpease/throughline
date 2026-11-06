@@ -315,7 +315,11 @@ const DRIFT_HEADER = [
   '  `drift-check.mjs compare-figma --from <file>` (or `stamp-figma` after a sync).',
   '- **Screens**: declare `const SPEC = { entries };` above it and end it with',
   '  `return await runDriftScreens(SPEC);`. `entries` is the list of Figma entries',
-  '  (`side: "figma"`) from `design-system/screens.json`, as stored. Returns',
+  '  (`side: "figma"`) from `design-system/screens.json`, as stored, all in the file',
+  '  the call runs in. For entries composed in a product file (they carry `fileKey`',
+  '  and `library.pages`), run it in that file and add `library = { cache,',
+  '  systemCollectionKeys }` to `SPEC`: those screens resolve through the library',
+  '  parts on their recorded pages, read-only, nothing imported. Returns',
   '  `{ screens: [{ screen, page, state, errors }] }`, `state` one of `clean`,',
   '  `broken` (the stored description no longer resolves against the components page',
   '  it was built from: `errors` say what), `gone` (no frame or page of that name) or',
@@ -369,10 +373,11 @@ export function buildFigmaCompose({ adherenceSource, composeSource, designModeSo
   return `${COMPOSE_HEADER}\n${adherence}\n${compose}\n${designMode}\n${libraryMerge}\n${variablesSource}\n${composeReaderSource}\n${modeReaderSource}\n${libraryReaderSource}\n${writerSource}${FOOTER}`;
 }
 
-export function buildFigmaDrift({ adherenceSource, composeSource, variablesSource, composeReaderSource, driftVariablesSource, driftScreensSource, driftComponentsSource }) {
+export function buildFigmaDrift({ adherenceSource, composeSource, libraryMergeSource, variablesSource, composeReaderSource, driftVariablesSource, driftScreensSource, driftComponentsSource }) {
   const adherence = stripExports(adherenceSource);
   const compose = stripExports(composeSource);
-  assertInlinable([['figma-adherence.mjs', adherence], ['figma-compose.mjs', compose], ['figma-variables-read.figma.js', variablesSource], ['figma-compose-read.figma.js', composeReaderSource], ['figma-drift-variables.figma.js', driftVariablesSource], ['figma-drift-screens.figma.js', driftScreensSource], ['figma-drift-components.figma.js', driftComponentsSource]]);
+  const libraryMerge = stripExports(libraryMergeSource);
+  assertInlinable([['figma-adherence.mjs', adherence], ['figma-compose.mjs', compose], ['figma-compose-library.mjs', libraryMerge], ['figma-variables-read.figma.js', variablesSource], ['figma-compose-read.figma.js', composeReaderSource], ['figma-drift-variables.figma.js', driftVariablesSource], ['figma-drift-screens.figma.js', driftScreensSource], ['figma-drift-components.figma.js', driftComponentsSource]]);
   return [
     DRIFT_HEADER,
     '## The variables snippet',
@@ -380,7 +385,7 @@ export function buildFigmaDrift({ adherenceSource, composeSource, variablesSourc
     `\`\`\`js\n${variablesSource}\n${driftVariablesSource}${FOOTER}`,
     '## The screens snippet',
     '',
-    `\`\`\`js\n${adherence}\n${compose}\n${composeReaderSource}\n${driftScreensSource}${FOOTER}`,
+    `\`\`\`js\n${adherence}\n${compose}\n${libraryMerge}\n${variablesSource}\n${composeReaderSource}\n${driftScreensSource}${FOOTER}`,
     '## The components snippet',
     '',
     `\`\`\`js\n${driftComponentsSource}${FOOTER}`,
@@ -414,6 +419,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const drift = buildFigmaDrift({
     adherenceSource: readFileSync(ADHERENCE, 'utf8'),
     composeSource: readFileSync(COMPOSE, 'utf8'),
+    libraryMergeSource: readFileSync(LIBRARY_MERGE, 'utf8'),
     variablesSource: readFileSync(VARIABLES, 'utf8'),
     composeReaderSource: readFileSync(COMPOSE_READER, 'utf8'),
     driftVariablesSource: readFileSync(DRIFT_VARIABLES, 'utf8'),

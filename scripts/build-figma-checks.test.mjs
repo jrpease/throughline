@@ -33,6 +33,7 @@ const composeSources = () => ({
 const driftSources = () => ({
   adherenceSource: read('figma-adherence.mjs'),
   composeSource: read('figma-compose.mjs'),
+  libraryMergeSource: read('figma-compose-library.mjs'),
   variablesSource: read('figma-variables-read.figma.js'),
   composeReaderSource: read('figma-compose-read.figma.js'),
   driftVariablesSource: read('figma-drift-variables.figma.js'),
@@ -619,7 +620,7 @@ function fakeLibraryFigma() {
   libSet.appendChild(variant);
   libSet.defaultVariant = variant;
   variant.createInstance = () => {
-    const instance = mk('INSTANCE', { name: 'button', layoutMode: 'HORIZONTAL' });
+    const instance = mk('INSTANCE', { name: 'button', layoutMode: 'HORIZONTAL', getMainComponentAsync: async () => variant });
     instance.setProperties = (props) => figma.log.push(`setProperties ${JSON.stringify(props)}`);
     return instance;
   };
@@ -825,4 +826,36 @@ test('consumer build: a local-only set and a raw value are refused, nothing writ
   assert.equal(raw.ok, false);
   assert.equal(raw.errors[0].kind, 'invalid');
   assert.ok(!screensOf(figma).children.some((n) => n.name === 'WIP: Reg'));
+});
+
+test('drift screens: a product-file screen resolves through the library, and breaks when the library part is gone (design-modes Q43)', async () => {
+  const figma = fakeLibraryFigma();
+  const description = { screen: 'Reg', page: 'Screens', width: 390, root: { layout: 'vertical', fill: 'color/bg/surface', children: [
+    { component: 'button', props: { label: 'Go' } },
+  ] } };
+  const built = await runComposeSnippet(figma, 'build', { componentsPage: 'Components', library: consumerLibrary, description, fileKey: 'PROD' });
+  assert.equal(built.ok, true, JSON.stringify(built.errors));
+  await runComposeSnippet(figma, 'finalize', { page: 'Screens', screen: 'Reg', fileKey: 'PROD' });
+  // No componentsPage: a product file has no component sets of its own (Zygarden.gg).
+  const entry = { side: 'figma', screen: 'Reg', target: 'Screens', plan: description, fileKey: 'PROD', library: { pages: ['Screens'] } };
+  const lib = { cache: libraryCache, systemCollectionKeys: ['SEM'] };
+  const before = figma.log.length;
+  const clean = await runDriftSnippet(figma, 'screens', { entries: [entry], library: lib });
+  assert.deepEqual(clean.screens.map((s) => [s.state, s.errors]), [['clean', []]]);
+  assert.ok(!figma.log.slice(before).some((l) => /^import /.test(l)), 'drift imports nothing');
+  // Without the library read, the same entry can't resolve the library set: the
+  // reason 1b didn't record these screens.
+  const blind = await runDriftSnippet(figma, 'screens', { entries: [{ ...entry, library: undefined }] });
+  assert.equal(blind.screens[0].state, 'broken');
+  assert.match(blind.screens[0].errors.join('\n'), /missing-component at root\.children\[0\]\.component: button/);
+  // A product-file entry run without SPEC.library says so, rather than passing for drift.
+  const unfed = await runDriftSnippet(figma, 'screens', { entries: [entry] });
+  assert.deepEqual([unfed.screens[0].state, unfed.screens[0].errors[0]], ['broken', 'this entry was composed in a product file (it has library.pages) but SPEC.library was not given: pass { cache, systemCollectionKeys }']);
+  // A library update drops the property the screen sets. The instances (the
+  // screen's own included) now point at the updated set, so the plan breaks.
+  const libSet = (await screensOf(figma).children.find((n) => n.type === 'INSTANCE' && n.getMainComponentAsync).getMainComponentAsync()).parent;
+  delete libSet.componentPropertyDefinitions['label#9:1'];
+  const changed = await runDriftSnippet(figma, 'screens', { entries: [entry], library: lib });
+  assert.equal(changed.screens[0].state, 'broken');
+  assert.match(changed.screens[0].errors.join('\n'), /unknown-prop at root\.children\[0\]\.props\.label: label/);
 });

@@ -53,3 +53,33 @@ test('cli: usage errors are 2 — a plan that does not check, figma without a co
   assert.equal(cli(dir, ...code, '--screen', 'Home', '--target', 'apps/web/Other.tsx').status, 2, 'target must be the plan file');
   assert.equal(cli(dir, ...code, '--screen', 'Home', '--target', './apps/web/Home.tsx').status, 0);
 });
+
+test('cli: a product-file screen is kept beside the system file\'s screen of the same name (design-modes Q40, Q41)', () => {
+  const dir = system();
+  write(dir, 'desc.json', { screen: 'Home', page: 'Screens', width: 390, root: { layout: 'vertical', children: [{ component: 'Button' }] } });
+  const base = ['record', '--system', '.', '--side', 'figma', '--screen', 'Home', '--target', 'Screens', '--plan', 'desc.json', '--components-page', 'Components'];
+  assert.equal(cli(dir, ...base).status, 0);
+  const r = cli(dir, ...base, '--file-key', 'PROD1', '--library-pages', 'Screens, Flows');
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /recorded Home \(figma, file PROD1\)/);
+  const store = JSON.parse(readFileSync(join(dir, SCREENS_FILE), 'utf8'));
+  assert.deepEqual(Object.keys(store.screens).sort(), ['figma:home', 'figma@PROD1:home']);
+  assert.equal(store.screens['figma:home'].fileKey, undefined);
+  assert.equal(store.screens['figma@PROD1:home'].fileKey, 'PROD1');
+  assert.deepEqual(store.screens['figma@PROD1:home'].library, { pages: ['Screens', 'Flows'] });
+  assert.deepEqual(store.screens['figma@PROD1:home'].components, store.screens['figma:home'].components);
+  // A product file needs no components page of its own.
+  const bare = base.filter((a, i) => a !== '--components-page' && base[i - 1] !== '--components-page');
+  const noPage = cli(dir, ...bare, '--file-key', 'PROD2', '--library-pages', 'Screens');
+  assert.equal(noPage.status, 0, noPage.stderr);
+  assert.equal(JSON.parse(readFileSync(join(dir, SCREENS_FILE), 'utf8')).screens['figma@PROD2:home'].componentsPage, undefined);
+  assert.equal(cli(dir, ...bare).status, 2, 'the system file still needs one');
+  // Both or neither, and only for figma.
+  assert.equal(cli(dir, ...base, '--file-key', 'PROD1').status, 2);
+  assert.equal(cli(dir, ...base, '--library-pages', 'Screens').status, 2);
+  // Forget is per file.
+  assert.equal(cli(dir, 'forget', '--system', '.', '--side', 'figma', '--screen', 'Home', '--file-key', 'PROD1').status, 0);
+  assert.deepEqual(Object.keys(JSON.parse(readFileSync(join(dir, SCREENS_FILE), 'utf8')).screens).sort(), ['figma:home', 'figma@PROD2:home']);
+  assert.equal(cli(dir, 'forget', '--system', '.', '--side', 'figma', '--screen', 'Home', '--file-key', 'PROD1').status, 1);
+  assert.equal(cli(dir, 'forget', '--system', '.', '--side', 'code', '--screen', 'Home', '--file-key', 'PROD1').status, 2);
+});

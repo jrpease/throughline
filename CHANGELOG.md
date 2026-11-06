@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org).
 
 ### Added
 
+- **Drift for screens composed in a product file built on your system.**
+  compose-figma now records them (with the product file's key and the pages it
+  read library parts from), and `/throughline:drift` checks them in that file,
+  without switching to it, through the same library parts and cache. A product
+  file that isn't open is reported as not checked, never gone. A screen keeps its
+  own entry, so a product file's "Home" no longer collides with the system file's.
+  (design-modes phase 1c)
+
 - **`scripts/doc-description.mjs` and `scripts/render-mdx.mjs`.** The Figma
   description and the Storybook MDX are now rendered from the doc record by a
   script, like the doc card, instead of written by hand on every run. The MDX

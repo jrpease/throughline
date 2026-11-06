@@ -126,6 +126,20 @@ test('check: figma screens get the stale check only', () => {
   assert.match(formatReport([s], null).join('\n'), /checked live/);
 });
 
+test('check: a product-file screen keeps its own row, named by file, beside the system file\'s (design-modes Q40)', () => {
+  const dir = system();
+  const description = { screen: 'Home', page: 'Screens', width: 390, root: { layout: 'vertical', children: [{ component: 'Button' }] } };
+  const manifest = manifestOf(dir);
+  const lookup = (n) => contractOf(dir, manifest, n);
+  let store = recordScreen(null, { side: 'figma', screen: 'Home', target: 'Screens', at: '2026-11-06', plan: description, componentsPage: 'Components' }, ['Button'], lookup);
+  store = recordScreen(store, { side: 'figma', screen: 'Home', target: 'Screens', at: '2026-11-06', plan: description, fileKey: 'PROD', library: { pages: ['Screens'] } }, ['Button'], lookup);
+  const rows = run(dir, store, {});
+  assert.deepEqual(rows.map((r) => r.fileKey), [undefined, 'PROD']);
+  const report = formatReport(rows, null).join('\n');
+  assert.match(report, /clean +Home \(figma: Screens\)/);
+  assert.match(report, /clean +Home \(figma: PROD \/ Screens\)/);
+});
+
 test('a component built but never documented is recorded untracked; a figma screen is never broken from the repo', () => {
   const dir = system();
   const manifest = manifestOf(dir);

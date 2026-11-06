@@ -83,7 +83,8 @@ test('a consumer file of the repo\'s system is mode a', () => {
   assert.equal(r.libraryDetected, true);
   assert.deepEqual(r.askSystem, []);
   assert.match(r.reason, /^Mode 1: building from Zygarden Design System, this repo's throughline system/);
-  assert.match(r.reason, /drift isn't tracked for this file yet/);
+  assert.match(r.reason, /the screen is recorded for drift in this file/);
+  assert.doesNotMatch(r.reason, /isn't tracked/);
 });
 
 test('the system file itself is not a consumer', () => {

@@ -141,13 +141,16 @@ filling the gaps (mode b). Use the settings already in `design-system.json` and
    `SPEC = { page, screen }` only when the user asks.
 7. **Finalize.** Run the snippet with `MODE = 'finalize'` and
    `SPEC = { page, screen, fileKey }`. It replaces an earlier screen of that name
-   only if throughline composed it. In mode a in the system's own file (not a
-   consumer run, whose screens aren't tracked for drift yet), then record the screen so
+   only if throughline composed it. In mode a, then record the screen so
    `/throughline:drift` can tell later when what it uses moves: write the
    description the build used to a scratch file, and run
    `node .throughline/scripts/screens.mjs record --system <dir> --side figma --screen <screen> --target <page> --plan <description file> --components-page <componentsPage>`,
-   adding `--icons-page <iconsPage>` when the build had one. Mode b records no
-   drift.
+   adding `--icons-page <iconsPage>` when the build had one. In a consumer run,
+   add `--file-key <currentFileKey> --library-pages <step 0's pages, comma-separated>`,
+   and pass `--components-page` only if the build passed one (`--icons-page` as
+   above), so drift checks
+   the screen in that file through the same library parts. Mode b
+   records no drift.
 8. **Review.** Dispatch the `reviewer` agent in Figma-visual mode with the screen's
    node id (from finalize), the fileKey, the working directory and the user's
    request as its spec, unless the host can't dispatch agents, in which case
@@ -158,10 +161,10 @@ filling the gaps (mode b). Use the settings already in `design-system.json` and
    the script offered, and anything left out of the request because of it. Say
    where the gaps were recorded (`design-system/gaps.json`, or `design/gaps.json`
    in mode b without `design-system.json`), and that `/throughline:gap-report`
-   ranks them for triage. In mode a in the system's file, say the screen was
-   recorded for `/throughline:drift`. In a consumer run, say drift isn't tracked
-   for this file yet, and that components from other connected libraries aren't
-   checked against the system; also give the cache lines below. In mode b, also list: the
+   ranks them for triage. In mode a, say the screen was recorded for
+   `/throughline:drift`; in a consumer run, add that drift checks it in this file
+   when the file is open, that components from other connected libraries aren't
+   checked against the system, and give the cache lines below. In mode b, also list: the
    local parts the screen used (`localPicks`; when a library was detected and
    `figma_get_library_components` wasn't run, say each may be standing in for a
    library component the run couldn't see, and that giving the library's link lets
