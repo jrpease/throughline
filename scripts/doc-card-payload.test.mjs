@@ -135,6 +135,10 @@ test('a collection-qualified role picks the variable in that collection', () => 
     () => pickRoleVariable(TWIN_VARS, 'spacePadding', { collection: 'Spacing Tokens', name: 'spacing/space/6' }),
     /"spacing\/space\/6" in collection "Spacing Tokens" resolves to 0 variables, not exactly one$/,
   );
+  // Figma allows two collections with the same name; the pair can't tell them apart.
+  const sameNamed = [{ id: 'A', name: 'gap', collection: 'Spacing' }, { id: 'B', name: 'gap', collection: 'Spacing' }];
+  assert.throws(() => pickRoleVariable(sameNamed, 'spaceItemGap', { collection: 'Spacing', name: 'gap' }),
+    /resolves to 2 variables, not exactly one; two collections are both called "Spacing", so rename one of them in Figma/);
 });
 
 test('the payload accepts a qualified role and resolves it in Figma by collection', async () => {

@@ -135,6 +135,8 @@ export function pickRoleVariable(vars, role, spec) {
   if (hits.length > 1 && collection === null) {
     hint = '; it is in ' + hits.map((h) => '"' + h.collection + '"').join(' and ')
       + ', so record it as { "collection": "<one of them>", "name": "' + name + '" }';
+  } else if (hits.length > 1) {
+    hint = '; two collections are both called "' + collection + '", so rename one of them in Figma';
   }
   throw new Error('docCardVariables.' + role + ' ' + label + ' resolves to ' + hits.length + ' variables, not exactly one' + hint);
 }
