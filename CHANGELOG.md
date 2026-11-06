@@ -6,6 +6,16 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Added
+
+- **Drift for screens composed in a product file built on your system.**
+  compose-figma now records them (with the product file's key and the pages it
+  read library parts from), and `/throughline:drift` checks them in that file,
+  without switching to it, through the same library parts and cache. A product
+  file that isn't open is reported as not checked, never gone. A screen keeps its
+  own entry, so a product file's "Home" no longer collides with the system file's.
+  (design-modes phase 1c)
+
 ### Fixed
 
 - **A doc card role can name its collection.** When a variable name sits in two

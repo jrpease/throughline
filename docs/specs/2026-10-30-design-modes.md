@@ -1,6 +1,6 @@
 # Design modes: build in Figma with a system, a library, or nothing
 
-Status: built (phases 1 and 1b); phase 1c planned; phases 2–4 not yet planned
+Status: built (phases 1, 1b and 1c, 1c not yet run live); phases 2–4 not yet planned
 Reviewed: 2026-11-02 (phase 1b) — ready to build, with two design ambiguities (forced-b consumer writing `design/`, the ask under `forced`) and eight Plan notes. All folded in the same day (Q36, Q37), not re-reviewed after.
 Reviewed: 2026-10-30 — Plan re-review: needs revision, narrowly (Step 1 test import, Step 0 stop rule, raw padding form, local values for valueIndex, token key names and colour form, reaching a library collection with no bound variable); Steps 6–12 executable as written. All six fixed the same day, not re-reviewed after.
 Date: 2026-10-30
@@ -1080,6 +1080,34 @@ Bump `package.json` and `.claude-plugin/plugin.json` to `0.33.0` (Q22), and the
 release tag stay the owner's call.
 Verify: every CI gate: `node --test && node ci/validate-plugin.mjs && node ci/validate-skills.mjs && node ci/validate-install-sets.mjs && node ci/check-pinned-runs.mjs && node scripts/adapters/generate.mjs --check && node scripts/build-doc-card-builder.mjs --check && node scripts/build-native-adapter-config.mjs --check && node scripts/build-state-baseline.mjs --check && node scripts/build-figma-checks.mjs --check`
 → every command exits 0.
+
+## Phase 1c: what shipped and where it diverged
+
+Built 2026-11-06 (C1–C5). `screens.mjs` records a product-file screen under
+`figma@<fileKey>:<screen>` with `fileKey` and `library.pages`; the drift screens
+snippet reads such entries through `library = { cache, systemCollectionKeys }`;
+`commands/drift.md` checks each connected product file by `fileKey` and reports an
+unconnected one as not checked; compose-figma records consumer screens and its
+mode line says so; `figma-scripting.md`'s `fileKey` claim is corrected; README and
+CHANGELOG updated. `node --test` and every gate pass.
+
+Where it diverged:
+- **The screens snippet needed two more inlined sources**: `figma-compose-library.mjs`
+  (the merge) and `figma-variables-read.figma.js` (the library reader resolves
+  local variable values). Without them a consumer entry threw at run time.
+- **A library part can't "leave the page" while its screen exists.** The screen's
+  own instances are on its recorded page, so the inventory always finds the set
+  they point at. What drift catches is a library update that changes the set (a
+  property dropped, an option renamed): the instances follow the update and the
+  plan stops resolving. A set deleted from the library leaves its instances
+  pointing at the last published version, which still resolves. Tested as the
+  first case.
+- **`commands/drift.md` now names the active-file preflight** by that phrase, since
+  mentioning `figma_execute` makes it a Figma writer to `ci/figma-preflight.test.mjs`.
+- **Not run live.** Only the sample file was connected; a product file on the
+  system (Zygarden.gg) wasn't. Reads by `fileKey` are from the bridge's contract and
+  this session's runs against the active file, not yet against a file in the
+  background.
 
 ## Plan, phase 1c
 

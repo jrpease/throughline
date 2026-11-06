@@ -669,7 +669,7 @@ const DESIGN_MODE_REASONS = {
   a: 'Mode 1: building from this file\'s throughline design system. Every value is bound to the system, and the screen is recorded for drift.',
   b: 'Mode 2: building from the connected library first, then this file\'s own components and variables. A raw value is allowed only where no variable holds it, and each one is listed; text styles come from the library where the run sees them in use, else from this file; no drift tracking.',
   bLocal: 'Mode 2: no library is connected, so building from this file\'s own components and variables. A raw value is allowed only where no variable holds it, and each one is listed; no drift tracking.',
-  consumer: 'Mode 1: building from LIBRARY, this repo\'s throughline system, used here as a library. Every value is bound to the system; anything the library doesn\'t have is recorded as a gap; components from other connected libraries aren\'t checked against the system; drift isn\'t tracked for this file yet.',
+  consumer: 'Mode 1: building from LIBRARY, this repo\'s throughline system, used here as a library. Every value is bound to the system; anything the library doesn\'t have is recorded as a gap; components from other connected libraries aren\'t checked against the system; the screen is recorded for drift in this file.',
   c: 'Mode 3: this file has no design system, library or variables, so screens are built from frames to auto-layout standards. Nothing is bound to variables, and no gaps or drift are recorded.',
   cLowered: 'Mode 3: ignoring this file\'s system, library and variables as you asked, so screens are built from frames to auto-layout standards. Nothing is bound to variables, and no gaps or drift are recorded.',
 };

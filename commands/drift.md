@@ -18,7 +18,7 @@ than re-asking them. Scale explanation to `user.codingLevel`.
    been composed and recorded yet, no sync has stamped the token output and no
    component's code has been stamped; the live half can still compare Figma.
 3. **The live half.** Only when `figma.fileKey` is set and the bridge is open on
-   that file: confirm the active file is the target (the preflight in
+   that file: confirm the active file is the target (the active-file preflight in
    `${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md`) and pin it with
    `figma_navigate` (`lock: true`) for the run; unpin when done. Then run the
    snippets in `${CLAUDE_PLUGIN_ROOT}/references/figma-drift.md` verbatim, as its
@@ -27,8 +27,9 @@ than re-asking them. Scale explanation to `user.codingLevel`.
      `node ${CLAUDE_PLUGIN_ROOT}/scripts/drift-check.mjs compare-figma --system <dir> --from <file>`.
      Exit 1 means a collection moved: a result, like step 2's.
    - The screens snippet, with `SPEC = { entries }`, where `entries` is every entry
-     in `design-system/screens.json` whose `side` is `"figma"`, as stored. Skip this
-     call when there are none.
+     in `design-system/screens.json` whose `side` is `"figma"` and that has no
+     `fileKey`, as stored: the screens in the system's own file. Skip this call
+     when there are none.
    - The components snippet. Run the check again with `--json` (step 2's report
      stays as it is) and take `names` from its `components.documented`; skip this
      call when it's empty. `SPEC = { names }`, plus `componentsPage` set to the
@@ -38,6 +39,17 @@ than re-asking them. Scale explanation to `user.codingLevel`.
      Write the result to a scratch file as returned and run
      `node ${CLAUDE_PLUGIN_ROOT}/scripts/drift-check.mjs compare-components --system <dir> --from <file>`.
      Exit 1 means a component differs: a result.
+   Then the screens composed in product files built on the system (entries with a
+   `fileKey`), one call per file, whether or not the system's file is open. List
+   the connected files with `figma_list_open_files`. For each product file that is
+   connected, run the screens snippet with `figma_execute`'s `fileKey` set to it
+   (it reads that file without switching to it, so no pin is needed for this
+   read-only call) and `SPEC = { entries, library }`: `entries` that file's
+   entries as stored; `library = { cache, systemCollectionKeys }`, with `cache`
+   from `node ${CLAUDE_PLUGIN_ROOT}/scripts/design-workspace.mjs cache get --dir <dir>`
+   and `systemCollectionKeys` from `design-system.json`'s `figma.collectionKeys`.
+   A product file that isn't connected is **not checked**: its screens keep the
+   state step 2 gave them and are never reported `gone`.
    A Figma screen's live state replaces the "stale" or "clean" step 2 gave it:
    `broken`, `gone` or `released` wins, and any contract change step 2 named for it
    stays as a note. Count it once, in its live state.
@@ -47,6 +59,9 @@ than re-asking them. Scale explanation to `user.codingLevel`.
    left them. Never ask the user
    to open Figma just for this.
 4. **Report.** In this order, leaving out what's empty:
+   - **Not checked**: Figma screens in a product file the bridge isn't connected
+     to, by file, with the state step 2 gave them. Opening that file and running
+     drift again checks them.
    - **Broken screens** (including Figma screens that are `gone`): what each one
      uses that's gone, and the options the check says remain. The fix is to compose it
      again (`/throughline:compose-code` or `/throughline:compose-figma`) with the
