@@ -22,7 +22,8 @@ rule; do not re-write it by hand.
    - `const TARGET = { page, screens, fileKey }` — `page` is the page name (an exact
      match, or else the one page whose name matches once leading and trailing
      spaces are trimmed); `screens` is an optional list of screen names (top-level
-     frames, or frames directly inside a top-level section), and without it every
+     frames, frames directly inside a top-level section, or, by name only, frames
+     one level inside either, as in a container frame holding a flow), and without it every
      screen on the page is read; `fileKey` is `figma.fileKey` from
      `design-system.json`, used for the links.
      In mode b, also pass `libraryTokens`: the output of

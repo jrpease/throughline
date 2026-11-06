@@ -280,7 +280,7 @@ export function resolveScreen(description, inventory) {
     const sizingPlan = sizing(node, path, parent, null, !set || set.autoLayout !== false);
     if (!set && same.length > 1) {
       fail('ambiguous-component', `${path}.component`, String(node.component),
-        same.map((x) => `${x.name} (${x.page ? `page "${x.page}", ` : ''}properties: ${x.props.map((p) => propBaseName(p.key)).join(', ') || 'none'})`));
+        same.map((x) => `${x.name} (${x.page ? `page "${x.page}"` : `library, ${x.id}`}, properties: ${x.props.map((p) => propBaseName(p.key)).join(', ') || 'none'})`));
       return null;
     }
     if (!set) {

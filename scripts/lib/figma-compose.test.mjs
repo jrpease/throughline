@@ -180,3 +180,10 @@ test('same-named sets with nothing to tell them apart are ambiguous, never the f
     ]);
   }
 });
+
+test('an ambiguous library set is named by its key, since it has no page', () => {
+  const inv = twinButtons();
+  inv.sets = inv.sets.map((x) => (x.id === '90:1' ? { ...x, id: 'lib:abc123', page: null } : x));
+  const r = resolveScreen(withButton({}), inv);
+  assert.equal(r.errors[0].nearest[0], 'Button (library, lib:abc123, properties: Size)');
+});
