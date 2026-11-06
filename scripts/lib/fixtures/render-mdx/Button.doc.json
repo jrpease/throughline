@@ -1,0 +1,92 @@
+{
+  "name": "Button",
+  "summary": "Triggers an action or event.",
+  "description": "A clickable control that starts an action: saving a form, confirming a choice, opening a dialog. Its emphasis levels signal how important an action is, so the choice of variant is the main decision when you use it.",
+  "whenToUse": [
+    "The user needs to make something happen on the current page, like saving, confirming, or opening a dialog.",
+    "A view needs one obvious primary action."
+  ],
+  "whenNotToUse": [
+    "The control takes the user to another page or URL. Use a Link; the link variant only looks like a link and still triggers an action."
+  ],
+  "variants": {
+    "variant": {
+      "default": "The one main action in a view.",
+      "secondary": "A supporting action that sits beside the main one.",
+      "destructive": "An action that deletes something or cannot be undone.",
+      "outline": "A quieter action that still needs a visible edge.",
+      "ghost": "The quietest action, for toolbars and dense layouts.",
+      "link": "An action that reads as inline text."
+    },
+    "size": {
+      "sm": "For dense layouts and toolbars.",
+      "md": "The default size for most uses.",
+      "lg": "For hero moments that need extra presence."
+    }
+  },
+  "states": {
+    "default": "At rest and ready to be clicked.",
+    "hover": "The pointer is over the button and it lightens to invite a click.",
+    "focus": "The button has keyboard focus and shows a focus ring.",
+    "active": "The button is being pressed, and its fill brightens until it's released.",
+    "disabled": "Can't be clicked or tabbed to.",
+    "loading": "The action is running; a spinner replaces the leading icon until it finishes."
+  },
+  "dos": [
+    "Lead the label with a verb.",
+    "Keep one primary button per view.",
+    "Keep labels to about three words."
+  ],
+  "donts": [
+    "Don't use a button to navigate. Use a Link.",
+    "Don't stack two primary buttons in one view.",
+    "Don't disable a button without telling the user why."
+  ],
+  "accessibility": {
+    "role": "button",
+    "keyboard": [
+      "Enter activates the button.",
+      "Space activates the button."
+    ],
+    "notes": [
+      "An icon-only button needs an aria-label so screen readers can announce it.",
+      "A disabled or loading button can't take keyboard focus. Say why it is unavailable somewhere a screen reader will reach."
+    ]
+  },
+  "tokensUsed": [
+    "color/brand/primary",
+    "color/brand/primaryHover",
+    "color/brand/primaryActive",
+    "color/brand/onPrimary",
+    "color/bg/muted",
+    "color/bg/mutedHover",
+    "color/bg/mutedActive",
+    "color/text/primary",
+    "color/focus/ring",
+    "color/focus/ringOnFill",
+    "radius/md",
+    "space/2",
+    "space/3",
+    "space/4",
+    "space/6",
+    "font/family/body",
+    "font/size/100",
+    "font/size/200",
+    "font/size/300",
+    "Focus Ring",
+    "Focus Ring On Fill"
+  ],
+  "status": "stable",
+  "updatedAt": "2026-10-15",
+  "provenance": {
+    "description": "imported+user",
+    "whenToUse": "best-practice",
+    "whenNotToUse": "best-practice",
+    "variants": "ai-inferred+framework",
+    "states": "ai-inferred",
+    "dos": "best-practice",
+    "donts": "best-practice",
+    "accessibility": "w3c-apg+framework",
+    "tokensUsed": "ai-inferred"
+  }
+}

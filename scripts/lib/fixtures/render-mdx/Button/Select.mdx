@@ -1,0 +1,64 @@
+{/* docFingerprint: 84f5080b9179e29c — generated from Select.doc.json by docs render. Do not edit by hand; change the record and re-render via /document-component. */}
+
+import { Meta } from "@storybook/blocks";
+import * as Stories from "./Select.stories";
+
+<Meta of={Stories} />
+
+# Select
+
+_Chooses one option from a dropdown list._
+
+An accessible trigger for choosing one option from a list, wrapping a native select so it inherits the platform's open/close and keyboard behavior. A non-interactive chevron sits on the trailing edge. It comes in three sizes (sm / md / lg) with default, hover, focus, active, error, and disabled states, and binds its background, border, radius, and focus ring to the system's semantic tokens.
+
+## When to use
+
+- Choose a single option from a moderate-to-long list
+- Save vertical space when a Radio group would be too many options
+
+## When not to use
+
+- A short set of a few options that benefit from being visible — use Radios
+- Selecting more than one value — use a multi-select or checkboxes
+
+## Do
+
+- Always pair with a visible label
+- Order options predictably (alphabetical, or by frequency)
+- Provide a clear default or an unselected placeholder option
+
+## Don't
+
+- Don't use a Select for only two or three visible options — use Radios
+- Don't hide critical actions inside a Select — it's for choosing values
+- Don't rely on the placeholder as the field's only label
+
+## Variants
+
+### size
+
+- `sm` — Compact — dense forms and toolbars.
+- `md` — Default size for most forms.
+- `lg` — Prominent — larger or high-emphasis forms.
+
+## States
+
+- `default` — Resting, showing the current value.
+- `hover` — Pointer over the trigger — stronger border.
+- `focus` — Keyboard focus — shows the focus ring.
+- `active` — Being pressed — muted background.
+- `error` — Invalid — destructive border and ring.
+- `disabled` — Dimmed and non-interactive.
+
+## Accessibility
+
+- **Role:** `combobox (native select)`
+- **Keyboard:** Enter or Space / Arrow keys open and move through options
+- **Keyboard:** Typing jumps to matching options; Tab moves focus to and from the field
+- Built on a native &lt;select&gt;, so platform semantics and behavior come for free
+- The chevron is decorative (aria-hidden) — the native control carries behavior
+- The error state sets aria-invalid and links the message via aria-describedby
+
+## Tokens used
+
+`color/bg/subtle` · `color/text/primary` · `color/text/muted` · `color/border/default` · `color/danger/default` · `color/bg/muted` · `color/border/strong` · `radius/md` · `space/3` · `space/4` · `font/size/200` · `font/size/300` · `Focus Ring`

@@ -1,0 +1,71 @@
+{/* docFingerprint: e191e5aa0ddd1abe — generated from Button.doc.json by docs render. Do not edit by hand; change the record and re-render via /document-component. */}
+
+import { Meta } from "@storybook/blocks";
+import * as Stories from "./Button.stories";
+
+<Meta of={Stories} />
+
+# Button
+
+_Triggers an action or event._
+
+A clickable control that starts an action: saving a form, confirming a choice, opening a dialog. Its emphasis levels signal how important an action is, so the choice of variant is the main decision when you use it.
+
+## When to use
+
+- The user needs to make something happen on the current page, like saving, confirming, or opening a dialog.
+- A view needs one obvious primary action.
+
+## When not to use
+
+- The control takes the user to another page or URL. Use a Link; the link variant only looks like a link and still triggers an action.
+
+## Do
+
+- Lead the label with a verb.
+- Keep one primary button per view.
+- Keep labels to about three words.
+
+## Don't
+
+- Don't use a button to navigate. Use a Link.
+- Don't stack two primary buttons in one view.
+- Don't disable a button without telling the user why.
+
+## Variants
+
+### variant
+
+- `default` — The one main action in a view.
+- `secondary` — A supporting action that sits beside the main one.
+- `destructive` — An action that deletes something or cannot be undone.
+- `outline` — A quieter action that still needs a visible edge.
+- `ghost` — The quietest action, for toolbars and dense layouts.
+- `link` — An action that reads as inline text.
+
+### size
+
+- `sm` — For dense layouts and toolbars.
+- `md` — The default size for most uses.
+- `lg` — For hero moments that need extra presence.
+
+## States
+
+- `default` — At rest and ready to be clicked.
+- `hover` — The pointer is over the button and it lightens to invite a click.
+- `focus` — The button has keyboard focus and shows a focus ring.
+- `active` — The button is being pressed, and its fill brightens until it's released.
+- `disabled` — Can't be clicked or tabbed to.
+- `loading` — The action is running; a spinner replaces the leading icon until it finishes.
+
+## Accessibility
+
+- **Role:** `button`
+- **Keyboard:** Enter activates the button.
+- **Keyboard:** Space activates the button.
+- An icon-only button needs an aria-label so screen readers can announce it.
+- A disabled or loading button can't take keyboard focus. Say why it is unavailable somewhere a screen reader will reach.
+
+## Tokens used
+
+`color/brand/primary` · `color/brand/primaryHover` · `color/brand/primaryActive` · `color/brand/onPrimary` · `color/bg/muted` · `color/bg/mutedHover` · `color/bg/mutedActive` · `color/text/primary` · `color/focus/ring` · `color/focus/ringOnFill` · `radius/md` · `space/2` · `space/3` · `space/4` · `space/6` · `font/family/body` · `font/size/100` · `font/size/200` · `font/size/300` · `Focus Ring` · `Focus Ring On Fill`
