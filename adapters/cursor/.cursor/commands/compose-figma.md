@@ -146,8 +146,9 @@ filling the gaps (mode b). Use the settings already in `design-system.json` and
    description the build used to a scratch file, and run
    `node .throughline/scripts/screens.mjs record --system <dir> --side figma --screen <screen> --target <page> --plan <description file> --components-page <componentsPage>`,
    adding `--icons-page <iconsPage>` when the build had one. In a consumer run,
-   add `--file-key <currentFileKey> --library-pages <step 0's pages, comma-separated>`
-   instead, and `--components-page` only if the build passed one, so drift checks
+   add `--file-key <currentFileKey> --library-pages <step 0's pages, comma-separated>`,
+   and pass `--components-page` only if the build passed one (`--icons-page` as
+   above), so drift checks
    the screen in that file through the same library parts. Mode b
    records no drift.
 8. **Review.** Dispatch the `reviewer` agent in Figma-visual mode with the screen's
