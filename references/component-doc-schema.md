@@ -110,7 +110,7 @@ Figma-connected skill computing the identical hash over the description content.
 Each surface carries a fingerprint stamp of the record it was rendered from:
 - **Figma component description** — a trailing marker line `<!-- tl:doc <fp> -->`.
 - **Doc card** — a named metadata node `Doc Fingerprint` holding `<fp>`.
-- **Storybook MDX** — a frontmatter field `docFingerprint: <fp>`.
+- **Storybook MDX** — a comment on line 1, `{/* docFingerprint: <fp> — generated from <Name>.doc.json … */}`, written by `scripts/render-mdx.mjs`.
 
 ## Manifest pointer (`components.meta[name].doc`)
 

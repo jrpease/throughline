@@ -1,0 +1,75 @@
+{
+  "name": "Select Menu Item",
+  "summary": "One selectable row inside a Select Menu.",
+  "description": "A single selectable option within a Select Menu, rendered with role=\"option\". Its label is passed as content and a trailing check appears when it is the current selection. It covers the full interaction set — default, hover, focused (keyboard navigation), selected, and disabled — and binds its text, surfaces, and the selected check to the system's semantic tokens.",
+  "whenToUse": [
+    "Represent one choosable option inside a Select Menu listbox",
+    "Mark the currently selected value with the trailing check"
+  ],
+  "whenNotToUse": [
+    "A clickable action or command — use a Menu item, not an option",
+    "Standalone outside a Select Menu — items only make sense within the listbox"
+  ],
+  "variants": {
+    "selected": {
+      "false": "Not the current value — no trailing check.",
+      "true": "Current value — subtle fill and a trailing brand check."
+    },
+    "disabled": {
+      "false": "Interactive.",
+      "true": "Dimmed and not selectable."
+    }
+  },
+  "states": {
+    "default": "Resting option.",
+    "hover": "Pointer over the row — subtle background.",
+    "focused": "Keyboard navigation highlight — muted background with a focus ring."
+  },
+  "dos": [
+    "Keep option labels short and scannable",
+    "Let the trailing check be the single, consistent selected indicator",
+    "Keep items visually uniform within one menu"
+  ],
+  "donts": [
+    "Don't put multiple interactive controls inside one option row",
+    "Don't convey selection by color alone — the check carries it too",
+    "Don't use an option row for an action — that belongs in a Menu"
+  ],
+  "accessibility": {
+    "role": "option",
+    "keyboard": [
+      "Reachable via the parent listbox's arrow-key navigation",
+      "Enter selects the focused option"
+    ],
+    "notes": [
+      "Carries role=\"option\" with aria-selected reflecting the current value",
+      "Disabled options set aria-disabled and leave the tab order",
+      "Selection is shown with a check, not color alone (WCAG 1.4.1)"
+    ]
+  },
+  "tokensUsed": [
+    "color/text/primary",
+    "color/text/disabled",
+    "color/bg/subtle",
+    "color/bg/muted",
+    "color/border/focus",
+    "color/brand/primary",
+    "radius/sm",
+    "space/2",
+    "space/3",
+    "font/size/200"
+  ],
+  "status": "stable",
+  "updatedAt": "2026-10-15",
+  "provenance": {
+    "description": "ai-inferred",
+    "whenToUse": "best-practice",
+    "whenNotToUse": "best-practice",
+    "variants": "ai-inferred+framework",
+    "states": "ai-inferred",
+    "dos": "best-practice",
+    "donts": "best-practice",
+    "accessibility": "w3c-apg+framework",
+    "tokensUsed": "ai-inferred"
+  }
+}
