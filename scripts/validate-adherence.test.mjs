@@ -1664,3 +1664,19 @@ test('usage rules: an empty body is judged like a self-closing element', () => {
   assert.deepEqual(a11y('<Button label="Save">\n  </Button>').rules, []);
   assert.deepEqual(a11y('<Button className="x">  </Button>').rules, ['unnamed-control']);
 });
+
+test('lineOf matches counting newlines from the top, at every index (#160)', async () => {
+  const { lineOf } = await import('./validate-adherence.mjs');
+  const naive = (text, i) => text.slice(0, i).split('\n').length;
+  for (const text of ['', 'one line', '\n', 'a\nb\r\nc\n\n\nd', '\n\nlead\ntrail\n']) {
+    for (let i = 0; i <= text.length; i++) assert.equal(lineOf(text, i), naive(text, i), `${JSON.stringify(text)} @ ${i}`);
+  }
+});
+
+test('lineOf stays fast on a large file with many lookups (#160)', async () => {
+  const { lineOf } = await import('./validate-adherence.mjs');
+  const text = '<Button variant="primary">Go</Button>\n'.repeat(30000);
+  const started = performance.now();
+  for (let i = 0; i < text.length; i += 37) lineOf(text, i);
+  assert.ok(performance.now() - started < 1000, 'lookups should not re-scan the file each time');
+});
