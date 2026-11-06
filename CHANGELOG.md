@@ -6,6 +6,8 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+## [0.34.0] — 2026-11-06
+
 ### Added
 
 - **Drift for screens composed in a product file built on your system.**
@@ -31,6 +33,12 @@ to [Semantic Versioning](https://semver.org).
   paragraph** after the summary, as the schema's projection table always said.
 - **The MDX fingerprint is documented as the comment on line 1**, which is what
   generated files carry, not frontmatter.
+- **compose-figma can install its snippet once per file** through `globalThis`
+  instead of pasting it into every call, and `figma-scripting.md` warns that a
+  timed-out `figma_execute` keeps running and can leave nodes outside the
+  rollback. (#202)
+- **The adherence gate looks up line numbers in a per-file table**, so a large
+  file with many matches no longer rescans from the top for each one. (#160)
 
 ### Fixed
 
@@ -53,13 +61,6 @@ to [Semantic Versioning](https://semver.org).
 - **The doc card checks every `Status` variant of the kit header** against the
   card's fill, not only the default one, so a `deprecated` header restyled to
   match the card is refused and named. (#198)
-
-### Changed
-
-- **compose-figma can install its snippet once per file** through `globalThis`
-  instead of pasting it into every call, and `figma-scripting.md` warns that a
-  timed-out `figma_execute` keeps running and can leave nodes outside the
-  rollback. (#202)
 
 ## [0.33.1] — 2026-11-06
 
