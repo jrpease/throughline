@@ -37,6 +37,8 @@ to [Semantic Versioning](https://semver.org).
   instead of pasting it into every call, and `figma-scripting.md` warns that a
   timed-out `figma_execute` keeps running and can leave nodes outside the
   rollback. (#202)
+- **The adherence gate looks up line numbers in a per-file table**, so a large
+  file with many matches no longer rescans from the top for each one. (#160)
 
 ### Fixed
 
