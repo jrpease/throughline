@@ -37,7 +37,7 @@ filling the gaps (mode b). Use the settings already in `design-system.json` and
      its library: mode a's rules, with the library read as in mode b.
 
    Tell the user the `reason` it returns. Mode c (no system, library or
-   variables) isn't built yet: say so and stop.
+   variables) isn't built yet: say so, as mode 3, and stop.
 1. **Know the file.** In mode a the file is `design-system.json`'s
    `figma.fileKey`, or `currentFileKey` in a consumer run. In mode b it is
    `design/workspace.json`'s `fileKey` if that names the open file, else

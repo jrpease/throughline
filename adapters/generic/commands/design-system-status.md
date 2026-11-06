@@ -1,5 +1,7 @@
-Read `design-system.json` and present a clear, plain-language summary of where
-the user's design system stands. This is the "where am I?" command — especially
+First, check which kind of folder this is. If `design-system.json` is missing,
+skip straight to the last two paragraphs (a library folder, or nothing set up)
+and stop there. Otherwise, read `design-system.json` and present a clear,
+plain-language summary of where the user's design system stands. This is the "where am I?" command — especially
 valuable for users who don't want to read raw JSON.
 
 Report, in friendly prose (not a JSON dump), scaled to `user.codingLevel`:
@@ -44,6 +46,15 @@ For a brownfield system, suggest the next retrofit step from the state: no audit
 (`retrofit.phase` set, not `"done"`) → "want to resume the retrofit at the `<phase>`
 phase with `retrofit-planner`?".
 
-If `design-system.json` doesn't exist, explain that no design system has been
-set up in this folder yet and offer to run `figma-environment-setup` to start.
+If `design-system.json` doesn't exist but `design/workspace.json` does, this
+folder designs screens on a Figma library rather than its own system. Say so, as
+"mode 2: a library your team uses" (the README's numbering; never the letter).
+Name the Figma file (`fileKey`) and the libraries the workspace records, then
+point at `/throughline:compose-figma` to design more screens and, if
+`design/gaps.json` exists, `/throughline:gap-report` to triage what the library
+was missing. Don't offer system setup unless the user asks for a system.
+
+Only when neither file exists, explain that nothing has been set up in this
+folder yet and offer to run `/throughline:start`, which asks whether they're
+building a system or designing on a library.
 

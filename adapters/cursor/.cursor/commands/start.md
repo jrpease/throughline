@@ -1,8 +1,26 @@
-This is the **first step** for building a design system with ThroughLine. The
-user invoked it explicitly, so begin immediately — do **not** invoke any
+This is the **first step** with ThroughLine, whether the user is building a
+design system or designing screens on a Figma library their team already uses.
+The user invoked it explicitly, so begin immediately — do **not** invoke any
 brainstorming or planning skill first. There is nothing to brainstorm until the
-environment exists: the local working folder must be created and Figma must be
-connected before any design work can happen.
+environment exists: Figma must be connected before any design work can happen.
+
+**Ask which way in, before anything else.** If `design-system.json` already
+exists in this folder, skip the question and go straight to the setup skill
+below. Otherwise ask one question, before the setup skill runs (it writes
+`design-system.json` early, and a manifest makes a product file read as a
+system):
+
+> Are you building a design system, or designing screens on a Figma library your
+> team already uses?
+
+- **A library:** follow only the `figma-environment-setup` rule's
+  "Step 4 — Connect to Figma". Write nothing else: no `design-system.json`, no
+  working folder. Skip its Step 6 liveness check too, because that check writes
+  `figma.connected` into a manifest that won't exist; `/throughline:compose-figma`
+  checks the connection itself (its step 0). Don't add a check that writes a
+  manifest. Then tell the user to open the product file in Figma and run
+  `/throughline:compose-figma`.
+- **A design system:** carry on below.
 
 Invoke the `figma-environment-setup` rule now and follow it exactly. It will:
 
