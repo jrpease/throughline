@@ -178,7 +178,7 @@ export function formatComponentComparison(diffs, checked) {
 export function checkScreens(store, { system, manifest, index, readText }) {
   const out = [];
   for (const entry of Object.values(store?.screens ?? {})) {
-    const r = { side: entry.side, screen: entry.screen, target: entry.target, broken: [], stale: [], untracked: [], released: false };
+    const r = { side: entry.side, screen: entry.screen, target: entry.target, ...(entry.fileKey ? { fileKey: entry.fileKey } : {}), broken: [], stale: [], untracked: [], released: false };
     if (entry.side === 'code') {
       const text = readText(entry.target);
       if (text === null) r.broken.push(`${entry.target} is gone`);
@@ -288,7 +288,7 @@ export function formatReport(screens, tokens, code = null, components = null) {
   out.push('## Screens', '');
   if (!screens.length) out.push('No composed screens recorded.');
   for (const s of screens) {
-    const where = `${s.screen} (${s.side}: ${s.target})`;
+    const where = `${s.screen} (${s.side}: ${s.fileKey ? `${s.fileKey} / ` : ''}${s.target})`;
     if (s.released) { out.push(`- released  ${where}: its marker is gone, so a person owns it now. Stop tracking it with screens.mjs forget.`); continue; }
     const state = s.broken.length ? 'broken' : s.stale.length ? 'stale' : 'clean';
     out.push(`- ${state.padEnd(8)}  ${where}`);

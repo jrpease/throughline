@@ -12,8 +12,9 @@
 //
 // --plan: for code, the plan passed to compose-code.mjs check (its input, not the
 //   resolved plan it prints); for figma, the description the build used.
-//   --components-page is required for figma: the live drift pass reads its
-//   inventory from there.
+//   --components-page is required for figma in the system's file: the live drift
+//   pass reads its inventory from there. A product-file screen may have none.
+//   A page name with a comma in it can't be passed in --library-pages.
 // --file-key / --library-pages: a figma screen composed in a product file that uses
 //   the system as its library (a consumer run). Both or neither. The entry is kept
 //   under its own key, so a product file's screen never overwrites the system
@@ -134,7 +135,7 @@ function main() {
 
   const missing = ['target', 'plan'].filter((k) => !values[k]?.trim());
   if (missing.length) usage(`record needs --${missing.join(', --')}`);
-  if (values.side === 'figma' && !values['components-page']) usage('a figma record needs --components-page');
+  if (values.side === 'figma' && !values['components-page'] && !values['file-key']) usage('a figma record needs --components-page (a product-file screen, with --file-key, may leave it out)');
   const libraryPages = (values['library-pages'] ?? '').split(',').map((x) => x.trim()).filter(Boolean);
   if (Boolean(values['file-key']) !== libraryPages.length > 0) usage('a product-file screen needs both --file-key and --library-pages');
   if (values.at && !/^\d{4}-\d{2}-\d{2}$/.test(values.at)) usage('--at is YYYY-MM-DD');
@@ -164,7 +165,7 @@ function main() {
     plan,
   };
   if (values.side === 'figma') {
-    entry.componentsPage = values['components-page'];
+    if (values['components-page']) entry.componentsPage = values['components-page'];
     if (values['icons-page']) entry.iconsPage = values['icons-page'];
     if (values['file-key']) {
       entry.fileKey = values['file-key'];

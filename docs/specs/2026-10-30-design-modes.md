@@ -116,6 +116,14 @@ three modes last.
 
 ## Open questions
 
+- **A library set deleted after a product-file screen used it (phase 1c).** Its
+  instances keep the last published version, so the live check still resolves, and
+  the offline check is silent because `contractOf` returns nothing for a deleted doc
+  record (`scripts/drift-check.mjs`, the `if (now && …)` guard). Options: report a
+  recorded component whose doc record is gone as broken offline, or check the
+  system file's components page when it is open. Recommendation: the offline
+  report, since it needs no Figma. Unresolved.
+
 - **Sharing the craft and states guidance with claude-bootstrap.** Q15's states and
   Q23's `screen-craft.md` come from `product-design`'s `states.md`, `craft.md`,
   `systems.md` and its list of tells, with the measured numbers and company examples
@@ -1099,15 +1107,22 @@ Where it diverged:
   own instances are on its recorded page, so the inventory always finds the set
   they point at. What drift catches is a library update that changes the set (a
   property dropped, an option renamed): the instances follow the update and the
-  plan stops resolving. A set deleted from the library leaves its instances
-  pointing at the last published version, which still resolves. Tested as the
-  first case.
+  plan stops resolving. Tested. A set deleted from the library is an open
+  question (below), not settled.
+- **The review (critic, 2026-11-06) found the consumer record couldn't run**: step 7
+  passed `--components-page` unconditionally, and a product file has none. Now
+  optional with `--file-key`, left out of the consumer record, and tested with no
+  components page. Also fixed from it: drift.md's two live parts have their own
+  conditions (a product file is checked when the system file isn't open); the
+  forget offer and the components snippet's page skip product-file entries; the
+  offline report names a product-file screen's file; an entry with `library.pages`
+  run without `SPEC.library` says so instead of reading as drift.
 - **`commands/drift.md` now names the active-file preflight** by that phrase, since
   mentioning `figma_execute` makes it a Figma writer to `ci/figma-preflight.test.mjs`.
 - **Not run live.** Only the sample file was connected; a product file on the
-  system (Zygarden.gg) wasn't. Reads by `fileKey` are from the bridge's contract and
-  this session's runs against the active file, not yet against a file in the
-  background.
+  system (Zygarden.gg) wasn't. Reading a connected file by `fileKey` without
+  switching to it has worked live before (the bridge notes from the doc card and 1b
+  runs); this phase's snippet hasn't run that way yet.
 
 ## Plan, phase 1c
 

@@ -17,8 +17,9 @@ than re-asking them. Scale explanation to `user.codingLevel`.
    error: report it and stop. If it says nothing was checked, say no screen has
    been composed and recorded yet, no sync has stamped the token output and no
    component's code has been stamped; the live half can still compare Figma.
-3. **The live half.** Only when `figma.fileKey` is set and the bridge is open on
-   that file: confirm the active file is the target (the active-file preflight in
+3. **The live half.** It has two parts with their own conditions. The system's
+   file, only when `figma.fileKey` is set and the bridge is open on that file:
+   confirm the active file is the target (the active-file preflight in
    `${CLAUDE_PLUGIN_ROOT}/references/figma-scripting.md`) and pin it with
    `figma_navigate` (`lock: true`) for the run; unpin when done. Then run the
    snippets in `${CLAUDE_PLUGIN_ROOT}/references/figma-drift.md` verbatim, as its
@@ -33,14 +34,16 @@ than re-asking them. Scale explanation to `user.codingLevel`.
    - The components snippet. Run the check again with `--json` (step 2's report
      stays as it is) and take `names` from its `components.documented`; skip this
      call when it's empty. `SPEC = { names }`, plus `componentsPage` set to the
-     `componentsPage` of any Figma entry in `design-system/screens.json` when there
-     is one. If the snippet throws because it can't tell which page holds the
+     `componentsPage` of any Figma entry without a `fileKey` in
+     `design-system/screens.json` when there is one (a product file's page isn't
+     the system file's). If the snippet throws because it can't tell which page holds the
      components, ask the user for the page name once and run it again with it.
      Write the result to a scratch file as returned and run
      `node ${CLAUDE_PLUGIN_ROOT}/scripts/drift-check.mjs compare-components --system <dir> --from <file>`.
      Exit 1 means a component differs: a result.
-   Then the screens composed in product files built on the system (entries with a
-   `fileKey`), one call per file, whether or not the system's file is open. List
+   Then, whenever the bridge is connected at all, whether or not the system's file
+   is open: the screens composed in product files built on the system (entries
+   with a `fileKey`), one call per file. List
    the connected files with `figma_list_open_files`. For each product file that is
    connected, run the screens snippet with `figma_execute`'s `fileKey` set to it
    (it reads that file without switching to it, so no pin is needed for this
@@ -53,7 +56,9 @@ than re-asking them. Scale explanation to `user.codingLevel`.
    A Figma screen's live state replaces the "stale" or "clean" step 2 gave it:
    `broken`, `gone` or `released` wins, and any contract change step 2 named for it
    stays as a note. Count it once, in its live state.
-   When the bridge isn't open, say the live half was skipped and what it would
+   When the system's file isn't the one open but a product file is, run the
+   product-file part alone and say the system file's part was skipped. When the
+   bridge isn't open, say the live half was skipped and what it would
    have checked (Figma screens' live state, Figma variables, and Figma
    components against their doc records), and report Figma screens as step 2
    left them. Never ask the user
@@ -92,7 +97,7 @@ than re-asking them. Scale explanation to `user.codingLevel`.
      the screen, and compose it again if it should use what changed.
    - **Released screens**: their composed marker is gone, so a person owns them
      now. Offer to stop tracking each with
-     `node ${CLAUDE_PLUGIN_ROOT}/scripts/screens.mjs forget --system <dir> --side <side> --screen <screen>`,
+     `node ${CLAUDE_PLUGIN_ROOT}/scripts/screens.mjs forget --system <dir> --side <side> --screen <screen>` (add `--file-key <fileKey>` for a screen in a product file, or it would forget the system file's screen of that name),
      and run it only when the user says yes.
    - **Untracked components** (the check's "untracked (no doc record)" line under
      a screen: a component with no doc record can't be checked for stale),

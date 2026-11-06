@@ -836,7 +836,8 @@ test('drift screens: a product-file screen resolves through the library, and bre
   const built = await runComposeSnippet(figma, 'build', { componentsPage: 'Components', library: consumerLibrary, description, fileKey: 'PROD' });
   assert.equal(built.ok, true, JSON.stringify(built.errors));
   await runComposeSnippet(figma, 'finalize', { page: 'Screens', screen: 'Reg', fileKey: 'PROD' });
-  const entry = { side: 'figma', screen: 'Reg', target: 'Screens', componentsPage: 'Components', plan: description, fileKey: 'PROD', library: { pages: ['Screens'] } };
+  // No componentsPage: a product file has no component sets of its own (Zygarden.gg).
+  const entry = { side: 'figma', screen: 'Reg', target: 'Screens', plan: description, fileKey: 'PROD', library: { pages: ['Screens'] } };
   const lib = { cache: libraryCache, systemCollectionKeys: ['SEM'] };
   const before = figma.log.length;
   const clean = await runDriftSnippet(figma, 'screens', { entries: [entry], library: lib });
@@ -846,6 +847,10 @@ test('drift screens: a product-file screen resolves through the library, and bre
   // reason 1b didn't record these screens.
   const blind = await runDriftSnippet(figma, 'screens', { entries: [{ ...entry, library: undefined }] });
   assert.equal(blind.screens[0].state, 'broken');
+  assert.match(blind.screens[0].errors.join('\n'), /missing-component at root\.children\[0\]\.component: button/);
+  // A product-file entry run without SPEC.library says so, rather than passing for drift.
+  const unfed = await runDriftSnippet(figma, 'screens', { entries: [entry] });
+  assert.deepEqual([unfed.screens[0].state, unfed.screens[0].errors[0]], ['broken', 'this entry was composed in a product file (it has library.pages) but SPEC.library was not given: pass { cache, systemCollectionKeys }']);
   // A library update drops the property the screen sets. The instances (the
   // screen's own included) now point at the updated set, so the plan breaks.
   const libSet = (await screensOf(figma).children.find((n) => n.type === 'INSTANCE' && n.getMainComponentAsync).getMainComponentAsync()).parent;

@@ -1110,14 +1110,14 @@ async function driftScreens(spec) {
     if (!frames.length) { row.state = 'gone'; row.errors.push(`no frame named "${entry.screen}" on "${entry.target}"`); continue; }
     if (!frames.some(composeIsMarked)) { row.state = 'released'; continue; }
     const pages = entry.library && Array.isArray(entry.library.pages) ? entry.library.pages : null;
-    const key = `${entry.componentsPage}\u0000${entry.iconsPage || ''}\u0000${pages ? pages.join('\u0001') : ''}`;
+    if (pages && !spec.library) { row.state = 'broken'; row.errors.push('this entry was composed in a product file (it has library.pages) but SPEC.library was not given: pass { cache, systemCollectionKeys }'); continue; }
+    const key = `${entry.componentsPage || ''}\u0000${entry.iconsPage || ''}\u0000${pages ? pages.join('\u0001') : ''}`;
     if (!inventories.has(key)) {
       // A components page renamed since is this entry's finding, not the run's end.
       try {
         const read = { componentsPage: entry.componentsPage, iconsPage: entry.iconsPage };
         if (pages) {
-          const lib = spec.library || {};
-          read.library = { pages, cache: lib.cache || null, systemCollectionKeys: lib.systemCollectionKeys || [] };
+          read.library = { pages, cache: spec.library.cache || null, systemCollectionKeys: spec.library.systemCollectionKeys || [] };
         }
         inventories.set(key, (await composeReadInventory(read)).inventory);
       } catch (e) {
