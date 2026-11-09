@@ -238,10 +238,10 @@ choose.
 
 How the server gets installed depends on the agent:
 
-- **your coding agent (installed as a plugin through `/plugin`):** the plugin does
-  **not** bundle the server; the user adds it once. If the `figma-console` tools
-  aren't available to you, ask them to run this in their terminal (not in chat),
-  then restart your coding agent:
+- **Installed as a plugin through `/plugin`:** the plugin does **not** bundle
+  the server; the user adds it once. If the `figma-console` tools aren't
+  available to you, ask them to run this in their terminal (not in chat), then
+  restart their agent:
 
   ```
   claude mcp add figma-console --scope user -- npx -y figma-console-mcp@1.40.8
@@ -249,8 +249,10 @@ How the server gets installed depends on the agent:
 
   The access token is optional and handled in the next step; adding it changes
   this command, so they can run it now and re-add the server later.
-- **Cursor, Codex, or a generic agent:** the ThroughLine installer already wrote
-  the server config for their tool. Nothing to add.
+- **Installed with the ThroughLine `init` installer:** for Cursor it already
+  wrote `.cursor/mcp.json`. For Codex, they add the `[mcp_servers]` block from
+  `codex-mcp.toml` to their Codex config. Otherwise, they add the server shown
+  under "MCP servers" in `AGENTS.md` to their agent.
 
 The one thing no config can contain is their personal access token — that's a
 per-user secret, handled in the next step.
@@ -275,7 +277,7 @@ A token is like a password that lets the agent talk to Figma on your behalf. It'
 token only adds the few calls the bridge can't make, such as reading a published
 library or a file's version history. Offer it, and say plainly that they can skip
 it and add it later. If they skip, record nothing about
-it, leave the field blank, and go straight to 4c. Nothing later in setup needs it.
+it and go straight to 4c. Nothing later in setup needs it.
 
 If they want it, walk them through it:
 
@@ -291,17 +293,18 @@ If they want it, walk them through it:
 through the chat. Do not ask the user to paste it to you. Instead, tell them
 exactly where it goes and have them place it there themselves:
 
-- **your coding agent:** in their terminal (not in chat), re-add the server with the
-  token, replacing `figd_YOUR_TOKEN` with theirs, then restart your coding agent:
+- **Installed as a plugin through `/plugin`:** in their terminal (not in chat),
+  re-add the server with the token, replacing `figd_YOUR_TOKEN` with theirs,
+  then restart their agent:
 
   ```
   claude mcp remove figma-console --scope user
   claude mcp add figma-console --scope user -e FIGMA_ACCESS_TOKEN=figd_YOUR_TOKEN -- npx -y figma-console-mcp@1.40.8
   ```
 
-  your coding agent keeps it in its own config file in their home folder, not in the
-  project.
-- **Cursor, Codex, or a generic agent:** the MCP configuration reads it from an environment variable
+  `claude mcp add --scope user` keeps it in a config file in their home folder,
+  not in the project.
+- **Otherwise:** the MCP configuration reads it from an environment variable
   named `FIGMA_ACCESS_TOKEN`; follow the setup notes for their agent.
 
 If they're unsure where that is, walk them to it, but you never see or handle
