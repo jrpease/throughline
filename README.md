@@ -132,7 +132,7 @@ Everything above was created during a single working session and synced directly
 
 ThroughLine runs one local server. Nothing leaves your machine unless you choose it below.
 
-- **One local MCP server.** Installing the plugin registers [`figma-console-mcp`](https://www.npmjs.com/package/figma-console-mcp), pinned to version 1.40.8, which your agent starts on your computer with `npx`. It reaches the Figma desktop app through the Desktop Bridge plugin you run in Figma. That's how ThroughLine reads and writes your file. For the Figma calls the bridge can't make, it uses a Figma access token if you give it one. Claude Code asks for the token as a plugin setting and keeps it in your system's secure credential store. It's optional. The Cursor, Codex and generic installs read it from `FIGMA_ACCESS_TOKEN` instead.
+- **One local MCP server.** ThroughLine works through [`figma-console-mcp`](https://www.npmjs.com/package/figma-console-mcp), pinned to version 1.40.8, which your agent starts on your computer with `npx`. In Claude Code you add it yourself with one command (below); the Cursor, Codex and generic installers write its config for you. It reaches the Figma desktop app through the Desktop Bridge plugin you run in Figma. That's how ThroughLine reads and writes your file. For the Figma calls the bridge can't make, it uses a Figma access token if you give it one, read from `FIGMA_ACCESS_TOKEN`. It's optional.
 - **Files in your repo.** The skills write design-system files where you point them: token sources, the Style Dictionary build, components, stories, `design-system.json`, and the proof records in `design-system/proof/`. The helper scripts they install read and write local files and make no network calls.
 - **GitHub, if you choose it.** `repository-builder` offers to create a GitHub repository and push to it, and shows you the command and waits for your yes before it runs. Once your repo is on GitHub, each token sync lands there as a pull request for you to review. Stay at a local folder or local git and nothing goes to GitHub.
 - **Chromatic, if you choose it.** Setting up Chromatic adds a CI workflow that uploads your Storybook to your Chromatic project, using a `CHROMATIC_PROJECT_TOKEN` you place yourself. Skip that step and nothing goes to Chromatic.
@@ -149,6 +149,14 @@ Install from this repo's plugin marketplace:
 /plugin marketplace add jrpease/throughline
 /plugin install throughline@throughline-marketplace
 ```
+
+Then add the Figma server it works through, once, in your terminal, and restart Claude Code:
+
+```
+claude mcp add figma-console --scope user -- npx -y figma-console-mcp@1.40.8
+```
+
+The setup skill walks you through this if you skip it, and through adding an access token if you want one.
 
 Then start with:
 
