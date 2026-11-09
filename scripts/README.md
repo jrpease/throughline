@@ -260,7 +260,7 @@ Node >=21 and errors; a `scripts/*.test.mjs` glob silently skips `scripts/lib/`.
 
 ## Multi-agent adapters (`scripts/adapters/`)
 
-`SKILL.md`/`commands`/`scripts/adapters/mcp-servers.json` are the canonical source. Generated Cursor,
+`SKILL.md`/`commands`/`.mcp.json` are the canonical source. Generated Cursor,
 Codex, and generic-AGENTS.md adapters live in `adapters/<target>/` and are
 committed. After editing any skill or command, regenerate:
 

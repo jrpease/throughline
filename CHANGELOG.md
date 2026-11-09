@@ -6,17 +6,6 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
-### Changed
-
-- **The Claude Code plugin no longer bundles the `figma-console` MCP server.**
-  The plugin directory now accepts a server that runs on the user's computer only
-  from Verified organizations, and refused 0.34.0 for it. Claude Code users add
-  the server once with `claude mcp add` (in the README and the setup skill), and
-  the optional Figma token moves from the plugin's settings into that command, so
-  the plugin's `figma_access_token` setting is gone. The Cursor, Codex and generic
-  installers are unchanged; their config now comes from
-  `scripts/adapters/mcp-servers.json`.
-
 ## [0.34.0] — 2026-11-06
 
 ### Added

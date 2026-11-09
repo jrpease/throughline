@@ -74,10 +74,10 @@ test('figmaAgents picks agents that list a Figma tool', () => {
   assert.deepEqual(figmaAgents(Object.keys(files), (path) => files[path]), ['a.md']);
 });
 
-// A figma-console server the user adds themselves exposes mcp__figma-console__<tool>;
-// one bundled with the plugin would be mcp__plugin_throughline_figma-console__<tool>.
-// The plugin no longer bundles it, but an agent lists both so it gets its Figma
-// tools either way.
+// Installed as a plugin, the bundled server's tools are named
+// mcp__plugin_throughline_figma-console__<tool>; a figma-console server the user
+// added themselves keeps mcp__figma-console__<tool>. An agent lists both so it gets
+// its Figma tools either way.
 test('every Figma tool an agent lists is listed under both names', () => {
   for (const path of figmaAgents(agentFiles(), read)) {
     const tools = read(path).split('\n').find((l) => l.startsWith('tools:')).slice('tools:'.length).split(',').map((t) => t.trim());
