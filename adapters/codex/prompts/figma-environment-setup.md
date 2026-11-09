@@ -236,10 +236,24 @@ access token.
 Record `figma.mechanism` as `"console-mcp"`. There is nothing for the user to
 choose.
 
-The MCP server configuration ships **bundled with this plugin** (in the plugin's
-`.mcp.json`), so the user does not hand-edit any config files. The one thing the
-bundle can't contain is their personal access token — that's a per-user secret,
-handled in the next step.
+How the server gets installed depends on the agent:
+
+- **Codex (installed as a plugin through `/plugin`):** the plugin does
+  **not** bundle the server; the user adds it once. If the `figma-console` tools
+  aren't available to you, ask them to run this in their terminal (not in chat),
+  then restart Codex:
+
+  ```
+  claude mcp add figma-console --scope user -- npx -y figma-console-mcp@1.40.8
+  ```
+
+  The access token is optional and handled in the next step; adding it changes
+  this command, so they can run it now and re-add the server later.
+- **Cursor, Codex, or a generic agent:** the ThroughLine installer already wrote
+  the server config for their tool. Nothing to add.
+
+The one thing no config can contain is their personal access token — that's a
+per-user secret, handled in the next step.
 
 ## Step 4 — Connect to Figma
 
@@ -260,7 +274,7 @@ A token is like a password that lets Codex talk to Figma on your behalf. It's
 **optional**: the desktop bridge does the reading and writing on its own. The
 token only adds the few calls the bridge can't make, such as reading a published
 library or a file's version history. Offer it, and say plainly that they can skip
-it and add it later in **Configure options**. If they skip, record nothing about
+it and add it later. If they skip, record nothing about
 it, leave the field blank, and go straight to 4c. Nothing later in setup needs it.
 
 If they want it, walk them through it:
@@ -277,13 +291,17 @@ If they want it, walk them through it:
 through the chat. Do not ask the user to paste it to you. Instead, tell them
 exactly where it goes and have them place it there themselves:
 
-- **Installed as a plugin through `/plugin`:** run `/plugin`, open the
-  **Installed** tab, select ThroughLine, and choose **Configure options**. The
-  token goes in the **Figma access token** field, which masks it and keeps it in
-  the system's secure credential store. The plugin may already have asked for it
-  when it was first turned on. A `FIGMA_ACCESS_TOKEN` set in their shell is not
-  read in this case.
-- **Otherwise:** the MCP configuration reads it from an environment variable
+- **Codex:** in their terminal (not in chat), re-add the server with the
+  token, replacing `figd_YOUR_TOKEN` with theirs, then restart Codex:
+
+  ```
+  claude mcp remove figma-console --scope user
+  claude mcp add figma-console --scope user -e FIGMA_ACCESS_TOKEN=figd_YOUR_TOKEN -- npx -y figma-console-mcp@1.40.8
+  ```
+
+  Codex keeps it in its own config file in their home folder, not in the
+  project.
+- **Cursor, Codex, or a generic agent:** the MCP configuration reads it from an environment variable
   named `FIGMA_ACCESS_TOKEN`; follow the setup notes for their agent.
 
 If they're unsure where that is, walk them to it, but you never see or handle

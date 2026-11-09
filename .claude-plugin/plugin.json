@@ -20,14 +20,5 @@
     "chromatic",
     "tokens",
     "components"
-  ],
-  "userConfig": {
-    "figma_access_token": {
-      "type": "string",
-      "title": "Figma access token",
-      "description": "Optional. A Figma personal access token (starts with figd_) for the few Figma calls the Desktop Bridge can't make, such as reading a published library. Leave it blank to work through the bridge only.",
-      "sensitive": true,
-      "default": ""
-    }
-  }
+  ]
 }
