@@ -394,6 +394,13 @@ test('existing mode: archetype gives a kind to a skipped name; built mode ignore
     assert.equal(byName(res, 'focus-indicator').result, 'pass', name);
     assert.equal(byName(res, 'focus-contrast').result, 'fail', name);
   }
+  // A name the table already checks keeps its kind: a record saying `other` doesn't drop it.
+  const known = insideStroke();
+  known.expect.archetype = 'other';
+  assert.equal(byName(checkExisting(known.snapshot, known.expect), 'focus-indicator').result, 'pass');
+  known.expect.archetype = 'button';
+  assert.equal(byName(checkExisting(known.snapshot, known.expect), 'state-baseline').result, 'pass');
+
   const fx = insideStroke();
   Object.assign(fx.expect, { name: 'search', archetype: 'input' });
   const built = checkBuilt(fx.snapshot, fx.expect);

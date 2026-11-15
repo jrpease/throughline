@@ -463,8 +463,14 @@ function withTable({
     return STATE_SYNONYMS[name] ?? name;
   };
   const result = (checks) => ({ pass: checks.every((c) => c.result !== 'fail'), checks });
-  const kindOf = (expect, existing) =>
-    resolveArchetype(existing ? { name: expect.name, archetype: expect.archetype } : { name: expect.name });
+  // EXPECT.archetype only fills in for a name the gate would skip: one the state
+  // table doesn't know, or whose kind owes no states. A name it already checks
+  // keeps its kind.
+  const kindOf = (expect, existing) => {
+    const byName = resolveArchetype({ name: expect.name });
+    if (!existing || (byName !== null && BASELINE_STATES[byName].length > 0)) return byName;
+    return resolveArchetype({ name: expect.name, archetype: expect.archetype });
+  };
   const label = (props) =>
     Object.entries(props ?? {})
       .map(([k, v]) => `${k}=${v}`)
@@ -601,7 +607,8 @@ function withTable({
   }
 
   // WCAG 1.4.11: each ring colour against each named surface, in every mode either
-  // side has. Runs only on a ring focusIndicator accepted.
+  // side has. Runs only on what focusIndicator accepted: a recipe ring, or in
+  // existing mode a focus-bound stroke.
   function focusContrast(snapshot, expect, indicator, { existing = false } = {}) {
     const name = 'focus-contrast';
     if (indicator.result !== 'pass') {

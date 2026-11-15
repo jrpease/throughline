@@ -34,16 +34,19 @@ settings already in `design-system.json` (`figma.fileKey`, `project.uiFramework`
    had no `archetype`. Ask about them in one question: is each interactive, and if
    so, which kind (button, input or choice)? Rerun those sets with `archetype`, and
    say in the report that you did. A set the user calls not interactive keeps its
-   skip.
+   skip. A rerun set that fails `focus-indicator` gets the same inner-layer look as
+   above. A doc record's `archetype` only fills in for these skipped names; a name
+   the state table already checks keeps its own kind.
 5. **Report.** The screen gate gives one pass or fail for the page: list its
    failures grouped by screen (the path's second segment), each with its detail and
    link, then the advisories, the counts and any skipped rules. Then pass or fail
    per component set, with whether focus contrast ran and against which surfaces. Say plainly what the
    gate can't see: a frame drawn from scratch to look like a component, variables
    that live only in a published library, and focus strokes painted from a colour
-   style rather than a variable (likely, not yet seen on a real file). A focus
-   stroke bound to a colour that isn't a focus variable is reported as a failure
-   naming that colour.
+   style rather than a variable (likely, not yet seen on a real file). Say too that
+   a focus stroke on a hidden layer, a zero-opacity paint, or a hidden focus paint
+   beside a visible one still counts. A focus stroke bound to a colour that isn't a
+   focus variable is reported as a failure naming that colour.
 
 Never edit the file to make a check pass, and never edit a token. A failure is
 a finding for the user; fixing it is a separate, deliberate step.

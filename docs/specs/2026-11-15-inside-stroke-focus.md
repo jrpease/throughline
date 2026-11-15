@@ -93,9 +93,8 @@ the hidden-stroke question, and the owner chose row 9 directly.
 - **How the kind question is asked** (minor, built as recommended). One batched
   question per run, listing every skipped set with no doc-record kind. A set
   whose doc record gives a no-state kind (`card`, `badge`, `modal`, `other`) isn't
-  asked about, because the record has answered. A doc record's `archetype`
-  outranks the name table, so a Button recorded as `other` is skipped, and isn't
-  asked about. Unresolved; change it at review if you'd rather.
+  asked about, because the record has answered. Unresolved; change it at review
+  if you'd rather.
 - **The visibility guard is per node** (Decision 9 as defined). A hidden
   focus-bound paint beside a visible unbound one, a hidden layer, or a
   zero-opacity paint still passes. Recommendation: revisit if the live run meets
@@ -112,8 +111,15 @@ the hidden-stroke question, and the owner chose row 9 directly.
 
 ## Where it diverged
 
-Nothing material. The near-miss names are gathered in a small named helper
-(`nonFocusStrokes`) rather than inline in `focusIndicator`, with the same rule.
+- The near-miss names are gathered in a small named helper (`nonFocusStrokes`)
+  rather than inline in `focusIndicator`, with the same rule.
+- The diff review found that `kindOf` as planned let a doc record's `archetype`
+  override a name the state table already checks (a Text Field recorded as
+  `other` dropped out of the audit). That contradicted Decision 8's scope and the
+  Goal's "no currently passing result changes", so `kindOf` now uses `archetype`
+  only when the name resolves to nothing or to a no-state kind. Test 6 covers it.
+- `check-figma.md` Step 4 also sends a rerun set through the inner-layer look, and
+  Step 5 names the visibility guard's limits (from Open questions).
 
 ## Plan
 
