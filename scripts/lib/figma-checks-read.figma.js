@@ -36,7 +36,14 @@ async function readFocusNode(node, { withEffects }) {
     if (name !== null) strokeVariables.push(name);
   }
   const bound = node.boundVariables || {};
+  // strokeWeight is figma.mixed when the sides differ; then the widest side counts.
+  const sides = [node.strokeTopWeight, node.strokeRightWeight, node.strokeBottomWeight, node.strokeLeftWeight].filter(
+    (w) => typeof w === 'number',
+  );
+  const strokeWeight = typeof node.strokeWeight === 'number' ? node.strokeWeight : sides.length ? Math.max(...sides) : null;
   const out = {
+    strokeVisible: (node.strokes || []).some((p) => p.visible !== false),
+    strokeWeight,
     strokeAlign: node.strokeAlign,
     strokeVariables,
     strokeWeightBound: Boolean(

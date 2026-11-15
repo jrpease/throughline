@@ -320,3 +320,104 @@ test('existing mode: a set with no ring still fails focus-indicator', () => {
   const fx = fixtures['button-spread-zero'];
   assert.equal(byName(checkExisting(fx.snapshot, fx.expect), 'focus-indicator').result, 'fail');
 });
+
+// #169: in existing mode, a visible stroke bound to a focus variable is a focus
+// indicator, whatever its alignment. docs/specs/2026-11-15-inside-stroke-focus.md
+const insideStroke = () => clone(fixtures['existing-inside-stroke']);
+const focusOf = (fx) => fx.snapshot.children.find((c) => c.variantProperties.State === 'Focus');
+
+test('existing mode: a focus-bound INSIDE stroke passes and its contrast is measured', () => {
+  const fx = insideStroke();
+  const res = checkExisting(fx.snapshot, fx.expect);
+  assert.equal(byName(res, 'focus-indicator').result, 'pass');
+  assert.equal(
+    byName(res, 'focus-indicator').detail,
+    'all 1 focus variants carry a focus indicator: 1 a stroke bound to a focus variable (INSIDE)',
+  );
+  assert.equal(byName(res, 'focus-contrast').result, 'fail');
+  assert.equal(
+    byName(res, 'focus-contrast').detail,
+    'interaction/border-primary-focus on surface/greyscale-default in Light: 1.98:1, needs 3:1',
+  );
+});
+
+test('built mode: the same INSIDE stroke still fails the house rule', () => {
+  const fx = insideStroke();
+  assert.match(byName(checkBuilt(fx.snapshot, fx.expect), 'focus-indicator').detail, /lacks/);
+});
+
+test('existing mode: a CENTER stroke, or a direct child stroke, passes', () => {
+  const center = insideStroke();
+  focusOf(center).strokeAlign = 'CENTER';
+  const res = byName(checkExisting(center.snapshot, center.expect), 'focus-indicator');
+  assert.equal(res.result, 'pass');
+  assert.match(res.detail, /\(CENTER\)$/);
+
+  const child = insideStroke();
+  Object.assign(focusOf(child), {
+    strokeVariables: [],
+    children: [{ strokeAlign: 'INSIDE', strokeVariables: ['interaction/border-primary-focus'] }],
+  });
+  assert.equal(byName(checkExisting(child.snapshot, child.expect), 'focus-indicator').result, 'pass');
+});
+
+test('existing mode: a stroke bound to non-focus colours fails and names them', () => {
+  const fx = insideStroke();
+  focusOf(fx).strokeVariables = ['color/brand/primary', 'color/border/default', 'color/brand/primary'];
+  const res = byName(checkExisting(fx.snapshot, fx.expect), 'focus-indicator');
+  assert.equal(res.result, 'fail');
+  assert.ok(
+    res.detail.includes('its stroke is bound to color/border/default, color/brand/primary, which isn\'t a focus variable'),
+    res.detail,
+  );
+});
+
+test('existing mode: a recipe ring wins over a focus stroke', () => {
+  const fx = insideStroke();
+  focusOf(fx).effects = [{ type: 'DROP_SHADOW', visible: true, spread: 3, colorVariable: 'color/focus/ring' }];
+  fx.snapshot.colors['color/focus/ring'] = { modes: { Light: '#000000' }, defaultMode: 'Light' };
+  const res = checkExisting(fx.snapshot, fx.expect);
+  assert.equal(byName(res, 'focus-indicator').detail, 'all 1 focus variants carry a ring-recipe focus indicator');
+  assert.equal(byName(res, 'focus-contrast').result, 'pass');
+});
+
+test('existing mode: archetype gives a kind to a skipped name; built mode ignores it', () => {
+  for (const name of ['search', 'Card']) {
+    const fx = insideStroke();
+    fx.expect.name = name;
+    const skipped = checkExisting(fx.snapshot, fx.expect);
+    for (const check of ['state-baseline', 'focus-indicator', 'focus-contrast']) {
+      assert.equal(byName(skipped, check).result, 'skip', `${name} ${check}`);
+    }
+    fx.expect.archetype = 'input';
+    const res = checkExisting(fx.snapshot, fx.expect);
+    assert.equal(byName(res, 'focus-indicator').result, 'pass', name);
+    assert.equal(byName(res, 'focus-contrast').result, 'fail', name);
+  }
+  const fx = insideStroke();
+  Object.assign(fx.expect, { name: 'search', archetype: 'input' });
+  const built = checkBuilt(fx.snapshot, fx.expect);
+  assert.equal(byName(built, 'state-baseline').result, 'skip');
+  assert.equal(byName(built, 'focus-indicator').result, 'skip');
+});
+
+test('existing mode: a hidden or zero-width focus stroke does not count', () => {
+  for (const extra of [{ strokeVisible: false }, { strokeWeight: 0 }]) {
+    const fx = insideStroke();
+    Object.assign(focusOf(fx), extra);
+    const res = byName(checkExisting(fx.snapshot, fx.expect), 'focus-indicator');
+    assert.equal(res.result, 'fail', JSON.stringify(extra));
+    assert.match(res.detail, /lacks/);
+  }
+  const fx = insideStroke();
+  Object.assign(focusOf(fx), { strokeVisible: true, strokeWeight: 1 });
+  assert.equal(byName(checkExisting(fx.snapshot, fx.expect), 'focus-indicator').result, 'pass');
+});
+
+test('existing mode: a stroke with no alignment adds no parentheses', () => {
+  const fx = insideStroke();
+  delete focusOf(fx).strokeAlign;
+  const res = byName(checkExisting(fx.snapshot, fx.expect), 'focus-indicator');
+  assert.equal(res.result, 'pass');
+  assert.equal(res.detail, 'all 1 focus variants carry a focus indicator: 1 a stroke bound to a focus variable');
+});

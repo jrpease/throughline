@@ -47,9 +47,13 @@ these checks by hand.
    `controlLayer` for a wrapped control whose ring sits on an inner layer (without
    it, a correct ring on an inner layer reads as missing). It runs the state,
    focus-ring and focus-contrast checks against the set's own variants, not the
-   structural check. A set whose focus state is drawn some other way, such as an
-   INSIDE stroke, fails the focus-ring check and skips contrast. It throws when no
-   set has that name.
+   structural check. In this mode, a focus variant with no recipe ring but a
+   visible stroke bound to a focus variable (any alignment, on the control or a
+   direct child) passes the focus-ring check, and contrast measures that stroke.
+   A stroke bound to anything else fails, naming the variable. `EXPECT.archetype`
+   (`button`, `input` or `choice`) gives the kind of a set whose name the state
+   table doesn't know, or whose kind owes no states; built and spec mode ignore
+   it. It throws when no set has that name.
 
 ```js
 const EXPECT = { name: 'Chip', matrix: { state: ['default', 'hover'] }, uiFramework: 'shadcn' };
@@ -279,7 +283,10 @@ function composite(fgHex, bgHex) {
 //
 // Spec (focus contrast): docs/specs/2026-10-13-focus-ring-contrast.md
 //
-// EXPECT: { name, matrix: { axis: [values] }, uiFramework, controlLayer?, surfaces? }
+// EXPECT: { name, matrix: { axis: [values] }, uiFramework, controlLayer?, surfaces?, archetype? }
+//   archetype: existing mode only, the kind (button, input, choice, ...) of a set whose
+//   name the state table doesn't know or whose kind owes no states. Built and spec
+//   mode ignore it.
 //   surfaces: colour-variable names of the page surfaces the component sits on.
 //
 // SNAPSHOT (what the reader returns for the COMPONENT_SET in `WIP: <name>`):
@@ -301,7 +308,9 @@ function composite(fgHex, bgHex) {
 //       strokeAlign,                                           // 'INSIDE' | 'OUTSIDE' | 'CENTER'
 //       strokeVariables: [name, ...],                          // names of variables bound to stroke colours
 //       strokeWeightBound,                                     // boundVariables.strokeWeight is present
-//       children: [{ layoutPositioning, strokeAlign, strokeVariables, strokeWeightBound }]   // direct children only
+//       strokeVisible,                                         // any stroke paint is visible (absent: visible)
+//       strokeWeight,                                          // a number, the largest side weight, or null
+//       children: [{ layoutPositioning, strokeAlign, strokeVariables, strokeWeightBound, strokeVisible, strokeWeight }]   // direct children only
 //     }
 //   VARIANT.controlLayer: a FOCUS NODE, or null when EXPECT names a layer the variant does not have.
 //   Variable names are resolved by the reader and only for focus variants and their controlLayer.
@@ -320,6 +329,9 @@ function composite(fgHex, bgHex) {
 //             component uses the ring recipe
 //   outline - the control or a direct child carries an OUTSIDE stroke bound to a
 //             focus variable
+// In existing mode only, a focus variant that fails its recipe still passes when the
+// control or a direct child carries a visible stroke bound to a focus variable, of
+// any alignment (#169, docs/specs/2026-11-15-inside-stroke-focus.md).
 const FRAMEWORKS = {
   shadcn: { recipe: 'ring' },
   tailwind: { recipe: 'ring' },
@@ -382,6 +394,41 @@ function lacksRing(target, recipe, isInput) {
       ];
 }
 
+// Existing mode's fallback: the control and its direct children whose stroke is
+// bound to a focus variable and isn't hidden or zero-width. A missing
+// strokeVisible or strokeWeight counts as visible.
+function visibleFocusStrokeNodes(target) {
+  const nodes = [target, ...(target.children ?? [])].filter(
+    (n) =>
+      (n.strokeVariables ?? []).some(isFocusVariable) &&
+      n.strokeVisible !== false &&
+      !(typeof n.strokeWeight === 'number' && n.strokeWeight <= 0),
+  );
+  return {
+    variables: nodes.flatMap((n) => n.strokeVariables.filter(isFocusVariable)),
+    aligns: [...new Set(nodes.map((n) => n.strokeAlign).filter((a) => typeof a === 'string'))].sort(),
+  };
+}
+
+// The stroke variables on the control and its direct children that aren't focus
+// variables, distinct and sorted, for the near-miss detail.
+function nonFocusStrokes(target) {
+  const names = [target, ...(target.children ?? [])].flatMap((n) => n.strokeVariables ?? []);
+  return [...new Set(names.filter((n) => !isFocusVariable(n)))].sort();
+}
+
+// What a focus variant's indicator is: the recipe's ring, existing mode's focus
+// stroke, or a miss. Both focus checks read this, so they can't disagree.
+function strokeOutcome(target, recipe, isInput, existing) {
+  const lacks = lacksRing(target, recipe, isInput);
+  if (lacks.length === 0) return { kind: 'recipe', variables: ringVariables(target, recipe, isInput) };
+  if (existing) {
+    const stroke = visibleFocusStrokeNodes(target);
+    if (stroke.variables.length > 0) return { kind: 'stroke', ...stroke };
+  }
+  return { kind: 'miss', lacks };
+}
+
 // The focus-variable names that make up the ring `lacksRing` accepted, for the
 // contrast check. Same recipes, same tests.
 function ringVariables(target, recipe, isInput) {
@@ -416,6 +463,8 @@ function withTable({
     return STATE_SYNONYMS[name] ?? name;
   };
   const result = (checks) => ({ pass: checks.every((c) => c.result !== 'fail'), checks });
+  const kindOf = (expect, existing) =>
+    resolveArchetype(existing ? { name: expect.name, archetype: expect.archetype } : { name: expect.name });
   const label = (props) =>
     Object.entries(props ?? {})
       .map(([k, v]) => `${k}=${v}`)
@@ -478,9 +527,9 @@ function withTable({
   }
 
   // `entries` are [axisName, value] pairs; only the `state` axis is read.
-  function stateBaseline(expect, entries) {
+  function stateBaseline(expect, entries, { existing = false } = {}) {
     const name = 'state-baseline';
-    const archetype = resolveArchetype({ name: expect.name });
+    const archetype = kindOf(expect, existing);
     if (archetype === null) {
       return { name, result: 'skip', detail: `"${expect.name}" is not a name in the state table` };
     }
@@ -497,9 +546,9 @@ function withTable({
       : { name, result: 'pass', detail: `the state axis has default and every ${archetype} state` };
   }
 
-  function focusIndicator(snapshot, expect) {
+  function focusIndicator(snapshot, expect, { existing = false } = {}) {
     const name = 'focus-indicator';
-    const archetype = resolveArchetype({ name: expect.name });
+    const archetype = kindOf(expect, existing);
     if (archetype === null) {
       return { name, result: 'skip', detail: `"${expect.name}" is not a name in the state table` };
     }
@@ -515,6 +564,9 @@ function withTable({
       return { name, result: 'fail', detail: 'no COMPONENT variant has a state of focus, so no ring can be read; the state check stops on this' };
     }
     const misses = [];
+    let recipeCount = 0;
+    const strokeAligns = new Set();
+    let strokeCount = 0;
     for (const variant of variants) {
       let target = variant;
       if (expect.controlLayer !== undefined && expect.controlLayer !== null) {
@@ -524,17 +576,33 @@ function withTable({
           continue;
         }
       }
-      const lacks = lacksRing(target, recipe, archetype === 'input');
-      if (lacks.length) misses.push(`${label(variant.variantProperties)}: lacks ${lacks.join(' and ')}`);
+      const outcome = strokeOutcome(target, recipe, archetype === 'input', existing);
+      if (outcome.kind === 'recipe') recipeCount += 1;
+      else if (outcome.kind === 'stroke') {
+        strokeCount += 1;
+        for (const a of outcome.aligns) strokeAligns.add(a);
+      } else {
+        let miss = `${label(variant.variantProperties)}: lacks ${outcome.lacks.join(' and ')}`;
+        const other = existing ? nonFocusStrokes(target) : [];
+        if (other.length) miss += `; its stroke is bound to ${other.join(', ')}, which isn't a focus variable`;
+        misses.push(miss);
+      }
     }
-    return misses.length
-      ? { name, result: 'fail', detail: misses.join('; ') }
-      : { name, result: 'pass', detail: `all ${variants.length} focus variants carry a ${recipe}-recipe focus indicator` };
+    if (misses.length) return { name, result: 'fail', detail: misses.join('; ') };
+    if (strokeCount === 0) {
+      return { name, result: 'pass', detail: `all ${variants.length} focus variants carry a ${recipe}-recipe focus indicator` };
+    }
+    const aligns = [...strokeAligns].sort();
+    const parts = [
+      recipeCount > 0 && `${recipeCount} the ${recipe} recipe`,
+      `${strokeCount} a stroke bound to a focus variable${aligns.length ? ` (${aligns.join('/')})` : ''}`,
+    ].filter(Boolean);
+    return { name, result: 'pass', detail: `all ${variants.length} focus variants carry a focus indicator: ${parts.join(', ')}` };
   }
 
   // WCAG 1.4.11: each ring colour against each named surface, in every mode either
   // side has. Runs only on a ring focusIndicator accepted.
-  function focusContrast(snapshot, expect, indicator) {
+  function focusContrast(snapshot, expect, indicator, { existing = false } = {}) {
     const name = 'focus-contrast';
     if (indicator.result !== 'pass') {
       return { name, result: 'skip', detail: 'focus-indicator did not pass, so there is no ring to measure' };
@@ -553,12 +621,14 @@ function withTable({
     }
 
     const recipe = frameworkRecipe(expect.uiFramework);
-    const isInput = resolveArchetype({ name: expect.name }) === 'input';
+    const isInput = kindOf(expect, existing) === 'input';
     const hasLayer = expect.controlLayer !== undefined && expect.controlLayer !== null;
     const rings = new Set();
     for (const variant of (snapshot.children ?? []).filter(isFocusVariant)) {
       const target = hasLayer ? variant.controlLayer : variant;
-      if (target) for (const ring of ringVariables(target, recipe, isInput)) rings.add(ring);
+      if (!target) continue;
+      const outcome = strokeOutcome(target, recipe, isInput, existing);
+      if (outcome.kind !== 'miss') for (const ring of outcome.variables) rings.add(ring);
     }
 
     const colors = snapshot.colors ?? {};
@@ -650,8 +720,9 @@ function withTable({
   // other three read only the set itself.
   function checkExisting(snapshot, expect) {
     const entries = variantEntries(snapshot);
-    const indicator = focusIndicator(snapshot, expect);
-    return result([stateBaseline(expect, entries), indicator, focusContrast(snapshot, expect, indicator)]);
+    const opts = { existing: true };
+    const indicator = focusIndicator(snapshot, expect, opts);
+    return result([stateBaseline(expect, entries, opts), indicator, focusContrast(snapshot, expect, indicator, opts)]);
   }
 
   return { checkSpec, checkBuilt, checkExisting };
@@ -752,7 +823,14 @@ async function readFocusNode(node, { withEffects }) {
     if (name !== null) strokeVariables.push(name);
   }
   const bound = node.boundVariables || {};
+  // strokeWeight is figma.mixed when the sides differ; then the widest side counts.
+  const sides = [node.strokeTopWeight, node.strokeRightWeight, node.strokeBottomWeight, node.strokeLeftWeight].filter(
+    (w) => typeof w === 'number',
+  );
+  const strokeWeight = typeof node.strokeWeight === 'number' ? node.strokeWeight : sides.length ? Math.max(...sides) : null;
   const out = {
+    strokeVisible: (node.strokes || []).some((p) => p.visible !== false),
+    strokeWeight,
     strokeAlign: node.strokeAlign,
     strokeVariables,
     strokeWeightBound: Boolean(
