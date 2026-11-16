@@ -220,7 +220,7 @@ export function withTable({
 
   const isFocusVariant = (child) =>
     child.type === 'COMPONENT' &&
-    Object.entries(child.variantProperties ?? {}).some(([k, v]) => fold(k) === 'state' && fold(v) === 'focus');
+    Object.entries(child.variantProperties ?? {}).some(([k, v]) => fold(k) === 'state' && foldState(v) === 'focus');
 
   function crossProduct(matrix) {
     let combos = [{}];

@@ -117,10 +117,12 @@ const NAME_SYNONYMS = {
 
 // Other names a recorded state goes by. shadcn and Radix call a checked checkbox
 // `checked` and a pressed-in toggle `on`; both are `selected` here. `pressed` is
-// not one: the standards use it for `active`.
+// not one: the standards use it for `active`. Zygarden names its focus state
+// `focused`.
 const STATE_SYNONYMS = {
   checked: 'selected',
   on: 'selected',
+  focused: 'focus',
 };
 
 function resolveArchetype(record) {
@@ -486,7 +488,7 @@ function withTable({
 
   const isFocusVariant = (child) =>
     child.type === 'COMPONENT' &&
-    Object.entries(child.variantProperties ?? {}).some(([k, v]) => fold(k) === 'state' && fold(v) === 'focus');
+    Object.entries(child.variantProperties ?? {}).some(([k, v]) => fold(k) === 'state' && foldState(v) === 'focus');
 
   function crossProduct(matrix) {
     let combos = [{}];
@@ -928,7 +930,7 @@ async function readSet(set, expect) {
   const isFocusState = (props) =>
     Object.entries(props || {}).some(([k, v]) => {
       const state = normalizeName(v);
-      return normalizeName(k) === 'state' && state === 'focus';
+      return normalizeName(k) === 'state' && (STATE_SYNONYMS[state] ?? state) === 'focus';
     });
 
   const children = [];

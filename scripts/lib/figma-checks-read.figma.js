@@ -134,7 +134,7 @@ async function readSet(set, expect) {
   const isFocusState = (props) =>
     Object.entries(props || {}).some(([k, v]) => {
       const state = normalizeName(v);
-      return normalizeName(k) === 'state' && state === 'focus';
+      return normalizeName(k) === 'state' && (STATE_SYNONYMS[state] ?? state) === 'focus';
     });
 
   const children = [];

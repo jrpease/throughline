@@ -159,10 +159,12 @@ test('focus: a focus variable has focus as a whole word in its name', () => {
   }
 });
 
-test('focus: Focused and focus-visible are not read as focus variants', () => {
-  const fx = clone(fixtures['button-shadcn-filled']);
-  for (const c of fx.snapshot.children) if (c.variantProperties.State === 'Focus') c.variantProperties.State = 'Focused';
-  assert.equal(byName(checkBuilt(fx.snapshot, fx.expect), 'focus-indicator').result, 'fail');
+test('focus: focus-visible and hover+focus are not read as focus variants', () => {
+  for (const value of ['focus-visible', 'hover+focus']) {
+    const fx = clone(fixtures['button-shadcn-filled']);
+    for (const c of fx.snapshot.children) if (c.variantProperties.State === 'Focus') c.variantProperties.State = value;
+    assert.equal(byName(checkBuilt(fx.snapshot, fx.expect), 'focus-indicator').result, 'fail', value);
+  }
 });
 
 test('focus: zero focus variants is not a pass', () => {
@@ -427,4 +429,16 @@ test('existing mode: a stroke with no alignment adds no parentheses', () => {
   const res = byName(checkExisting(fx.snapshot, fx.expect), 'focus-indicator');
   assert.equal(res.result, 'pass');
   assert.equal(res.detail, 'all 1 focus variants carry a focus indicator: 1 a stroke bound to a focus variable');
+});
+
+// Zygarden names its focus state `focused` (read live, 2026-11-15).
+test('a state of focused is read as focus, in every mode', () => {
+  const fx = insideStroke();
+  const focus = focusOf(fx);
+  focus.variantProperties = { ...focus.variantProperties, State: 'Focused' };
+  assert.equal(byName(checkExisting(fx.snapshot, fx.expect), 'focus-indicator').result, 'pass');
+  assert.equal(byName(checkBuilt(fx.snapshot, fx.expect), 'focus-indicator').result, 'fail');
+  assert.ok(!byName(checkBuilt(fx.snapshot, fx.expect), 'focus-indicator').detail.startsWith('no COMPONENT variant'));
+  const states = ['default', 'hover', 'focused', 'disabled'];
+  assert.equal(byName(checkSpec({ name: 'Input', matrix: { state: states } }), 'state-baseline').result, 'pass');
 });

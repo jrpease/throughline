@@ -16,6 +16,9 @@ to [Semantic Versioning](https://semver.org).
   that colour. A set the checks don't recognise by name, or an interactive Card,
   can be given a kind, by you or by its doc record. ThroughLine's own builds are
   unchanged: an INSIDE stroke is still a fail there. (#169)
+- **A state named `focused` counts as `focus`,** everywhere the checks read
+  states, the way `checked` counts as `selected`. Zygarden names it that way, so its
+  focus variants were read as missing. `focus-visible` still doesn't count. (#169)
 
 ## [0.34.0] — 2026-11-06
 

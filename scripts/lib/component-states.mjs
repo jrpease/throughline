@@ -50,10 +50,12 @@ export const NAME_SYNONYMS = {
 
 // Other names a recorded state goes by. shadcn and Radix call a checked checkbox
 // `checked` and a pressed-in toggle `on`; both are `selected` here. `pressed` is
-// not one: the standards use it for `active`.
+// not one: the standards use it for `active`. Zygarden names its focus state
+// `focused`.
 export const STATE_SYNONYMS = {
   checked: 'selected',
   on: 'selected',
+  focused: 'focus',
 };
 
 export function resolveArchetype(record) {

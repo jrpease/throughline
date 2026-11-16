@@ -1,6 +1,6 @@
 # Focus drawn as a stroke, in existing libraries (#169)
 
-Status: built (live run in Figma still to do; see Open questions)
+Status: built (live on Zygarden 2026-11-15; 01. Design System still to do, see Open questions)
 Reviewed: 2026-11-15 — ready to build (round 3)
 Date: 2026-11-15
 
@@ -81,11 +81,10 @@ the hidden-stroke question, and the owner chose row 9 directly.
 
 ## Open questions
 
-- **Live proof.** The plan proves this on fixtures shaped like 01. Design System's
-  Text Field. The reader's two new fields only run inside Figma. A live
-  `check-figma` run on 01. Design System and Zygarden needs Figma Desktop open with
-  the bridge. Recommendation: fold it into the next live session with phase 1c and
-  #191. Unresolved.
+- **Live proof.** Zygarden ran live on 2026-11-15 (see Where it diverged). 01.
+  Design System's Text Field and Card haven't: the file wasn't open in the bridge.
+  Recommendation: fold it into the next live session with phase 1c and #191.
+  Unresolved.
 - **Strokes applied through a colour style.** A stroke painted from a colour style
   rather than a bound variable has no `boundVariables.strokes`, so it reads as
   unbound and fails without the near-miss detail. Not measured on any real file
@@ -120,6 +119,20 @@ the hidden-stroke question, and the owner chose row 9 directly.
   only when the name resolves to nothing or to a no-state kind. Test 6 covers it.
 - `check-figma.md` Step 4 also sends a rerun set through the inner-layer look, and
   Step 5 names the visibility guard's limits (from Open questions).
+- **The live run on Zygarden (2026-11-15) found the sets name their state
+  `focused`, not `focus`.** With a kind given, `search` and `autocomplete` failed
+  "missing: focus" and no focus variant was read, so the Goal's promise for them
+  didn't hold. The owner chose a shared synonym: `STATE_SYNONYMS` gains
+  `focused → focus`, and the checker's and reader's focus-variant tests fold
+  through it. This reverses part of `2026-09-29-component-accessibility-checks.md`'s
+  "What counts as a focus variant" row (`Focused` abstained); `focus-visible`,
+  `hover+focus` and a boolean focus property still abstain, and that test now
+  holds them. It reaches every mode and the doc-record state check, not only
+  existing sets. Live result after the fix: both sets fail `state-baseline` on a
+  missing `hover` (true: Zygarden has none) and fail `focus-indicator` naming
+  `color/brand/primary` (`search` on the control, `autocomplete` on its inner
+  frame). The reader's `strokeVisible` and `strokeWeight` read correctly on the
+  real nodes.
 
 ## Plan
 

@@ -75,6 +75,10 @@ test('missingStates: checked and on count as selected', () => {
   assert.deepEqual(missingStates({ name: 'Toggle', states: { ...base, pressed: '…' } }), ['selected']);
 });
 
+test('missingStates: focused counts as focus', () => {
+  assert.deepEqual(missingStates({ name: 'Input', states: { hover: '…', focused: '…', disabled: '…' } }), []);
+});
+
 test('the local fold matches source-scan normalizeName', () => {
   const src = readFileSync(new URL('./component-states.mjs', import.meta.url), 'utf8');
   const local = new Function(`${src.match(/const normalizeName = .*;/)[0]} return normalizeName;`)();
