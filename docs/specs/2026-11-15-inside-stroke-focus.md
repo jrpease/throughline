@@ -1,6 +1,6 @@
 # Focus drawn as a stroke, in existing libraries (#169)
 
-Status: built (live on Zygarden 2026-11-15; 01. Design System still to do, see Open questions)
+Status: built (run live on Zygarden and 01. Design System, 2026-11-15)
 Reviewed: 2026-11-15 — ready to build (round 3)
 Date: 2026-11-15
 
@@ -81,10 +81,6 @@ the hidden-stroke question, and the owner chose row 9 directly.
 
 ## Open questions
 
-- **Live proof.** Zygarden ran live on 2026-11-15 (see Where it diverged). 01.
-  Design System's Text Field and Card haven't: the file wasn't open in the bridge.
-  Recommendation: fold it into the next live session with phase 1c and #191.
-  Unresolved.
 - **Strokes applied through a colour style.** A stroke painted from a colour style
   rather than a bound variable has no `boundVariables.strokes`, so it reads as
   unbound and fails without the near-miss detail. Not measured on any real file
@@ -133,6 +129,18 @@ the hidden-stroke question, and the owner chose row 9 directly.
   `color/brand/primary` (`search` on the control, `autocomplete` on its inner
   frame). The reader's `strokeVisible` and `strokeWeight` read correctly on the
   real nodes.
+- **01. Design System, live the same day.** Its Text Field also names the state
+  `Focused`, so without the synonym it would never have been reached. Card, given
+  an interactive kind, matches the Goal: 4 of 4 focus strokes count, and contrast
+  fails on `interaction/border-primary-focus` at 1.98:1 on
+  `surface/greyscale-default`, the ratio the 2026-10-13 measurement found by hand.
+  Text Field doesn't fully match the Goal's "passes `focus-indicator`": three
+  focus variants carry focus-bound strokes (on the inner `Input` frame, a direct
+  child), but `Color=On Red` binds `border/greyscale-light`, so it fails and the
+  near-miss names that variable. That's Decision 3 working as decided: the file
+  has to rename or rebind it. Text Field also fails `state-baseline` on a missing
+  `hover`, which is true of the file. No colour-style strokes and no
+  hidden-paint cases turned up on either file.
 
 ## Plan
 
