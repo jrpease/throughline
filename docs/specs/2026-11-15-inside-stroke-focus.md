@@ -126,8 +126,8 @@ the hidden-stroke question, and the owner chose row 9 directly.
   `focused → focus`, and the checker's and reader's focus-variant tests fold
   through it. This reverses part of `2026-09-29-component-accessibility-checks.md`'s
   "What counts as a focus variant" row (`Focused` abstained); `focus-visible`,
-  `hover+focus` and a boolean focus property still abstain, and that test now
-  holds them. It reaches every mode and the doc-record state check, not only
+  `hover+focus` and a boolean focus property still abstain (a test holds the
+  first two). It reaches every mode and the doc-record state check, not only
   existing sets. Live result after the fix: both sets fail `state-baseline` on a
   missing `hover` (true: Zygarden has none) and fail `focus-indicator` naming
   `color/brand/primary` (`search` on the control, `autocomplete` on its inner
