@@ -1,0 +1,84 @@
+{
+  "covers": "01 DS Text Field: a focus-bound INSIDE stroke is a built-mode fail (house rule); existing mode is tested below",
+  "expect": {
+    "name": "Text Field",
+    "matrix": {
+      "state": [
+        "default",
+        "hover",
+        "focus",
+        "disabled"
+      ]
+    },
+    "surfaces": [
+      "surface/greyscale-default"
+    ]
+  },
+  "snapshot": {
+    "type": "COMPONENT_SET",
+    "variantGroupProperties": {
+      "State": {
+        "values": [
+          "Default",
+          "Hover",
+          "Focus",
+          "Disabled"
+        ]
+      }
+    },
+    "children": [
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "State": "Default"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "State": "Hover"
+        }
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "State": "Focus"
+        },
+        "effects": [],
+        "strokeAlign": "INSIDE",
+        "strokeVariables": [
+          "interaction/border-primary-focus"
+        ],
+        "strokeWeightBound": false,
+        "children": []
+      },
+      {
+        "type": "COMPONENT",
+        "variantProperties": {
+          "State": "Disabled"
+        }
+      }
+    ],
+    "colors": {
+      "interaction/border-primary-focus": {
+        "modes": {
+          "Light": "#b8b8b8"
+        },
+        "defaultMode": "Light"
+      },
+      "surface/greyscale-default": {
+        "modes": {
+          "Light": "#ffffff"
+        },
+        "defaultMode": "Light"
+      }
+    },
+    "missingSurfaces": []
+  },
+  "expected": {
+    "structural-read-back": "pass",
+    "state-baseline": "pass",
+    "focus-indicator": "fail",
+    "focus-contrast": "skip"
+  }
+}

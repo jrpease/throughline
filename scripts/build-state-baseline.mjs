@@ -41,7 +41,7 @@ Every state in the table must be a value on the component's \`state\` axis, with
 exception in Figma: a choice control may carry \`selected\` on its own axis named
 \`selected\`, \`checked\` or \`on\`. On the
 Figma side the matrix also carries \`default\` as the resting state; the CLI does not
-count it. ${aliases}, since that is what shadcn and Radix call it. Conditional states (\`loading\`, \`error\`, \`success\`) are not in the table:
+count it. ${aliases}, since that is what other libraries call them. Conditional states (\`loading\`, \`error\`, \`success\`) are not in the table:
 whether one applies is a design judgment.
 
 Names that fold to ${exemptNames.map((n) => `\`${n}\``).join(', ')} owe none, so neither check asserts states on them.

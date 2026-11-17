@@ -6,6 +6,20 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Changed
+
+- **`/throughline:check-figma` measures a focus state drawn as a stroke.** On a
+  component set that's already in your library, a focus variant with a visible
+  stroke bound to a focus variable now passes the focus check, whether the stroke
+  sits inside, centred or outside, and its contrast is measured against your page
+  surfaces. A stroke bound to a colour that isn't a focus variable fails, naming
+  that colour. A set the checks don't recognise by name, or an interactive Card,
+  can be given a kind, by you or by its doc record. ThroughLine's own builds are
+  unchanged: an INSIDE stroke is still a fail there. (#169)
+- **A state named `focused` counts as `focus`** in the state and focus checks
+  and in doc records, the way `checked` counts as `selected`. Zygarden names it that way, so its
+  focus variants were read as missing. `focus-visible` still doesn't count. (#169)
+
 ## [0.34.0] — 2026-11-06
 
 ### Added
