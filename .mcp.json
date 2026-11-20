@@ -2,7 +2,7 @@
   "mcpServers": {
     "figma-console": {
       "command": "npx",
-      "args": ["-y", "figma-console-mcp@1.40.8"],
+      "args": ["-y", "figma-console-mcp@1.46.0"],
       "env": {
         "FIGMA_ACCESS_TOKEN": "${user_config.figma_access_token}"
       }

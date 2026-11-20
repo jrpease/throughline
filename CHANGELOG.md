@@ -6,6 +6,29 @@ to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Changed
+
+- **The Figma MCP server is pinned to `figma-console-mcp@1.46.0`** (was 1.40.8).
+  The Cursor, Codex and generic adapters pin the same version. 1.46.0 bundles
+  Desktop Bridge plugin 1.41.5 (1.40.8 bundled 1.39.0), so re-import the plugin
+  once: Plugins → Development → Import plugin from manifest →
+  `~/.figma-console-mcp/plugin/manifest.json`. Fixes picked up along the way:
+  - `figma_get_token_values` and `figma_get_design_system_summary` no longer
+    report 0 tokens on every file (1.41.2).
+  - `figma_analyze_component_set` finds the default variant with `State=Default`
+    naming and reports diffs below the first layer, on the variant itself, and
+    for non-solid paints (1.41.1 to 1.41.5).
+  - Commands no longer queue behind a timed-out `figma_execute`, and the error
+    names the request the plugin is stuck on (1.42.1).
+  - Security update to `@modelcontextprotocol/sdk` 1.32.1 and zod 4 (1.43.0).
+
+  It also clears the "Plugin update available" banner for anyone who runs
+  another client on the latest figma-console-mcp next to ThroughLine: both write
+  the bridge to `~/.figma-console-mcp/plugin/`, so the two versions kept
+  overwriting each other. Tested in a live Figma session: status probe,
+  `figma_execute`, screenshots, `figma_get_variables` (473 variables in 12
+  collections) and `figma_analyze_component_set` on a 160-variant Button set.
+
 ## [0.34.0] — 2026-11-06
 
 ### Added
